@@ -22,9 +22,9 @@
       <Grid>
         <DataGrid x:Name="ManualGrid" ItemsSource="{Binding QueueView}" SelectionChanged="SelectQueueRow" ClipboardCopyMode="IncludeHeader" AutomationProperties.Name="用户任务队列" AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Extended">
           <DataGrid.Columns>
-            <DataGridTemplateColumn Header="顺序" SortMemberPath="Order" Width="60"><DataGridTemplateColumn.CellTemplate><DataTemplate><StackPanel Classes="queue-drag-handle" Orientation="Horizontal" Spacing="6" Background="Transparent" Margin="8,0" VerticalAlignment="Stretch" Cursor="SizeAll" ToolTip.Tip="按住拖动调整顺序"><ui:Icon Kind="grip" Width="12" Height="12" Opacity="0.55"/><TextBlock Classes="caption" Text="{Binding Order}" VerticalAlignment="Center"/></StackPanel></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
+            <DataGridTemplateColumn Header="顺序" SortMemberPath="Order" Width="Auto"><DataGridTemplateColumn.CellTemplate><DataTemplate><StackPanel Classes="queue-drag-handle" Orientation="Horizontal" Spacing="6" Background="Transparent" Margin="8,0" VerticalAlignment="Stretch" Cursor="SizeAll" ToolTip.Tip="按住拖动调整顺序"><ui:Icon Kind="grip" Width="12" Height="12" Opacity="0.55"/><TextBlock Classes="caption" Text="{Binding Order}" VerticalAlignment="Center"/></StackPanel></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
             <DataGridTextColumn Header="目标" Binding="{Binding Name}" Width="2*" MinWidth="110"/>
-            <DataGridTextColumn Header="类型" Width="110" Binding="{Binding Kind}"/>
+            <DataGridTextColumn Header="类型" Width="Auto" Binding="{Binding Kind}"/>
             <DataGridTemplateColumn Header="计划（件／轮／时长）" SortMemberPath="Target" Width="1.4*" MinWidth="165">
               <DataGridTemplateColumn.CellTemplate><DataTemplate>
                 <TextBox Classes="queue-target" Text="{Binding TargetInput,Mode=TwoWay,UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding CanEditTarget}" ToolTip.Tip="{Binding TargetHint}" KeyDown="TargetKeyDown" LostFocus="TargetLostFocus" AutomationProperties.Name="{Binding TargetHint}" Margin="4,2" MinHeight="30" VerticalContentAlignment="Center"><TextBox.InnerRightContent><TextBlock Text="{Binding InputUnit}" Classes="suffix"/></TextBox.InnerRightContent></TextBox>
@@ -51,9 +51,9 @@
       </Expander.Header>
       <DataGrid x:Name="AutomaticGrid" ItemsSource="{Binding AutomaticView}" SelectionChanged="SelectQueueRow" MaxHeight="180" AutomationProperties.Name="自动补充队列" AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Extended">
         <DataGrid.Columns>
-          <DataGridTemplateColumn Header="顺序" SortMemberPath="Order" Width="60"><DataGridTemplateColumn.CellTemplate><DataTemplate><StackPanel Classes="queue-drag-handle" Orientation="Horizontal" Spacing="6" Background="Transparent" Margin="8,0" VerticalAlignment="Stretch" Cursor="SizeAll" ToolTip.Tip="按住拖动调整顺序"><ui:Icon Kind="grip" Width="12" Height="12" Opacity="0.55"/><TextBlock Classes="caption" Text="{Binding Order}" VerticalAlignment="Center"/></StackPanel></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
+          <DataGridTemplateColumn Header="顺序" SortMemberPath="Order" Width="Auto"><DataGridTemplateColumn.CellTemplate><DataTemplate><StackPanel Classes="queue-drag-handle" Orientation="Horizontal" Spacing="6" Background="Transparent" Margin="8,0" VerticalAlignment="Stretch" Cursor="SizeAll" ToolTip.Tip="按住拖动调整顺序"><ui:Icon Kind="grip" Width="12" Height="12" Opacity="0.55"/><TextBlock Classes="caption" Text="{Binding Order}" VerticalAlignment="Center"/></StackPanel></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
           <DataGridTextColumn Header="目标" Binding="{Binding Name}" Width="2*" MinWidth="110"/>
-          <DataGridTextColumn Header="类型" Width="110" Binding="{Binding Kind}"/>
+          <DataGridTextColumn Header="类型" Width="Auto" Binding="{Binding Kind}"/>
           <DataGridTextColumn Header="待补" Width="*" MinWidth="92" Binding="{Binding RemainingLabel}"/>
           <DataGridTextColumn Header="已确认" Width="*" MinWidth="92" Binding="{Binding CompletedLabel}"/>
           <DataGridTemplateColumn Header="状态" SortMemberPath="Status" Width="1.4*" MinWidth="112"><DataGridTemplateColumn.CellTemplate><DataTemplate><Border Classes="state"><TextBlock Text="{Binding Status}" Classes.status-success="{Binding IsCompleteState}" Classes.status-warning="{Binding IsWarningState}" Classes.status-info="{Binding IsActiveState}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Status}"/></Border></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>

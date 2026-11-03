@@ -90,7 +90,8 @@ MabiAgent.Desktop.exe --self-check --interaction-check --native-check `
 - 控件库是 [Semi.Avalonia](https://github.com/irihitech/Semi.Avalonia) 和 [Ursa.Avalonia](https://github.com/irihitech/Ursa.Avalonia)。优先用它们已有的控件（`Banner`、`Badge`、`PopConfirm`、`SelectionList`、`Divider` 等），不要自己重写同类控件。
 - 颜色全部写成 `Styles/Workspace.axaml` 里的主题资源，深浅两套都要定义，不要在页面里写死颜色。
 - 界面字体是内嵌的 Noto Sans SC（`Assets/Fonts`，SIL OFL 1.1），资源键 `WorkspaceFont`。它的字符集是 GB 18030，覆盖全部 Big5 繁体字，游戏里的繁体道具名不会回退到别的字体。
-- 主窗口是无边框窗口：`ExtendClientAreaToDecorationsHint=True`，由 Ursa 绘制最小化、最大化、关闭按钮。顶部 40px 的 `TitleStrip` 和侧栏品牌区标记为 `WindowDecorationProperties.ElementRole="TitleBar"`，负责拖动；新增顶部控件时不要放进右上角按钮区域。
+- 表格（`DataGrid`）统一允许拖动列宽。数字、状态等短列写 `Width="Auto"` 按内容自适应，名称、说明等长文本列写 `*` 加 `MinWidth` 填满剩余宽度，不要写死像素宽度。
+- 主窗口和调试工作台都是无边框窗口：`ExtendClientAreaToDecorationsHint=True`，由 Ursa 绘制最小化、最大化、关闭按钮。主窗口的 `TitleStrip`、工作台的 `WorkbenchTitleStrip`（都在顶部 40px）以及侧栏品牌区标记为 `WindowDecorationProperties.ElementRole="TitleBar"`，负责拖动；新增顶部控件时不要放进右上角按钮区域。
 - 图标统一走 `Controls/UiHelp.cs` 里的 `UiIcon` / `Icon`，路径数据来自 Material Design Icons（Apache-2.0）。新增图标时从 `@mdi/svg` 取 24×24 的路径，加到同一张表里。
 - 动画只在合成层上播放（`Controls/Motion.cs`），不要改控件的 `Opacity` 或布局尺寸，否则离屏截图和布局检查会看到中间态。
 - 主窗口和迷你窗口共用同一个 `MainViewModel`。新增运行状态时，先在 ViewModel 里算好，再分别绑定，不要在窗口代码里重复计算。

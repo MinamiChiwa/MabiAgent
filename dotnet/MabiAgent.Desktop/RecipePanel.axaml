@@ -14,7 +14,7 @@
           <DataGrid.Columns>
             <DataGridTextColumn Header="产物" Binding="{Binding Name}" Width="*" MinWidth="150"/>
             <DataGridTextColumn Header="加工设备" Binding="{Binding Device}" Width="*" MinWidth="120"/>
-            <DataGridTextColumn Header="每轮产量" Binding="{Binding Output}" Width="100"/>
+            <DataGridTextColumn Header="每轮产量" Binding="{Binding Output}" Width="Auto"/>
             <DataGridTextColumn Header="每轮耗时" Binding="{Binding DurationLabel}" Width="*" MinWidth="140"/>
           </DataGrid.Columns>
         </DataGrid>
