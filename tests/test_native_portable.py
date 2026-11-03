@@ -16,6 +16,7 @@ SPEC.loader.exec_module(NATIVE)
 class NativePortableTests(unittest.TestCase):
     def test_user_instructions_cover_game_setup_and_first_task(self):
         guide=NATIVE.user_instructions('0.5.2')
+        self.assertIn('工具会使用“私人剧场”道具主动换图抓包；若尚未获得该道具，请先完成照相任务解锁。',guide)
         for text in ('MabiAgent 0.5.2','环境设定 → 图形','视窗模式','1280×960','界面样式','PC','调整比例','100%','开始／继续'):
             self.assertIn(text,guide)
         for jargon in ('显式','自检','核账','原生','state-dir','不会'):
