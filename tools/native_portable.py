@@ -18,6 +18,44 @@ CONFIGS = ('screen_catalog.1280x960.tw.json', 'screen_overlays.1280x960.tw.json'
 MODEL = 'ch_PP-OCRv5_rec_mobile.onnx'
 
 
+def user_instructions(version):
+    return f'''MabiAgent {version} 使用说明
+
+一、调整游戏画面
+进入游戏，打开“环境设定 → 图形”：
+1. 选择“视窗模式”。
+2. “解析度”选择 1280×960。
+3. “界面样式”选择 PC。
+4. “调整比例”设为 100%。
+应用设置后，让角色停在城镇等方便操作的位置。
+
+二、打开工具
+解压整个文件夹，双击 MabiAgent.exe。
+首次启动请阅读“使用前须知”。如果提示需要安装 Npcap，点击其中的官方下载按钮，安装完成后重新打开工具。
+Npcap 官方下载页：https://npcap.com/#download
+
+三、添加任务并开始
+1. 点击顶部“查找”，选择游戏窗口。
+2. 到“维护设置”查看修理、金币留存、背包整理和精灵之翼。有生活 VIP 时再打开对应开关。
+3. 回到“任务队列”，点击“新增目标”。生产填成品件数，采集填轮数，钓鱼填时长。1 轮为 10 次采集尝试。
+4. 点击“开始／继续”。当前任务和进度显示在窗口顶部。
+
+默认使用后台触控，运行后可以切到其他程序。请保持游戏窗口展开；最小化后任务会暂停，还原窗口再点击继续。
+想节省屏幕空间，可点“迷你窗口”。顶栏的主题按钮用于切换亮暗外观。
+
+四、暂停与停止
+临时离开或处理背包，请点“暂停”，回来后点“开始／继续”。
+“停止全部”适合从头重跑：执行进度会清空，手动任务和设置保留。游戏里已经完成的购买、出售和加工仍然有效，再次开始可能再次花费材料或金币。
+出现待处理提示时，点击消息按钮查看原因，处理后再继续。
+
+五、帮助与更新
+详细用法见 docs 文件夹中的“用户指南.md”。
+队列和设置保存在 data 文件夹，也可从顶栏“数据目录”打开。更新前退出程序并备份 data，再把它复制到新版本目录。
+
+本工具供个人研究和测试使用。使用自动化工具有账号受处罚或道具损失的风险，请自行决定是否使用。项目限非商业用途，完整许可见 docs/LICENSE.txt。
+'''
+
+
 def distribution_config(value):
     """Omit local provenance; retain runtime identities, quantities and settings."""
     metadata = {'evidence', 'provenance', 'review_report', 'review_preview', 'review',
@@ -484,7 +522,7 @@ def finish_native(root, destination, plan):
     docs=destination/'docs';docs.mkdir(exist_ok=True)
     (destination/'Start-MabiAgent.cmd').write_text(package_launcher(), encoding='utf-8')
     version=ET.parse(root/'dotnet/Directory.Build.props').findtext('.//Version') or '0.0.0'
-    (destination/'使用说明.txt').write_text(f'MabiAgent {version}（原生 Windows x64）\n\n本工具仅用于技术研究和功能测试，与游戏官方无关。使用自动化工具可能导致账号被处罚，风险由使用者自行承担。禁止任何商业用途，许可见 docs/LICENSE.txt。\n\n双击 MabiAgent.exe（也可用 Start-MabiAgent.cmd）；无需 Python、Node、WebView2 或另外安装 .NET。\n安装文件与 data 分开；更新时使用明确的 --state-dir 指向已有用户目录，不能同时运行两版。\n启动不会操作游戏。选择游戏窗口后显式开始；默认后台触控及中心偏移，可在全局设置切换前台鼠标。前台鼠标失焦暂停；最小化暂停，手动暂停须显式继续。切换后请重新开始。\nNpcap 是独立系统依赖，本包不安装或分发驱动；缺少抓包不把未知库存当零。\napp 为运行依赖，config/assets/models 为资源，docs 为用户指南/开发指南/许可/自检，data 为用户数据。\n当前功能与限制见 docs/用户指南.md。离线自检不代表游戏实机验收。\n',encoding='utf-8-sig')
+    (destination/'使用说明.txt').write_text(user_instructions(version),encoding='utf-8-sig')
     (docs/'THIRD-PARTY-NOTICES.json').write_text(json.dumps(dict(packages=plan['packages'], npcap='Npcap 系统驱动单独安装，不随包分发；安装和使用须遵守其许可。', model='见 licenses/ocr-model.LICENSE；仅包含识别模型。'), ensure_ascii=False, indent=2), encoding='utf-8')
     # Isolated UI-only check: never starts capture, game input, or player data.
     with tempfile.TemporaryDirectory(prefix='mabi-native-check-') as state:

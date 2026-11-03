@@ -1,162 +1,139 @@
 # 开发指南
 
-这份文档写给想阅读、修改或构建 MabiAgent 的开发者。使用方法见仓库根目录的 [README](../README.md)。
+本文介绍如何编译、调试和修改 MabiAgent。日常使用见 [README](../README.md)，项目许可见 [LICENSE](../LICENSE)。
 
-参与开发前请注意：本项目以 [PolyForm Noncommercial 1.0.0](../LICENSE) 发布，只允许非商业用途；它是测试性质的工具，对游戏账号的风险由使用者自行承担。提交的代码同样遵循这份许可。
+## 准备环境
 
-## 环境
+在 Windows 10 或 11 的 64 位系统上开发。安装 dotnet/global.json 指定的 .NET 10 SDK；打包脚本使用 Python 3.12。调试库存读取时还需要安装 Npcap。
 
-| 工具 | 版本 | 用途 |
-| --- | --- | --- |
-| Windows | 10 / 11 x64 | 运行和测试（输入、截图、抓包都依赖 Win32） |
-| .NET SDK | 10.0.402（见 `dotnet/global.json`） | 编译全部项目 |
-| Python | 3.12+ | 仅用于打包脚本和打包测试 |
-| Npcap | 最新版 | 可选，测试抓包时需要 |
+游戏测试统一使用繁体中文界面。在“环境设定 → 图形”中选择视窗模式、1280×960 解析度、PC 界面样式，并将调整比例设为 100%。这套设置与现有识别图片、点击位置相对应。
 
-NuGet 依赖的版本写死在各个 `.csproj` 里，并启用了锁文件（`packages.lock.json`）。新增或升级依赖后要一并提交更新后的锁文件。
+NuGet 依赖版本写在各项目的 .csproj 中，packages.lock.json 记录还原结果。调整依赖后，请一起提交锁文件。
 
-## 目录结构
+## 编译与运行
 
-```
-dotnet/
-  MabiAgent.Core/        队列、库存、规划等基础类型，不依赖 UI 和 Win32
-  MabiAgent.Workflows/   调度器和各类运行器（生产、采集、钓鱼、仓库、维护）
-  MabiAgent.Windows/     画面识别、模板匹配、OCR、后台输入、界面脚本
-  MabiAgent.Capture/     被动抓包，按账号 / 角色 / 容器隔离库存
-  MabiAgent.Desktop/     Avalonia 界面、任务链工作台、程序入口
-  *.Tests/               对应项目的测试
-config/                  页面目录、导航脚本、道具表等运行配置
-assets/templates/        识别用的模板图片
-models/                  OCR 模型及其来源、许可
-tools/                   打包脚本
-tests/                   打包脚本的 Python 测试
-```
-
-依赖方向是 Core ← Workflows ← Windows / Capture ← Desktop。Core 和 Workflows 不引用 Avalonia 或 Win32，方便在测试里直接跑。
-
-## 编译和测试
+在仓库根目录执行：
 
 ```powershell
 dotnet restore dotnet/MabiAgent.Desktop
 dotnet build dotnet/MabiAgent.Desktop --no-restore
+dotnet run --project dotnet/MabiAgent.Desktop -- --root . --state-dir .tmp/dev-state
+```
 
+--root 指向包含 config、assets 和 models 的目录；--state-dir 指定本次运行的数据目录。开发时使用 .tmp/dev-state 之类的独立目录，便于随时重建测试环境。
+
+修改界面时可以使用以下参数：
+
+| 参数 | 用途 |
+| --- | --- |
+| --ui-preview | 打开界面预览 |
+| --page <n> | 选择页面，编号从 0 开始 |
+| --mini | 进入迷你窗口 |
+| --light / --dark | 设置预览主题 |
+| --compact | 使用 1000×700 窗口 |
+
+## 代码从哪里看
+
+| 项目或目录 | 主要职责 |
+| --- | --- |
+| MabiAgent.Core | 队列、库存、材料需求等基础类型 |
+| MabiAgent.Workflows | 选择下一项任务，执行生产、采集、钓鱼、取料和维护流程 |
+| MabiAgent.Windows | 截图、图像与文字识别、游戏输入、各页面的操作脚本 |
+| MabiAgent.Capture | 接收本机游戏网络数据，按账号、角色和容器保存库存 |
+| MabiAgent.Desktop | Avalonia 界面、设置、主程序和编辑工作台 |
+| config | 配方、道具、地点、页面和操作配置 |
+| assets/templates | 识别按钮及页面所用的小图 |
+| models | OCR 模型、来源和许可 |
+| tools / tests | 打包工具及其 Python 测试 |
+
+例如，要修改“到达设备后如何安排加工”，先看 ProductionRunner 和 ScreenProductionPort；要修改材料不足时安排多少轮采集，先看材料规划与 AutomationCoordinator；按钮样式和颜色从 Desktop/Styles/Workspace.axaml 查起。
+
+## 修改界面
+
+界面使用 Semi.Avalonia 和 Ursa.Avalonia。新增功能时优先选择现有组件，例如 Banner、PopConfirm、SelectionList 和 Divider，再使用 Avalonia 基础控件组合。
+
+颜色统一定义在 Styles/Workspace.axaml 的深浅主题资源中。主界面和迷你窗口绑定同一个 MainViewModel，任务进度、待处理问题和运行按钮沿用同一份状态。主题选择保存在 ThemeKey，顶栏按钮与维护页共同使用。
+
+Noto Sans SC 字体放在 Desktop/Assets/Fonts，包含常规、中等和粗体。新图标加入 Controls/UiHelp.cs 的 UiIcon 路径表，保持 Material Design Icons 的 24×24 尺寸。字体和图标许可随发布包提供。
+
+主窗口底部是页面导航，顶部保留拖动区域和常用入口。Ursa 负责窗口按钮，新增顶栏控件时要留出右上角空间。工作台宽度小于 1280 像素时，标题与搜索操作分成两行；搜索框至少 220 像素，普通操作按钮高 36 像素。迷你消息数放在按钮内部，以便完整显示多位数字。
+
+表格的短列按内容定宽，名称和说明列使用星号宽度及 MinWidth；用户可以拖动调整。动画集中在 Controls/Motion.cs 中，通过合成层播放，便于布局测量和截图时获得稳定结果。
+
+## 修改任务流程
+
+所有配方通过共用的 ProductionRunner 执行，采集使用 GatheringRunner，钓鱼使用对应的钓鱼流程。PublishedCatalogCompiler 把用户发布的任务链加入运行配置。新增配方和地点时，应接入这些入口，通用修复才能同时覆盖现有任务和后续新增任务。
+
+库存数量来自网络数据。画面识别用于确认页面、物品身份和操作结果。数量缺失时保留“未知”，规划器据此等待刷新或继续其他任务。主动刷新优先使用私人剧场；确认角色缺少剧场道具时，可以改为同角色重新登录。
+
+购买、出售、委托加工、转移材料等操作，在发送前保存记录。记录标为“已发送、结果未知”时，先核对结果再决定后续动作，以免重复花费。失败通常只影响相关任务；手动暂停后由用户点击继续。停止全部会清除执行记录，游戏内已经完成的操作仍然有效。
+
+输入统一经过 ScreenWorkflowSession、输入工厂和窗口检查。后台模式保持用户当前的前台窗口。测试新步骤时，沿用已有点击、键盘、等待与重试代码。
+
+生产时长在目录中保存标准值。生活 VIP 在 ScreenProductionPort 中换算有效时长，ProductionRunner 在发送委托前记录预计完成时间。背包整理按当前采集目标和用户指定的材料选择出售对象，留存数量取设置下限与生产需求的较大值。缺料先查仓库，自动购买仅支持空瓶和纸。
+
+### 添加地点或配方
+
+1. 在工作台选取相似模板，新建任务链。
+2. 设置唯一运行键，补齐目标和稳定识别图片。
+3. 保存并发布，检查编译结果。
+4. 使用独立数据目录，先测试识别与导航，再测试整段操作。
+5. 新配方填写标准加工时长和产量；检查材料来源是否齐全。
+
+## 测试
+
+以下命令可在源码目录运行：
+
+```powershell
 dotnet test dotnet/MabiAgent.Tests
 dotnet test dotnet/MabiAgent.Workflows.Tests
+dotnet test dotnet/MabiAgent.Capture.Tests
 dotnet test dotnet/MabiAgent.Editor.Tests --filter "FullyQualifiedName!~ProcessingNavigationTests"
 python -B -m unittest discover -s tests -p test_native_portable.py
 ```
 
-上面这几组测试不需要游戏，也不需要个人数据，可以直接跑。
+ProcessingNavigationTests 和部分 Windows 测试使用本地游戏截图、抓包或交互式桌面。运行这些测试前需要准备对应资料，并单独安排输入测试，避免与 UI 检查争用窗口焦点。仓库中的合成测试数据可直接使用。
 
-`MabiAgent.Editor.Tests` 中的 `ProcessingNavigationTests`、`MabiAgent.Windows.Tests` 和 `MabiAgent.Capture.Tests` 里有一部分测试依赖真实截图、抓包或交互式桌面。仓库不分发含个人角色信息的现场截图和抓包，这些测试需要你在本地准备自己的数据。输入相关测试会抢焦点，不要和 UI 自检同时跑。
-
-所有项目开启了 `TreatWarningsAsErrors`，警告也会让编译失败。
-
-## 运行和调试
-
-直接从源码目录运行时，用 `--root` 指向仓库根目录，用 `--state-dir` 指向一个单独的数据目录，避免污染真实数据：
+UI 检查会创建实际窗口，依次切换主题、窗口尺寸和页面。运行命令中的路径请换成自己的位置：
 
 ```powershell
-dotnet run --project dotnet/MabiAgent.Desktop -- --root . --state-dir .tmp/dev-state
+MabiAgent.Desktop.exe --self-check --interaction-check --native-check --root <源码目录> --state-dir <测试数据目录> --report <报告.json>
 ```
 
-常用参数：
+- --interaction-check 检查表单、按钮、布局、主题切换和迷你窗口。
+- --native-check 检查 OCR、OpenCV 等依赖能否加载。
+- --mini-check 可单独检查迷你窗口，包含 1、12、123 条消息计数。
+- --preview <png> 或 --preview-suite <目录> 输出图片，供人工检查。
 
-| 参数 | 作用 |
-| --- | --- |
-| `--ui-preview` | 只打开界面，不启动自动化服务和抓包，适合改 UI |
-| `--page <n>` | 启动后切到第 n 个页面（0 起） |
-| `--mini` | 启动后直接进入迷你窗口 |
-| `--light` / `--dark` | 强制浅色或深色主题 |
-| `--compact` | 以 1000×700 的窗口尺寸启动，检查窄屏布局 |
+先查看报告中的 ok 和错误信息，再核对截图。测试报告说明程序与界面的检查结果；涉及游戏操作的改动，还要单独记录游戏中的实际结果。
 
-## UI 自检
-
-界面有一组离线自检，会真实创建窗口和控件，但不会向桌面或游戏发送任何输入：
+## 生成发布包
 
 ```powershell
-MabiAgent.Desktop.exe --self-check --interaction-check --native-check `
-  --root <仓库根目录> --state-dir <临时目录> --report <报告.json>
-```
-
-- `--interaction-check`：交互和布局回归，覆盖深浅两套主题、从 860×600 到 2560×1440 的多种窗口尺寸，以及迷你窗口的展开和收起。
-- `--native-check`：加载 OCR 和 OpenCV，确认原生依赖齐全。
-- `--preview <png>` / `--preview-suite <目录>`：把界面渲染成图片，用来人工检查视觉效果。
-
-报告里 `ok` 为 `true` 且 `game_input` 为 `false` 才算通过。打包脚本会自动跑一遍。
-
-## 界面约定
-
-- 控件库是 [Semi.Avalonia](https://github.com/irihitech/Semi.Avalonia) 和 [Ursa.Avalonia](https://github.com/irihitech/Ursa.Avalonia)。优先用它们已有的控件（`Banner`、`Badge`、`PopConfirm`、`SelectionList`、`Divider` 等），不要自己重写同类控件。
-- 颜色全部写成 `Styles/Workspace.axaml` 里的主题资源，深浅两套都要定义，不要在页面里写死颜色。
-- 界面字体是内嵌的 Noto Sans SC（`Assets/Fonts`，SIL OFL 1.1），资源键 `WorkspaceFont`。它的字符集是 GB 18030，覆盖全部 Big5 繁体字，游戏里的繁体道具名不会回退到别的字体。
-- 表格（`DataGrid`）统一允许拖动列宽。数字、状态等短列写 `Width="Auto"` 按内容自适应，名称、说明等长文本列写 `*` 加 `MinWidth` 填满剩余宽度，不要写死像素宽度。
-- 主窗口和调试工作台都是无边框窗口：`ExtendClientAreaToDecorationsHint=True`，由 Ursa 绘制最小化、最大化、关闭按钮。主窗口的 `TitleStrip`、工作台的 `WorkbenchTitleStrip`（都在顶部 40px）以及侧栏品牌区标记为 `WindowDecorationProperties.ElementRole="TitleBar"`，负责拖动；新增顶部控件时不要放进右上角按钮区域。
-- 图标统一走 `Controls/UiHelp.cs` 里的 `UiIcon` / `Icon`，路径数据来自 Material Design Icons（Apache-2.0）。新增图标时从 `@mdi/svg` 取 24×24 的路径，加到同一张表里。
-- 动画只在合成层上播放（`Controls/Motion.cs`），不要改控件的 `Opacity` 或布局尺寸，否则离屏截图和布局检查会看到中间态。
-- 主窗口和迷你窗口共用同一个 `MainViewModel`。新增运行状态时，先在 ViewModel 里算好，再分别绑定，不要在窗口代码里重复计算。
-
-## 运行时的几条硬性规则
-
-这些规则对应着真实出过的问题，改动相关代码时请保持：
-
-- **库存只信抓包。** 屏幕只负责识别页面、身份和动作结果。数量未知时不能当成 0。
-- **后台输入不抢窗口。** 所有输入都要经过会话、输入工厂和最小守卫，不能激活或移动游戏窗口。
-- **消费先记账再执行。** 买、卖、用道具之前先保存意图；已经发出但结果未知的操作不能自动重放。
-- **故障要隔离。** 一个任务失败只暂停相关任务，其他独立任务继续。手动暂停必须由用户显式继续。
-- **停止不回滚。** “停止全部”清空执行账，但不会也不能撤销游戏内已发生的操作。
-- **只有一条执行路径。** 所有配方和发布的任务链都通过共享执行器运行，由 `PublishedCatalogCompiler` 编译。不要为某个配方单独写一套调度。
-- **自动采购白名单只有空瓶和纸。** 仓库优先于采购。背包无解时暂停，不用存仓兜底。
-- **生活 VIP 只影响新提交的加工。** 目录里保存标准时长，`ProductionRunner` 在发送委托前确定到期时间，之后不重算。
-
-## 新增采集地点或配方
-
-1. 在任务链工作台里复制最相似的模板。
-2. 设置唯一的运行键，补齐能稳定识别的锚点图片。
-3. 通过编译校验，再用聚焦流程实际跑一遍。
-4. 新增配方时写标准加工时长，不要把 VIP 时长写进目录。
-
-改通用行为时，要确认新配方和已有任务链都走同一个入口，并删掉被替代的旧实现。
-
-## 打包发布
-
-```powershell
-# 构建完整发布包到 dist/native
+# 构建到 dist/native
 python -B tools/build_portable.py --output dist/native
 
-# 本机原位更新已有安装，保留 data 目录
+# 更新本机现有安装，保留 data
 python -B tools/build_portable.py --update
 
-# 从已校验的安装导出不含用户数据的 zip
+# 导出给用户的压缩包
 python -B tools/build_portable.py --export-clean dist/MabiAgent-clean.zip
 ```
 
-打包脚本会复制运行资源和许可文件、执行离线自检、生成带 SHA256 的 `release-manifest.json`。发布包里不能带调试队列、账号记录或未处理的消费记录。
+发布工具复制配置、图片、模型和许可证，运行界面检查，然后生成 release-manifest.json，记录各文件的大小与 SHA256。导出 ZIP 时按这份清单收集文件。
 
-程序版本源为 `dotnet/Directory.Build.props`；窗口从程序集读取版本，打包说明读取同一版本字段，README 中的当前版本需同步更新。0.5.0 之后按补丁位递增（0.5.1、0.5.2……）。发布前至少完成：编译、上面列出的测试、UI 自检、清单校验和空数据目录启动检查。
+版本写在 dotnet/Directory.Build.props，窗口标题和包内简短说明读取该值。README 的版本号需要一并修改。当前按补丁位递增，例如 0.5.2、0.5.3。
 
-## 磁盘占用
+包根目录的“使用说明.txt”给首次使用者看，只写准备工作和启动步骤；详细帮助来自 README，开发帮助来自本文。文字调整后同时更新对应包内文件和清单。只改文档时可保留现有程序文件，重新导出 ZIP，并核对清单与压缩包内容。
 
-写入数据目录的内容必须有上限，新增写入时请沿用下面的做法：
+## 数据与历史记录
 
-| 内容 | 位置 | 上限 |
-| --- | --- | --- |
-| 运行事件 | `runtime-events.jsonl` | `RuntimeDiagnostics` 超限后轮换为 `.previous` |
-| 进度与故障日志 | `runtime-progress.log`、`runtime-faults.log` | 超过 256 KiB 后只留最后 100 行 |
-| 任务链版本 | `task-chains/chains/*/revisions` | 保存时保留最新 20 个（`StorageCleanup.PruneRevisions`） |
-| 已删除任务链 | `task-chains/deleted` | 写入删除时间，30 天后在启动时清除 |
-| 锚点修改历史 | `anchor-debug/versions.json` | 保留预设版本和最近 50 条 |
-| 缩略图内存缓存 | `AnchorImageCache` | 256 张 |
+用户文件集中在 --state-dir 指定的目录。运行日志按大小轮换；进度和故障日志超过 256 KiB 后保留最后 100 行。任务链保留最近 20 个版本，已删除任务链保留 30 天，锚点历史保留预设与最近 50 条记录。图片按内容哈希保存，缩略图内存缓存上限为 256 张。
 
-启动时 `MainViewModel.AttachAutomation` 会在后台调用 `EditorRepository.CleanupStorage()`，清理结果写进进度日志。任务链的图片资源（`task-chains/assets`）按内容哈希去重，目前不自动删除，因为判断“无人引用”需要扫描全部任务链和锚点，误删的代价比占用空间大。
+相关实现位于 RuntimeDiagnostics、StorageCleanup 和 AnchorImageCache。调整保留数量时，也请检查恢复历史版本和删除任务链的测试。
 
-## 提交代码
+## 提交前检查
 
-- 只提交源码、通用配置、最小化的测试数据和文档。
-- 不要提交个人数据、日志、现场截图、抓包文件、发布产物和本地工具配置。`.gitignore` 已经排除了常见的情况，提交前仍请自己检查一遍。
-- `.gitignore` 不能清除已经进入历史的文件。一旦误提交了个人数据，需要重写历史，而不是再提交一次删除。
-- 第三方依赖按各自许可使用，不要把依赖的许可当成本项目的许可。OCR 模型的来源和哈希记录在 `models/ocr-model.source.json`。
+提交内容以源码、通用配置、必要测试和文档为主。个人账号记录、队列、日志、游戏现场截图、抓包和构建产物留在本地。检查暂存区和提交历史，确认其中的资料适合分享。
 
-首次须知复用 NpcapPacketSource 的原生库加载与网卡枚举做只读依赖探测，不打开抓包句柄、不请求提权。仅不可用时创建安装说明及官网下载按钮，浏览器只在点击时打开。须知确认记录仍兼容已有 version=1；确认后不重复探测或弹窗。
-
-界面使用原创渐变场景与Semi/Ursa控件，底部页签保留索引语义。主窗口主题按钮复用ThemeKey并保存，图标采用420毫秒有限旋转。迷你待处理计数置于消息按钮内部，避免角标外置变换越界；工作台小于1280像素时标题和搜索操作分行，搜索至少220像素，普通操作36像素同高。`--self-check --mini-check`提供隔离迷你布局快速回归，覆盖1/12/123条消息，不执行游戏输入。
+第三方许可见项目根目录及各组件的许可文件。OCR 模型的来源和校验值在 models/ocr-model.source.json。首次启动说明由 StartupNotice 生成，NpcapAvailability 使用现有接口加载 Npcap 并枚举网卡；依赖异常时向用户提供官网下载入口。
