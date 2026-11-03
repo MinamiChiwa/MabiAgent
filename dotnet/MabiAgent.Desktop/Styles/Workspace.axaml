@@ -1,5 +1,9 @@
 <Styles xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:u="https://irihi.tech/ursa">
-<Styles.Resources><ResourceDictionary><ResourceDictionary.ThemeDictionaries>
+<Styles.Resources><ResourceDictionary>
+<!-- Noto Sans SC (SIL OFL 1.1) is embedded; its GB 18030 coverage includes every Big5 traditional character. -->
+<FontFamily x:Key="WorkspaceFont">avares://MabiAgent.Desktop/Assets/Fonts#Noto Sans SC, Microsoft YaHei UI, Microsoft JhengHei UI, Segoe UI</FontFamily>
+<FontFamily x:Key="DefaultFontFamily">avares://MabiAgent.Desktop/Assets/Fonts#Noto Sans SC, Microsoft YaHei UI, Microsoft JhengHei UI, Segoe UI</FontFamily>
+<ResourceDictionary.ThemeDictionaries>
 <ResourceDictionary x:Key="Dark">
 <SolidColorBrush x:Key="WorkspacePage" Color="#0D0E12"/><SolidColorBrush x:Key="WorkspaceSidebar" Color="#121318"/><SolidColorBrush x:Key="WorkspaceSurface" Color="#181A20"/><SolidColorBrush x:Key="WorkspaceInput" Color="#21232B"/><SolidColorBrush x:Key="WorkspaceBorder" Color="#2A2D36"/><SolidColorBrush x:Key="WorkspaceMuted" Color="#A1A5B3"/><SolidColorBrush x:Key="WorkspaceDanger" Color="#FF8F8A"/>
 <SolidColorBrush x:Key="WorkspaceSuccess" Color="#6DD3A5"/><SolidColorBrush x:Key="WorkspaceWarning" Color="#F0C36C"/><SolidColorBrush x:Key="WorkspaceInfo" Color="#A2A6FF"/>
@@ -43,7 +47,7 @@
 </ResourceDictionary.ThemeDictionaries></ResourceDictionary></Styles.Resources>
 
   <!-- Base typography and window -->
-  <Style Selector=":is(Window)"><Setter Property="FontFamily" Value="Microsoft YaHei UI, Microsoft YaHei, Segoe UI"/><Setter Property="FontSize" Value="14"/><Setter Property="Background" Value="{DynamicResource WorkspacePage}"/></Style>
+  <Style Selector=":is(Window)"><Setter Property="FontFamily" Value="{StaticResource WorkspaceFont}"/><Setter Property="FontSize" Value="14"/><Setter Property="Background" Value="{DynamicResource WorkspacePage}"/></Style>
   <Style Selector=":is(u|UrsaWindow)"><Setter Property="ExtendClientAreaToDecorationsHint" Value="False"/><Setter Property="IsTitleBarVisible" Value="False"/></Style>
   <Style Selector=":is(Control)"><Setter Property="UseLayoutRounding" Value="True"/></Style>
   <Style Selector="TextBlock.title"><Setter Property="FontSize" Value="22"/><Setter Property="FontWeight" Value="SemiBold"/></Style>
@@ -90,10 +94,11 @@
   <Style Selector="Border.pill.warning TextBlock"><Setter Property="Foreground" Value="{DynamicResource WorkspaceWarning}"/></Style>
 
   <!-- Controls -->
-  <Style Selector="Button"><Setter Property="MinHeight" Value="36"/><Setter Property="CornerRadius" Value="18"/><Setter Property="Padding" Value="16,7"/><Setter Property="HorizontalContentAlignment" Value="Center"/><Setter Property="VerticalContentAlignment" Value="Center"/><Setter Property="VerticalAlignment" Value="Center"/></Style>
-  <Style Selector="Button.help"><Setter Property="CornerRadius" Value="15"/><Setter Property="Width" Value="30"/><Setter Property="Height" Value="30"/><Setter Property="MinHeight" Value="30"/><Setter Property="MinWidth" Value="30"/><Setter Property="Padding" Value="0"/><Setter Property="Background" Value="Transparent"/><Setter Property="Foreground" Value="{DynamicResource WorkspaceMuted}"/></Style>
+  <Style Selector="Button"><Setter Property="MinHeight" Value="36"/><Setter Property="CornerRadius" Value="18"/><Setter Property="Padding" Value="16,6"/><Setter Property="HorizontalContentAlignment" Value="Center"/><Setter Property="VerticalContentAlignment" Value="Center"/><Setter Property="VerticalAlignment" Value="Center"/></Style>
+  <Style Selector="SplitButton"><Setter Property="MinHeight" Value="36"/><Setter Property="CornerRadius" Value="18"/></Style>
+  <Style Selector="Button.help"><Setter Property="CornerRadius" Value="16"/><Setter Property="Width" Value="30"/><Setter Property="Height" Value="30"/><Setter Property="MinHeight" Value="30"/><Setter Property="MinWidth" Value="30"/><Setter Property="Padding" Value="0"/><Setter Property="Background" Value="Transparent"/><Setter Property="Foreground" Value="{DynamicResource WorkspaceMuted}"/></Style>
   <Style Selector="Button.danger"><Setter Property="Foreground" Value="{DynamicResource WorkspaceDanger}"/></Style>
-  <Style Selector="Button.side"><Setter Property="HorizontalAlignment" Value="Stretch"/><Setter Property="HorizontalContentAlignment" Value="Left"/><Setter Property="Background" Value="Transparent"/><Setter Property="Padding" Value="12,7"/></Style>
+  <Style Selector="Button.side"><Setter Property="HorizontalAlignment" Value="Stretch"/><Setter Property="HorizontalContentAlignment" Value="Left"/><Setter Property="Background" Value="Transparent"/><Setter Property="Padding" Value="12,6"/></Style>
   <Style Selector="Button.side:pointerover /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{DynamicResource WorkspaceNeutralSoft}"/></Style>
   <Style Selector="WrapPanel > Button"><Setter Property="Margin" Value="0,4,8,4"/></Style>
   <Style Selector="TextBox"><Setter Property="MinHeight" Value="36"/><Setter Property="CornerRadius" Value="8"/><Setter Property="VerticalContentAlignment" Value="Center"/><Setter Property="Background" Value="{DynamicResource WorkspaceInput}"/></Style>
@@ -107,7 +112,7 @@
   <Style Selector="CheckBox, NumericUpDown, ToggleSwitch"><Setter Property="MinHeight" Value="36"/></Style>
   <Style Selector="TextBox:focus-within, ComboBox:focus-within"><Setter Property="BorderBrush" Value="{DynamicResource SemiColorPrimary}"/></Style>
   <Style Selector="Button#PART_MinimizeButton, Button#PART_MaximizeButton, Button#PART_CloseButton, Button#PART_FullScreenButton, Button#PART_PopoverFullScreenButton, Button#PART_PopoverCloseButton"><Setter Property="MinHeight" Value="0"/><Setter Property="MinWidth" Value="0"/><Setter Property="Padding" Value="0"/><Setter Property="CornerRadius" Value="0"/><Setter Property="VerticalAlignment" Value="Stretch"/></Style>
-  <Style Selector="DataGrid"><Setter Property="RowHeight" Value="42"/><Setter Property="GridLinesVisibility" Value="Horizontal"/><Setter Property="Background" Value="Transparent"/></Style>
+  <Style Selector="DataGrid"><Setter Property="CanUserResizeColumns" Value="True"/><Setter Property="CanUserReorderColumns" Value="False"/><Setter Property="RowHeight" Value="42"/><Setter Property="GridLinesVisibility" Value="Horizontal"/><Setter Property="Background" Value="Transparent"/></Style>
   <Style Selector="DataGridCell"><Setter Property="VerticalContentAlignment" Value="Center"/><Setter Property="Padding" Value="10,6"/></Style>
   <Style Selector="DataGridColumnHeader"><Setter Property="MinHeight" Value="38"/><Setter Property="FontWeight" Value="SemiBold"/><Setter Property="Foreground" Value="{DynamicResource WorkspaceMuted}"/></Style>
   <Style Selector="DataGridRow.drag-source, ListBoxItem.drag-source"><Setter Property="Opacity" Value="0.35"/></Style>
@@ -131,6 +136,22 @@
   <Style Selector="u|Divider"><Setter Property="Margin" Value="0,4"/></Style>
   <Style Selector="Border.segmented"><Setter Property="Background" Value="{DynamicResource WorkspaceInput}"/><Setter Property="CornerRadius" Value="10"/><Setter Property="Padding" Value="4"/></Style>
   <Style Selector="Border.segmented u|SelectionListItem"><Setter Property="HorizontalContentAlignment" Value="Center"/><Setter Property="VerticalContentAlignment" Value="Center"/><Setter Property="MinHeight" Value="34"/></Style>
+
+  <!-- Compact window: one card, 28px icon buttons, thin progress bars -->
+  <Style Selector="Border.mini-shell"><Setter Property="Background" Value="{DynamicResource WorkspaceSurface}"/><Setter Property="BorderBrush" Value="{DynamicResource WorkspaceBorder}"/><Setter Property="BorderThickness" Value="1"/><Setter Property="CornerRadius" Value="14"/><Setter Property="ClipToBounds" Value="True"/></Style>
+  <Style Selector="Ellipse.status-dot"><Setter Property="Width" Value="10"/><Setter Property="Height" Value="10"/><Setter Property="VerticalAlignment" Value="Center"/><Setter Property="Fill" Value="{DynamicResource WorkspaceMuted}"/></Style>
+  <Style Selector="Ellipse.status-dot.success"><Setter Property="Fill" Value="{DynamicResource WorkspaceSuccess}"/></Style>
+  <Style Selector="Ellipse.status-dot.warning"><Setter Property="Fill" Value="{DynamicResource WorkspaceWarning}"/></Style>
+  <Style Selector="Button.mini-icon, ToggleButton.mini-icon"><Setter Property="Width" Value="32"/><Setter Property="Height" Value="32"/><Setter Property="MinHeight" Value="32"/><Setter Property="MinWidth" Value="32"/><Setter Property="Padding" Value="0"/><Setter Property="CornerRadius" Value="16"/><Setter Property="Background" Value="Transparent"/><Setter Property="BorderThickness" Value="0"/><Setter Property="Foreground" Value="{DynamicResource WorkspaceMuted}"/><Setter Property="HorizontalContentAlignment" Value="Center"/><Setter Property="VerticalContentAlignment" Value="Center"/><Setter Property="VerticalAlignment" Value="Center"/></Style>
+  <Style Selector="Button.mini-icon:pointerover /template/ ContentPresenter#PART_ContentPresenter, ToggleButton.mini-icon:pointerover /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{DynamicResource WorkspaceNeutralSoft}"/></Style>
+  <Style Selector="ToggleButton.mini-icon:checked /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{DynamicResource SemiColorPrimaryLight}"/><Setter Property="Foreground" Value="{DynamicResource SemiColorPrimary}"/></Style>
+  <Style Selector="Button.mini-icon.warning"><Setter Property="Foreground" Value="{DynamicResource WorkspaceWarning}"/></Style>
+  <Style Selector="Button.mini-round"><Setter Property="Width" Value="36"/><Setter Property="Padding" Value="0"/></Style>
+  <Style Selector="Button.mini-expand"><Setter Property="HorizontalAlignment" Value="Stretch"/><Setter Property="MinHeight" Value="32"/><Setter Property="Height" Value="32"/><Setter Property="CornerRadius" Value="0"/><Setter Property="Background" Value="{DynamicResource WorkspaceNeutralSoft}"/><Setter Property="Foreground" Value="{DynamicResource WorkspaceMuted}"/><Setter Property="BorderThickness" Value="0"/></Style>
+  <Style Selector="Border.mini-job"><Setter Property="Padding" Value="10,7"/><Setter Property="Margin" Value="0,0,0,6"/><Setter Property="CornerRadius" Value="8"/><Setter Property="Background" Value="{DynamicResource WorkspaceInput}"/></Style>
+  <Style Selector="Border.mini-job.active"><Setter Property="Background" Value="{DynamicResource WorkspaceInfoSoft}"/></Style>
+  <Style Selector="ProgressBar.mini-progress"><Setter Property="MinHeight" Value="6"/><Setter Property="Height" Value="6"/><Setter Property="MinWidth" Value="0"/><Setter Property="CornerRadius" Value="3"/></Style>
+  <Style Selector="ProgressBar.mini-progress.thin"><Setter Property="MinHeight" Value="4"/><Setter Property="Height" Value="4"/><Setter Property="CornerRadius" Value="2"/></Style>
 
   <!-- Motion: short transitions on interactive surfaces; content fades without moving layout -->
   <Style Selector="Button"><Setter Property="Transitions"><Transitions><BrushTransition Property="Background" Duration="0:0:0.14"/><BrushTransition Property="Foreground" Duration="0:0:0.14"/><BrushTransition Property="BorderBrush" Duration="0:0:0.14"/><DoubleTransition Property="Opacity" Duration="0:0:0.10"/></Transitions></Setter></Style>

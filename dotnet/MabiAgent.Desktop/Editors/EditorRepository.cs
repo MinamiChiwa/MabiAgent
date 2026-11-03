@@ -76,7 +76,7 @@ public sealed partial class EditorRepository
             var template=Templates.Single(t=>Text(t,"template_key")==Text(value,"template_key"));var same=JsonNode.DeepEquals(p,template["parameters"])&&JsonNode.DeepEquals(value["nodes"],template["nodes"]);
             value["runtime_key"]=id==PresetId(Text(value,"template_key"))||same?Text(template,"runtime_key"):"custom_"+id;
             if(publish)PublishedCatalogCompiler.Compile(this,List().Where(c=>Text(c,"id")!=id).Append(value));
-            Directory.CreateDirectory(SafePath(folder,"revisions"));AtomicJson.Write(SafePath(folder,$"revisions/v{value["revision"]}.json"),value);AtomicJson.Write(path,value);
+            Directory.CreateDirectory(SafePath(folder,"revisions"));AtomicJson.Write(SafePath(folder,$"revisions/v{value["revision"]}.json"),value);AtomicJson.Write(path,value);StorageCleanup.PruneRevisions(folder);
             CatalogChanged?.Invoke();return value;
         }
     }
@@ -84,7 +84,11 @@ public sealed partial class EditorRepository
     {
         var id=Text(value,"id");ValidateId(id);lock(gate)
         {var source=SafePath(ChainsDirectory,$"chains/{id}");var current=Read(SafePath(source,"chain.json"));if(!JsonNode.DeepEquals(current["revision"],value["revision"]))throw new IOException("任务链已更新，请重新打开");
-        var target=SafePath(ChainsDirectory,$"deleted/{id}_{Guid.NewGuid():N}");Directory.CreateDirectory(Path.GetDirectoryName(target)!);Directory.Move(source,target);CatalogChanged?.Invoke();}
+        var target=SafePath(ChainsDirectory,$"deleted/{id}_{Guid.NewGuid():N}");Directory.CreateDirectory(Path.GetDirectoryName(target)!);Directory.Move(source,target);StorageCleanup.MarkDeleted(target,DateTimeOffset.UtcNow);CatalogChanged?.Invoke();}
+    }
+    public StorageCleanup.Result CleanupStorage()
+    {
+        lock(gate)return StorageCleanup.Run(ChainsDirectory,DateTimeOffset.UtcNow);
     }
     public void ValidateChain(JsonObject value,bool publish)
     {

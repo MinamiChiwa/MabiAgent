@@ -114,6 +114,7 @@ public partial class App:Application
                 Shutdown(vm.Error is null?0:1);return;
             }
             var model=host.Services.GetRequiredService<MainViewModel>();
+            if(!e.Args.Contains("--ui-preview")&&!e.Args.Contains("--close-check")&&!await StartupNotice.ConfirmAsync(host.Services.GetRequiredService<Workspace>().DataPath)){await StopHostAsync();Shutdown();return;}
             if(e.Args.Contains("--ui-preview"))
             {
                 var workspace=host.Services.GetRequiredService<Workspace>();
@@ -132,6 +133,7 @@ public partial class App:Application
             main.CloseRequest=()=>CloseWindowAsync(main,e.Args);
             main.Closed+=(_,_)=>Shutdown();
             main.Show();
+            if(e.Args.Contains("--mini"))model.IsMiniMode=true;
             if(e.Args.Contains("--close-check"))Dispatcher.UIThread.Post(main.Close);
         }
         catch(Exception error)

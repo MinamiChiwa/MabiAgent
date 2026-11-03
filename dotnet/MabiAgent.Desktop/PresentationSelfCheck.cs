@@ -85,6 +85,7 @@ internal static class PresentationSelfCheck
             }
         }
         passed.AddRange(await UiLayoutRegression.RunMain(window,model));
+        passed.AddRange(await CompactUiSelfCheck.Run(window,model,Environment.GetEnvironmentVariable("MABI_MINI_PREVIEW")));
         model.SelectedPage=4;
         foreach(var expander in window.GetVisualDescendants().OfType<Expander>().ToArray())expander.IsExpanded=true;
         window.UpdateLayout();

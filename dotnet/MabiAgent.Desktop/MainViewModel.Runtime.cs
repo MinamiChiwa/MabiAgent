@@ -24,6 +24,7 @@ public partial class MainViewModel
         RuntimeProgress=$"目标 {goals.Count(j=>j.Completed>=j.Target)}/{goals.Length} 已完成 · {Jobs.Count(j=>j.Pending)} 个活动批次 · {status?.ReconciliationCount??0} 项待核账"+(active is null?"":$" · 当前已确认 {(active.IsFishing?JobRow.Duration(active.Completed+(status?.ActiveConfirmed??0)):(active.Completed+(status?.ActiveConfirmed??0)).ToString())} / {active.TargetLabel}");
         RuntimeHealth=automation is null?"等待启动":$"心跳 {automation.Heartbeat:HH:mm:ss} · {automation.ExecutionStage} · 计划 {status!.PlanRevision}"+(DateTimeOffset.Now-automation.Heartbeat>TimeSpan.FromSeconds(5)?" · 心跳延迟，请查看异常记录":"")+
             (status.PauseReason is null?"":" · 暂停："+(status.PauseReason=="fishing_result_pending"?"钓鱼动作结果待确认":PauseLabel(status.PauseReason)))+(status.RecoveryAttempt==0?"":$" · 自动重试 {status.RecoveryAttempt}/3");
+        UpdateCompactSummary(active,status?.ActiveConfirmed??0,goals);
     }
     private void ApplyRuntimeStates()
     {var states=automation?.Status.Jobs;foreach(var row in Jobs)row.ApplyRuntime(states?.GetValueOrDefault(row.Id));}

@@ -37,7 +37,7 @@ public partial class AccountItemsPanel : UserControl
         ItemsGrid.Columns.Clear(); sortKeys.Clear(); if (model is null) return;
         Add("道具编号", "ItemId", r => r.ItemId, 125);
         Add("名称", "Name", r => r.Name, 170, true);
-        var associationColumn=new DataGridTemplateColumn{Header="关联状态",Width=new DataGridLength(100),CanUserSort=true,CellTemplate=new FuncDataTemplate<AccountItemEditRow>((row,_)=>
+        var associationColumn=new DataGridTemplateColumn{Header="关联状态",Width=DataGridLength.Auto,CanUserSort=true,CellTemplate=new FuncDataTemplate<AccountItemEditRow>((row,_)=>
         {
             var text=new TextBlock{Text=row.Association,VerticalAlignment=Avalonia.Layout.VerticalAlignment.Center};
             text.Classes.Add(row.OriginalAssociation is MabiAgent.Capture.NameAssociation.UserConfirmed or MabiAgent.Capture.NameAssociation.BuiltinVerified?"status-success":row.OriginalAssociation==MabiAgent.Capture.NameAssociation.Candidate?"status-warning":"muted");
@@ -68,7 +68,7 @@ public partial class AccountItemsPanel : UserControl
     {
         var binding = new Binding(path) { Mode = edit ? BindingMode.TwoWay : BindingMode.OneWay, UpdateSourceTrigger = UpdateSourceTrigger.PropertyChanged };
         if (path is not ("Name" or "Association" or "ItemId")) { binding.TargetNullValue = "未知"; binding.StringFormat = "N0"; }
-        var column = new DataGridTextColumn { Header = header, Binding = binding, IsReadOnly = !edit, Width = new DataGridLength(width), CanUserSort = true };
+        var column = new DataGridTextColumn { Header = header, Binding = binding, IsReadOnly = !edit, Width = DataGridLength.Auto, MinWidth = Math.Min(width, 96), CanUserSort = true };
         // Editable columns carry a pencil in the header and an input-tinted cell so they read differently from data.
         if (edit) column.CellStyleClasses.Add("editable");
         ItemsGrid.Columns.Add(column); sortKeys[column] = new(sortId??path,key); UpdateHeader(column); return column;

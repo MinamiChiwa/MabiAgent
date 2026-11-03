@@ -138,7 +138,7 @@
                 <DataGrid ItemsSource="{Binding MaterialReserves}" SelectedItem="{Binding SelectedReserve}" MaxHeight="160" AutoGenerateColumns="False" IsReadOnly="True" AutomationProperties.Name="个别材料留存">
                   <DataGrid.Columns>
                     <DataGridTextColumn Header="材料" Binding="{Binding Name}" Width="*"/>
-                    <DataGridTextColumn Header="留存" Binding="{Binding Quantity}" Width="100"/>
+                    <DataGridTextColumn Header="留存" Binding="{Binding Quantity}" Width="Auto"/>
                   </DataGrid.Columns>
                 </DataGrid>
               </Border>
