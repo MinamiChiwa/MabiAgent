@@ -14,6 +14,27 @@ SPEC.loader.exec_module(NATIVE)
 
 
 class NativePortableTests(unittest.TestCase):
+    def test_current_export_names_version_and_removes_only_obsolete_packages(self):
+        install=self.update_fixture(self.base/'install',{'MabiAgent.exe':b'entry'})
+        for name in ('MabiAgent-0.5.3-win-x64.zip','MabiAgent-干净交付.zip','unrelated.zip'):
+            (self.base/name).write_bytes(b'old')
+        archive=NATIVE.export_current_release(install,'0.5.4')
+        self.assertEqual('MabiAgent-0.5.4-win-x64.zip',archive.name)
+        self.assertTrue(zipfile.is_zipfile(archive))
+        self.assertFalse((self.base/'MabiAgent-0.5.3-win-x64.zip').exists())
+        self.assertFalse((self.base/'MabiAgent-干净交付.zip').exists())
+        self.assertTrue((self.base/'unrelated.zip').exists())
+        NATIVE.export_current_release(install,'0.5.4')
+        self.assertTrue(zipfile.is_zipfile(archive))
+
+    def test_failed_current_export_retains_previous_packages(self):
+        install=self.update_fixture(self.base/'install',{'MabiAgent.exe':b'entry'})
+        old=self.base/'MabiAgent-0.5.3-win-x64.zip';old.write_bytes(b'old')
+        (install/'MabiAgent.exe').write_bytes(b'modified')
+        with self.assertRaises(ValueError):NATIVE.export_current_release(install,'0.5.4')
+        self.assertEqual(b'old',old.read_bytes())
+        with self.assertRaises(ValueError):NATIVE.export_current_release(install,'../invalid')
+
     def test_user_instructions_cover_game_setup_and_first_task(self):
         guide=NATIVE.user_instructions('0.5.2')
         self.assertIn('工具会使用“私人剧场”道具主动换图抓包；若尚未获得该道具，请先完成照相任务解锁。',guide)

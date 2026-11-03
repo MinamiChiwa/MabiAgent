@@ -117,10 +117,12 @@ python -B tools/build_portable.py --output dist/native
 python -B tools/build_portable.py --update
 
 # 导出给用户的压缩包
-python -B tools/build_portable.py --export-clean dist/MabiAgent-clean.zip
+python -B tools/build_portable.py --export-clean
 ```
 
 发布工具复制配置、图片、模型和许可证，运行界面检查，然后生成 release-manifest.json，记录各文件的大小与 SHA256。导出 ZIP 时按这份清单收集文件。
+
+`--update`完成安装更新后会自动导出ZIP；只更新说明时可单独运行`--export-clean`。不指定导出路径时，ZIP放在当前安装目录旁，名称为`MabiAgent-版本号-win-x64.zip`。同版本更新覆盖原文件；导出校验成功后移除同目录其他版本的MabiAgent发布ZIP及旧的“干净交付”文件，只保留当前版本。其他名称的压缩包保持原样。
 
 版本写在 dotnet/Directory.Build.props，窗口标题和包内简短说明读取该值。README 的版本号需要一并修改。当前按补丁位递增，例如 0.5.2、0.5.3。
 

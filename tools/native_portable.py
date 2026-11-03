@@ -183,6 +183,21 @@ def export_clean_release(directory, archive):
     return archive
 
 
+def export_current_release(directory, version):
+    """Keep one version-named package beside the installed application."""
+    if not re.fullmatch(r'[0-9]+[.][0-9]+[.][0-9]+',version):
+        raise ValueError('版本号须为三个数字段')
+    directory=clean_path(directory)
+    archive=export_clean_release(directory,directory.parent/f'MabiAgent-{version}-win-x64.zip')
+    # Cleanup follows successful export. Never touch unrelated ZIP files or player data.
+    for previous in archive.parent.iterdir():
+        if previous==archive or not previous.is_file() or previous.is_symlink():
+            continue
+        if previous.name=='MabiAgent-干净交付.zip' or re.fullmatch(r'MabiAgent-[0-9]+[.][0-9]+[.][0-9]+-win-x64[.]zip',previous.name):
+            previous.unlink()
+    return archive
+
+
 def _replace_install_file(source, target):
     target.parent.mkdir(parents=True, exist_ok=True)
     temporary = target.with_name(target.name+'.mabi-update-tmp')

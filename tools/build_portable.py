@@ -2,7 +2,8 @@
 from pathlib import Path
 import argparse
 import json
-from native_portable import build_native, plan_native, update_native, update_destination, export_clean_release
+import xml.etree.ElementTree as ET
+from native_portable import build_native, plan_native, update_native, update_destination, export_clean_release, export_current_release
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -10,7 +11,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path)
     parser.add_argument('--update', action='store_true', help='离线自检后原位更新已有安装；默认当前发布包，保留用户数据与未知文件')
-    parser.add_argument('--export-clean', type=Path, help='将校验过的当前安装导出为无用户数据ZIP，不重新构建')
+    parser.add_argument('--export-clean', type=Path, nargs='?', const=Path('.'), help='导出无用户数据ZIP；省略路径时按当前版本命名并清理同目录旧版本包')
     parser.add_argument('--reviewed-install', type=Path, help='显式审核的项目编译文件路径及当前SHA256凭据，仅用于update')
     parser.add_argument('--native', action='store_true', help='兼容旧原生命令；现在默认只构建 .NET')
     parser.add_argument('--dry-run', action='store_true', help='只读列出资源与缺项')
@@ -20,7 +21,12 @@ if __name__ == '__main__':
     if args.export_clean:
         if args.update or args.dry_run:
             parser.error('--export-clean 不能与 --update/--dry-run 混用')
-        print(export_clean_release(update_destination(ROOT,args.output),args.export_clean))
+        directory=update_destination(ROOT,args.output)
+        if args.export_clean==Path('.'):
+            version=ET.parse(ROOT/'dotnet/Directory.Build.props').findtext('.//Version') or ''
+            print(export_current_release(directory,version))
+        else:
+            print(export_clean_release(directory,args.export_clean))
         raise SystemExit(0)
     if args.reviewed_install and not args.update:
         parser.error('--reviewed-install 仅可用于 --update')
@@ -37,4 +43,8 @@ if __name__ == '__main__':
         else:
             print(json.dumps(plan_native(ROOT, output, **options), ensure_ascii=False, indent=2))
     else:
-        print((update_native if args.update else build_native)(ROOT, output, **options))
+        destination=(update_native if args.update else build_native)(ROOT, output, **options)
+        print(destination)
+        if args.update:
+            version=ET.parse(ROOT/'dotnet/Directory.Build.props').findtext('.//Version') or ''
+            print(export_current_release(destination,version))
