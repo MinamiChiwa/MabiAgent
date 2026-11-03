@@ -128,7 +128,13 @@ python -B tools/build_portable.py --export-clean dist/MabiAgent-clean.zip
 
 ## 数据与历史记录
 
-用户文件集中在 --state-dir 指定的目录。运行日志按大小轮换；进度和故障日志超过 256 KiB 后保留最后 100 行。任务链保留最近 20 个版本，已删除任务链保留 30 天，锚点历史保留预设与最近 50 条记录。图片按内容哈希保存，缩略图内存缓存上限为 256 张。
+用户文件集中在 --state-dir 指定的目录。运行日志按大小轮换；进度和故障日志超过 256 KiB 后保留最后 100 行。任务链保留最近 20 个版本，已删除任务链保留 30 天，锚点历史保留预设与最近 50 条记录。图片按内容哈希保存，缩略图按请求宽度解码，缓存最多256条弱引用；显示控件持有正在使用的图像。
+
+OCR、工作台和兼容编辑器在首次使用时创建。OCR继续共用一个ONNX Runtime会话；变宽裁图使用直接CPU分配，避免内存池保留大裁图的峰值。修改这类设置要同时比较内存和识别耗时。依据是Avalonia的Bitmap.DecodeToWidth接口和ONNX Runtime的SessionOptions，不添加第二套图像或识别引擎。
+
+接口依据：Avalonia源码`src/Avalonia.Base/Media/Imaging/Bitmap.cs`中的DecodeToWidth，以及Microsoft ONNX Runtime源码`csharp/src/Microsoft.ML.OnnxRuntime/SessionOptions.shared.cs`中的EnableCpuMemArena/EnableMemoryPattern。两者分别属于AvaloniaUI/Avalonia与microsoft/onnxruntime官方仓库。
+
+`--self-check --memory-check`在隔离状态中测量启动、打开工作台和12次变宽OCR的工作集、私有内存、托管内存及耗时，报告末尾的完整回收仅用于诊断。请在新进程、相同构建和相同步骤下比较；工作集受系统缓存影响，不能单独当作泄漏证据。普通运行不强制GC，也不调用操作系统裁剪工作集。
 
 相关实现位于 RuntimeDiagnostics、StorageCleanup 和 AnchorImageCache。调整保留数量时，也请检查恢复历史版本和删除任务链的测试。
 

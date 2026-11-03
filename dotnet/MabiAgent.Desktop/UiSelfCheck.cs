@@ -294,6 +294,7 @@ internal static class UiSelfCheck
             
             passed.AddRange(await PresentationSelfCheck.Run(previewWindow,vm));
             passed.AddRange(await ScrollUiSelfCheck.Run(root));
+            passed.AddRange(await MemoryUiSelfCheck.Run(root));
             var originalTheme=vm.ThemeKey;vm.ThemeKey="dark";vm.SaveSettings();await Task.Delay(40);
             var themeButton=previewWindow.FindControl<Button>("ThemeToggle")!;
             themeButton.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));await Task.Delay(80);

@@ -133,7 +133,7 @@ public partial class MainWindow:UrsaWindow
     public async Task<bool> ConfirmCloseAsync()
     {
         if(DataContext is not MainViewModel model)return true;
-        if((model.ChainEditor?.HasUnsavedChanges==true||model.AnchorEditor?.HasUnsavedChanges==true||model.Workbench?.HasUnsavedChanges==true||model.AccountItems?.HasDirtyEdits==true)&&!await UiDialogs.Confirm(this,"任务链、锚点或道具名称尚未保存，放弃并关闭？"))return false;
+        if((model.HasUnsavedEditorChanges||model.AccountItems?.HasDirtyEdits==true)&&!await UiDialogs.Confirm(this,"任务链、锚点或道具名称尚未保存，放弃并关闭？"))return false;
         return model.SaveSettings()||await UiDialogs.Confirm(this,"设置未保存，仍要放弃修改并关闭？");
     }
     private async void ShowSponsor(object? sender,RoutedEventArgs e)=>await new SponsorWindow().ShowDialog(this);

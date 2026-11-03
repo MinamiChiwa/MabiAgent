@@ -9,7 +9,7 @@ namespace MabiAgent.Desktop.Editors;
 public static class AnchorImageCache
 {
     const int Capacity=256;
-    static readonly Dictionary<(string Path,long Stamp,int Width),Bitmap> cache=[];
+    static readonly Dictionary<(string Path,long Stamp,int Width),WeakReference<Bitmap>> cache=[];
     static Func<string,string>? resolve;
     public static void Attach(Func<string,string> resolver)=>resolve=resolver;
     public static Bitmap? Load(string? path,int width)
@@ -19,13 +19,12 @@ public static class AnchorImageCache
         {
             var full=resolve(path);if(!File.Exists(full))return null;
             var key=(full,File.GetLastWriteTimeUtc(full).Ticks,width);
-            if(cache.TryGetValue(key,out var hit))return hit;
-            // Evicted bitmaps may still be on screen, so they are left to the GC rather than disposed.
+            if(cache.TryGetValue(key,out var hit)&&hit.TryGetTarget(out var existing))return existing;
+            // The controls own live images. A cache entry alone must not keep a native bitmap alive.
             if(cache.Count>=Capacity)cache.Clear();
-            Bitmap image;
-            using(var stream=File.OpenRead(full))image=new Bitmap(stream);
-            if(image.PixelSize.Width>width){image.Dispose();using var stream=File.OpenRead(full);image=Bitmap.DecodeToWidth(stream,width,BitmapInterpolationMode.HighQuality);}
-            return cache[key]=image;
+            using var stream=File.OpenRead(full);
+            var image=Bitmap.DecodeToWidth(stream,Math.Min(width,512),BitmapInterpolationMode.HighQuality);
+            cache[key]=new(image);return image;
         }
         catch(Exception error)when(error is IOException or UnauthorizedAccessException or ArgumentException or InvalidDataException or NotSupportedException){return null;}
     }

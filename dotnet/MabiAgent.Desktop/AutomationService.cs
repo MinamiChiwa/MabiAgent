@@ -25,6 +25,7 @@ public sealed partial class AutomationService:IAsyncDisposable
     public AccountItemService Accounts{get;}
     public EditorRepository Repository{get;}
     public IOcrEngine GetOcr(){lock(ocrGate){ObjectDisposedException.ThrowIf(disposed,this);return ocr??=new(FindModel(),lowCpu:ReadOcrLowCpu());}}
+    internal bool OcrLoaded{get{lock(ocrGate)return ocr is not null;}}
     private bool ReadOcrLowCpu()=>ReadRuntimeSettings()["recognition"]?["low_cpu"]?.GetValue<bool>()??false;
     public IReadOnlyList<string> CaptureDeviceSetting=>ReadRuntimeSettings()["capture"]?["devices"] is JsonArray devices?devices.Select(d=>d?.GetValue<string>()).OfType<string>().ToArray():[];
     public string DiagnosticsFile=>Path.Combine(workspace.DataPath,"runtime-events.jsonl");

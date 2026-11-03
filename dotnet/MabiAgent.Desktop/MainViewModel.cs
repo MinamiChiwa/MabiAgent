@@ -15,9 +15,16 @@ public partial class MainViewModel:ObservableObject
     private readonly RuntimeActivity activity;
     private readonly GameWindowSelection windowSelection;
     private AutomationService? automation;
-    public ChainEditorViewModel? ChainEditor {get;private set;}
-    public AnchorEditorViewModel? AnchorEditor {get;private set;}
-    public AnchorWorkbenchViewModel? Workbench {get;private set;}
+    private Lazy<ChainEditorViewModel>? chainEditor;
+    private Lazy<AnchorEditorViewModel>? anchorEditor;
+    public ChainEditorViewModel? ChainEditor {get=>chainEditor?.Value;private set=>chainEditor=value is null?null:new(()=>value);}
+    public AnchorEditorViewModel? AnchorEditor {get=>anchorEditor?.Value;private set=>anchorEditor=value is null?null:new(()=>value);}
+    internal bool HasUnsavedEditorChanges => chainEditor is {IsValueCreated:true}&&chainEditor.Value.HasUnsavedChanges
+        ||anchorEditor is {IsValueCreated:true}&&anchorEditor.Value.HasUnsavedChanges||workbench is {IsValueCreated:true}&&workbench.Value.HasUnsavedChanges;
+    internal bool CompatibilityEditorsCreated=>chainEditor?.IsValueCreated==true||anchorEditor?.IsValueCreated==true;
+    private Lazy<AnchorWorkbenchViewModel>? workbench;
+    public AnchorWorkbenchViewModel? Workbench {get=>workbench?.Value;private set=>workbench=value is null?null:new(()=>value);}
+    internal bool WorkbenchCreated=>workbench?.IsValueCreated==true;
     public AccountItemsViewModel? AccountItems {get;private set;}
     [ObservableProperty] private string executionStatus="未开始";
     [ObservableProperty] private string captureStatus="抓包未启动";
@@ -27,10 +34,11 @@ public partial class MainViewModel:ObservableObject
         automation=service;
         var repository=service.Repository;workspace.CatalogProvider=()=>PublishedCatalogCompiler.CompileAvailable(repository);
         _=Task.Run(()=>{try{var cleaned=repository.CleanupStorage();if(cleaned.Revisions+cleaned.DeletedChains>0)activity.Log($"已自动清理 {cleaned.Revisions} 个旧任务链版本、{cleaned.DeletedChains} 个过期的已删除任务链");}catch(Exception e){activity.Report(e);}});
-        IAnchorTextDetector? detector=null;try{detector=new OnnxLineAnchorTextDetector(service.GetOcr());}catch(Exception e){activity.Report(e);Error="文字检测未加载："+e.Message;}
+        IAnchorTextDetector detector=new OnnxLineAnchorTextDetector(service.GetOcr);
         var capture=new SelectedGameCaptureService(windowSelection,new NativeWindowsOps(),()=>service.IsRunning);
-        ChainEditor=new(repository,capture,detector);AnchorEditor=new(repository,capture,detector);AccountItems=new(service.Accounts);
-        Workbench?.Dispose();Workbench=new(this,repository,capture,detector,service.RunWorkbenchTestAsync);
+        chainEditor=new(()=>new(repository,capture,detector));anchorEditor=new(()=>new(repository,capture,detector));AccountItems=new(service.Accounts);
+        if(workbench is {IsValueCreated:true})workbench.Value.Dispose();
+        workbench=new(()=>new(this,repository,capture,detector,service.RunWorkbenchTestAsync));
         AccountItems.AssociationsChanged+=(_,_)=>Dispatcher.UIThread.InvokeAsync(async()=>await RefreshAsync());
         repository.CatalogChanged+=()=>Dispatcher.UIThread.InvokeAsync(async()=>await RefreshAsync());
         OnPropertyChanged(nameof(ChainEditor));OnPropertyChanged(nameof(AnchorEditor));OnPropertyChanged(nameof(Workbench));OnPropertyChanged(nameof(AccountItems));StartCommand.NotifyCanExecuteChanged();liveTimer.Start();
@@ -106,7 +114,7 @@ public partial class MainViewModel:ObservableObject
         catch(Exception e){activity.Report(e);Error=e.Message;}
     }
     private bool closing;
-    public void PrepareClose(){closing=true;Workbench?.Dispose();saveTimer.Stop();liveTimer.Stop();StartCommand.NotifyCanExecuteChanged();PauseCommand.NotifyCanExecuteChanged();}
+    public void PrepareClose(){closing=true;if(workbench is {IsValueCreated:true})workbench.Value.Dispose();saveTimer.Stop();liveTimer.Stop();StartCommand.NotifyCanExecuteChanged();PauseCommand.NotifyCanExecuteChanged();}
     partial void OnIsRunningChanged(bool value){StartCommand.NotifyCanExecuteChanged();PauseCommand.NotifyCanExecuteChanged();}
     partial void OnSelectedPageChanged(int value){OnPropertyChanged(nameof(PageTitle));OnPropertyChanged(nameof(PageDescription));OnPropertyChanged(nameof(ShowGlobalSearch));OnPropertyChanged(nameof(SearchHint));}
     
