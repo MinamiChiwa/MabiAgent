@@ -46,7 +46,6 @@ internal static class ScrollUiSelfCheck
     var navigation=window.FindControl<ListBox>("Navigation")!;var track=window.FindControl<Grid>("TabTrack")!;var indicator=window.FindControl<Border>("TabIndicator")!;var item=(ListBoxItem)navigation.SelectedItem!;var origin=item.TranslatePoint(default,track)!.Value;
     Check(indicator.RenderTransform is Avalonia.Media.TranslateTransform slide&&Math.Abs(slide.X-origin.X)<1&&Math.Abs(indicator.Width-item.Bounds.Width)<1,$"{theme} {width} 快速切页滑块落到当前页签");
     Check(!indicator.IsHitTestVisible&&indicator.Bounds.Width>0,$"{theme} {width} 滑块不阻挡页签输入");
-    if(width==1340){using var bitmap=new Avalonia.Media.Imaging.RenderTargetBitmap(new PixelSize((int)track.Bounds.Width,(int)track.Bounds.Height));bitmap.Render(track);bitmap.Save(System.IO.Path.Combine(root,$"build/tabs-{theme}.png"),Avalonia.Media.Imaging.PngBitmapEncoderOptions.Default);}
    }
    return checks.ToArray();
   }finally{vm.PrepareClose();window?.Close();if(System.IO.Directory.Exists(dir))System.IO.Directory.Delete(dir,true);}
