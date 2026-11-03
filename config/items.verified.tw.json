@@ -1,5 +1,5 @@
 {
-  "saved": "2026-11-03",
+  "saved": "2026-11-04",
   "source": "verified-and-user-confirmed",
   "items": {
     "198875762": {
@@ -1643,6 +1643,78 @@
       "status": "verified",
       "association": "user_confirmed",
       "source": "user_authorized_named_storage_transfer",
+      "historical_static_only": true
+    },
+    "1389865893": {
+      "name": "封印結晶",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "user_confirmed_catalog",
+      "review_date": "2026-11-04",
+      "historical_static_only": true
+    },
+    "1027664724": {
+      "name": "咻咻蘑菇汁液",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "user_confirmed_catalog",
+      "review_date": "2026-11-04",
+      "historical_static_only": true
+    },
+    "2132862008": {
+      "name": "時裝票券碎片",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "user_confirmed_catalog",
+      "review_date": "2026-11-04",
+      "historical_static_only": true
+    },
+    "621689079": {
+      "name": "箭花",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "user_confirmed_catalog",
+      "review_date": "2026-11-04",
+      "historical_static_only": true
+    },
+    "560083959": {
+      "name": "高級秘術骰 (1940)",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "user_confirmed_catalog",
+      "review_date": "2026-11-04",
+      "historical_static_only": true
+    },
+    "641524026": {
+      "name": "稀有秘術骰 (1940)",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "user_confirmed_catalog",
+      "review_date": "2026-11-04",
+      "historical_static_only": true
+    },
+    "775835485": {
+      "name": "符文重設稜鏡",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "user_confirmed_catalog",
+      "review_date": "2026-11-04",
+      "historical_static_only": true
+    },
+    "760205896": {
+      "name": "稀有秘術骰 (2232)",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "user_confirmed_catalog",
+      "review_date": "2026-11-04",
+      "historical_static_only": true
+    },
+    "1326565408": {
+      "name": "烤肉",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "user_confirmed_catalog",
+      "review_date": "2026-11-04",
       "historical_static_only": true
     }
   }
