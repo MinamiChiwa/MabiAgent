@@ -26,6 +26,7 @@ public partial class MainViewModel:ObservableObject
     {
         automation=service;
         var repository=service.Repository;workspace.CatalogProvider=()=>PublishedCatalogCompiler.CompileAvailable(repository);
+        _=Task.Run(()=>{try{var cleaned=repository.CleanupStorage();if(cleaned.Revisions+cleaned.DeletedChains>0)activity.Log($"已自动清理 {cleaned.Revisions} 个旧任务链版本、{cleaned.DeletedChains} 个过期的已删除任务链");}catch(Exception e){activity.Report(e);}});
         IAnchorTextDetector? detector=null;try{detector=new OnnxLineAnchorTextDetector(service.GetOcr());}catch(Exception e){activity.Report(e);Error="文字检测未加载："+e.Message;}
         var capture=new SelectedGameCaptureService(windowSelection,new NativeWindowsOps(),()=>service.IsRunning);
         ChainEditor=new(repository,capture,detector);AnchorEditor=new(repository,capture,detector);AccountItems=new(service.Accounts);

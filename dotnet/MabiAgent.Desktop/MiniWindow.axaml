@@ -1,0 +1,81 @@
+<Window xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:u="https://irihi.tech/ursa" xmlns:ui="clr-namespace:MabiAgent.Desktop.Controls" x:Class="MabiAgent.Desktop.MiniWindow" Title="MabiAgent 迷你窗口" Width="340" SizeToContent="Height" CanResize="False" WindowDecorations="None" ShowInTaskbar="True" Topmost="{Binding MiniPinned}" TransparencyLevelHint="Transparent" Background="Transparent" KeyDown="HandleKeys">
+ <Border x:Name="MiniShell" Classes="mini-shell">
+  <StackPanel>
+   <!-- Title row doubles as the drag handle; double-click returns to the main window -->
+   <Grid x:Name="MiniHeader" ColumnDefinitions="Auto,*,Auto,Auto,Auto" Background="Transparent" Height="44" Margin="14,0,8,0" PointerPressed="DragWindow" DoubleTapped="ReturnToMain" ToolTip.Tip="按住拖动，双击返回主窗口">
+    <Ellipse Classes="status-dot" Classes.success="{Binding IsRunning}" Classes.warning="{Binding HasExecutionWarning}"/>
+    <TextBlock x:Name="MiniStatus" Grid.Column="1" Text="{Binding ExecutionStatus}" FontWeight="SemiBold" FontSize="13" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Margin="10,0,8,0" ToolTip.Tip="{Binding ExecutionStatus}"/>
+    <u:Badge x:Name="IssueBadge" Grid.Column="2" Classes="Danger" Header="{Binding IssueBadge}" CornerPosition="TopRight" IsVisible="{Binding HasRuntimeIssues}" VerticalAlignment="Center" Margin="0,0,6,0">
+     <Button x:Name="IssueButton" Classes="mini-icon warning" AutomationProperties.Name="待处理问题" ToolTip.Tip="查看待处理问题">
+      <ui:Icon Kind="alert"/>
+      <Button.Flyout>
+       <Flyout Placement="BottomEdgeAlignedRight">
+        <StackPanel Width="280" Spacing="8">
+         <TextBlock Text="待处理问题" Classes="heading"/>
+         <ScrollViewer MaxHeight="220" HorizontalScrollBarVisibility="Disabled">
+          <ItemsControl ItemsSource="{Binding IssueLines}">
+           <ItemsControl.ItemTemplate><DataTemplate><TextBlock Text="{Binding}" Classes="status-warning" TextWrapping="Wrap" Margin="0,2"/></DataTemplate></ItemsControl.ItemTemplate>
+          </ItemsControl>
+         </ScrollViewer>
+         <TextBlock Text="请先在游戏中核实，再回到主窗口处理。" Classes="caption" TextWrapping="Wrap"/>
+        </StackPanel>
+       </Flyout>
+      </Button.Flyout>
+     </Button>
+    </u:Badge>
+    <ToggleButton x:Name="PinButton" Grid.Column="3" Classes="mini-icon" IsChecked="{Binding MiniPinned}" AutomationProperties.Name="窗口置顶" ToolTip.Tip="{Binding MiniPinTip}">
+     <Panel><ui:Icon Kind="pin" IsVisible="{Binding MiniPinned}"/><ui:Icon Kind="pin-off" IsVisible="{Binding !MiniPinned}"/></Panel>
+    </ToggleButton>
+    <Button x:Name="RestoreButton" Grid.Column="4" Classes="mini-icon" Command="{Binding ExitMiniCommand}" AutomationProperties.Name="返回主窗口" ToolTip.Tip="返回主窗口（Ctrl+M）" Margin="2,0,0,0"><ui:Icon Kind="restore"/></Button>
+   </Grid>
+   <u:Divider Margin="0"/>
+
+   <!-- Current task and the three run controls -->
+   <StackPanel Margin="14,12,14,12" Spacing="10">
+    <Grid ColumnDefinitions="*,Auto">
+     <TextBlock x:Name="MiniTask" Text="{Binding ActiveJobName}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding ActiveJobName}"/>
+     <TextBlock Grid.Column="1" Text="{Binding ActiveProgressText}" Classes="caption" VerticalAlignment="Center" Margin="10,0,0,0"/>
+    </Grid>
+    <ProgressBar x:Name="MiniProgress" Classes="mini-progress" Value="{Binding ActiveProgress}" Minimum="0" Maximum="100" IsIndeterminate="{Binding IsRunning}" IsVisible="{Binding !HasActiveJob}"/>
+    <ProgressBar Classes="mini-progress" Value="{Binding ActiveProgress}" Minimum="0" Maximum="100" IsVisible="{Binding HasActiveJob}" AutomationProperties.Name="当前任务进度"/>
+    <Grid x:Name="MiniActions" ColumnDefinitions="*,8,Auto,8,Auto">
+     <Button x:Name="MiniStart" Classes="Primary" Theme="{DynamicResource SolidButton}" Content="开始／继续" ui:UiIcon.Kind="play" Command="{Binding StartCommand}" HorizontalAlignment="Stretch" ToolTip.Tip="需要先选择游戏窗口"/>
+     <Button x:Name="MiniPause" Grid.Column="2" Content="暂停" ui:UiIcon.Kind="pause" Command="{Binding PauseCommand}"/>
+     <u:PopConfirm x:Name="StopConfirm" Grid.Column="4" PopupHeader="停止全部任务？" PopupContent="清除执行进度、自动补料和待核账记录，保留任务与设置。游戏内已发生的操作不会撤销。" ConfirmCommand="{Binding StopAllCommand}" Placement="BottomEdgeAlignedRight">
+      <Button x:Name="MiniStop" Classes="mini-round danger" AutomationProperties.Name="停止全部" ToolTip.Tip="停止全部"><ui:Icon Kind="stop"/></Button>
+     </u:PopConfirm>
+    </Grid>
+   </StackPanel>
+
+   <!-- Optional details: queue head, window picker and capture status -->
+   <StackPanel x:Name="MiniDetails" IsVisible="{Binding MiniExpanded}" Margin="14,0,14,12" Spacing="10">
+    <u:Divider Margin="0"/>
+    <Grid ColumnDefinitions="*,Auto"><TextBlock Text="接下来" Classes="field"/><TextBlock Grid.Column="1" Text="{Binding GoalSummary}" Classes="caption"/></Grid>
+    <ItemsControl ItemsSource="{Binding UpcomingJobs}" IsVisible="{Binding HasUpcomingJobs}">
+     <ItemsControl.ItemTemplate><DataTemplate>
+      <Border Classes="mini-job" Classes.active="{Binding Active}">
+       <StackPanel Spacing="4">
+        <Grid ColumnDefinitions="*,Auto">
+         <TextBlock Text="{Binding Name}" FontSize="13" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Status}"/>
+         <TextBlock Grid.Column="1" Text="{Binding Progress}" Classes="caption" Classes.status-warning="{Binding Warning}" Margin="8,0,0,0"/>
+        </Grid>
+        <ProgressBar Classes="mini-progress thin" Value="{Binding Percent}" Minimum="0" Maximum="100"/>
+       </StackPanel>
+      </Border>
+     </DataTemplate></ItemsControl.ItemTemplate>
+    </ItemsControl>
+    <TextBlock Text="队列为空，回到主窗口添加目标。" Classes="caption" IsVisible="{Binding !HasUpcomingJobs}"/>
+    <TextBlock Text="游戏窗口" Classes="field"/>
+    <Grid ColumnDefinitions="*,Auto">
+     <ComboBox x:Name="MiniWindowPicker" ItemsSource="{Binding GameWindows}" SelectedItem="{Binding SelectedWindow}" DisplayMemberBinding="{Binding Label}" PlaceholderText="选择游戏窗口" AutomationProperties.Name="游戏窗口" ToolTip.Tip="{Binding WindowStatus}"/>
+     <Button Grid.Column="1" Classes="mini-round" Command="{Binding RefreshWindowsCommand}" AutomationProperties.Name="查找游戏窗口" ToolTip.Tip="重新查找游戏窗口" Margin="8,0,0,0"><ui:Icon Kind="refresh"/></Button>
+    </Grid>
+    <TextBlock Text="{Binding CaptureStatus}" Classes="caption" TextWrapping="Wrap"/>
+   </StackPanel>
+
+   <Button x:Name="ExpandButton" Classes="mini-expand" Command="{Binding ToggleMiniExpandedCommand}" AutomationProperties.Name="{Binding MiniExpandLabel}">
+    <StackPanel Orientation="Horizontal" Spacing="6"><ui:Icon Kind="{Binding MiniExpandIcon}" Width="14" Height="14"/><TextBlock Text="{Binding MiniExpandLabel}" FontSize="12"/></StackPanel>
+   </Button>
+  </StackPanel>
+ </Border>
+</Window>

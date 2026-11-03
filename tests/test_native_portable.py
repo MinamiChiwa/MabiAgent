@@ -46,6 +46,7 @@ class NativePortableTests(unittest.TestCase):
         (self.root/'docs').mkdir()
         (self.root/'README.md').write_text('User guide fixture',encoding='utf-8')
         (self.root/'docs/DEVELOPMENT.md').write_text('Developer guide fixture',encoding='utf-8')
+        (self.root/'LICENSE').write_text('License fixture',encoding='utf-8')
         for name in ('全部配方材料来源待填写.csv','全部配方材料来源核对.csv'):
             (self.root/'docs'/name).write_text('material,source',encoding='utf-8')
         (self.root/'docs/RECOGNITION_PERFORMANCE.md').write_text('performance fixture',encoding='utf-8')
@@ -73,6 +74,8 @@ class NativePortableTests(unittest.TestCase):
             folder=self.root/'dotnet'/project
             folder.mkdir()
             (folder/'packages.lock.json').write_text(json.dumps({'dependencies':{'net10.0':{'Example':{'type':'Direct','resolved':'1.0','contentHash':'fixed'}}}}),encoding='utf-8')
+        (self.root/'dotnet/MabiAgent.Desktop/Assets/Fonts').mkdir(parents=True,exist_ok=True)
+        (self.root/'dotnet/MabiAgent.Desktop/Assets/Fonts/OFL.txt').write_text('Font license fixture',encoding='utf-8')
         self.cache=self.base/'packages'
         folder=self.cache/'example/1.0'
         folder.mkdir(parents=True)
@@ -212,6 +215,7 @@ class NativePortableTests(unittest.TestCase):
         self.assertIn('assets/templates/legacy.png',paths)
         self.assertIn('docs/用户指南.md',paths)
         self.assertIn('docs/开发指南.md',paths)
+        self.assertIn('docs/LICENSE.txt',paths)
         self.assertNotIn('docs/当前功能状态.md',paths)
         self.assertNotIn('assets/templates/unreferenced.png',paths)
         self.assertFalse(any(path.startswith('data/') for path in paths))

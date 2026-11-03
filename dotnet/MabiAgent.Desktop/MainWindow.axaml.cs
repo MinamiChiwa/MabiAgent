@@ -8,6 +8,7 @@ namespace MabiAgent.Desktop;
 public partial class MainWindow:UrsaWindow
 {
     Editors.AnchorWorkbenchWindow? workbenchWindow;
+    MiniWindow? miniWindow;
     public Func<Task<bool>>? CloseRequest {get;set;}
     protected override Task<bool> CanClose()=>CloseRequest?.Invoke()??Task.FromResult(true);
     public MainWindow():this(new MainViewModel(new Workspace(AppContext.BaseDirectory),new MabiAgent.Windows.GameWindowSelection(()=>[]))){}
@@ -16,9 +17,9 @@ public partial class MainWindow:UrsaWindow
         InitializeComponent();DataContext=model;Controls.SearchablePicker.OpenOnFocus<GatheringChoice>(GatheringPicker,g=>g.Name);
         SizeChanged+=(_,_)=>UpdateResponsiveLayout();
         Opened+=(_,_)=>{Controls.WindowSizing.FitToWorkingArea(this);UpdateResponsiveLayout();};
-        model.PropertyChanged+=(_,e)=>{if(e.PropertyName==nameof(model.SelectedPage)){UpdatePage();if(IsVisible&&model.SelectedPage>=4)ShowWorkbench();}if(e.PropertyName==nameof(model.AddDialogOpen))Avalonia.Threading.Dispatcher.UIThread.Post(()=>{if(model.AddDialogOpen){Controls.Motion.FadeIn(AddOverlay);Controls.Motion.PopIn(AddGoalCard);TaskKindPicker.Focus();}else Navigation.Focus();});
+        model.PropertyChanged+=(_,e)=>{if(e.PropertyName==nameof(model.IsMiniMode))ApplyMiniMode(model);if(e.PropertyName==nameof(model.SelectedPage)){UpdatePage();if(IsVisible&&model.SelectedPage>=4)ShowWorkbench();}if(e.PropertyName==nameof(model.AddDialogOpen))Avalonia.Threading.Dispatcher.UIThread.Post(()=>{if(model.AddDialogOpen){Controls.Motion.FadeIn(AddOverlay);Controls.Motion.PopIn(AddGoalCard);TaskKindPicker.Focus();}else Navigation.Focus();});
             if(e.PropertyName==nameof(model.CaptureSettingsOpen)&&model.CaptureSettingsOpen)Avalonia.Threading.Dispatcher.UIThread.Post(()=>{Controls.Motion.FadeIn(CaptureOverlay);Controls.Motion.SlideIn(CaptureDrawer,48);CaptureDrawer.Focus();},Avalonia.Threading.DispatcherPriority.Loaded);};UpdatePage();
-        Closed+=(_,_)=>{workbenchWindow?.CloseWithOwner();model.PrepareClose();};
+        Closed+=(_,_)=>{miniWindow?.CloseWithOwner();workbenchWindow?.CloseWithOwner();model.PrepareClose();};
     }
     internal void UpdateResponsiveLayout(Size? viewport=null)
     {
@@ -29,7 +30,7 @@ public partial class MainWindow:UrsaWindow
         BrandMark.IsVisible=!compact;
         AppName.Text="MabiAgent 0.5.0";
         AppName.FontSize=compact?14:15;
-        ContentLayout.Margin=new Thickness(compact?16:24,compact?14:20,compact?16:24,12);
+        ContentLayout.Margin=new Thickness(compact?16:24,0,compact?16:24,12);
         AddGoalCard.MaxHeight=Math.Max(180,size.Height-80);
         RuntimeViewer.MaxHeight=size.Height<700?132:200;
         GlobalErrorViewer.MaxHeight=size.Height<700?44:80;
@@ -39,6 +40,21 @@ public partial class MainWindow:UrsaWindow
         RuntimeControls.Margin=new Thickness(0,compact?10:0,0,0);
         RuntimeWindowRow.Width=compact?double.NaN:260;
         Grid.SetRow(RuntimeMeta,compact?2:1);Grid.SetRow(RuntimeDetails,compact?3:2);
+    }
+    // The compact window replaces the main window on screen; both stay bound to the same model.
+    internal MiniWindow? Mini=>miniWindow;
+    private void ApplyMiniMode(MainViewModel model)
+    {
+        if(model.IsMiniMode)
+        {
+            miniWindow??=new MiniWindow(model);
+            miniWindow.ShowNear(this);Hide();
+        }
+        else
+        {
+            Show();if(WindowState==WindowState.Minimized)WindowState=WindowState.Normal;Activate();
+            miniWindow?.HideToOwner();
+        }
     }
     private void UpdatePage()
     {
@@ -75,5 +91,5 @@ public partial class MainWindow:UrsaWindow
     private void CaptureOverlayPressed(object? sender,PointerPressedEventArgs e)
     {if(ReferenceEquals(e.Source,CaptureOverlay)&&DataContext is MainViewModel model){model.CloseCaptureSettingsCommand.Execute(null);e.Handled=true;}}
     private void HandleKeys(object? sender,KeyEventArgs e)
-    {if(DataContext is not MainViewModel model)return;if(e.Key==Key.Escape&&model.CaptureSettingsOpen){model.CloseCaptureSettingsCommand.Execute(null);e.Handled=true;return;}if(e.Key==Key.Escape&&model.AddDialogOpen){model.CloseAddCommand.Execute(null);e.Handled=true;}else if(e.Key==Key.F&&e.KeyModifiers.HasFlag(KeyModifiers.Control)&&!model.AddDialogOpen&&!model.CaptureSettingsOpen){if(model.SelectedPage==3){AccountsPanel.FocusSearch();e.Handled=true;return;}if(model.SelectedPage>=4){ShowWorkbench();workbenchWindow?.FocusSearch();e.Handled=true;return;}if(model.SelectedPage>=2)return;SearchBox.Focus();SearchBox.SelectAll();e.Handled=true;}}
+    {if(DataContext is not MainViewModel model)return;if(e.Key==Key.M&&e.KeyModifiers.HasFlag(KeyModifiers.Control)&&!model.AddDialogOpen){model.IsMiniMode=true;e.Handled=true;return;}if(e.Key==Key.Escape&&model.CaptureSettingsOpen){model.CloseCaptureSettingsCommand.Execute(null);e.Handled=true;return;}if(e.Key==Key.Escape&&model.AddDialogOpen){model.CloseAddCommand.Execute(null);e.Handled=true;}else if(e.Key==Key.F&&e.KeyModifiers.HasFlag(KeyModifiers.Control)&&!model.AddDialogOpen&&!model.CaptureSettingsOpen){if(model.SelectedPage==3){AccountsPanel.FocusSearch();e.Handled=true;return;}if(model.SelectedPage>=4){ShowWorkbench();workbenchWindow?.FocusSearch();e.Handled=true;return;}if(model.SelectedPage>=2)return;SearchBox.Focus();SearchBox.SelectAll();e.Handled=true;}}
 }

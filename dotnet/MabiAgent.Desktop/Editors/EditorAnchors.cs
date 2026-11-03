@@ -60,7 +60,7 @@ public sealed partial class EditorRepository
     static void AddChange(JsonArray changes,JsonArray path,JsonNode? value)
     {foreach(var previous in changes.Where(c=>JsonNode.DeepEquals(c!["path"],path)).ToArray())changes.Remove(previous);changes.Add(new JsonObject{["path"]=path.DeepClone(),["value"]=value?.DeepClone()});}
     int CommitDebug(JsonObject state,JsonArray changes,string label)
-    {var revision=state["revision"]!.GetValue<int>()+1;state["revision"]=revision;state["history"]!.AsArray().Add(new JsonObject{["revision"]=revision,["changes"]=changes,["label"]=label,["saved_at"]=DateTimeOffset.UtcNow.ToString("O")});Directory.CreateDirectory(Path.GetDirectoryName(DebugPath)!);AtomicJson.Write(DebugPath,state);CatalogChanged?.Invoke();return revision;}
+    {var revision=state["revision"]!.GetValue<int>()+1;state["revision"]=revision;state["history"]!.AsArray().Add(new JsonObject{["revision"]=revision,["changes"]=changes,["label"]=label,["saved_at"]=DateTimeOffset.UtcNow.ToString("O")});StorageCleanup.TrimAnchorHistory(state["history"]!.AsArray());Directory.CreateDirectory(Path.GetDirectoryName(DebugPath)!);AtomicJson.Write(DebugPath,state);CatalogChanged?.Invoke();return revision;}
     public int RestoreAnchors(int currentRevision,int targetRevision)
     {lock(gate){var state=DebugState();if(state["revision"]!.GetValue<int>()!=currentRevision)throw new IOException("锚点已更新，请刷新");var target=state["history"]!.AsArray().Single(h=>h!["revision"]!.GetValue<int>()==targetRevision)!;return CommitDebug(state,(JsonArray)target["changes"]!.DeepClone(),"恢复到版本 "+targetRevision);}}
 }

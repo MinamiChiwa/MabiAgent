@@ -10,6 +10,7 @@
   </ItemGroup>
   <ItemGroup><ProjectReference Include="../MabiAgent.Core/MabiAgent.Core.csproj"/><PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2"/><PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.13"/></ItemGroup>
   <ItemGroup><ProjectReference Include="../MabiAgent.Windows/MabiAgent.Windows.csproj"/></ItemGroup>
+  <ItemGroup><AvaloniaResource Include="Assets/Fonts/*.otf"/></ItemGroup>
   <ItemGroup><ProjectReference Include="../MabiAgent.Workflows/MabiAgent.Workflows.csproj"/><ProjectReference Include="../MabiAgent.Capture/MabiAgent.Capture.csproj"/></ItemGroup>
   <Target Name="ExcludeVendorNativeSymbols" AfterTargets="ComputeFilesToPublish">
     <ItemGroup>

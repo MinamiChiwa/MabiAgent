@@ -35,3 +35,36 @@ public sealed class EditorRepositoryTests
 }
 
 
+public sealed class StorageCleanupTests
+{
+    [Fact] public void KeepsNewestRevisionsAndPurgesExpiredDeletedChains()
+    {
+        var root=Path.Combine(Path.GetTempPath(),"mabi-cleanup-"+Guid.NewGuid().ToString("N"));
+        try
+        {
+            var revisions=Path.Combine(root,"chains/chain_a/revisions");Directory.CreateDirectory(revisions);
+            for(var i=1;i<=StorageCleanup.KeptRevisions+5;i++)File.WriteAllText(Path.Combine(revisions,$"v{i}.json"),"{}");
+            File.WriteAllText(Path.Combine(root,"chains/chain_a/chain.json"),"{}");
+            var fresh=Path.Combine(root,"deleted/fresh");var old=Path.Combine(root,"deleted/old");var legacy=Path.Combine(root,"deleted/legacy");
+            foreach(var folder in new[]{fresh,old,legacy})Directory.CreateDirectory(folder);
+            var now=DateTimeOffset.UtcNow;
+            StorageCleanup.MarkDeleted(fresh,now.AddDays(-1));StorageCleanup.MarkDeleted(old,now-StorageCleanup.DeletedRetention-TimeSpan.FromHours(1));
+            var result=StorageCleanup.Run(root,now);
+            Assert.Equal(5,result.Revisions);Assert.Equal(1,result.DeletedChains);
+            Assert.False(File.Exists(Path.Combine(revisions,"v5.json")));Assert.True(File.Exists(Path.Combine(revisions,"v6.json")));
+            Assert.True(File.Exists(Path.Combine(root,"chains/chain_a/chain.json")));
+            Assert.True(Directory.Exists(fresh));Assert.False(Directory.Exists(old));
+            Assert.True(File.Exists(Path.Combine(legacy,StorageCleanup.DeletedMarker)));
+        }
+        finally{if(Directory.Exists(root))Directory.Delete(root,true);}
+    }
+    [Fact] public void AnchorHistoryKeepsPresetAndNewestEntries()
+    {
+        var history=new JsonArray();for(var i=0;i<StorageCleanup.KeptAnchorHistory+10;i++)history.Add(new JsonObject{["revision"]=i});
+        StorageCleanup.TrimAnchorHistory(history);
+        Assert.Equal(StorageCleanup.KeptAnchorHistory,history.Count);
+        Assert.Equal(0,history[0]!["revision"]!.GetValue<int>());
+        Assert.Equal(StorageCleanup.KeptAnchorHistory+9,history[^1]!["revision"]!.GetValue<int>());
+        Assert.Equal(11,history[1]!["revision"]!.GetValue<int>());
+    }
+}

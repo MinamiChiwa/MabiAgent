@@ -7,5 +7,6 @@
 *.md text eol=lf
 *.json text eol=lf
 *.png binary
+*.otf binary
 /reference/candidates/item_names.tw.json -text -diff
 /reference/candidates/recipes.tw.json -text -diff

@@ -1,17 +1,17 @@
-<u:UrsaWindow xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:u="https://irihi.tech/ursa" xmlns:local="clr-namespace:MabiAgent.Desktop" xmlns:accounts="clr-namespace:MabiAgent.Desktop.Accounts" xmlns:ui="clr-namespace:MabiAgent.Desktop.Controls" x:Class="MabiAgent.Desktop.MainWindow" Title="MabiAgent 0.5.0" Width="1340" Height="920" MinWidth="860" MinHeight="560" KeyDown="HandleKeys">
+<u:UrsaWindow xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:u="https://irihi.tech/ursa" xmlns:local="clr-namespace:MabiAgent.Desktop" xmlns:accounts="clr-namespace:MabiAgent.Desktop.Accounts" xmlns:ui="clr-namespace:MabiAgent.Desktop.Controls" x:Class="MabiAgent.Desktop.MainWindow" Title="MabiAgent 0.5.0" Width="1340" Height="920" MinWidth="860" MinHeight="560" ExtendClientAreaToDecorationsHint="True" KeyDown="HandleKeys">
  <u:UrsaWindow.Resources>
   <DataTemplate x:Key="CaptureFactTemplate"><Grid ColumnDefinitions="104,*" Margin="0,3"><TextBlock Text="{Binding Label}" Classes="caption" VerticalAlignment="Top" Margin="0,1,0,0"/><TextBlock Grid.Column="1" Text="{Binding Value}" TextWrapping="Wrap" Classes.status-success="{Binding Good}" Classes.status-warning="{Binding Warning}"/></Grid></DataTemplate>
  </u:UrsaWindow.Resources>
- <Grid x:Name="ShellLayout" ColumnDefinitions="212,*">
+ <Grid x:Name="ShellLayout" ColumnDefinitions="212,*" RowDefinitions="40,*">
   <!-- Sidebar: brand, page navigation, secondary links -->
-  <Border x:Name="Sidebar" Classes="sidebar" Padding="14,20" BorderThickness="0,0,1,0">
+  <Border x:Name="Sidebar" Grid.RowSpan="2" Classes="sidebar" Padding="14,20" BorderThickness="0,0,1,0">
    <DockPanel>
-    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="10" Margin="6,2,0,24">
+    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="10" Margin="6,2,0,24" Background="Transparent" WindowDecorationProperties.ElementRole="TitleBar">
      <Border x:Name="BrandMark" Classes="brand-mark"><ui:Icon Kind="logo" Width="18" Height="18"/></Border>
      <TextBlock x:Name="AppName" Text="MabiAgent 0.5.0" FontSize="15" FontWeight="SemiBold"/>
     </StackPanel>
     <StackPanel DockPanel.Dock="Bottom" Spacing="4" Margin="0,16,0,0">
-     <Button Classes="side" Content="GitHub 仓库" ui:UiIcon.Kind="github" Click="OpenRepository" ToolTip.Tip="打开项目私有仓库，需要访问权限"/>
+     <Button Classes="side" Content="GitHub 仓库" ui:UiIcon.Kind="github" Click="OpenRepository" ToolTip.Tip="在浏览器打开项目主页"/>
      <Button Classes="side" Content="数据目录" ui:UiIcon.Kind="folder" Click="OpenDataDirectory" ToolTip.Tip="{Binding DataPath}"/>
      <Button Classes="side" Content="赞助作者" ui:UiIcon.Kind="heart" Click="ShowSponsor"/>
     </StackPanel>
@@ -30,7 +30,9 @@
    </DockPanel>
   </Border>
 
-  <Grid x:Name="ContentLayout" Grid.Column="1" RowDefinitions="Auto,Auto,Auto,*,Auto" Margin="24,20,24,12">
+  <!-- Frameless window: this strip is the drag area; the drawn caption buttons sit at its right end -->
+  <Border x:Name="TitleStrip" Grid.Column="1" Background="Transparent" WindowDecorationProperties.ElementRole="TitleBar"/>
+  <Grid x:Name="ContentLayout" Grid.Column="1" Grid.Row="1" RowDefinitions="Auto,Auto,Auto,*,Auto" Margin="24,0,24,12">
    <!-- Run bar: global execution state and controls, identical on every page -->
    <Border x:Name="RunBar" Classes="card section-runtime" Padding="16,12" Margin="0,0,0,18">
     <ScrollViewer x:Name="RuntimeViewer" MaxHeight="200" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
@@ -43,7 +45,7 @@
       </Grid>
       <Grid x:Name="RuntimeControls" Grid.Column="1" ColumnDefinitions="*,Auto">
        <Grid x:Name="RuntimeWindowRow" ColumnDefinitions="*,Auto" Width="260"><ComboBox ItemsSource="{Binding GameWindows}" SelectedItem="{Binding SelectedWindow}" DisplayMemberBinding="{Binding Label}" PlaceholderText="选择游戏窗口" MinWidth="120" ToolTip.Tip="{Binding SelectedWindow.Label}" AutomationProperties.Name="游戏窗口"/><Button Grid.Column="1" Content="查找" AutomationProperties.Name="查找游戏窗口" ui:UiIcon.Kind="refresh" Command="{Binding RefreshWindowsCommand}" Margin="8,0,0,0"/></Grid>
-       <StackPanel x:Name="RuntimeActions" Grid.Column="1" Orientation="Horizontal" Spacing="8" Margin="12,0,0,0"><Button Classes="Primary" Theme="{DynamicResource SolidButton}" Content="开始／继续" ui:UiIcon.Kind="play" Command="{Binding StartCommand}"/><Button Content="暂停" ui:UiIcon.Kind="pause" Command="{Binding PauseCommand}"/><Button Content="停止全部" Command="{Binding StopAllCommand}" ToolTip.Tip="清除全部进度、批次、待核账和消费意图；保留任务与设置，重新开始可能再次消耗材料。"/><ui:HelpButton Message="选择游戏窗口后开始。后台触控无需激活游戏，切换应用可继续；游戏最小化时暂停。前台鼠标在游戏失焦时暂停。手动暂停后点击继续。"/></StackPanel>
+       <StackPanel x:Name="RuntimeActions" Grid.Column="1" Orientation="Horizontal" Spacing="8" Margin="12,0,0,0"><Button Classes="Primary" Theme="{DynamicResource SolidButton}" Content="开始／继续" ui:UiIcon.Kind="play" Command="{Binding StartCommand}"/><Button Content="暂停" ui:UiIcon.Kind="pause" Command="{Binding PauseCommand}"/><u:PopConfirm x:Name="StopAllConfirm" PopupHeader="停止全部任务？" PopupContent="清除全部进度、批次、待核账和消费意图，保留任务与设置。游戏内已发生的操作不会撤销，重新开始可能再次消耗材料。" ConfirmCommand="{Binding StopAllCommand}" Placement="BottomEdgeAlignedRight"><Button Content="停止全部" ui:UiIcon.Kind="stop" ToolTip.Tip="清除全部进度、批次、待核账和消费意图；保留任务与设置"/></u:PopConfirm><Button x:Name="MiniModeButton" Content="迷你窗口" ui:UiIcon.Kind="mini" Command="{Binding EnterMiniCommand}" ToolTip.Tip="收起为置顶小窗口（Ctrl+M）"/><ui:HelpButton Message="选择游戏窗口后开始。后台触控无需激活游戏，切换应用可继续；游戏最小化时暂停。前台鼠标在游戏失焦时暂停。手动暂停后点击继续。"/></StackPanel>
       </Grid>
       <WrapPanel x:Name="RuntimeMeta" Grid.Row="1" Grid.ColumnSpan="2" Margin="0,10,0,0">
        <TextBlock Text="{Binding CaptureStatus}" Classes="caption" Margin="0,0,20,0" TextWrapping="Wrap"/>
@@ -95,7 +97,7 @@
   </Grid>
 
   <!-- Add-task dialog -->
-  <Border x:Name="AddOverlay" Grid.ColumnSpan="2" Classes="overlay" IsVisible="{Binding AddDialogOpen}" ZIndex="10">
+  <Border x:Name="AddOverlay" Grid.ColumnSpan="2" Grid.RowSpan="2" Classes="overlay" IsVisible="{Binding AddDialogOpen}" ZIndex="10">
    <Border x:Name="AddGoalCard" Classes="card dialog" HorizontalAlignment="Center" VerticalAlignment="Center" Width="480" MaxHeight="620">
     <ScrollViewer><StackPanel KeyboardNavigation.TabNavigation="Cycle" Spacing="16" IsEnabled="{Binding CanEdit}">
      <Grid ColumnDefinitions="*,Auto">
@@ -126,7 +128,7 @@
   </Border>
 
   <!-- Capture settings drawer: second level of 维护设置 › 数据同步 -->
-  <Border x:Name="CaptureOverlay" Grid.ColumnSpan="2" Classes="overlay" IsVisible="{Binding CaptureSettingsOpen}" ZIndex="11" PointerPressed="CaptureOverlayPressed">
+  <Border x:Name="CaptureOverlay" Grid.ColumnSpan="2" Grid.RowSpan="2" Classes="overlay" IsVisible="{Binding CaptureSettingsOpen}" ZIndex="11" PointerPressed="CaptureOverlayPressed">
    <Border x:Name="CaptureDrawer" Classes="card drawer" DataContext="{Binding CaptureSettings}" HorizontalAlignment="Right" Width="440" CornerRadius="16,0,0,16" BorderThickness="1,0,0,0" Padding="0">
     <DockPanel>
      <Grid DockPanel.Dock="Top" ColumnDefinitions="Auto,*,Auto" Margin="20,18,16,12">
