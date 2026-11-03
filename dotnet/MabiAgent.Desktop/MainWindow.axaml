@@ -85,9 +85,9 @@
        <Button Grid.Column="3" Content="打开工作台" Classes="Primary" Theme="{DynamicResource SolidButton}" ui:UiIcon.Kind="external" Click="OpenWorkbench"/>
       </Grid>
       <ListBox x:Name="WorkbenchSummaryList" Grid.Row="1" Classes="summary" Margin="12,0,12,12" Tapped="OpenSummaryItem" KeyDown="SummaryKeyDown" ScrollViewer.HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="工作台摘要">
-       <ListBox.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ListBox.ItemsPanel>
+       <ListBox.ItemsPanel><ItemsPanelTemplate><VirtualizingStackPanel/></ItemsPanelTemplate></ListBox.ItemsPanel>
        <ListBox.ItemTemplate><DataTemplate>
-        <StackPanel Width="212" Spacing="1"><TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Name}"/><TextBlock Text="{Binding Detail}" Classes="caption" TextTrimming="CharacterEllipsis"/></StackPanel>
+        <StackPanel Spacing="1"><TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Name}"/><TextBlock Text="{Binding Detail}" Classes="caption" TextTrimming="CharacterEllipsis"/></StackPanel>
        </DataTemplate></ListBox.ItemTemplate>
       </ListBox>
      </Grid>
@@ -99,7 +99,11 @@
   <Grid x:Name="BottomBar" Grid.Row="2" ColumnDefinitions="*,Auto,*" Margin="24,10,24,12">
    <Border Classes="pill" HorizontalAlignment="Left" Margin="0,0,12,0" IsVisible="{Binding HasOperationStatus}"><TextBlock Text="{Binding OperationStatus}" Classes="status-info" FontSize="12" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding OperationStatus}"/></Border>
    <Border Grid.Column="1" Classes="glass-bar" Padding="6">
-    <ListBox x:Name="Navigation" Classes="tabs" SelectedIndex="{Binding SelectedPage}" AutomationProperties.Name="主导航">
+    <Grid x:Name="TabTrack">
+     <Border x:Name="TabIndicator" Background="{DynamicResource WorkspaceTabSelected}" CornerRadius="20" HorizontalAlignment="Left" VerticalAlignment="Top" IsHitTestVisible="False">
+      <Border.RenderTransform><TranslateTransform><TranslateTransform.Transitions><Transitions><DoubleTransition Property="X" Duration="0:0:0.18" Easing="CubicEaseOut"/></Transitions></TranslateTransform.Transitions></TranslateTransform></Border.RenderTransform>
+     </Border>
+    <ListBox x:Name="Navigation" Classes="tabs" SelectedIndex="{Binding SelectedPage}" SelectionChanged="NavigationChanged" AutomationProperties.Name="主导航">
      <ListBox.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate></ListBox.ItemsPanel>
      <ListBoxItem ToolTip.Tip="任务队列" AutomationProperties.Name="任务队列"><StackPanel Spacing="3"><ui:Icon Kind="queue" HorizontalAlignment="Center"/><TextBlock Text="队列"/></StackPanel></ListBoxItem>
      <ListBoxItem ToolTip.Tip="材料配方" AutomationProperties.Name="材料配方"><StackPanel Spacing="3"><ui:Icon Kind="recipe" HorizontalAlignment="Center"/><TextBlock Text="配方"/></StackPanel></ListBoxItem>
@@ -108,6 +112,7 @@
      <ListBoxItem ToolTip.Tip="任务链（在工作台中编辑）" AutomationProperties.Name="任务链"><StackPanel Spacing="3"><ui:Icon Kind="chain" HorizontalAlignment="Center"/><TextBlock Text="任务链"/></StackPanel></ListBoxItem>
      <ListBoxItem ToolTip.Tip="锚点调试（在工作台中编辑）" AutomationProperties.Name="锚点调试"><StackPanel Spacing="3"><ui:Icon Kind="anchor" HorizontalAlignment="Center"/><TextBlock Text="锚点"/></StackPanel></ListBoxItem>
     </ListBox>
+    </Grid>
    </Border>
    <Border Grid.Column="2" Classes="pill" HorizontalAlignment="Right" Margin="12,0,0,0"><TextBlock Text="{Binding Status}" Classes="caption" MaxWidth="260" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Status}"/></Border>
   </Grid>

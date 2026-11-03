@@ -16,7 +16,8 @@ public partial class MainWindow:UrsaWindow
     {
         InitializeComponent();DataContext=model;Controls.SearchablePicker.OpenOnFocus<GatheringChoice>(GatheringPicker,g=>g.Name);
         SizeChanged+=(_,_)=>UpdateResponsiveLayout();
-        Opened+=(_,_)=>{Controls.WindowSizing.FitToWorkingArea(this);UpdateResponsiveLayout();};
+        Opened+=(_,_)=>{Controls.WindowSizing.FitToWorkingArea(this);UpdateResponsiveLayout();UpdateTabIndicator();};
+        Navigation.LayoutUpdated+=(_,_)=>UpdateTabIndicator();
         model.PropertyChanged+=(_,e)=>{if(e.PropertyName==nameof(model.IsMiniMode))ApplyMiniMode(model);if(e.PropertyName==nameof(model.SelectedPage))UpdatePage();if(e.PropertyName==nameof(model.AddDialogOpen))Avalonia.Threading.Dispatcher.UIThread.Post(()=>{if(model.AddDialogOpen){Controls.Motion.FadeIn(AddOverlay);Controls.Motion.PopIn(AddGoalCard);TaskKindPicker.Focus();}else Navigation.Focus();});
             if(e.PropertyName==nameof(model.CaptureSettingsOpen)&&model.CaptureSettingsOpen)Avalonia.Threading.Dispatcher.UIThread.Post(()=>{Controls.Motion.FadeIn(CaptureOverlay);Controls.Motion.SlideIn(CaptureDrawer,48);CaptureDrawer.Focus();},Avalonia.Threading.DispatcherPriority.Loaded);};UpdatePage();
         Closed+=(_,_)=>{miniWindow?.CloseWithOwner();workbenchWindow?.CloseWithOwner();model.PrepareClose();};
@@ -39,6 +40,16 @@ public partial class MainWindow:UrsaWindow
         Grid.SetRow(RuntimeMeta,compact?2:1);Grid.SetRow(RuntimeDetails,compact?3:2);
     }
     // The compact window replaces the main window on screen; both stay bound to the same model.
+    private void NavigationChanged(object? sender,SelectionChangedEventArgs e)
+    {Avalonia.Threading.Dispatcher.UIThread.Post(UpdateTabIndicator,Avalonia.Threading.DispatcherPriority.Loaded);}
+    private void UpdateTabIndicator()
+    {
+        if(Navigation?.SelectedItem is not ListBoxItem item||TabIndicator is null||TabTrack is null||item.Bounds.Width<=0)return;
+        if(item.TranslatePoint(default,TabTrack) is not {} origin)return;
+        if(TabIndicator.Width!=item.Bounds.Width)TabIndicator.Width=item.Bounds.Width;
+        if(TabIndicator.Height!=item.Bounds.Height)TabIndicator.Height=item.Bounds.Height;
+        if(TabIndicator.RenderTransform is Avalonia.Media.TranslateTransform slide&&slide.X!=origin.X)slide.X=origin.X;
+    }
     internal MiniWindow? Mini=>miniWindow;
     private void ApplyMiniMode(MainViewModel model)
     {
@@ -58,13 +69,13 @@ public partial class MainWindow:UrsaWindow
         if(DataContext is not MainViewModel vm)return;
         Control[] pages=[QueuePage,RecipePage,SettingsPage,AccountsPanel,DebugLauncher];
         var shown=vm.SelectedPage<0?null:pages[Math.Min(vm.SelectedPage,pages.Length-1)];
-        var changed=shown?.IsVisible==false;
         foreach(var page in pages)page.IsVisible=ReferenceEquals(page,shown);
         if(ReferenceEquals(shown,DebugLauncher))UpdateWorkbenchSummary(vm);
-        if(changed&&shown is not null)Avalonia.Threading.Dispatcher.UIThread.Post(()=>Controls.Motion.FadeIn(shown),Avalonia.Threading.DispatcherPriority.Loaded);
     }
     sealed record SummaryRow(string Name,string Detail,object Item);
-    const int SummaryLimit=240;
+    readonly Dictionary<int,SummaryRow[]> summaryRows=[];
+    readonly Dictionary<int,Avalonia.Vector> summaryOffsets=[];
+    int summaryPage=-1;
     // Chain and anchor pages list what the workbench holds; editing stays in the workbench window.
     private void UpdateWorkbenchSummary(MainViewModel vm)
     {
@@ -76,12 +87,25 @@ public partial class MainWindow:UrsaWindow
             ?document.Chains.Select(c=>new SummaryRow(c.Name,c.KindLabel+" · "+c.Cards.Count+" 步",c)).ToArray()
             :document.Anchors.Select(a=>new SummaryRow(a.Name,(a.PageId.Length>0?Editors.WorkbenchLabels.Page(a.PageId)+" · ":"")+a.States.Count+" 个状态",a)).ToArray();
         var matched=filter.Length==0?all:all.Where(r=>r.Name.Contains(filter,StringComparison.OrdinalIgnoreCase)||r.Detail.Contains(filter,StringComparison.OrdinalIgnoreCase)).ToArray();
-        WorkbenchSummaryList.ItemsSource=matched.Take(SummaryLimit).ToArray();WorkbenchSummaryList.IsVisible=matched.Length>0;
+        if(summaryPage!=vm.SelectedPage)
+        {
+            if(summaryPage>=0&&WorkbenchSummaryList.Scroll is {} previous)summaryOffsets[summaryPage]=previous.Offset;
+            summaryPage=vm.SelectedPage;
+        }
+        if(!summaryRows.TryGetValue(summaryPage,out var cached)||!cached.SequenceEqual(matched))summaryRows[summaryPage]=matched;
+        var source=summaryRows[summaryPage];
+        if(!ReferenceEquals(WorkbenchSummaryList.ItemsSource,source))
+        {
+            WorkbenchSummaryList.ItemsSource=source;
+            var page=summaryPage;
+            Avalonia.Threading.Dispatcher.UIThread.Post(()=>{if(summaryPage==page&&WorkbenchSummaryList.Scroll is {} scroll)scroll.Offset=summaryOffsets.GetValueOrDefault(page);},Avalonia.Threading.DispatcherPriority.Loaded);
+        }
+        WorkbenchSummaryList.IsVisible=matched.Length>0;
         WorkbenchSummaryFilter.IsVisible=all.Length>0;
         WorkbenchSummaryCaption.Text=document is null?"工作台未就绪。":all.Length==0
             ?(chains?"还没有任务链，打开工作台从模板新建。":"还没有锚点，打开工作台截图创建。")
             :matched.Length==0?"没有匹配的项目。"
-            :(filter.Length>0?$"匹配 {matched.Length} / {all.Length} 项":$"共 {all.Length} 项")+(matched.Length>SummaryLimit?$" · 显示前 {SummaryLimit} 项，输入名称缩小范围":"")+" · 点击任一项在工作台中打开";
+            :(filter.Length>0?$"匹配 {matched.Length} / {all.Length} 项":$"共 {all.Length} 项")+" · 点击任一项在工作台中打开";
     }
     private void FilterSummary(object? sender,TextChangedEventArgs e)
     {if(DataContext is MainViewModel vm&&DebugLauncher.IsVisible)UpdateWorkbenchSummary(vm);}

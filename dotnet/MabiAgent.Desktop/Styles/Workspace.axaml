@@ -158,12 +158,13 @@
   <Style Selector="Button.chrome-link"><Setter Property="Height" Value="32"/><Setter Property="MinHeight" Value="32"/><Setter Property="CornerRadius" Value="16"/><Setter Property="Padding" Value="12,0"/><Setter Property="FontSize" Value="12"/></Style>
 
   <!-- Navigation: floating bottom tab bar; selected tab is a solid capsule -->
+  <Style Selector="ListBox"><Setter Property="ItemsPanel"><ItemsPanelTemplate><VirtualizingStackPanel/></ItemsPanelTemplate></Setter></Style>
   <Style Selector="ListBox.tabs"><Setter Property="Background" Value="Transparent"/><Setter Property="BorderThickness" Value="0"/><Setter Property="Padding" Value="0"/></Style>
   <Style Selector="ListBox.tabs > ListBoxItem"><Setter Property="Padding" Value="14,6"/><Setter Property="Margin" Value="2,0"/><Setter Property="CornerRadius" Value="20"/><Setter Property="MinHeight" Value="52"/><Setter Property="MinWidth" Value="76"/><Setter Property="HorizontalContentAlignment" Value="Center"/><Setter Property="VerticalContentAlignment" Value="Center"/><Setter Property="Foreground" Value="{DynamicResource WorkspaceTabText}"/></Style>
   <Style Selector="ListBox.tabs > ListBoxItem:selected"><Setter Property="FontWeight" Value="Bold"/></Style>
-  <Style Selector="ListBox.tabs > ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{DynamicResource WorkspaceTabSelected}"/><Setter Property="Foreground" Value="{DynamicResource WorkspaceTabSelectedText}"/></Style>
+  <Style Selector="ListBox.tabs > ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="Transparent"/><Setter Property="Foreground" Value="{DynamicResource WorkspaceTabSelectedText}"/></Style>
   <Style Selector="ListBox.tabs > ListBoxItem:pointerover /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{DynamicResource WorkspaceNeutralSoft}"/></Style>
-  <Style Selector="ListBox.tabs > ListBoxItem:selected:pointerover /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{DynamicResource WorkspaceTabSelected}"/></Style>
+  <Style Selector="ListBox.tabs > ListBoxItem:selected:pointerover /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="Transparent"/></Style>
   <Style Selector="ListBox.tabs TextBlock"><Setter Property="FontSize" Value="12"/></Style>
 
   <!-- Summary tiles (chain/anchor pages): compact text cells that wrap to the panel width -->

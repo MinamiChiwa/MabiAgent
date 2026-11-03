@@ -19,7 +19,7 @@
       </WrapPanel>
     </Border>
     <Border x:Name="ManualCard" Grid.Row="2" Classes="card flush section-queue" VerticalAlignment="Top" MaxHeight="520">
-      <Grid RowDefinitions="Auto,Auto">
+      <Grid RowDefinitions="*,Auto">
         <DataGrid x:Name="ManualGrid" ItemsSource="{Binding QueueView}" SelectionChanged="SelectQueueRow" ClipboardCopyMode="IncludeHeader" AutomationProperties.Name="用户任务队列" AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Extended">
           <DataGrid.Columns>
             <DataGridTemplateColumn Header="顺序" SortMemberPath="Order" Width="Auto"><DataGridTemplateColumn.CellTemplate><DataTemplate><StackPanel Classes="queue-drag-handle" Orientation="Horizontal" Spacing="6" Background="Transparent" Margin="8,0" VerticalAlignment="Stretch" Cursor="SizeAll" ToolTip.Tip="按住拖动调整顺序"><ui:Icon Kind="grip" Width="12" Height="12" Opacity="0.55"/><TextBlock Classes="caption" Text="{Binding Order}" VerticalAlignment="Center"/></StackPanel></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>

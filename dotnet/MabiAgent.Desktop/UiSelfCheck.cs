@@ -191,8 +191,8 @@ internal static class UiSelfCheck
             w.EditQueue(q=>q.Add("auto-material:self-check","gathering",gathering.ItemId,10,gathering.Id,[]));await vm.RefreshLiveQueueAsync();
             vm.Search="";vm.SelectedPage=0;previewWindow.Show();await Task.Delay(80);previewWindow.UpdateLayout();
             passed.AddRange(await CheckSearchablePickers(previewWindow,vm));
-            Check(previewWindow.Title=="MabiAgent 0.5.2","标题包含产品名及版本");
-            Check(previewWindow.FindControl<TextBlock>("AppName")!.Text=="MabiAgent 0.5.2","顶栏响应式布局保持产品名及版本");
+            Check(previewWindow.Title==ProductInfo.Title,"标题包含产品名及版本");
+            Check(previewWindow.FindControl<TextBlock>("AppName")!.Text==ProductInfo.Title,"顶栏响应式布局保持产品名及版本");
             var newVip=previewWindow.FindControl<ToggleSwitch>("NewTaskVip")!;
             var settingsVip=previewWindow.FindControl<SettingsPanel>("SettingsPage")!.FindControl<ToggleSwitch>("MaintenanceVip")!;
             Check(!vm.LifeVip,"生活VIP默认关闭");
@@ -293,6 +293,7 @@ internal static class UiSelfCheck
             }
             
             passed.AddRange(await PresentationSelfCheck.Run(previewWindow,vm));
+            passed.AddRange(await ScrollUiSelfCheck.Run(root));
             var originalTheme=vm.ThemeKey;vm.ThemeKey="dark";vm.SaveSettings();await Task.Delay(40);
             var themeButton=previewWindow.FindControl<Button>("ThemeToggle")!;
             themeButton.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));await Task.Delay(80);
