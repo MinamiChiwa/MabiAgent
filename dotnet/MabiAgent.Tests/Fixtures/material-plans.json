@@ -1,0 +1,1831 @@
+[
+  {
+    "name": "ready",
+    "recipes": [
+      {
+        "recipe_key": "bar",
+        "output_item_id": 100,
+        "output_per_round": 3,
+        "inputs": {
+          "1": 2
+        },
+        "device": "metal"
+      },
+      {
+        "recipe_key": "cloth",
+        "output_item_id": 200,
+        "output_per_round": 2,
+        "inputs": {
+          "2": 3
+        },
+        "device": "fabric"
+      },
+      {
+        "recipe_key": "assembly",
+        "output_item_id": 300,
+        "output_per_round": 1,
+        "inputs": {
+          "100": 2,
+          "200": 1
+        },
+        "device": "wood"
+      }
+    ],
+    "gathering": {
+      "1": "ore",
+      "2": "fiber"
+    },
+    "goals": [
+      {
+        "goal_id": "g",
+        "item_id": 100,
+        "quantity": 9,
+        "kind": "production",
+        "recipe_key": null,
+        "route_key": null
+      }
+    ],
+    "inventory": {
+      "scope": "bag",
+      "quantities": {
+        "1": 20
+      },
+      "observations": {},
+      "storage": {}
+    },
+    "future": [],
+    "expected": {
+      "scope": "bag",
+      "goals": [
+        {
+          "goal_id": "g",
+          "kind": "production",
+          "item_id": 100,
+          "quantity": 9,
+          "future_quantity": 0,
+          "new_quantity": 9,
+          "task_id": "production:bar"
+        }
+      ],
+      "tasks": [
+        {
+          "task_id": "production:bar",
+          "kind": "production",
+          "item_id": 100,
+          "recipe_key": "bar",
+          "route_key": null,
+          "device": "metal",
+          "required_quantity": 9,
+          "output_quantity": 9,
+          "output_per_round": 3,
+          "rounds": 3,
+          "ready_rounds": 3,
+          "unready_rounds": 0,
+          "waiting_rounds": 0,
+          "ready_quantity": 9,
+          "inputs": {
+            "1": 2
+          },
+          "demands": [
+            {
+              "goal_id": "g",
+              "consumer_id": null,
+              "quantity": 9,
+              "kind": "root"
+            }
+          ],
+          "depends_on": []
+        }
+      ],
+      "allocations": [
+        {
+          "item_id": 1,
+          "quantity": 6,
+          "source_kind": "inventory",
+          "source_id": "bag",
+          "consumer_id": "production:bar",
+          "goal_id": "g"
+        }
+      ],
+      "issues": [],
+      "schema_version": 1
+    }
+  },
+  {
+    "name": "shortage",
+    "recipes": [
+      {
+        "recipe_key": "bar",
+        "output_item_id": 100,
+        "output_per_round": 3,
+        "inputs": {
+          "1": 2
+        },
+        "device": "metal"
+      },
+      {
+        "recipe_key": "cloth",
+        "output_item_id": 200,
+        "output_per_round": 2,
+        "inputs": {
+          "2": 3
+        },
+        "device": "fabric"
+      },
+      {
+        "recipe_key": "assembly",
+        "output_item_id": 300,
+        "output_per_round": 1,
+        "inputs": {
+          "100": 2,
+          "200": 1
+        },
+        "device": "wood"
+      }
+    ],
+    "gathering": {
+      "1": "ore",
+      "2": "fiber"
+    },
+    "goals": [
+      {
+        "goal_id": "g",
+        "item_id": 100,
+        "quantity": 9,
+        "kind": "production",
+        "recipe_key": null,
+        "route_key": null
+      }
+    ],
+    "inventory": {
+      "scope": "bag",
+      "quantities": {
+        "1": 2
+      },
+      "observations": {},
+      "storage": {}
+    },
+    "future": [],
+    "expected": {
+      "scope": "bag",
+      "goals": [
+        {
+          "goal_id": "g",
+          "kind": "production",
+          "item_id": 100,
+          "quantity": 9,
+          "future_quantity": 0,
+          "new_quantity": 9,
+          "task_id": "production:bar"
+        }
+      ],
+      "tasks": [
+        {
+          "task_id": "production:bar",
+          "kind": "production",
+          "item_id": 100,
+          "recipe_key": "bar",
+          "route_key": null,
+          "device": "metal",
+          "required_quantity": 9,
+          "output_quantity": 9,
+          "output_per_round": 3,
+          "rounds": 3,
+          "ready_rounds": 1,
+          "unready_rounds": 0,
+          "waiting_rounds": 2,
+          "ready_quantity": 3,
+          "inputs": {
+            "1": 2
+          },
+          "demands": [
+            {
+              "goal_id": "g",
+              "consumer_id": null,
+              "quantity": 9,
+              "kind": "root"
+            }
+          ],
+          "depends_on": [
+            "gathering:1:ore"
+          ]
+        },
+        {
+          "task_id": "gathering:1:ore",
+          "kind": "gathering",
+          "item_id": 1,
+          "recipe_key": null,
+          "route_key": "ore",
+          "device": null,
+          "required_quantity": 4,
+          "output_quantity": 4,
+          "output_per_round": null,
+          "rounds": 0,
+          "ready_rounds": 0,
+          "unready_rounds": 0,
+          "waiting_rounds": 0,
+          "ready_quantity": 4,
+          "inputs": {},
+          "demands": [
+            {
+              "goal_id": "g",
+              "consumer_id": "production:bar",
+              "quantity": 4,
+              "kind": "material"
+            }
+          ],
+          "depends_on": []
+        }
+      ],
+      "allocations": [
+        {
+          "item_id": 1,
+          "quantity": 2,
+          "source_kind": "inventory",
+          "source_id": "bag",
+          "consumer_id": "production:bar",
+          "goal_id": "g"
+        },
+        {
+          "item_id": 1,
+          "quantity": 4,
+          "source_kind": "gathering",
+          "source_id": "gathering:1:ore",
+          "consumer_id": "production:bar",
+          "goal_id": "g"
+        }
+      ],
+      "issues": [],
+      "schema_version": 1
+    }
+  },
+  {
+    "name": "unknown",
+    "recipes": [
+      {
+        "recipe_key": "bar",
+        "output_item_id": 100,
+        "output_per_round": 3,
+        "inputs": {
+          "1": 2
+        },
+        "device": "metal"
+      },
+      {
+        "recipe_key": "cloth",
+        "output_item_id": 200,
+        "output_per_round": 2,
+        "inputs": {
+          "2": 3
+        },
+        "device": "fabric"
+      },
+      {
+        "recipe_key": "assembly",
+        "output_item_id": 300,
+        "output_per_round": 1,
+        "inputs": {
+          "100": 2,
+          "200": 1
+        },
+        "device": "wood"
+      }
+    ],
+    "gathering": {
+      "1": "ore",
+      "2": "fiber"
+    },
+    "goals": [
+      {
+        "goal_id": "g",
+        "item_id": 100,
+        "quantity": 9,
+        "kind": "production",
+        "recipe_key": null,
+        "route_key": null
+      }
+    ],
+    "inventory": {
+      "scope": "bag",
+      "quantities": {},
+      "observations": {},
+      "storage": {}
+    },
+    "future": [],
+    "expected": {
+      "scope": "bag",
+      "goals": [
+        {
+          "goal_id": "g",
+          "kind": "production",
+          "item_id": 100,
+          "quantity": 9,
+          "future_quantity": 0,
+          "new_quantity": 9,
+          "task_id": "production:bar"
+        }
+      ],
+      "tasks": [
+        {
+          "task_id": "production:bar",
+          "kind": "production",
+          "item_id": 100,
+          "recipe_key": "bar",
+          "route_key": null,
+          "device": "metal",
+          "required_quantity": 9,
+          "output_quantity": 9,
+          "output_per_round": 3,
+          "rounds": 3,
+          "ready_rounds": 0,
+          "unready_rounds": 3,
+          "waiting_rounds": 0,
+          "ready_quantity": 0,
+          "inputs": {
+            "1": 2
+          },
+          "demands": [
+            {
+              "goal_id": "g",
+              "consumer_id": null,
+              "quantity": 9,
+              "kind": "root"
+            }
+          ],
+          "depends_on": []
+        }
+      ],
+      "allocations": [
+        {
+          "item_id": 1,
+          "quantity": 6,
+          "source_kind": "inventory_unknown",
+          "source_id": null,
+          "consumer_id": "production:bar",
+          "goal_id": "g"
+        }
+      ],
+      "issues": [
+        {
+          "kind": "inventory_unknown",
+          "item_id": 1,
+          "quantity": null,
+          "required_quantity": 6,
+          "goal_id": "g",
+          "consumer_id": "production:bar",
+          "path": [
+            "bar"
+          ]
+        }
+      ],
+      "schema_version": 1
+    }
+  },
+  {
+    "name": "storage",
+    "recipes": [
+      {
+        "recipe_key": "bar",
+        "output_item_id": 100,
+        "output_per_round": 3,
+        "inputs": {
+          "1": 2
+        },
+        "device": "metal"
+      },
+      {
+        "recipe_key": "cloth",
+        "output_item_id": 200,
+        "output_per_round": 2,
+        "inputs": {
+          "2": 3
+        },
+        "device": "fabric"
+      },
+      {
+        "recipe_key": "assembly",
+        "output_item_id": 300,
+        "output_per_round": 1,
+        "inputs": {
+          "100": 2,
+          "200": 1
+        },
+        "device": "wood"
+      }
+    ],
+    "gathering": {
+      "1": "ore",
+      "2": "fiber"
+    },
+    "goals": [
+      {
+        "goal_id": "g",
+        "item_id": 100,
+        "quantity": 9,
+        "kind": "production",
+        "recipe_key": null,
+        "route_key": null
+      }
+    ],
+    "inventory": {
+      "scope": "bag",
+      "quantities": {
+        "1": 0
+      },
+      "observations": {},
+      "storage": {
+        "shared": {
+          "1": 6
+        }
+      }
+    },
+    "future": [],
+    "expected": {
+      "scope": "bag",
+      "goals": [
+        {
+          "goal_id": "g",
+          "kind": "production",
+          "item_id": 100,
+          "quantity": 9,
+          "future_quantity": 0,
+          "new_quantity": 9,
+          "task_id": "production:bar"
+        }
+      ],
+      "tasks": [
+        {
+          "task_id": "production:bar",
+          "kind": "production",
+          "item_id": 100,
+          "recipe_key": "bar",
+          "route_key": null,
+          "device": "metal",
+          "required_quantity": 9,
+          "output_quantity": 9,
+          "output_per_round": 3,
+          "rounds": 3,
+          "ready_rounds": 0,
+          "unready_rounds": 0,
+          "waiting_rounds": 3,
+          "ready_quantity": 0,
+          "inputs": {
+            "1": 2
+          },
+          "demands": [
+            {
+              "goal_id": "g",
+              "consumer_id": null,
+              "quantity": 9,
+              "kind": "root"
+            }
+          ],
+          "depends_on": []
+        }
+      ],
+      "allocations": [
+        {
+          "item_id": 1,
+          "quantity": 6,
+          "source_kind": "storage",
+          "source_id": "shared",
+          "consumer_id": "production:bar",
+          "goal_id": "g"
+        }
+      ],
+      "issues": [
+        {
+          "kind": "storage_withdrawal_required",
+          "item_id": 1,
+          "quantity": 6,
+          "required_quantity": 6,
+          "goal_id": "g",
+          "consumer_id": "production:bar",
+          "path": [
+            "bar"
+          ]
+        }
+      ],
+      "schema_version": 1
+    }
+  },
+  {
+    "name": "recursive",
+    "recipes": [
+      {
+        "recipe_key": "bar",
+        "output_item_id": 100,
+        "output_per_round": 3,
+        "inputs": {
+          "1": 2
+        },
+        "device": "metal"
+      },
+      {
+        "recipe_key": "cloth",
+        "output_item_id": 200,
+        "output_per_round": 2,
+        "inputs": {
+          "2": 3
+        },
+        "device": "fabric"
+      },
+      {
+        "recipe_key": "assembly",
+        "output_item_id": 300,
+        "output_per_round": 1,
+        "inputs": {
+          "100": 2,
+          "200": 1
+        },
+        "device": "wood"
+      }
+    ],
+    "gathering": {
+      "1": "ore",
+      "2": "fiber"
+    },
+    "goals": [
+      {
+        "goal_id": "g",
+        "item_id": 300,
+        "quantity": 5,
+        "kind": "production",
+        "recipe_key": null,
+        "route_key": null
+      }
+    ],
+    "inventory": {
+      "scope": "bag",
+      "quantities": {
+        "1": 2,
+        "2": 3,
+        "100": 0,
+        "200": 0
+      },
+      "observations": {},
+      "storage": {}
+    },
+    "future": [],
+    "expected": {
+      "scope": "bag",
+      "goals": [
+        {
+          "goal_id": "g",
+          "kind": "production",
+          "item_id": 300,
+          "quantity": 5,
+          "future_quantity": 0,
+          "new_quantity": 5,
+          "task_id": "production:assembly"
+        }
+      ],
+      "tasks": [
+        {
+          "task_id": "production:assembly",
+          "kind": "production",
+          "item_id": 300,
+          "recipe_key": "assembly",
+          "route_key": null,
+          "device": "wood",
+          "required_quantity": 5,
+          "output_quantity": 5,
+          "output_per_round": 1,
+          "rounds": 5,
+          "ready_rounds": 0,
+          "unready_rounds": 0,
+          "waiting_rounds": 5,
+          "ready_quantity": 0,
+          "inputs": {
+            "100": 2,
+            "200": 1
+          },
+          "demands": [
+            {
+              "goal_id": "g",
+              "consumer_id": null,
+              "quantity": 5,
+              "kind": "root"
+            }
+          ],
+          "depends_on": [
+            "production:bar",
+            "production:cloth"
+          ]
+        },
+        {
+          "task_id": "production:bar",
+          "kind": "production",
+          "item_id": 100,
+          "recipe_key": "bar",
+          "route_key": null,
+          "device": "metal",
+          "required_quantity": 10,
+          "output_quantity": 12,
+          "output_per_round": 3,
+          "rounds": 4,
+          "ready_rounds": 1,
+          "unready_rounds": 0,
+          "waiting_rounds": 3,
+          "ready_quantity": 3,
+          "inputs": {
+            "1": 2
+          },
+          "demands": [
+            {
+              "goal_id": "g",
+              "consumer_id": "production:assembly",
+              "quantity": 10,
+              "kind": "material"
+            }
+          ],
+          "depends_on": [
+            "gathering:1:ore"
+          ]
+        },
+        {
+          "task_id": "gathering:1:ore",
+          "kind": "gathering",
+          "item_id": 1,
+          "recipe_key": null,
+          "route_key": "ore",
+          "device": null,
+          "required_quantity": 6,
+          "output_quantity": 6,
+          "output_per_round": null,
+          "rounds": 0,
+          "ready_rounds": 0,
+          "unready_rounds": 0,
+          "waiting_rounds": 0,
+          "ready_quantity": 6,
+          "inputs": {},
+          "demands": [
+            {
+              "goal_id": "g",
+              "consumer_id": "production:bar",
+              "quantity": 6,
+              "kind": "material"
+            }
+          ],
+          "depends_on": []
+        },
+        {
+          "task_id": "production:cloth",
+          "kind": "production",
+          "item_id": 200,
+          "recipe_key": "cloth",
+          "route_key": null,
+          "device": "fabric",
+          "required_quantity": 5,
+          "output_quantity": 6,
+          "output_per_round": 2,
+          "rounds": 3,
+          "ready_rounds": 1,
+          "unready_rounds": 0,
+          "waiting_rounds": 2,
+          "ready_quantity": 2,
+          "inputs": {
+            "2": 3
+          },
+          "demands": [
+            {
+              "goal_id": "g",
+              "consumer_id": "production:assembly",
+              "quantity": 5,
+              "kind": "material"
+            }
+          ],
+          "depends_on": [
+            "gathering:2:fiber"
+          ]
+        },
+        {
+          "task_id": "gathering:2:fiber",
+          "kind": "gathering",
+          "item_id": 2,
+          "recipe_key": null,
+          "route_key": "fiber",
+          "device": null,
+          "required_quantity": 6,
+          "output_quantity": 6,
+          "output_per_round": null,
+          "rounds": 0,
+          "ready_rounds": 0,
+          "unready_rounds": 0,
+          "waiting_rounds": 0,
+          "ready_quantity": 6,
+          "inputs": {},
+          "demands": [
+            {
+              "goal_id": "g",
+              "consumer_id": "production:cloth",
+              "quantity": 6,
+              "kind": "material"
+            }
+          ],
+          "depends_on": []
+        }
+      ],
+      "allocations": [
+        {
+          "item_id": 1,
+          "quantity": 2,
+          "source_kind": "inventory",
+          "source_id": "bag",
+          "consumer_id": "production:bar",
+          "goal_id": "g"
+        },
+        {
+          "item_id": 1,
+          "quantity": 6,
+          "source_kind": "gathering",
+          "source_id": "gathering:1:ore",
+          "consumer_id": "production:bar",
+          "goal_id": "g"
+        },
+        {
+          "item_id": 100,
+          "quantity": 10,
+          "source_kind": "production",
+          "source_id": "production:bar",
+          "consumer_id": "production:assembly",
+          "goal_id": "g"
+        },
+        {
+          "item_id": 2,
+          "quantity": 3,
+          "source_kind": "inventory",
+          "source_id": "bag",
+          "consumer_id": "production:cloth",
+          "goal_id": "g"
+        },
+        {
+          "item_id": 2,
+          "quantity": 6,
+          "source_kind": "gathering",
+          "source_id": "gathering:2:fiber",
+          "consumer_id": "production:cloth",
+          "goal_id": "g"
+        },
+        {
+          "item_id": 200,
+          "quantity": 5,
+          "source_kind": "production",
+          "source_id": "production:cloth",
+          "consumer_id": "production:assembly",
+          "goal_id": "g"
+        }
+      ],
+      "issues": [],
+      "schema_version": 1
+    }
+  },
+  {
+    "name": "overlap",
+    "recipes": [
+      {
+        "recipe_key": "bar",
+        "output_item_id": 100,
+        "output_per_round": 3,
+        "inputs": {
+          "1": 2
+        },
+        "device": "metal"
+      },
+      {
+        "recipe_key": "cloth",
+        "output_item_id": 200,
+        "output_per_round": 2,
+        "inputs": {
+          "2": 3
+        },
+        "device": "fabric"
+      },
+      {
+        "recipe_key": "assembly",
+        "output_item_id": 300,
+        "output_per_round": 1,
+        "inputs": {
+          "100": 2,
+          "200": 1
+        },
+        "device": "wood"
+      }
+    ],
+    "gathering": {
+      "1": "ore",
+      "2": "fiber"
+    },
+    "goals": [
+      {
+        "goal_id": "bars",
+        "item_id": 100,
+        "quantity": 10,
+        "kind": "production",
+        "recipe_key": null,
+        "route_key": null
+      },
+      {
+        "goal_id": "assembly",
+        "item_id": 300,
+        "quantity": 5,
+        "kind": "production",
+        "recipe_key": null,
+        "route_key": null
+      }
+    ],
+    "inventory": {
+      "scope": "bag",
+      "quantities": {
+        "1": 50,
+        "2": 30,
+        "100": 0,
+        "200": 0
+      },
+      "observations": {},
+      "storage": {}
+    },
+    "future": [],
+    "expected": {
+      "scope": "bag",
+      "goals": [
+        {
+          "goal_id": "bars",
+          "kind": "production",
+          "item_id": 100,
+          "quantity": 10,
+          "future_quantity": 0,
+          "new_quantity": 10,
+          "task_id": "production:bar"
+        },
+        {
+          "goal_id": "assembly",
+          "kind": "production",
+          "item_id": 300,
+          "quantity": 5,
+          "future_quantity": 0,
+          "new_quantity": 5,
+          "task_id": "production:assembly"
+        }
+      ],
+      "tasks": [
+        {
+          "task_id": "production:bar",
+          "kind": "production",
+          "item_id": 100,
+          "recipe_key": "bar",
+          "route_key": null,
+          "device": "metal",
+          "required_quantity": 10,
+          "output_quantity": 12,
+          "output_per_round": 3,
+          "rounds": 4,
+          "ready_rounds": 4,
+          "unready_rounds": 0,
+          "waiting_rounds": 0,
+          "ready_quantity": 12,
+          "inputs": {
+            "1": 2
+          },
+          "demands": [
+            {
+              "goal_id": "bars",
+              "consumer_id": null,
+              "quantity": 10,
+              "kind": "root"
+            },
+            {
+              "goal_id": "assembly",
+              "consumer_id": "production:assembly",
+              "quantity": 10,
+              "kind": "material"
+            }
+          ],
+          "depends_on": []
+        },
+        {
+          "task_id": "production:assembly",
+          "kind": "production",
+          "item_id": 300,
+          "recipe_key": "assembly",
+          "route_key": null,
+          "device": "wood",
+          "required_quantity": 5,
+          "output_quantity": 5,
+          "output_per_round": 1,
+          "rounds": 5,
+          "ready_rounds": 0,
+          "unready_rounds": 0,
+          "waiting_rounds": 5,
+          "ready_quantity": 0,
+          "inputs": {
+            "100": 2,
+            "200": 1
+          },
+          "demands": [
+            {
+              "goal_id": "assembly",
+              "consumer_id": null,
+              "quantity": 5,
+              "kind": "root"
+            }
+          ],
+          "depends_on": [
+            "production:bar",
+            "production:cloth"
+          ]
+        },
+        {
+          "task_id": "production:cloth",
+          "kind": "production",
+          "item_id": 200,
+          "recipe_key": "cloth",
+          "route_key": null,
+          "device": "fabric",
+          "required_quantity": 5,
+          "output_quantity": 6,
+          "output_per_round": 2,
+          "rounds": 3,
+          "ready_rounds": 3,
+          "unready_rounds": 0,
+          "waiting_rounds": 0,
+          "ready_quantity": 6,
+          "inputs": {
+            "2": 3
+          },
+          "demands": [
+            {
+              "goal_id": "assembly",
+              "consumer_id": "production:assembly",
+              "quantity": 5,
+              "kind": "material"
+            }
+          ],
+          "depends_on": []
+        }
+      ],
+      "allocations": [
+        {
+          "item_id": 1,
+          "quantity": 8,
+          "source_kind": "inventory",
+          "source_id": "bag",
+          "consumer_id": "production:bar",
+          "goal_id": "bars"
+        },
+        {
+          "item_id": 100,
+          "quantity": 10,
+          "source_kind": "production",
+          "source_id": "production:bar",
+          "consumer_id": "production:assembly",
+          "goal_id": "assembly"
+        },
+        {
+          "item_id": 2,
+          "quantity": 9,
+          "source_kind": "inventory",
+          "source_id": "bag",
+          "consumer_id": "production:cloth",
+          "goal_id": "assembly"
+        },
+        {
+          "item_id": 200,
+          "quantity": 5,
+          "source_kind": "production",
+          "source_id": "production:cloth",
+          "consumer_id": "production:assembly",
+          "goal_id": "assembly"
+        }
+      ],
+      "issues": [],
+      "schema_version": 1
+    }
+  },
+  {
+    "name": "shared_shortage",
+    "recipes": [
+      {
+        "recipe_key": "bar",
+        "output_item_id": 100,
+        "output_per_round": 3,
+        "inputs": {
+          "1": 2
+        },
+        "device": "metal"
+      },
+      {
+        "recipe_key": "cloth",
+        "output_item_id": 200,
+        "output_per_round": 2,
+        "inputs": {
+          "2": 3
+        },
+        "device": "fabric"
+      },
+      {
+        "recipe_key": "assembly",
+        "output_item_id": 300,
+        "output_per_round": 1,
+        "inputs": {
+          "100": 2,
+          "200": 1
+        },
+        "device": "wood"
+      }
+    ],
+    "gathering": {
+      "1": "ore",
+      "2": "fiber"
+    },
+    "goals": [
+      {
+        "goal_id": "a",
+        "item_id": 100,
+        "quantity": 12,
+        "kind": "production",
+        "recipe_key": null,
+        "route_key": null
+      },
+      {
+        "goal_id": "b",
+        "item_id": 100,
+        "quantity": 9,
+        "kind": "production",
+        "recipe_key": null,
+        "route_key": null
+      }
+    ],
+    "inventory": {
+      "scope": "bag",
+      "quantities": {
+        "1": 3
+      },
+      "observations": {},
+      "storage": {}
+    },
+    "future": [],
+    "expected": {
+      "scope": "bag",
+      "goals": [
+        {
+          "goal_id": "a",
+          "kind": "production",
+          "item_id": 100,
+          "quantity": 12,
+          "future_quantity": 0,
+          "new_quantity": 12,
+          "task_id": "production:bar"
+        },
+        {
+          "goal_id": "b",
+          "kind": "production",
+          "item_id": 100,
+          "quantity": 9,
+          "future_quantity": 0,
+          "new_quantity": 9,
+          "task_id": "production:bar"
+        }
+      ],
+      "tasks": [
+        {
+          "task_id": "production:bar",
+          "kind": "production",
+          "item_id": 100,
+          "recipe_key": "bar",
+          "route_key": null,
+          "device": "metal",
+          "required_quantity": 21,
+          "output_quantity": 21,
+          "output_per_round": 3,
+          "rounds": 7,
+          "ready_rounds": 1,
+          "unready_rounds": 0,
+          "waiting_rounds": 6,
+          "ready_quantity": 3,
+          "inputs": {
+            "1": 2
+          },
+          "demands": [
+            {
+              "goal_id": "a",
+              "consumer_id": null,
+              "quantity": 12,
+              "kind": "root"
+            },
+            {
+              "goal_id": "b",
+              "consumer_id": null,
+              "quantity": 9,
+              "kind": "root"
+            }
+          ],
+          "depends_on": [
+            "gathering:1:ore"
+          ]
+        },
+        {
+          "task_id": "gathering:1:ore",
+          "kind": "gathering",
+          "item_id": 1,
+          "recipe_key": null,
+          "route_key": "ore",
+          "device": null,
+          "required_quantity": 11,
+          "output_quantity": 11,
+          "output_per_round": null,
+          "rounds": 0,
+          "ready_rounds": 0,
+          "unready_rounds": 0,
+          "waiting_rounds": 0,
+          "ready_quantity": 11,
+          "inputs": {},
+          "demands": [
+            {
+              "goal_id": "a",
+              "consumer_id": "production:bar",
+              "quantity": 5,
+              "kind": "material"
+            },
+            {
+              "goal_id": "b",
+              "consumer_id": "production:bar",
+              "quantity": 6,
+              "kind": "material"
+            }
+          ],
+          "depends_on": []
+        }
+      ],
+      "allocations": [
+        {
+          "item_id": 1,
+          "quantity": 3,
+          "source_kind": "inventory",
+          "source_id": "bag",
+          "consumer_id": "production:bar",
+          "goal_id": "a"
+        },
+        {
+          "item_id": 1,
+          "quantity": 5,
+          "source_kind": "gathering",
+          "source_id": "gathering:1:ore",
+          "consumer_id": "production:bar",
+          "goal_id": "a"
+        },
+        {
+          "item_id": 1,
+          "quantity": 6,
+          "source_kind": "gathering",
+          "source_id": "gathering:1:ore",
+          "consumer_id": "production:bar",
+          "goal_id": "b"
+        }
+      ],
+      "issues": [],
+      "schema_version": 1
+    }
+  },
+  {
+    "name": "future",
+    "recipes": [
+      {
+        "recipe_key": "bar",
+        "output_item_id": 100,
+        "output_per_round": 3,
+        "inputs": {
+          "1": 2
+        },
+        "device": "metal"
+      },
+      {
+        "recipe_key": "cloth",
+        "output_item_id": 200,
+        "output_per_round": 2,
+        "inputs": {
+          "2": 3
+        },
+        "device": "fabric"
+      },
+      {
+        "recipe_key": "assembly",
+        "output_item_id": 300,
+        "output_per_round": 1,
+        "inputs": {
+          "100": 2,
+          "200": 1
+        },
+        "device": "wood"
+      }
+    ],
+    "gathering": {
+      "1": "ore",
+      "2": "fiber"
+    },
+    "goals": [
+      {
+        "goal_id": "g",
+        "item_id": 100,
+        "quantity": 9,
+        "kind": "production",
+        "recipe_key": null,
+        "route_key": null
+      }
+    ],
+    "inventory": {
+      "scope": "bag",
+      "quantities": {
+        "1": 0
+      },
+      "observations": {},
+      "storage": {}
+    },
+    "future": [
+      {
+        "supply_id": "f",
+        "item_id": 100,
+        "quantity": 6,
+        "scope": "bag",
+        "goal_id": "g"
+      }
+    ],
+    "expected": {
+      "scope": "bag",
+      "goals": [
+        {
+          "goal_id": "g",
+          "kind": "production",
+          "item_id": 100,
+          "quantity": 9,
+          "future_quantity": 6,
+          "new_quantity": 3,
+          "task_id": "production:bar"
+        }
+      ],
+      "tasks": [
+        {
+          "task_id": "production:bar",
+          "kind": "production",
+          "item_id": 100,
+          "recipe_key": "bar",
+          "route_key": null,
+          "device": "metal",
+          "required_quantity": 3,
+          "output_quantity": 3,
+          "output_per_round": 3,
+          "rounds": 1,
+          "ready_rounds": 0,
+          "unready_rounds": 0,
+          "waiting_rounds": 1,
+          "ready_quantity": 0,
+          "inputs": {
+            "1": 2
+          },
+          "demands": [
+            {
+              "goal_id": "g",
+              "consumer_id": null,
+              "quantity": 3,
+              "kind": "root"
+            }
+          ],
+          "depends_on": [
+            "gathering:1:ore"
+          ]
+        },
+        {
+          "task_id": "gathering:1:ore",
+          "kind": "gathering",
+          "item_id": 1,
+          "recipe_key": null,
+          "route_key": "ore",
+          "device": null,
+          "required_quantity": 2,
+          "output_quantity": 2,
+          "output_per_round": null,
+          "rounds": 0,
+          "ready_rounds": 0,
+          "unready_rounds": 0,
+          "waiting_rounds": 0,
+          "ready_quantity": 2,
+          "inputs": {},
+          "demands": [
+            {
+              "goal_id": "g",
+              "consumer_id": "production:bar",
+              "quantity": 2,
+              "kind": "material"
+            }
+          ],
+          "depends_on": []
+        }
+      ],
+      "allocations": [
+        {
+          "item_id": 1,
+          "quantity": 2,
+          "source_kind": "gathering",
+          "source_id": "gathering:1:ore",
+          "consumer_id": "production:bar",
+          "goal_id": "g"
+        }
+      ],
+      "issues": [],
+      "schema_version": 1
+    }
+  },
+  {
+    "name": "scope",
+    "recipes": [
+      {
+        "recipe_key": "bar",
+        "output_item_id": 100,
+        "output_per_round": 3,
+        "inputs": {
+          "1": 2
+        },
+        "device": "metal"
+      },
+      {
+        "recipe_key": "cloth",
+        "output_item_id": 200,
+        "output_per_round": 2,
+        "inputs": {
+          "2": 3
+        },
+        "device": "fabric"
+      },
+      {
+        "recipe_key": "assembly",
+        "output_item_id": 300,
+        "output_per_round": 1,
+        "inputs": {
+          "100": 2,
+          "200": 1
+        },
+        "device": "wood"
+      }
+    ],
+    "gathering": {
+      "1": "ore",
+      "2": "fiber"
+    },
+    "goals": [
+      {
+        "goal_id": "g",
+        "item_id": 100,
+        "quantity": 9,
+        "kind": "production",
+        "recipe_key": null,
+        "route_key": null
+      }
+    ],
+    "inventory": {
+      "scope": "bag",
+      "quantities": {
+        "1": 0
+      },
+      "observations": {},
+      "storage": {}
+    },
+    "future": [
+      {
+        "supply_id": "f",
+        "item_id": 100,
+        "quantity": 6,
+        "scope": "wrong",
+        "goal_id": "g"
+      }
+    ],
+    "expected": {
+      "scope": "bag",
+      "goals": [
+        {
+          "goal_id": "g",
+          "kind": "production",
+          "item_id": 100,
+          "quantity": 9,
+          "future_quantity": 0,
+          "new_quantity": 9,
+          "task_id": "production:bar"
+        }
+      ],
+      "tasks": [
+        {
+          "task_id": "production:bar",
+          "kind": "production",
+          "item_id": 100,
+          "recipe_key": "bar",
+          "route_key": null,
+          "device": "metal",
+          "required_quantity": 9,
+          "output_quantity": 9,
+          "output_per_round": 3,
+          "rounds": 3,
+          "ready_rounds": 0,
+          "unready_rounds": 0,
+          "waiting_rounds": 3,
+          "ready_quantity": 0,
+          "inputs": {
+            "1": 2
+          },
+          "demands": [
+            {
+              "goal_id": "g",
+              "consumer_id": null,
+              "quantity": 9,
+              "kind": "root"
+            }
+          ],
+          "depends_on": [
+            "gathering:1:ore"
+          ]
+        },
+        {
+          "task_id": "gathering:1:ore",
+          "kind": "gathering",
+          "item_id": 1,
+          "recipe_key": null,
+          "route_key": "ore",
+          "device": null,
+          "required_quantity": 6,
+          "output_quantity": 6,
+          "output_per_round": null,
+          "rounds": 0,
+          "ready_rounds": 0,
+          "unready_rounds": 0,
+          "waiting_rounds": 0,
+          "ready_quantity": 6,
+          "inputs": {},
+          "demands": [
+            {
+              "goal_id": "g",
+              "consumer_id": "production:bar",
+              "quantity": 6,
+              "kind": "material"
+            }
+          ],
+          "depends_on": []
+        }
+      ],
+      "allocations": [
+        {
+          "item_id": 1,
+          "quantity": 6,
+          "source_kind": "gathering",
+          "source_id": "gathering:1:ore",
+          "consumer_id": "production:bar",
+          "goal_id": "g"
+        }
+      ],
+      "issues": [
+        {
+          "kind": "supply_scope_mismatch",
+          "item_id": 100,
+          "quantity": null,
+          "required_quantity": 6,
+          "goal_id": "g",
+          "consumer_id": null,
+          "path": []
+        }
+      ],
+      "schema_version": 1
+    }
+  },
+  {
+    "name": "gather_root",
+    "recipes": [
+      {
+        "recipe_key": "bar",
+        "output_item_id": 100,
+        "output_per_round": 3,
+        "inputs": {
+          "1": 2
+        },
+        "device": "metal"
+      },
+      {
+        "recipe_key": "cloth",
+        "output_item_id": 200,
+        "output_per_round": 2,
+        "inputs": {
+          "2": 3
+        },
+        "device": "fabric"
+      },
+      {
+        "recipe_key": "assembly",
+        "output_item_id": 300,
+        "output_per_round": 1,
+        "inputs": {
+          "100": 2,
+          "200": 1
+        },
+        "device": "wood"
+      }
+    ],
+    "gathering": {
+      "1": "ore",
+      "2": "fiber"
+    },
+    "goals": [
+      {
+        "goal_id": "g",
+        "item_id": 1,
+        "quantity": 20,
+        "kind": "gathering",
+        "recipe_key": null,
+        "route_key": "ore"
+      }
+    ],
+    "inventory": {
+      "scope": "bag",
+      "quantities": {
+        "1": 100
+      },
+      "observations": {},
+      "storage": {}
+    },
+    "future": [],
+    "expected": {
+      "scope": "bag",
+      "goals": [
+        {
+          "goal_id": "g",
+          "kind": "gathering",
+          "item_id": 1,
+          "quantity": 20,
+          "future_quantity": 0,
+          "new_quantity": 20,
+          "task_id": "gathering:1:ore"
+        }
+      ],
+      "tasks": [
+        {
+          "task_id": "gathering:1:ore",
+          "kind": "gathering",
+          "item_id": 1,
+          "recipe_key": null,
+          "route_key": "ore",
+          "device": null,
+          "required_quantity": 20,
+          "output_quantity": 20,
+          "output_per_round": null,
+          "rounds": 0,
+          "ready_rounds": 0,
+          "unready_rounds": 0,
+          "waiting_rounds": 0,
+          "ready_quantity": 20,
+          "inputs": {},
+          "demands": [
+            {
+              "goal_id": "g",
+              "consumer_id": null,
+              "quantity": 20,
+              "kind": "root"
+            }
+          ],
+          "depends_on": []
+        }
+      ],
+      "allocations": [],
+      "issues": [],
+      "schema_version": 1
+    }
+  },
+  {
+    "name": "unavailable",
+    "recipes": [
+      {
+        "recipe_key": "bar",
+        "output_item_id": 100,
+        "output_per_round": 3,
+        "inputs": {
+          "1": 2
+        },
+        "device": "metal"
+      },
+      {
+        "recipe_key": "cloth",
+        "output_item_id": 200,
+        "output_per_round": 2,
+        "inputs": {
+          "2": 3
+        },
+        "device": "fabric"
+      },
+      {
+        "recipe_key": "assembly",
+        "output_item_id": 300,
+        "output_per_round": 1,
+        "inputs": {
+          "100": 2,
+          "200": 1
+        },
+        "device": "wood"
+      }
+    ],
+    "gathering": {
+      "1": "ore",
+      "2": "fiber"
+    },
+    "goals": [
+      {
+        "goal_id": "g",
+        "item_id": 999,
+        "quantity": 5,
+        "kind": "production",
+        "recipe_key": null,
+        "route_key": null
+      }
+    ],
+    "inventory": {
+      "scope": "bag",
+      "quantities": {},
+      "observations": {},
+      "storage": {}
+    },
+    "future": [],
+    "expected": {
+      "scope": "bag",
+      "goals": [
+        {
+          "goal_id": "g",
+          "kind": "production",
+          "item_id": 999,
+          "quantity": 5,
+          "future_quantity": 0,
+          "new_quantity": 5,
+          "task_id": null
+        }
+      ],
+      "tasks": [],
+      "allocations": [],
+      "issues": [
+        {
+          "kind": "no_source",
+          "item_id": 999,
+          "quantity": 5,
+          "required_quantity": 5,
+          "goal_id": "g",
+          "consumer_id": null,
+          "path": []
+        }
+      ],
+      "schema_version": 1
+    }
+  },
+  {
+    "name": "cycle",
+    "recipes": [
+      {
+        "recipe_key": "a",
+        "output_item_id": 1,
+        "output_per_round": 1,
+        "inputs": {
+          "2": 1
+        },
+        "device": "metal"
+      },
+      {
+        "recipe_key": "b",
+        "output_item_id": 2,
+        "output_per_round": 1,
+        "inputs": {
+          "1": 1
+        },
+        "device": "wood"
+      }
+    ],
+    "gathering": {},
+    "goals": [
+      {
+        "goal_id": "g",
+        "item_id": 1,
+        "quantity": 2,
+        "kind": "production",
+        "recipe_key": null,
+        "route_key": null
+      }
+    ],
+    "inventory": {
+      "scope": "bag",
+      "quantities": {
+        "1": 0,
+        "2": 0
+      },
+      "observations": {},
+      "storage": {}
+    },
+    "future": [],
+    "expected": {
+      "scope": "bag",
+      "goals": [
+        {
+          "goal_id": "g",
+          "kind": "production",
+          "item_id": 1,
+          "quantity": 2,
+          "future_quantity": 0,
+          "new_quantity": 2,
+          "task_id": "production:a"
+        }
+      ],
+      "tasks": [
+        {
+          "task_id": "production:a",
+          "kind": "production",
+          "item_id": 1,
+          "recipe_key": "a",
+          "route_key": null,
+          "device": "metal",
+          "required_quantity": 2,
+          "output_quantity": 2,
+          "output_per_round": 1,
+          "rounds": 2,
+          "ready_rounds": 0,
+          "unready_rounds": 0,
+          "waiting_rounds": 2,
+          "ready_quantity": 0,
+          "inputs": {
+            "2": 1
+          },
+          "demands": [
+            {
+              "goal_id": "g",
+              "consumer_id": null,
+              "quantity": 2,
+              "kind": "root"
+            }
+          ],
+          "depends_on": [
+            "production:b"
+          ]
+        },
+        {
+          "task_id": "production:b",
+          "kind": "production",
+          "item_id": 2,
+          "recipe_key": "b",
+          "route_key": null,
+          "device": "wood",
+          "required_quantity": 2,
+          "output_quantity": 2,
+          "output_per_round": 1,
+          "rounds": 2,
+          "ready_rounds": 0,
+          "unready_rounds": 0,
+          "waiting_rounds": 2,
+          "ready_quantity": 0,
+          "inputs": {
+            "1": 1
+          },
+          "demands": [
+            {
+              "goal_id": "g",
+              "consumer_id": "production:a",
+              "quantity": 2,
+              "kind": "material"
+            }
+          ],
+          "depends_on": []
+        }
+      ],
+      "allocations": [
+        {
+          "item_id": 1,
+          "quantity": 2,
+          "source_kind": "recipe_cycle",
+          "source_id": null,
+          "consumer_id": "production:b",
+          "goal_id": "g"
+        },
+        {
+          "item_id": 2,
+          "quantity": 2,
+          "source_kind": "production",
+          "source_id": "production:b",
+          "consumer_id": "production:a",
+          "goal_id": "g"
+        }
+      ],
+      "issues": [
+        {
+          "kind": "recipe_cycle",
+          "item_id": 1,
+          "quantity": 2,
+          "required_quantity": 2,
+          "goal_id": "g",
+          "consumer_id": "production:b",
+          "path": [
+            "a",
+            "b",
+            "a"
+          ]
+        }
+      ],
+      "schema_version": 1
+    }
+  }
+]

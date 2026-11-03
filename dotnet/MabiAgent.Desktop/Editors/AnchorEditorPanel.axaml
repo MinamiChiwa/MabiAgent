@@ -1,0 +1,80 @@
+<UserControl xmlns:local="clr-namespace:MabiAgent.Desktop.Editors" xmlns="https://github.com/avaloniaui" xmlns:ui="clr-namespace:MabiAgent.Desktop.Controls" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" x:Class="MabiAgent.Desktop.Editors.AnchorEditorPanel">
+  <DockPanel Margin="0">
+    <TextBlock DockPanel.Dock="Bottom" Text="{Binding Status}" TextWrapping="Wrap" Margin="0,12" />
+    <Grid>
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="0.28*" MinWidth="180" MaxWidth="240" />
+        <ColumnDefinition Width="16" />
+        <ColumnDefinition Width="*" />
+      </Grid.ColumnDefinitions>
+      <Border Classes="card section-anchor" Padding="14">
+        <DockPanel>
+          <DockPanel DockPanel.Dock="Top" Margin="0,0,0,10"><ui:HelpButton DockPanel.Dock="Right" Message="按名称或编号筛选锚点，选择后在右侧编辑。筛选隐藏选中项时会清空表单；未保存修改会先提示。"/><TextBlock Text="锚点列表" Classes="heading" VerticalAlignment="Center"/></DockPanel>
+          <TextBox x:Name="AnchorSearchBox" DockPanel.Dock="Top" Text="{Binding Search,UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,12" PlaceholderText="搜索锚点名称或编号" />
+          <ListBox ItemsSource="{Binding AnchorView}" SelectedItem="{Binding Selected}" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+            <ListBox.ItemTemplate>
+              <DataTemplate>
+                <TextBlock Text="{Binding Label}" TextWrapping="Wrap" Margin="0,6" />
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+        </DockPanel>
+      </Border>
+      <Border Grid.Column="2" Padding="20" Classes="card section-anchor">
+        <DockPanel>
+          <WrapPanel Margin="0,0,0,12" DockPanel.Dock="Top">
+            <Button ui:UiIcon.Kind="save" Content="保存锚点" Command="{Binding SaveCommand}" Margin="0,0,8,8" />
+            <Button ui:UiIcon.Kind="refresh" Content="恢复预设" Command="{Binding RestorePresetCommand}" Margin="0,0,8,8" />
+            <Button ui:UiIcon.Kind="refresh" Content="刷新" Command="{Binding ReloadCommand}" Margin="0,0,8,8" />
+          </WrapPanel>
+          <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <StackPanel>
+              <DockPanel Margin="0,0,0,10">
+                <ui:HelpButton Message="保存后同步该锚点的全部引用；单独修改可选一处引用。图片和搜索范围都可直接在游戏窗口框选。" DockPanel.Dock="Right" />
+                <TextBlock Text="{Binding Selected.DisplayName}" FontSize="18" TextWrapping="Wrap" />
+              </DockPanel>
+              <CheckBox Content="单独修改一处引用" IsChecked="{Binding Independent}" Margin="0,0,0,8" />
+              <ComboBox ItemsSource="{Binding References}" SelectedItem="{Binding SelectedReference}" DisplayMemberBinding="{Binding Label}" PlaceholderText="独立修改的引用" IsVisible="{Binding Independent}" Margin="0,0,0,8" />
+              <Image x:Name="PreviewImage" Height="100" Stretch="Uniform" Margin="0,12" IsVisible="False" />
+              <WrapPanel>
+                <Button ui:UiIcon.Kind="image" Content="选择图片" Click="BrowseClick" Margin="0,0,8,8" />
+                <Button ui:UiIcon.Kind="image" Content="窗口内框选图片" Click="CaptureClick" Margin="0,0,8,8" />
+                <Button ui:UiIcon.Kind="anchor" Content="实时测试" Click="LiveTestClick" Margin="0,0,8,8" />
+                <Button Content="本地图片测试" Click="TestClick" Margin="0,0,8,8" />
+              </WrapPanel>
+              <TextBlock Text="图片识别方式" Classes="field" Margin="0,12,0,0" />
+              <ComboBox ItemsSource="{x:Static local:EditorRepository.ModeChoices}" SelectedValueBinding="{Binding Key}" SelectedValue="{Binding Fields.Mode}" Margin="0,8" DisplayMemberBinding="{Binding Label}" PlaceholderText="识别方式" />
+              <StackPanel Spacing="6" Margin="0,12">
+                <TextBlock Text="匹配阈值（0.7–1）" Classes="muted" FontSize="13" />
+                <TextBox Text="{Binding Fields.Threshold}" PlaceholderText="阈值 0.7–1" />
+              </StackPanel>
+              <StackPanel Spacing="6" Margin="0,12">
+                <TextBlock Text="图片区域 · 参考客户区坐标" Classes="muted" FontSize="13" />
+                <TextBox Text="{Binding Fields.Box}" PlaceholderText="原生区域：左、上、右、下" />
+                <Button Content="在游戏窗口定位图片区域" Click="PickRegionClick" HorizontalAlignment="Left" />
+              </StackPanel>
+              <StackPanel Spacing="6" Margin="0,12">
+                <TextBlock Text="搜索范围（左、上、右、下）" Classes="field" />
+                <TextBox Text="{Binding Fields.Search}" Margin="0" PlaceholderText="搜索区域：左、上、右、下" />
+                <Button Content="在游戏窗口框选搜索范围" Click="PickSearchClick" HorizontalAlignment="Left" />
+              </StackPanel>
+              <Expander Header="高级参数" Margin="0,12">
+                <StackPanel>
+                  <TextBox Text="{Binding SpecJson}" AcceptsReturn="True" FontFamily="Consolas" Height="180" ScrollViewer.VerticalScrollBarVisibility="Auto" />
+                  <Button ui:UiIcon.Kind="check" Content="载入完整参数" Command="{Binding ApplySpecCommand}" Margin="0,8" />
+                </StackPanel>
+              </Expander>
+              <Expander Header="高级：路线逻辑" Margin="0,12">
+                <StackPanel>
+                  <ComboBox ItemsSource="{Binding Logic}" SelectedItem="{Binding SelectedLogic}" DisplayMemberBinding="{Binding Label}" />
+                  <TextBox Text="{Binding LogicJson}" AcceptsReturn="True" FontFamily="Consolas" Height="220" Margin="0,8" ScrollViewer.VerticalScrollBarVisibility="Auto" />
+                  <Button ui:UiIcon.Kind="save" Content="保存逻辑版本" Command="{Binding SaveLogicCommand}" />
+                </StackPanel>
+              </Expander>
+            </StackPanel>
+          </ScrollViewer>
+        </DockPanel>
+      </Border>
+    </Grid>
+  </DockPanel>
+</UserControl>

@@ -1,0 +1,3508 @@
+{
+  "contract": "reviewed-navigation-ui-profile-v1",
+  "client_size": [
+    1280,
+    960
+  ],
+  "dpi": 96,
+  "validation_scope": "Native 1280x960 scene/bag/category and remote-metal/iron-ore detail calibration. Bounded same-aspect scaling has offline coverage only. Current native multi-anchor hits, identity, stable frames and focus remain required. No production, collection or arrival authority. The arrived metal variant offers only reversible navigation to iron-ore recipe details from its unique current native tile hit. The arrived recipe variant offers only the reviewed overlay close back to the arrived metal panel; neither variant grants consumption authority.",
+  "pages": {
+    "scene": {
+      "anchors": [
+        "scene_bag",
+        "scene_skills",
+        "scene_menu"
+      ],
+      "targets": {
+        "scene.open_bag": "scene_bag",
+        "scene.open_skills": "scene_skills"
+      }
+    },
+    "bag": {
+      "anchors": [
+        "bag_tools_tab",
+        "bag_fashion_tab",
+        "bag_auto_wear",
+        "bag_close"
+      ],
+      "targets": {
+        "bag.close": "bag_close"
+      }
+    },
+    "category_page": {
+      "anchors": [
+        "category_title",
+        "category_metal",
+        "category_food",
+        "category_processing"
+      ],
+      "targets": {
+        "category.open_metal": "category_metal"
+      }
+    },
+    "metal_panel": {
+      "anchors": [
+        "metal_title",
+        "metal_equipment"
+      ],
+      "targets": {
+        "metal.open_iron_recipe": "metal_iron_ore_tile"
+      },
+      "coordinate_targets": {
+        "page.close": [
+          1222,
+          20,
+          1264,
+          65
+        ]
+      }
+    },
+    "recipe_detail": {
+      "anchors": [
+        "detail_iron_name",
+        "detail_output_three",
+        "detail_equipment",
+        "detail_ore_name",
+        "detail_ore_ten",
+        "goto_processing"
+      ],
+      "targets": {}
+    },
+    "storage_account": {
+      "anchors": [
+        "storage_character_inactive",
+        "storage_account_active",
+        "storage_backpack_title",
+        "storage_close"
+      ],
+      "targets": {
+        "storage_account.close": "storage_close",
+        "storage.open_character": "storage_character_inactive"
+      }
+    },
+    "storage_character": {
+      "anchors": [
+        "storage_character_active",
+        "storage_account_inactive",
+        "storage_backpack_title",
+        "storage_close"
+      ],
+      "targets": {
+        "storage_character.close": "storage_close",
+        "storage.open_account": "storage_account_inactive"
+      }
+    },
+    "storage_dialog": {
+      "anchors": [
+        "storage_dialog_title",
+        "storage_dialog_open",
+        "storage_dialog_end"
+      ],
+      "targets": {
+        "storage_dialog.leave": "storage_dialog_end"
+      }
+    },
+    "skills": {
+      "anchors": [
+        "skills_processing_inactive",
+        "skills_close"
+      ],
+      "targets": {
+        "skills.open_processing": "skills_processing_inactive",
+        "skills.close": "skills_close"
+      }
+    }
+  },
+  "anchor_variants": {
+    "detail_iron_name": [
+      "detail_iron_name_live_nav52"
+    ],
+    "detail_output_three": [
+      "detail_output_three_live_nav52"
+    ],
+    "detail_equipment": [
+      "detail_equipment_live_nav52"
+    ],
+    "detail_ore_name": [
+      "detail_ore_name_live_nav52"
+    ],
+    "detail_ore_ten": [
+      "detail_ore_ten_live_nav52"
+    ],
+    "goto_processing": [
+      "goto_processing_live_nav52",
+      "goto_processing_live_nav55",
+      "goto_processing_disabled_glyph"
+    ],
+    "goto_device": [
+      "goto_device_live_nav51"
+    ],
+    "scene_bag": [
+      "scene_bag_mounted",
+      "scene_bag_live",
+      "scene_bag_live_entry"
+    ],
+    "scene_skills": [
+      "scene_skills_mounted",
+      "scene_skills_live_entry"
+    ],
+    "scene_menu": [
+      "scene_menu_mounted",
+      "scene_menu_live_entry"
+    ],
+    "bag_tools_tab": [
+      "bag_tools_current",
+      "bag_tools_label"
+    ],
+    "bag_fashion_tab": [
+      "bag_fashion_current",
+      "bag_fashion_live_inactive",
+      "bag_fashion_current_inactive"
+    ],
+    "bag_auto_wear": [
+      "bag_auto_wear_current"
+    ],
+    "bag_close": [
+      "bag_close_current",
+      "bag_close_live_x"
+    ],
+    "category_title": [
+      "category_title_live_current"
+    ],
+    "category_metal": [
+      "category_metal_live_current",
+      "category_metal_live_after_stop"
+    ],
+    "category_food": [
+      "category_food_live_current"
+    ],
+    "category_processing": [
+      "category_processing_live_current"
+    ],
+    "arrived_title": [
+      "arrived_title_live_nav48",
+      "arrived_title_current"
+    ],
+    "arrived_equipment": [
+      "arrived_equipment_live_nav48"
+    ],
+    "arrived_forge": [
+      "arrived_forge_live_nav48"
+    ],
+    "metal_iron_ore_tile": [
+      "metal_iron_ore_tile_live_nav48",
+      "metal_iron_ore_tile_live_nav51"
+    ],
+    "storage_character_inactive": [
+      "storage_character_inactive_current"
+    ],
+    "storage_account_active": [
+      "storage_account_active_current"
+    ],
+    "storage_close": [
+      "storage_close_hover"
+    ],
+    "storage_dialog_end": [
+      "storage_dialog_end_hover"
+    ],
+    "metal_title": [
+      "metal_title_live_storage_route"
+    ],
+    "metal_equipment": [
+      "metal_equipment_live_storage_route",
+      "metal_equipment_live_20261025"
+    ],
+    "craft_processing": [
+      "craft_processing_enabled_live"
+    ],
+    "detail_close_arrived": [
+      "detail_close_arrived_historical"
+    ]
+  },
+  "templates": {
+    "detail_iron_name_live_nav52": {
+      "path": "assets/templates/navigation_ui/1280x960/detail_iron_name_live_nav52.png",
+      "sha256": "2f321ee244a182faeb76318c8fb3b1308c6bf60257c3f0fcdf6978f6a4f330d1",
+      "bytes": 1777,
+      "box": [
+        825,
+        507,
+        877,
+        532
+      ],
+      "search": [
+        809,
+        491,
+        893,
+        548
+      ],
+      "threshold": 0.97,
+      "source": "release_catalog",
+      "source_sha256": "3cf3b9f0a415ca95238576559d3b512478872375d26b81026aa3767567f32cf1",
+      "source_size": [
+        1280,
+        960
+      ],
+      "crop_native": [
+        825,
+        507,
+        877,
+        532
+      ],
+      "output_size": [
+        52,
+        25
+      ],
+      "scale": [
+        1,
+        1
+      ],
+      "coordinates_for_input": false,
+      "variant_for": "detail_iron_name"
+    },
+    "detail_output_three_live_nav52": {
+      "path": "assets/templates/navigation_ui/1280x960/detail_output_three_live_nav52.png",
+      "sha256": "40d9b73c740dea5a7b583a88382e4c2e7bff72d0788aabc7f19a995316d39d65",
+      "bytes": 4880,
+      "box": [
+        730,
+        510,
+        806,
+        581
+      ],
+      "search": [
+        714,
+        494,
+        822,
+        597
+      ],
+      "threshold": 0.97,
+      "source": "release_catalog",
+      "source_sha256": "3cf3b9f0a415ca95238576559d3b512478872375d26b81026aa3767567f32cf1",
+      "source_size": [
+        1280,
+        960
+      ],
+      "crop_native": [
+        730,
+        510,
+        806,
+        581
+      ],
+      "output_size": [
+        76,
+        71
+      ],
+      "scale": [
+        1,
+        1
+      ],
+      "coordinates_for_input": false,
+      "variant_for": "detail_output_three"
+    },
+    "detail_equipment_live_nav52": {
+      "path": "assets/templates/navigation_ui/1280x960/detail_equipment_live_nav52.png",
+      "sha256": "08b0a1013669ad9822062bff18fb3999b511e46d92604d7476eeb4e71dd52033",
+      "bytes": 3220,
+      "box": [
+        825,
+        574,
+        992,
+        598
+      ],
+      "search": [
+        809,
+        558,
+        1008,
+        614
+      ],
+      "threshold": 0.97,
+      "source": "release_catalog",
+      "source_sha256": "3cf3b9f0a415ca95238576559d3b512478872375d26b81026aa3767567f32cf1",
+      "source_size": [
+        1280,
+        960
+      ],
+      "crop_native": [
+        825,
+        574,
+        992,
+        598
+      ],
+      "output_size": [
+        167,
+        24
+      ],
+      "scale": [
+        1,
+        1
+      ],
+      "coordinates_for_input": false,
+      "variant_for": "detail_equipment"
+    },
+    "detail_ore_name_live_nav52": {
+      "path": "assets/templates/navigation_ui/1280x960/detail_ore_name_live_nav52.png",
+      "sha256": "91dde6503b5d0af8971184108f3bf6d19a11ceedae7c4852dedaf64620bd1118",
+      "bytes": 1186,
+      "box": [
+        944,
+        769,
+        991,
+        789
+      ],
+      "search": [
+        928,
+        753,
+        1007,
+        805
+      ],
+      "threshold": 0.97,
+      "source": "release_catalog",
+      "source_sha256": "3cf3b9f0a415ca95238576559d3b512478872375d26b81026aa3767567f32cf1",
+      "source_size": [
+        1280,
+        960
+      ],
+      "crop_native": [
+        944,
+        769,
+        991,
+        789
+      ],
+      "output_size": [
+        47,
+        20
+      ],
+      "scale": [
+        1,
+        1
+      ],
+      "coordinates_for_input": false,
+      "variant_for": "detail_ore_name"
+    },
+    "detail_ore_ten_live_nav52": {
+      "path": "assets/templates/navigation_ui/1280x960/detail_ore_ten_live_nav52.png",
+      "sha256": "e8d037b53ca1235b1e188d07724d40e680d43619547f471d5a7e9faaa61b2f1b",
+      "bytes": 612,
+      "box": [
+        974,
+        738,
+        994,
+        751
+      ],
+      "search": [
+        958,
+        722,
+        1010,
+        767
+      ],
+      "threshold": 0.97,
+      "source": "release_catalog",
+      "source_sha256": "3cf3b9f0a415ca95238576559d3b512478872375d26b81026aa3767567f32cf1",
+      "source_size": [
+        1280,
+        960
+      ],
+      "crop_native": [
+        974,
+        738,
+        994,
+        751
+      ],
+      "output_size": [
+        20,
+        13
+      ],
+      "scale": [
+        1,
+        1
+      ],
+      "coordinates_for_input": false,
+      "variant_for": "detail_ore_ten"
+    },
+    "goto_processing_live_nav52": {
+      "match_mode": "light_text",
+      "glyph_threshold": 0.97,
+      "path": "assets/templates/navigation_ui/1280x960/goto_processing_live_nav52.png",
+      "sha256": "ba7f54845adca497e3b5b02a3506708101f3f3a9cb46ea0e7642f782b2195b3f",
+      "bytes": 1850,
+      "box": [
+        950,
+        890,
+        1052,
+        917
+      ],
+      "search": [
+        934,
+        874,
+        1068,
+        933
+      ],
+      "threshold": 0.97,
+      "source": "release_catalog",
+      "source_sha256": "3cf3b9f0a415ca95238576559d3b512478872375d26b81026aa3767567f32cf1",
+      "source_size": [
+        1280,
+        960
+      ],
+      "crop_native": [
+        950,
+        890,
+        1052,
+        917
+      ],
+      "output_size": [
+        102,
+        27
+      ],
+      "scale": [
+        1,
+        1
+      ],
+      "coordinates_for_input": false,
+      "variant_for": "goto_processing"
+    },
+    "metal_iron_ore_tile_live_nav51": {
+      "path": "assets/templates/navigation_ui/1280x960/metal_iron_ore_tile_live_nav51.png",
+      "sha256": "dffb926edddad2543dcfc29c4817bf38807c9e653260d33078a13e34ddd2c8e7",
+      "bytes": 2809,
+      "box": [
+        673,
+        279,
+        765,
+        305
+      ],
+      "search": [
+        649,
+        255,
+        789,
+        329
+      ],
+      "threshold": 0.97,
+      "source": "release_catalog",
+      "source_sha256": "2e072faad789e5b031a9f6325b15638ccf7b0a160f72c313be095085aa108631",
+      "source_size": [
+        1280,
+        960
+      ],
+      "crop_native": [
+        673,
+        279,
+        765,
+        305
+      ],
+      "output_size": [
+        92,
+        26
+      ],
+      "scale": [
+        1,
+        1
+      ],
+      "coordinates_for_input": false,
+      "variant_for": "metal_iron_ore_tile"
+    },
+    "goto_device_live_nav51": {
+      "path": "assets/templates/navigation_ui/1280x960/goto_device_live_nav51.png",
+      "sha256": "c456c684a8075fa372ea5c6faa39968901f3833189531119614baf3bd4af9d45",
+      "bytes": 2112,
+      "box": [
+        106,
+        192,
+        192,
+        215
+      ],
+      "search": [
+        82,
+        168,
+        216,
+        239
+      ],
+      "threshold": 0.97,
+      "source": "release_catalog",
+      "source_sha256": "2e072faad789e5b031a9f6325b15638ccf7b0a160f72c313be095085aa108631",
+      "source_size": [
+        1280,
+        960
+      ],
+      "crop_native": [
+        106,
+        192,
+        192,
+        215
+      ],
+      "output_size": [
+        86,
+        23
+      ],
+      "scale": [
+        1,
+        1
+      ],
+      "coordinates_for_input": false,
+      "variant_for": "goto_device"
+    },
+    "scene_bag_mounted": {
+      "path": "assets/templates/navigation_ui/1280x960/scene_bag_mounted.png",
+      "sha256": "de8984d43e33e1cdebc5c4a057eef9e6a6e63e2cfc489358258a7486f8e98802",
+      "bytes": 2000,
+      "box": [
+        1059,
+        900,
+        1107,
+        946
+      ],
+      "search": [
+        1035,
+        876,
+        1131,
+        960
+      ],
+      "threshold": 0.97,
+      "source": "release_catalog",
+      "source_sha256": "b9138425fc81b7a95a42294f835072b87c3d92e732102da34a2258f2c0550985",
+      "source_size": [
+        1280,
+        960
+      ],
+      "crop_native": [
+        1059,
+        900,
+        1107,
+        946
+      ],
+      "output_size": [
+        48,
+        46
+      ],
+      "scale": [
+        1,
+        1
+      ],
+      "coordinates_for_input": false,
+      "variant_for": "scene_bag",
+      "control_box": [
+        1067,
+        882,
+        1099,
+        914
+      ]
+    },
+    "scene_bag": {
+      "path": "assets/templates/navigation_ui/1280x960/scene_bag.png",
+      "sha256": "8604f70a835c92f63524972ec0ae8819b80864c89884deb1d9b48c2cf1657a96",
+      "bytes": 2069,
+      "box": [
+        1078,
+        878,
+        1127,
+        916
+      ],
+      "search": [
+        1054,
+        854,
+        1151,
+        940
+      ],
+      "threshold": 0.97,
+      "source": "release_catalog",
+      "source_sha256": "a9113c0e468f9bf80d30b61333e0f9cf9d5d3b5ac51a9c2fb2862f00a5504450",
+      "source_size": [
+        1280,
+        960
+      ],
+      "crop_native": [
+        1078,
+        878,
+        1127,
+        916
+      ],
+      "output_size": [
+        49,
+        38
+      ],
+      "scale": [
+        1,
+        1
+      ],
+      "coordinates_for_input": false,
+      "control_box": [
+        1086,
+        881,
+        1118,
+        913
+      ]
+    },
+    "scene_skills": {
+      "path": "assets/templates/navigation_ui/1280x960/scene_skills.png",
+      "sha256": "f9ba2699cbd276037c3b8f31ef91637fa8647d3147375460443c955dc3452928",
+      "bytes": 2335,
+      "box": [
+        985,
+        884,
+        1033,
+        922
+      ],
+      "search": [
+        961,
+        860,
+        1057,
+        946
+      ],
+      "threshold": 0.97,
+      "source": "release_catalog",
+      "source_sha256": "a9113c0e468f9bf80d30b61333e0f9cf9d5d3b5ac51a9c2fb2862f00a5504450",
+      "source_size": [
+        1280,
+        960
+      ],
+      "crop_native": [
+        985,
+        884,
+        1033,
+        922
+      ],
+      "output_size": [
+        48,
+        38
+      ],
+      "scale": [
+        1,
+        1
+      ],
+      "coordinates_for_input": false,
+      "control_box": [
+        993,
+        887,
+        1025,
+        919
+      ]
+    },
+    "scene_menu": {
+      "path": "assets/templates/navigation_ui/1280x960/scene_menu.png",
+      "sha256": "da0b37241f35f8039e2cafbc448f9ed652d4897fb70f80b3e5c86bc2f0bd6172",
+      "bytes": 1527,
+      "box": [
+        1081,
+        30,
+        1118,
+        65
+      ],
+      "search": [
+        1057,
+        6,
+        1142,
+        89
+      ],
+      "threshold": 0.97,
+      "source": "release_catalog",
+      "source_sha256": "a9113c0e468f9bf80d30b61333e0f9cf9d5d3b5ac51a9c2fb2862f00a5504450",
+      "source_size": [
+        1280,
+        960
+      ],
+      "crop_native": [
+        1081,
+        30,
+        1118,
+        65
+      ],
+      "output_size": [
+        48,
+        35
+      ],
+      "scale": [
+        1,
+        1
+      ],
+      "coordinates_for_input": false,
+      "control_box": [
+        1083,
+        31,
+        1115,
+        63
+      ]
+    },
+    "scene_skills_mounted": {
+      "path": "assets/templates/navigation_ui/1280x960/scene_skills_mounted.png",
+      "sha256": "fce69c8f1edb8f8f305f0852410af1e2c2dcf40ffce80f9b6dad13a6d078f539",
+      "bytes": 2410,
+      "box": [
+        957,
+        899,
+        1005,
+        947
+      ],
+      "search": [
+        933,
+        875,
+        1029,
+        959
+      ],
+      "threshold": 0.97,
+      "source": "release_catalog",
+      "source_sha256": "b98952c2beb14380aac4c8e0f0ba7f7c4cc35e36c2b09541f40f29350413e39e",
+      "source_size": [
+        1280,
+        960
+      ],
+      "crop_native": [
+        957,
+        899,
+        1005,
+        947
+      ],
+      "output_size": [
+        48,
+        48
+      ],
+      "scale": [
+        1,
+        1
+      ],
+      "coordinates_for_input": false,
+      "variant_for": "scene_skills",
+      "control_box": [
+        965,
+        882,
+        997,
+        914
+      ]
+    },
+    "scene_bag_live": {
+      "path": "assets/templates/navigation_ui/1280x960/scene_bag_live.png",
+      "sha256": "e83dbc38269da0514902c2fca0ad451f09854a819065920b5c26a8c2ff6210eb",
+      "bytes": 1777,
+      "box": [
+        1059,
+        900,
+        1107,
+        946
+      ],
+      "search": [
+        1035,
+        876,
+        1131,
+        960
+      ],
+      "threshold": 0.97,
+      "source": "release_catalog",
+      "source_sha256": "b98952c2beb14380aac4c8e0f0ba7f7c4cc35e36c2b09541f40f29350413e39e",
+      "source_size": [
+        1280,
+        960
+      ],
+      "crop_native": [
+        1059,
+        900,
+        1107,
+        946
+      ],
+      "output_size": [
+        48,
+        46
+      ],
+      "scale": [
+        1,
+        1
+      ],
+      "coordinates_for_input": false,
+      "variant_for": "scene_bag",
+      "control_box": [
+        1067,
+        882,
+        1099,
+        914
+      ]
+    },
+    "scene_menu_mounted": {
+      "path": "assets/templates/navigation_ui/1280x960/scene_menu_mounted.png",
+      "sha256": "ecaff15a33c4ef3be86f7e16208a0b8cca41374213db536de25b40c0b82e12d8",
+      "bytes": 2501,
+      "box": [
+        1058,
+        14,
+        1106,
+        62
+      ],
+      "search": [
+        1034,
+        0,
+        1130,
+        86
+      ],
+      "threshold": 0.97,
+      "source": "release_catalog",
+      "source_sha256": "b98952c2beb14380aac4c8e0f0ba7f7c4cc35e36c2b09541f40f29350413e39e",
+      "source_size": [
+        1280,
+        960
+      ],
+      "crop_native": [
+        1058,
+        14,
+        1106,
+        62
+      ],
+      "output_size": [
+        48,
+        48
+      ],
+      "scale": [
+        1,
+        1
+      ],
+      "coordinates_for_input": false,
+      "variant_for": "scene_menu",
+      "control_box": [
+        1066,
+        22,
+        1098,
+        54
+      ]
+    },
+    "bag_tools_tab": {
+      "path": "assets/templates/navigation_ui/1280x960/bag_tools_tab.png",
+      "sha256": "e829c1c3970241878e2370fe54874708956a07cfe242617604b6ff2d3454cf5b",
+      "bytes": 1833,
+      "box": [
+        876,
+        872,
+        930,
+        938
+      ],
+      "search": [
+        852,
+        848,
+        954,
+        960
+      ],
+      "threshold": 0.97,
+      "source": "release_catalog",
+      "source_sha256": "23f5cace5c06be3a8fab56cdc8bde21fa9802bf7460f9ac22419dc35d8415aa4",
+      "source_size": [
+        1280,
+        960
+      ],
+      "crop_native": [
+        876,
+        872,
+        930,
+        938
+      ],
+      "output_size": [
+        54,
+        66
+      ],
+      "scale": [
+        1,
+        1
+      ],
+      "coordinates_for_input": false
+    },
+    "bag_fashion_tab": {
+      "path": "assets/templates/navigation_ui/1280x960/bag_fashion_tab.png",
+      "sha256": "5b704500251b4a69f8ef72262b98977061c570e275615a3de0692de13999c265",
+      "bytes": 2435,
+      "box": [
+        1043,
+        872,
+        1112,
+        938
+      ],
+      "search": [
+        1019,
+        848,
+        1136,
+        960
+      ],
+      "threshold": 0.97,
+      "source": "release_catalog",
+      "source_sha256": "23f5cace5c06be3a8fab56cdc8bde21fa9802bf7460f9ac22419dc35d8415aa4",
+      "source_size": [
+        1280,
+        960
+      ],
+      "crop_native": [
+        1043,
+        872,
+        1112,
+        938
+      ],
+      "output_size": [
+        69,
+        66
+      ],
+      "scale": [
+        1,
+        1
+      ],
+      "coordinates_for_input": false
+    },
+    "bag_auto_wear": {
+      "path": "assets/templates/navigation_ui/1280x960/bag_auto_wear.png",
+      "sha256": "f89ddc38ef618bb951638760ee26a7d652230ed33e1b2f440f128a571eaf549c",
+      "bytes": 2802,
+      "box": [
+        10,
+        13,
+        120,
+        51
+      ],
+      "search": [
+        0,
+        0,
+        144,
+        75
+      ],
+      "threshold": 0.97,
+      "source": "release_catalog",
+      "source_sha256": "23f5cace5c06be3a8fab56cdc8bde21fa9802bf7460f9ac22419dc35d8415aa4",
+      "source_size": [
+        1280,
+        960
+      ],
+      "crop_native": [
+        10,
+        13,
+        120,
+        51
+      ],
+      "output_size": [
+        110,
+        38
+      ],
+      "scale": [
+        1,
+        1
+      ],
+      "coordinates_for_input": false
+    },
+    "bag_close": {
+      "path": "assets/templates/navigation_ui/1280x960/bag_close.png",
+      "sha256": "c3b1383c7fa2955c649a9440e97abb23f8ca2240675e8660282ff2df62e84173",
+      "bytes": 1259,
+      "box": [
+        1230,
+        17,
+        1260,
+        48
+      ],
+      "search": [
+        1206,
+        0,
+        1280,
+        72
+      ],
+      "threshold": 0.97,
+      "source": "release_catalog",
+      "source_sha256": "23f5cace5c06be3a8fab56cdc8bde21fa9802bf7460f9ac22419dc35d8415aa4",
+      "source_size": [
+        1280,
+        960
+      ],
+      "crop_native": [
+        1230,
+        17,
+        1260,
+        48
+      ],
+      "output_size": [
+        30,
+        31
+      ],
+      "scale": [
+        1,
+        1
+      ],
+      "coordinates_for_input": false
+    },
+    "category_title": {
+      "path": "assets/templates/navigation_ui/1280x960/category_title.png",
+      "sha256": "279ebea0f11ee43246baeb3ed9a1f0ad616fd80e6d962ee967cb60399c8ec450",
+      "bytes": 4671,
+      "box": [
+        120,
+        15,
+        245,
+        55
+      ],
+      "search": [
+        96,
+        0,
+        269,
+        79
+      ],
+      "threshold": 0.97,
+      "source": "release_catalog",
+      "source_sha256": "a1000707cef14a6c93fb44e24105bc8f777ae72629225b0c8992d351f50d6f7b",
+      "source_size": [
+        1280,
+        960
+      ],
+      "crop_native": [
+        120,
+        15,
+        245,
+        55
+      ],
+      "output_size": [
+        125,
+        40
+      ],
+      "scale": [
+        1,
+        1
+      ],
+      "coordinates_for_input": false
+    },
+    "category_metal": {
+      "path": "assets/templates/navigation_ui/1280x960/category_metal.png",
+      "sha256": "9d023e05d454bb83a53add65b13227f16ad7ac8c991f8cfadbc3b6ff9791ef1d",
+      "bytes": 2453,
+      "box": [
+        270,
+        228,
+        360,
+        259
+      ],
+      "search": [
+        246,
+        204,
+        384,
+        283
+      ],
+      "threshold": 0.97,
+      "source": "release_catalog",
+      "source_sha256": "a1000707cef14a6c93fb44e24105bc8f777ae72629225b0c8992d351f50d6f7b",
+      "source_size": [
+        1280,
+        960
+      ],
+      "crop_native": [
+        270,
+        228,
+        360,
+        259
+      ],
+      "output_size": [
+        90,
+        31
+      ],
+      "scale": [
+        1,
+        1
+      ],
+      "coordinates_for_input": false
+    },
+    "category_food": {
+      "path": "assets/templates/navigation_ui/1280x960/category_food.png",
+      "sha256": "7d7725a1a1e3934be3ba13f9a14285ba1a7c16fe51dcd3db30956f4e6b7fdbe0",
+      "bytes": 2450,
+      "box": [
+        515,
+        580,
+        625,
+        612
+      ],
+      "search": [
+        491,
+        556,
+        649,
+        636
+      ],
+      "threshold": 0.97,
+      "source": "release_catalog",
+      "source_sha256": "a1000707cef14a6c93fb44e24105bc8f777ae72629225b0c8992d351f50d6f7b",
+      "source_size": [
+        1280,
+        960
+      ],
+      "crop_native": [
+        515,
+        580,
+        625,
+        612
+      ],
+      "output_size": [
+        110,
+        32
+      ],
+      "scale": [
+        1,
+        1
+      ],
+      "coordinates_for_input": false
+    },
+    "category_processing": {
+      "path": "assets/templates/navigation_ui/1280x960/category_processing.png",
+      "sha256": "ac9c97028b16a7d2805f11faca61a54be5841ed51cc371c1e9b8c04077ee36e0",
+      "bytes": 1515,
+      "box": [
+        30,
+        427,
+        79,
+        475
+      ],
+      "search": [
+        6,
+        403,
+        103,
+        499
+      ],
+      "threshold": 0.97,
+      "source": "release_catalog",
+      "source_sha256": "a1000707cef14a6c93fb44e24105bc8f777ae72629225b0c8992d351f50d6f7b",
+      "source_size": [
+        1280,
+        960
+      ],
+      "crop_native": [
+        30,
+        427,
+        79,
+        475
+      ],
+      "output_size": [
+        49,
+        48
+      ],
+      "scale": [
+        1,
+        1
+      ],
+      "coordinates_for_input": false
+    },
+    "metal_title": {
+      "path": "assets/templates/navigation_ui/1280x960/metal_title.png",
+      "sha256": "68905f05b1b111170612c169f6ab869b12d44e1d752ef2303a4281019426ef4d",
+      "bytes": 4333,
+      "box": [
+        60,
+        20,
+        195,
+        50
+      ],
+      "search": [
+        44,
+        4,
+        211,
+        66
+      ],
+      "threshold": 0.97,
+      "source": "release_catalog",
+      "source_sha256": "c5e9209330f349ff46d670d3a1835532e25d786c8fddf90a89d181134ccfbe03",
+      "source_size": [
+        1280,
+        960
+      ],
+      "crop_native": [
+        60,
+        20,
+        195,
+        50
+      ],
+      "output_size": [
+        135,
+        30
+      ],
+      "scale": [
+        1,
+        1
+      ],
+      "coordinates_for_input": false
+    },
+    "metal_equipment": {
+      "path": "assets/templates/navigation_ui/1280x960/metal_equipment.png",
+      "sha256": "4174773f51be46ef2fabc4f6a40040c23515d1b5821d63945481a9ee80d4efc6",
+      "bytes": 4305,
+      "box": [
+        68,
+        96,
+        230,
+        122
+      ],
+      "search": [
+        52,
+        80,
+        246,
+        138
+      ],
+      "threshold": 0.97,
+      "source": "release_catalog",
+      "source_sha256": "c5e9209330f349ff46d670d3a1835532e25d786c8fddf90a89d181134ccfbe03",
+      "source_size": [
+        1280,
+        960
+      ],
+      "crop_native": [
+        68,
+        96,
+        230,
+        122
+      ],
+      "output_size": [
+        162,
+        26
+      ],
+      "scale": [
+        1,
+        1
+      ],
+      "coordinates_for_input": false
+    },
+    "metal_iron_ore_tile": {
+      "path": "assets/templates/navigation_ui/1280x960/metal_iron_ore_tile.png",
+      "sha256": "01a499d36329359959a80983a07fcddd69117be60eb0802098cd670c31a9a826",
+      "bytes": 2643,
+      "box": [
+        598,
+        249,
+        690,
+        275
+      ],
+      "search": [
+        582,
+        233,
+        706,
+        291
+      ],
+      "threshold": 0.97,
+      "source": "release_catalog",
+      "source_sha256": "c5e9209330f349ff46d670d3a1835532e25d786c8fddf90a89d181134ccfbe03",
+      "source_size": [
+        1280,
+        960
+      ],
+      "crop_native": [
+        598,
+        249,
+        690,
+        275
+      ],
+      "output_size": [
+        92,
+        26
+      ],
+      "scale": [
+        1,
+        1
+      ],
+      "coordinates_for_input": false
+    },
+    "goto_device": {
+      "path": "assets/templates/navigation_ui/1280x960/goto_device.png",
+      "sha256": "abfa229c6a7682056ccf8bc1f79162843425276405c2915cf7d46bc106ad71d6",
+      "bytes": 2069,
+      "box": [
+        95,
+        171,
+        173,
+        195
+      ],
+      "search": [
+        79,
+        155,
+        189,
+        211
+      ],
+      "threshold": 0.97,
+      "source": "release_catalog",
+      "source_sha256": "c5e9209330f349ff46d670d3a1835532e25d786c8fddf90a89d181134ccfbe03",
+      "source_size": [
+        1280,
+        960
+      ],
+      "crop_native": [
+        95,
+        171,
+        173,
+        195
+      ],
+      "output_size": [
+        78,
+        24
+      ],
+      "scale": [
+        1,
+        1
+      ],
+      "coordinates_for_input": false
+    },
+    "detail_iron_name": {
+      "path": "assets/templates/navigation_ui/1280x960/detail_iron_name.png",
+      "sha256": "50eee3896a74acd0947ca31f7326ba8eec74597052c4507850c622ce9457293e",
+      "bytes": 1573,
+      "box": [
+        867,
+        549,
+        913,
+        575
+      ],
+      "search": [
+        851,
+        533,
+        929,
+        591
+      ],
+      "threshold": 0.97,
+      "source": "release_catalog",
+      "source_sha256": "225dad8145973e9195c4e92ea239f936a8341f752c628b413cf489b68b16c1f3",
+      "source_size": [
+        1280,
+        960
+      ],
+      "crop_native": [
+        867,
+        549,
+        913,
+        575
+      ],
+      "output_size": [
+        46,
+        26
+      ],
+      "scale": [
+        1,
+        1
+      ],
+      "coordinates_for_input": false
+    },
+    "detail_output_three": {
+      "path": "assets/templates/navigation_ui/1280x960/detail_output_three.png",
+      "sha256": "b3263d70acbbb7934bc5c7f6eb1faa94cbcf17918ed7b7b4e401e380fdb2bba1",
+      "bytes": 4108,
+      "box": [
+        779,
+        550,
+        852,
+        620
+      ],
+      "search": [
+        763,
+        534,
+        868,
+        636
+      ],
+      "threshold": 0.97,
+      "source": "release_catalog",
+      "source_sha256": "225dad8145973e9195c4e92ea239f936a8341f752c628b413cf489b68b16c1f3",
+      "source_size": [
+        1280,
+        960
+      ],
+      "crop_native": [
+        779,
+        550,
+        852,
+        620
+      ],
+      "output_size": [
+        73,
+        70
+      ],
+      "scale": [
+        1,
+        1
+      ],
+      "coordinates_for_input": false
+    },
+    "detail_equipment": {
+      "path": "assets/templates/navigation_ui/1280x960/detail_equipment.png",
+      "sha256": "8a05c2bd5826b94fdd21adbec471e8984f52d1200b046ae387530a4298ec34a8",
+      "bytes": 2978,
+      "box": [
+        870,
+        610,
+        1025,
+        633
+      ],
+      "search": [
+        854,
+        594,
+        1041,
+        649
+      ],
+      "threshold": 0.97,
+      "source": "release_catalog",
+      "source_sha256": "225dad8145973e9195c4e92ea239f936a8341f752c628b413cf489b68b16c1f3",
+      "source_size": [
+        1280,
+        960
+      ],
+      "crop_native": [
+        870,
+        610,
+        1025,
+        633
+      ],
+      "output_size": [
+        155,
+        23
+      ],
+      "scale": [
+        1,
+        1
+      ],
+      "coordinates_for_input": false
+    },
+    "detail_ore_name": {
+      "path": "assets/templates/navigation_ui/1280x960/detail_ore_name.png",
+      "sha256": "53d574b902532c670969e33b0f97e8e298c304d8ce816bacd122aee723910f36",
+      "bytes": 1071,
+      "box": [
+        974,
+        784,
+        1020,
+        805
+      ],
+      "search": [
+        958,
+        768,
+        1036,
+        821
+      ],
+      "threshold": 0.97,
+      "source": "release_catalog",
+      "source_sha256": "225dad8145973e9195c4e92ea239f936a8341f752c628b413cf489b68b16c1f3",
+      "source_size": [
+        1280,
+        960
+      ],
+      "crop_native": [
+        974,
+        784,
+        1020,
+        805
+      ],
+      "output_size": [
+        46,
+        21
+      ],
+      "scale": [
+        1,
+        1
+      ],
+      "coordinates_for_input": false
+    },
+    "detail_ore_ten": {
+      "path": "assets/templates/navigation_ui/1280x960/detail_ore_ten.png",
+      "sha256": "1682e04ce4cc6a6bfc7d958a3b154c05cacf37ccb6d39b2388753c616a9229a7",
+      "bytes": 769,
+      "box": [
+        1003,
+        757,
+        1023,
+        777
+      ],
+      "search": [
+        987,
+        741,
+        1039,
+        793
+      ],
+      "threshold": 0.97,
+      "source": "release_catalog",
+      "source_sha256": "225dad8145973e9195c4e92ea239f936a8341f752c628b413cf489b68b16c1f3",
+      "source_size": [
+        1280,
+        960
+      ],
+      "crop_native": [
+        1003,
+        757,
+        1023,
+        777
+      ],
+      "output_size": [
+        20,
+        20
+      ],
+      "scale": [
+        1,
+        1
+      ],
+      "coordinates_for_input": false
+    },
+    "goto_processing": {
+      "path": "assets/templates/navigation_ui/1280x960/goto_processing.png",
+      "sha256": "fbeffada3cbb4ce5b37e98172d5ba4924f5702a1f0bd54507df1f043dd06aa3f",
+      "bytes": 1530,
+      "box": [
+        980,
+        895,
+        1075,
+        925
+      ],
+      "search": [
+        964,
+        879,
+        1091,
+        941
+      ],
+      "threshold": 0.97,
+      "source": "release_catalog",
+      "source_sha256": "225dad8145973e9195c4e92ea239f936a8341f752c628b413cf489b68b16c1f3",
+      "source_size": [
+        1280,
+        960
+      ],
+      "crop_native": [
+        980,
+        895,
+        1075,
+        925
+      ],
+      "output_size": [
+        95,
+        30
+      ],
+      "scale": [
+        1,
+        1
+      ],
+      "coordinates_for_input": false
+    },
+    "arrived_title": {
+      "path": "assets/templates/navigation_ui/1280x960/arrived_title.png",
+      "sha256": "c1ae31a6d7db322d9825f9d6c773b0bd0539d6b7da8b47ef6ae657c70f0868b1",
+      "bytes": 4060,
+      "box": [
+        20,
+        26,
+        160,
+        65
+      ],
+      "search": [
+        8,
+        14,
+        172,
+        77
+      ],
+      "threshold": 0.97,
+      "source": "release_catalog",
+      "source_sha256": "438c2256623d25210257b33d93771728da23152b587f1ba041394d5408d0c165",
+      "source_size": [
+        1280,
+        960
+      ],
+      "crop_native": [
+        20,
+        26,
+        160,
+        65
+      ],
+      "output_size": [
+        140,
+        39
+      ],
+      "scale": [
+        1,
+        1
+      ],
+      "coordinates_for_input": false
+    },
+    "arrived_equipment": {
+      "path": "assets/templates/navigation_ui/1280x960/arrived_equipment.png",
+      "sha256": "f8069be09e500a2a5381a26193ac88e91264565537f1d9f5998af154c202d714",
+      "bytes": 7914,
+      "box": [
+        68,
+        129,
+        300,
+        161
+      ],
+      "search": [
+        56,
+        117,
+        312,
+        173
+      ],
+      "threshold": 0.97,
+      "source": "release_catalog",
+      "source_sha256": "438c2256623d25210257b33d93771728da23152b587f1ba041394d5408d0c165",
+      "source_size": [
+        1280,
+        960
+      ],
+      "crop_native": [
+        68,
+        129,
+        300,
+        161
+      ],
+      "output_size": [
+        232,
+        32
+      ],
+      "scale": [
+        1,
+        1
+      ],
+      "coordinates_for_input": false,
+      "match_mode": "light_text"
+    },
+    "arrived_forge": {
+      "path": "assets/templates/navigation_ui/1280x960/arrived_forge.png",
+      "sha256": "1e79f1c149580d062203ea7d2ba2338eea5fdc6f03cf76445ae13a7e16c7ac4b",
+      "bytes": 52971,
+      "box": [
+        145,
+        400,
+        360,
+        635
+      ],
+      "search": [
+        133,
+        388,
+        372,
+        647
+      ],
+      "threshold": 0.97,
+      "source": "release_catalog",
+      "source_sha256": "438c2256623d25210257b33d93771728da23152b587f1ba041394d5408d0c165",
+      "source_size": [
+        1280,
+        960
+      ],
+      "crop_native": [
+        145,
+        400,
+        360,
+        635
+      ],
+      "output_size": [
+        215,
+        235
+      ],
+      "scale": [
+        1,
+        1
+      ],
+      "coordinates_for_input": false
+    },
+    "craft_processing": {
+      "path": "assets/templates/navigation_ui/1280x960/craft_processing.png",
+      "sha256": "d04a8b93c3f6c138375903a527643ed127771ddf24f4329902c1ec78dc47b437",
+      "bytes": 767,
+      "box": [
+        1000,
+        891,
+        1055,
+        926
+      ],
+      "search": [
+        988,
+        879,
+        1067,
+        938
+      ],
+      "threshold": 0.97,
+      "source": "release_catalog",
+      "source_sha256": "1af43a7ba7cf5329ebb474052bfd90b6fe3a2400ad2904b3aea5f82171f6082d",
+      "source_size": [
+        1280,
+        960
+      ],
+      "crop_native": [
+        1000,
+        891,
+        1055,
+        926
+      ],
+      "output_size": [
+        55,
+        35
+      ],
+      "scale": [
+        1,
+        1
+      ],
+      "coordinates_for_input": false
+    },
+    "bag_tools_current": {
+      "path": "assets/templates/navigation_ui/1280x960/bag_tools_current.png",
+      "sha256": "32ffab5678d6de144dbf41f545707f59a8ba09b5b8983afcb839f0e0d6eae3d7",
+      "bytes": 1715,
+      "box": [
+        820,
+        865,
+        890,
+        938
+      ],
+      "search": [
+        798,
+        842,
+        920,
+        960
+      ],
+      "threshold": 0.97,
+      "source": "release_catalog",
+      "source_sha256": "a7af426709479b0241c8d514cdf5406d8d24df8f8d75d4cd48b642aff2722c63",
+      "source_size": [
+        1280,
+        960
+      ],
+      "crop_native": [
+        820,
+        865,
+        890,
+        938
+      ],
+      "output_size": [
+        70,
+        73
+      ],
+      "scale": [
+        1,
+        1
+      ],
+      "coordinates_for_input": false
+    },
+    "bag_fashion_current": {
+      "path": "assets/templates/navigation_ui/1280x960/bag_fashion_current.png",
+      "sha256": "a4e589fa455a95e4f1f353e54f97a7458143f454d438625ab15c408a8621f82d",
+      "bytes": 2494,
+      "box": [
+        1020,
+        865,
+        1090,
+        938
+      ],
+      "search": [
+        998,
+        842,
+        1120,
+        960
+      ],
+      "threshold": 0.97,
+      "source": "release_catalog",
+      "source_sha256": "a7af426709479b0241c8d514cdf5406d8d24df8f8d75d4cd48b642aff2722c63",
+      "source_size": [
+        1280,
+        960
+      ],
+      "crop_native": [
+        1020,
+        865,
+        1090,
+        938
+      ],
+      "output_size": [
+        70,
+        73
+      ],
+      "scale": [
+        1,
+        1
+      ],
+      "coordinates_for_input": false
+    },
+    "bag_auto_wear_current": {
+      "path": "assets/templates/navigation_ui/1280x960/bag_auto_wear_current.png",
+      "sha256": "7ad164efab3ce9beaa39387511be7f3a41ceca6cbfdce214203e2c23565196be",
+      "bytes": 2663,
+      "box": [
+        16,
+        17,
+        126,
+        55
+      ],
+      "search": [
+        0,
+        0,
+        144,
+        75
+      ],
+      "threshold": 0.97,
+      "source": "release_catalog",
+      "source_sha256": "a7af426709479b0241c8d514cdf5406d8d24df8f8d75d4cd48b642aff2722c63",
+      "source_size": [
+        1280,
+        960
+      ],
+      "crop_native": [
+        16,
+        17,
+        126,
+        55
+      ],
+      "output_size": [
+        110,
+        38
+      ],
+      "scale": [
+        1,
+        1
+      ],
+      "coordinates_for_input": false
+    },
+    "bag_close_current": {
+      "path": "assets/templates/navigation_ui/1280x960/bag_close_current.png",
+      "sha256": "b8ea9e01ec27f27b7893e1783e7c4f5e70dba80734681d28c907aa2c06046d6f",
+      "bytes": 1244,
+      "box": [
+        1226,
+        21,
+        1256,
+        52
+      ],
+      "search": [
+        1206,
+        0,
+        1280,
+        72
+      ],
+      "threshold": 0.97,
+      "source": "release_catalog",
+      "source_sha256": "a7af426709479b0241c8d514cdf5406d8d24df8f8d75d4cd48b642aff2722c63",
+      "source_size": [
+        1280,
+        960
+      ],
+      "crop_native": [
+        1226,
+        21,
+        1256,
+        52
+      ],
+      "output_size": [
+        30,
+        31
+      ],
+      "scale": [
+        1,
+        1
+      ],
+      "coordinates_for_input": false
+    },
+    "bag_fashion_live_inactive": {
+      "path": "assets/templates/navigation_ui/1280x960/bag_fashion_live_inactive.png",
+      "sha256": "613dea3a6f26ede2272f19b2dc188aafcc909c1c5bc933ca9c50762869a1fa81",
+      "bytes": 2043,
+      "box": [
+        1041,
+        871,
+        1111,
+        944
+      ],
+      "search": [
+        1019,
+        848,
+        1136,
+        960
+      ],
+      "threshold": 0.97,
+      "source": "release_catalog",
+      "source_sha256": "277dc7f2778e44815b5182ce80457c2369a52de561324e74033e2660b7fb7703",
+      "source_size": [
+        1280,
+        960
+      ],
+      "crop_native": [
+        1041,
+        871,
+        1111,
+        944
+      ],
+      "output_size": [
+        70,
+        73
+      ],
+      "scale": [
+        1,
+        1
+      ],
+      "coordinates_for_input": false,
+      "variant_of": "bag_fashion_tab"
+    },
+    "bag_close_live_x": {
+      "path": "assets/templates/navigation_ui/1280x960/bag_close_live_x.png",
+      "sha256": "f3a4f47233f5dc36d6ef6c2ca697a2670381a63187c8bdee5e4782e6d84a058f",
+      "bytes": 1417,
+      "box": [
+        1226,
+        21,
+        1256,
+        52
+      ],
+      "search": [
+        1206,
+        0,
+        1280,
+        72
+      ],
+      "threshold": 0.97,
+      "source": "release_catalog",
+      "source_sha256": "277dc7f2778e44815b5182ce80457c2369a52de561324e74033e2660b7fb7703",
+      "source_size": [
+        1280,
+        960
+      ],
+      "crop_native": [
+        1226,
+        21,
+        1256,
+        52
+      ],
+      "output_size": [
+        30,
+        31
+      ],
+      "scale": [
+        1,
+        1
+      ],
+      "coordinates_for_input": false,
+      "variant_of": "bag_close"
+    },
+    "category_title_live_current": {
+      "box": [
+        135,
+        19,
+        260,
+        59
+      ],
+      "search": [
+        111,
+        0,
+        284,
+        83
+      ],
+      "path": "assets/templates/navigation_ui/1280x960/category_title_live_current.png",
+      "sha256": "c9e9da99ced05dafbc99b0c5521b0c564b6c464c6a01a64b051f056c701bacb0",
+      "bytes": 3117,
+      "source": "release_catalog",
+      "source_sha256": "5e901f1599ec2066d73913edc1478c732da09f050023c948d17f0401af4868f8",
+      "source_size": [
+        1280,
+        960
+      ],
+      "crop_native": [
+        135,
+        19,
+        260,
+        59
+      ],
+      "output_size": [
+        125,
+        40
+      ],
+      "scale": [
+        1,
+        1
+      ],
+      "coordinates_for_input": false,
+      "variant_for": "category_title",
+      "threshold": 0.97
+    },
+    "category_metal_live_current": {
+      "box": [
+        235,
+        255,
+        325,
+        286
+      ],
+      "search": [
+        211,
+        231,
+        349,
+        310
+      ],
+      "path": "assets/templates/navigation_ui/1280x960/category_metal_live_current.png",
+      "sha256": "291782ac34aaf5619730219cda1e469966b07dcd61a6d5c4082f6576729c3317",
+      "bytes": 2367,
+      "source": "release_catalog",
+      "source_sha256": "5e901f1599ec2066d73913edc1478c732da09f050023c948d17f0401af4868f8",
+      "source_size": [
+        1280,
+        960
+      ],
+      "crop_native": [
+        235,
+        255,
+        325,
+        286
+      ],
+      "output_size": [
+        90,
+        31
+      ],
+      "scale": [
+        1,
+        1
+      ],
+      "coordinates_for_input": false,
+      "variant_for": "category_metal",
+      "threshold": 0.97
+    },
+    "category_food_live_current": {
+      "box": [
+        507,
+        646,
+        617,
+        678
+      ],
+      "search": [
+        483,
+        622,
+        641,
+        702
+      ],
+      "path": "assets/templates/navigation_ui/1280x960/category_food_live_current.png",
+      "sha256": "d19f44a43fecd6c8a22240ec185ff1a7de75715cce21797be43aefc85c2af7a0",
+      "bytes": 2352,
+      "source": "release_catalog",
+      "source_sha256": "5e901f1599ec2066d73913edc1478c732da09f050023c948d17f0401af4868f8",
+      "source_size": [
+        1280,
+        960
+      ],
+      "crop_native": [
+        507,
+        646,
+        617,
+        678
+      ],
+      "output_size": [
+        110,
+        32
+      ],
+      "scale": [
+        1,
+        1
+      ],
+      "coordinates_for_input": false,
+      "variant_for": "category_food",
+      "threshold": 0.97
+    },
+    "category_processing_live_current": {
+      "box": [
+        36,
+        423,
+        85,
+        471
+      ],
+      "search": [
+        12,
+        399,
+        109,
+        495
+      ],
+      "path": "assets/templates/navigation_ui/1280x960/category_processing_live_current.png",
+      "sha256": "0115b426b349388023ab05fc973e99254cd4c51b5d7daaf35dd5886c1d898686",
+      "bytes": 1384,
+      "source": "release_catalog",
+      "source_sha256": "5e901f1599ec2066d73913edc1478c732da09f050023c948d17f0401af4868f8",
+      "source_size": [
+        1280,
+        960
+      ],
+      "crop_native": [
+        36,
+        423,
+        85,
+        471
+      ],
+      "output_size": [
+        49,
+        48
+      ],
+      "scale": [
+        1,
+        1
+      ],
+      "coordinates_for_input": false,
+      "variant_for": "category_processing",
+      "threshold": 0.97,
+      "match_mode": "color_glyph"
+    },
+    "category_metal_live_after_stop": {
+      "box": [
+        235,
+        255,
+        325,
+        286
+      ],
+      "search": [
+        211,
+        231,
+        349,
+        310
+      ],
+      "path": "assets/templates/navigation_ui/1280x960/category_metal_live_after_stop.png",
+      "sha256": "38c99600baf8bf595ae6c1c98d9e4264aa0f60e0d1ca1ba62425986414afa7fc",
+      "bytes": 2418,
+      "source": "release_catalog",
+      "source_sha256": "b39b40b10337e78d9fd5ed8ad4585d38b568b0bb937be0a42267fd7e42d53737",
+      "source_size": [
+        1280,
+        960
+      ],
+      "crop_native": [
+        235,
+        255,
+        325,
+        286
+      ],
+      "output_size": [
+        90,
+        31
+      ],
+      "scale": [
+        1,
+        1
+      ],
+      "coordinates_for_input": false,
+      "variant_for": "category_metal",
+      "threshold": 0.97
+    },
+    "arrived_title_live_nav48": {
+      "path": "assets/templates/navigation_ui/1280x960/arrived_title_live_nav48.png",
+      "sha256": "c1b60462745dd93b72c2fd336c66a154a734a6b252f7c4422df15f39826b840a",
+      "bytes": 3564,
+      "box": [
+        83,
+        31,
+        223,
+        70
+      ],
+      "search": [
+        59,
+        7,
+        247,
+        94
+      ],
+      "threshold": 0.97,
+      "source": "release_catalog",
+      "source_sha256": "adefb3676547f70152d3909d3567a5cdf865d949db668039812bf011ac46a6b3",
+      "source_size": [
+        1280,
+        960
+      ],
+      "crop_native": [
+        83,
+        31,
+        223,
+        70
+      ],
+      "output_size": [
+        140,
+        39
+      ],
+      "scale": [
+        1,
+        1
+      ],
+      "coordinates_for_input": false,
+      "variant_for": "arrived_title"
+    },
+    "arrived_title_current": {
+      "path": "assets/templates/navigation_ui/1280x960/arrived_title_current.png",
+      "sha256": "c976cec2757e902e05c0765b8c60edf7503acebd8b815edd5df57c4f72ec1191",
+      "bytes": 5556,
+      "box": [
+        20,
+        22,
+        164,
+        60
+      ],
+      "search": [
+        8,
+        10,
+        176,
+        72
+      ],
+      "threshold": 0.97,
+      "glyph_threshold": 0.95,
+      "match_mode": "light_text",
+      "light_threshold": 180,
+      "source": "tests/fixtures/production/metal-arrived-20261102.jpg",
+      "source_sha256": "6e72c6dca806b65fb25eb9a0fc57c4f1c34dabbd1f7e8442b1d574e611d450b6",
+      "crop_native": [
+        20,
+        22,
+        164,
+        60
+      ],
+      "variant_for": "arrived_title"
+    },
+    "arrived_equipment_live_nav48": {
+      "path": "assets/templates/navigation_ui/1280x960/arrived_equipment_live_nav48.png",
+      "sha256": "d65ea3e22e678e5e2d6a75e5fd4a8d4425787670d1f8a231a82fd3f1b6268f5b",
+      "bytes": 6887,
+      "box": [
+        90,
+        144,
+        322,
+        176
+      ],
+      "search": [
+        66,
+        120,
+        346,
+        200
+      ],
+      "threshold": 0.97,
+      "source": "release_catalog",
+      "source_sha256": "adefb3676547f70152d3909d3567a5cdf865d949db668039812bf011ac46a6b3",
+      "source_size": [
+        1280,
+        960
+      ],
+      "crop_native": [
+        90,
+        144,
+        322,
+        176
+      ],
+      "output_size": [
+        232,
+        32
+      ],
+      "scale": [
+        1,
+        1
+      ],
+      "coordinates_for_input": false,
+      "variant_for": "arrived_equipment",
+      "match_mode": "light_text"
+    },
+    "arrived_forge_live_nav48": {
+      "path": "assets/templates/navigation_ui/1280x960/arrived_forge_live_nav48.png",
+      "sha256": "5dc66b0000d1b0767945468f80c56b8c20bbaa96baf2836405586c8e9f925a71",
+      "bytes": 50712,
+      "box": [
+        175,
+        407,
+        390,
+        642
+      ],
+      "search": [
+        151,
+        383,
+        414,
+        666
+      ],
+      "threshold": 0.97,
+      "source": "release_catalog",
+      "source_sha256": "adefb3676547f70152d3909d3567a5cdf865d949db668039812bf011ac46a6b3",
+      "source_size": [
+        1280,
+        960
+      ],
+      "crop_native": [
+        175,
+        407,
+        390,
+        642
+      ],
+      "output_size": [
+        215,
+        235
+      ],
+      "scale": [
+        1,
+        1
+      ],
+      "coordinates_for_input": false,
+      "variant_for": "arrived_forge"
+    },
+    "metal_iron_ore_tile_live_nav48": {
+      "path": "assets/templates/navigation_ui/1280x960/metal_iron_ore_tile_live_nav48.png",
+      "sha256": "b52e026a80aef40e9b0da132b591e84944ccf03aedc70bb736daee44f9ad90f3",
+      "bytes": 2751,
+      "box": [
+        673,
+        278,
+        765,
+        304
+      ],
+      "search": [
+        649,
+        254,
+        789,
+        328
+      ],
+      "threshold": 0.97,
+      "source": "release_catalog",
+      "source_sha256": "adefb3676547f70152d3909d3567a5cdf865d949db668039812bf011ac46a6b3",
+      "source_size": [
+        1280,
+        960
+      ],
+      "crop_native": [
+        673,
+        278,
+        765,
+        304
+      ],
+      "output_size": [
+        92,
+        26
+      ],
+      "scale": [
+        1,
+        1
+      ],
+      "coordinates_for_input": false,
+      "variant_for": "metal_iron_ore_tile"
+    },
+    "goto_processing_live_nav55": {
+      "path": "assets/templates/navigation_ui/1280x960/goto_processing_live_nav55.png",
+      "sha256": "1784a96d5a68ec4b98f8e40bd3b72d3e1bcf827ccb3ef6a5d100626a6397ad49",
+      "bytes": 1933,
+      "box": [
+        950,
+        890,
+        1052,
+        917
+      ],
+      "search": [
+        934,
+        874,
+        1068,
+        933
+      ],
+      "threshold": 0.97,
+      "source": "release_catalog",
+      "source_sha256": "6924e5cbd95544a89b54313a706de48be39a6ce95a29cc3aae500e550edda426",
+      "source_size": [
+        1280,
+        960
+      ],
+      "crop_native": [
+        950,
+        890,
+        1052,
+        917
+      ],
+      "output_size": [
+        102,
+        27
+      ],
+      "scale": [
+        1,
+        1
+      ],
+      "coordinates_for_input": false,
+      "variant_for": "goto_processing"
+    },
+    "scene_skills_live_entry": {
+      "path": "assets/templates/navigation_ui/1280x960/scene_skills_live_entry.png",
+      "sha256": "67700ba5342d7fa8aeaddbdd5095e16ff2f2752c6210ac7041ab7deeb6d6b437",
+      "bytes": 2364,
+      "box": [
+        951,
+        876,
+        995,
+        920
+      ],
+      "search": [
+        927,
+        852,
+        1019,
+        944
+      ],
+      "threshold": 0.97,
+      "source": "release_catalog",
+      "source_sha256": "927ad89acc8ca0630620f25d81937ddd331d941dd17eab409b097ac37e34fb26",
+      "source_size": [
+        1280,
+        960
+      ],
+      "crop_native": [
+        951,
+        876,
+        995,
+        920
+      ],
+      "output_size": [
+        44,
+        44
+      ],
+      "scale": [
+        1,
+        1
+      ],
+      "coordinates_for_input": false,
+      "variant_for": "scene_skills",
+      "control_box": [
+        965,
+        882,
+        997,
+        914
+      ]
+    },
+    "scene_bag_live_entry": {
+      "path": "assets/templates/navigation_ui/1280x960/scene_bag_live_entry.png",
+      "sha256": "7e53d6bca13b8ad809860f360b570c6f8a0afaa6e2546bb51600cdc79d905545",
+      "bytes": 2103,
+      "box": [
+        1063,
+        875,
+        1107,
+        922
+      ],
+      "search": [
+        1039,
+        851,
+        1131,
+        946
+      ],
+      "threshold": 0.97,
+      "source": "release_catalog",
+      "source_sha256": "927ad89acc8ca0630620f25d81937ddd331d941dd17eab409b097ac37e34fb26",
+      "source_size": [
+        1280,
+        960
+      ],
+      "crop_native": [
+        1063,
+        875,
+        1107,
+        922
+      ],
+      "output_size": [
+        44,
+        47
+      ],
+      "scale": [
+        1,
+        1
+      ],
+      "coordinates_for_input": false,
+      "variant_for": "scene_bag",
+      "control_box": [
+        1067,
+        882,
+        1099,
+        914
+      ]
+    },
+    "scene_menu_live_entry": {
+      "path": "assets/templates/navigation_ui/1280x960/scene_menu_live_entry.png",
+      "sha256": "5b5174d981cefcd1284472d34113c30c90c322772bfef5042ffb01694167cd42",
+      "bytes": 794,
+      "box": [
+        1065,
+        27,
+        1096,
+        53
+      ],
+      "search": [
+        1041,
+        3,
+        1120,
+        77
+      ],
+      "threshold": 0.97,
+      "source": "release_catalog",
+      "source_sha256": "927ad89acc8ca0630620f25d81937ddd331d941dd17eab409b097ac37e34fb26",
+      "source_size": [
+        1280,
+        960
+      ],
+      "crop_native": [
+        1065,
+        27,
+        1096,
+        53
+      ],
+      "output_size": [
+        31,
+        26
+      ],
+      "scale": [
+        1,
+        1
+      ],
+      "coordinates_for_input": false,
+      "variant_for": "scene_menu",
+      "control_box": [
+        1066,
+        22,
+        1098,
+        54
+      ]
+    },
+    "storage_character_inactive": {
+      "path": "assets/templates/navigation_ui/1280x960/storage_character_inactive.png",
+      "sha256": "16cd06fcdf2831106a5e223f0df228a128e268aaca2bcf1be758c3bdc90617bd",
+      "bytes": 1628,
+      "box": [
+        48,
+        20,
+        120,
+        59
+      ],
+      "search": [
+        40,
+        12,
+        128,
+        67
+      ],
+      "threshold": 0.97,
+      "source": "release_catalog",
+      "source_sha256": "0777ac521ffb20c8a76bb1b9b8cf8e66213bd1e2af2dbb4b14f5882fd9fe811d",
+      "source_size": [
+        1280,
+        960
+      ],
+      "crop_native": [
+        48,
+        20,
+        120,
+        59
+      ],
+      "output_size": [
+        72,
+        39
+      ],
+      "scale": [
+        1,
+        1
+      ],
+      "coordinates_for_input": false
+    },
+    "storage_account_active": {
+      "path": "assets/templates/navigation_ui/1280x960/storage_account_active.png",
+      "sha256": "378041311c856131e0d90178fa0e1c622b5675bad405b8ec2aaf434afc742a8b",
+      "bytes": 2416,
+      "box": [
+        144,
+        20,
+        249,
+        59
+      ],
+      "search": [
+        136,
+        12,
+        257,
+        67
+      ],
+      "threshold": 0.97,
+      "source": "release_catalog",
+      "source_sha256": "0777ac521ffb20c8a76bb1b9b8cf8e66213bd1e2af2dbb4b14f5882fd9fe811d",
+      "source_size": [
+        1280,
+        960
+      ],
+      "crop_native": [
+        144,
+        20,
+        249,
+        59
+      ],
+      "output_size": [
+        105,
+        39
+      ],
+      "scale": [
+        1,
+        1
+      ],
+      "coordinates_for_input": false
+    },
+    "storage_backpack_title": {
+      "path": "assets/templates/navigation_ui/1280x960/storage_backpack_title.png",
+      "sha256": "0621da5b82ef50cbc4f055c3eb70ff7e61d6bdd278bb0d05db5f60ae649e7511",
+      "bytes": 1051,
+      "box": [
+        684,
+        105,
+        746,
+        132
+      ],
+      "search": [
+        676,
+        97,
+        754,
+        140
+      ],
+      "threshold": 0.97,
+      "source": "release_catalog",
+      "source_sha256": "0777ac521ffb20c8a76bb1b9b8cf8e66213bd1e2af2dbb4b14f5882fd9fe811d",
+      "source_size": [
+        1280,
+        960
+      ],
+      "crop_native": [
+        684,
+        105,
+        746,
+        132
+      ],
+      "output_size": [
+        62,
+        27
+      ],
+      "scale": [
+        1,
+        1
+      ],
+      "coordinates_for_input": false
+    },
+    "storage_close": {
+      "path": "assets/templates/navigation_ui/1280x960/storage_close.png",
+      "sha256": "77315575eeb91cb20df2401baf6d8e8102a1f3da2b3b26981abf025c2bec6cc9",
+      "bytes": 1689,
+      "box": [
+        1217,
+        19,
+        1265,
+        60
+      ],
+      "search": [
+        1209,
+        11,
+        1273,
+        68
+      ],
+      "threshold": 0.97,
+      "source": "release_catalog",
+      "source_sha256": "0777ac521ffb20c8a76bb1b9b8cf8e66213bd1e2af2dbb4b14f5882fd9fe811d",
+      "source_size": [
+        1280,
+        960
+      ],
+      "crop_native": [
+        1217,
+        19,
+        1265,
+        60
+      ],
+      "output_size": [
+        48,
+        41
+      ],
+      "scale": [
+        1,
+        1
+      ],
+      "coordinates_for_input": false
+    },
+    "storage_character_inactive_current": {
+      "path": "assets/templates/navigation_ui/1280x960/storage_character_inactive_current.png",
+      "sha256": "0e92fa873038328dfea58808122c9772e02fcc8e5f85cbc1d58fe5d4fc293c53",
+      "bytes": 1705,
+      "box": [
+        48,
+        20,
+        120,
+        59
+      ],
+      "search": [
+        40,
+        12,
+        128,
+        67
+      ],
+      "threshold": 0.97,
+      "source": "release_catalog",
+      "source_sha256": "7ce18b627b49057c7c17c8988a36327eaf1f925b92dcc952509fd28b624f32ae",
+      "source_size": [
+        1280,
+        960
+      ],
+      "crop_native": [
+        48,
+        20,
+        120,
+        59
+      ],
+      "output_size": [
+        72,
+        39
+      ],
+      "scale": [
+        1,
+        1
+      ],
+      "coordinates_for_input": false
+    },
+    "storage_account_active_current": {
+      "path": "assets/templates/navigation_ui/1280x960/storage_account_active_current.png",
+      "sha256": "2040502c937ed28821c9d6acf7788ba02de82a7252be5fbda28d15fe756bfe68",
+      "bytes": 2476,
+      "box": [
+        144,
+        20,
+        249,
+        59
+      ],
+      "search": [
+        136,
+        12,
+        257,
+        67
+      ],
+      "threshold": 0.97,
+      "source": "release_catalog",
+      "source_sha256": "7ce18b627b49057c7c17c8988a36327eaf1f925b92dcc952509fd28b624f32ae",
+      "source_size": [
+        1280,
+        960
+      ],
+      "crop_native": [
+        144,
+        20,
+        249,
+        59
+      ],
+      "output_size": [
+        105,
+        39
+      ],
+      "scale": [
+        1,
+        1
+      ],
+      "coordinates_for_input": false
+    },
+    "storage_character_active": {
+      "path": "assets/templates/navigation_ui/1280x960/storage_character_active.png",
+      "sha256": "8fc2ac533724369f0b899e944276767e4f5ba999f85cd8e487e98f6fd93a1f19",
+      "bytes": 1374,
+      "box": [
+        48,
+        20,
+        120,
+        59
+      ],
+      "search": [
+        40,
+        12,
+        128,
+        67
+      ],
+      "threshold": 0.97,
+      "source": "release_catalog",
+      "source_sha256": "f55d3b571b4ed5a642f155d4034e101ab0fd9e29c5bdf003af4eea314fc1a0f4",
+      "source_size": [
+        1280,
+        960
+      ],
+      "crop_native": [
+        48,
+        20,
+        120,
+        59
+      ],
+      "output_size": [
+        72,
+        39
+      ],
+      "scale": [
+        1,
+        1
+      ],
+      "coordinates_for_input": false
+    },
+    "storage_account_inactive": {
+      "path": "assets/templates/navigation_ui/1280x960/storage_account_inactive.png",
+      "sha256": "951d02483ef1aa42c66c92cb4ca6b81c09e3fc6937a0548f0e4d8e9a638b3ccd",
+      "bytes": 3064,
+      "box": [
+        144,
+        20,
+        249,
+        59
+      ],
+      "search": [
+        136,
+        12,
+        257,
+        67
+      ],
+      "threshold": 0.97,
+      "source": "release_catalog",
+      "source_sha256": "f55d3b571b4ed5a642f155d4034e101ab0fd9e29c5bdf003af4eea314fc1a0f4",
+      "source_size": [
+        1280,
+        960
+      ],
+      "crop_native": [
+        144,
+        20,
+        249,
+        59
+      ],
+      "output_size": [
+        105,
+        39
+      ],
+      "scale": [
+        1,
+        1
+      ],
+      "coordinates_for_input": false
+    },
+    "storage_close_hover": {
+      "path": "assets/templates/navigation_ui/1280x960/storage_close_hover.png",
+      "sha256": "6a4e97b269f21651b5df96888b61d7466b85d7be99de6797ddbaa28064bdef58",
+      "bytes": 1817,
+      "box": [
+        1217,
+        19,
+        1265,
+        60
+      ],
+      "search": [
+        1209,
+        11,
+        1273,
+        68
+      ],
+      "threshold": 0.97,
+      "source": "release_catalog",
+      "source_sha256": "850e316e57e6fd7484149af09ed40c383592c0dc4765eb2a7b55ae13d51ed674",
+      "source_size": [
+        1280,
+        960
+      ],
+      "crop_native": [
+        1217,
+        19,
+        1265,
+        60
+      ],
+      "output_size": [
+        48,
+        41
+      ],
+      "scale": [
+        1,
+        1
+      ],
+      "coordinates_for_input": false
+    },
+    "storage_dialog_title": {
+      "path": "assets/templates/navigation_ui/1280x960/storage_dialog_title.png",
+      "box": [
+        494,
+        75,
+        566,
+        97
+      ],
+      "search": [
+        490,
+        71,
+        570,
+        101
+      ],
+      "threshold": 0.97,
+      "bytes": 1815,
+      "sha256": "2860cbfe745a4d9e4b47b01e84fb5ed078293b739250885612651d896e7cb5a1"
+    },
+    "storage_dialog_open": {
+      "path": "assets/templates/navigation_ui/1280x960/storage_dialog_open.png",
+      "box": [
+        532,
+        879,
+        628,
+        907
+      ],
+      "search": [
+        528,
+        875,
+        632,
+        911
+      ],
+      "threshold": 0.97,
+      "bytes": 2933,
+      "sha256": "d4b418c4968854e1b57eefd1092d4f327d4ad72faa556ae84b3534eea8f4709d"
+    },
+    "storage_dialog_end": {
+      "path": "assets/templates/navigation_ui/1280x960/storage_dialog_end.png",
+      "box": [
+        674,
+        878,
+        750,
+        906
+      ],
+      "search": [
+        670,
+        874,
+        754,
+        910
+      ],
+      "threshold": 0.97,
+      "bytes": 2648,
+      "sha256": "c9c69d547ee58a9f3a5a9f0219517005f38e4c08f81db44384110c067ff67b3b"
+    },
+    "storage_dialog_end_hover": {
+      "path": "assets/templates/navigation_ui/1280x960/storage_dialog_end_hover.png",
+      "box": [
+        674,
+        878,
+        750,
+        906
+      ],
+      "search": [
+        670,
+        874,
+        754,
+        910
+      ],
+      "threshold": 0.97,
+      "bytes": 2695,
+      "sha256": "721d76454be783f0ad0d274f6e8bfba81ec51c58f4ca6dcc1dec0a8c36b8becc"
+    },
+    "storage_farewell_title": {
+      "path": "assets/templates/navigation_ui/1280x960/storage_farewell_title.png",
+      "box": [
+        503,
+        75,
+        579,
+        98
+      ],
+      "search": [
+        499,
+        71,
+        583,
+        102
+      ],
+      "threshold": 0.97,
+      "bytes": 1866,
+      "sha256": "b59c45ce72370d99e11fc138232ea64fe3990364c84c8288c1f967b6329404cd"
+    },
+    "metal_title_live_storage_route": {
+      "path": "assets/templates/navigation_ui/1280x960/metal_title_live_storage_route.png",
+      "sha256": "6f1631ef8eb308c5d1b2fc6be911fe3bb7fcc5f46cbdb743983603801ca1e722",
+      "bytes": 4042,
+      "box": [
+        68,
+        23,
+        186,
+        53
+      ],
+      "search": [
+        64,
+        19,
+        190,
+        57
+      ],
+      "threshold": 0.97,
+      "source": "release_catalog",
+      "source_sha256": "7b76408198257e86c0aa8f01f9090e78ad59b60d1558972940748fcee3266e9d",
+      "source_size": [
+        1280,
+        960
+      ],
+      "crop_native": [
+        68,
+        23,
+        186,
+        53
+      ],
+      "output_size": [
+        118,
+        30
+      ],
+      "scale": [
+        1,
+        1
+      ],
+      "coordinates_for_input": false,
+      "variant_for": "metal_title"
+    },
+    "metal_equipment_live_storage_route": {
+      "path": "assets/templates/navigation_ui/1280x960/metal_equipment_live_storage_route.png",
+      "sha256": "3d718b8ae69ede7703b3de8f2d33c3678b5af6b50f8efc5da7505d70ee841afe",
+      "bytes": 4585,
+      "box": [
+        76,
+        110,
+        252,
+        135
+      ],
+      "search": [
+        72,
+        106,
+        256,
+        139
+      ],
+      "threshold": 0.97,
+      "source": "release_catalog",
+      "source_sha256": "7b76408198257e86c0aa8f01f9090e78ad59b60d1558972940748fcee3266e9d",
+      "source_size": [
+        1280,
+        960
+      ],
+      "crop_native": [
+        76,
+        110,
+        252,
+        135
+      ],
+      "output_size": [
+        176,
+        25
+      ],
+      "scale": [
+        1,
+        1
+      ],
+      "coordinates_for_input": false,
+      "variant_for": "metal_equipment"
+    },
+    "craft_processing_enabled_live": {
+      "path": "assets/templates/navigation_ui/1280x960/craft_processing_enabled_live.png",
+      "sha256": "4cc8ef355aafd56a888b05dd7fce9d94d72cfbf77e839d44a0a7cf3d0793f704",
+      "bytes": 1238,
+      "box": [
+        932,
+        886,
+        1058,
+        924
+      ],
+      "search": [
+        916,
+        870,
+        1074,
+        940
+      ],
+      "threshold": 0.97,
+      "source": "release_catalog",
+      "source_sha256": "8cfa0fe0b2810b788cd3cb221185c4915e8c2053a3071f5a7eb585f65567ede9",
+      "source_size": [
+        1280,
+        960
+      ],
+      "crop_native": [
+        932,
+        886,
+        1058,
+        924
+      ],
+      "output_size": [
+        126,
+        38
+      ],
+      "scale": [
+        1,
+        1
+      ],
+      "coordinates_for_input": false,
+      "variant_for": "craft_processing",
+      "match_mode": "light_text"
+    },
+    "detail_close_arrived": {
+      "path": "assets/templates/navigation_ui/1280x960/detail_close_arrived.png",
+      "sha256": "deba57a196d02889f737e8b41fe89eb53b1ce26290bcff372d04b71e1cddb5e9",
+      "bytes": 956,
+      "box": [
+        1225,
+        22,
+        1259,
+        56
+      ],
+      "search": [
+        1209,
+        6,
+        1275,
+        72
+      ],
+      "threshold": 0.97,
+      "source": "release_catalog",
+      "source_sha256": "410d802d2193e2372ebab2f55c66e4248a872b3a8f600891b3a133089ab2eda1",
+      "source_size": [
+        1280,
+        960
+      ],
+      "crop_native": [
+        1225,
+        22,
+        1259,
+        56
+      ],
+      "scale": [
+        1,
+        1
+      ],
+      "coordinates_for_input": false
+    },
+    "detail_close_arrived_historical": {
+      "path": "assets/templates/navigation_ui/1280x960/detail_close_arrived_historical.png",
+      "sha256": "29427f2de4f82c3b7f4e46f506d01e0bac7262b6eadfdb897afab4f662d4c779",
+      "bytes": 741,
+      "box": [
+        1229,
+        18,
+        1263,
+        52
+      ],
+      "search": [
+        1213,
+        2,
+        1279,
+        68
+      ],
+      "threshold": 0.97,
+      "source": "release_catalog",
+      "source_sha256": "1af43a7ba7cf5329ebb474052bfd90b6fe3a2400ad2904b3aea5f82171f6082d",
+      "source_size": [
+        1280,
+        960
+      ],
+      "crop_native": [
+        1229,
+        18,
+        1263,
+        52
+      ],
+      "scale": [
+        1,
+        1
+      ],
+      "coordinates_for_input": false
+    },
+    "skills_processing_inactive": {
+      "path": "assets/templates/navigation_ui/1280x960/skills_processing_inactive.png",
+      "sha256": "6af85971e542cc997876de50894b9ba16a4198e2e429a425aed770449e47a236",
+      "bytes": 2899,
+      "box": [
+        36,
+        416,
+        92,
+        486
+      ],
+      "search": [
+        20,
+        400,
+        108,
+        502
+      ],
+      "threshold": 0.97,
+      "source": "release_catalog",
+      "source_sha256": "44434a8f04ca034ed47adfa6404618b198d1b735dce27be8638998a1537c1419",
+      "source_size": [
+        1280,
+        960
+      ],
+      "crop_native": [
+        36,
+        416,
+        92,
+        486
+      ],
+      "scale": [
+        1,
+        1
+      ],
+      "coordinates_for_input": false,
+      "match_mode": "light_text"
+    },
+    "skills_close": {
+      "path": "assets/templates/navigation_ui/1280x960/skills_close.png",
+      "sha256": "16d5dcd4166a6a945304889e9a1c7c98b2da23ae6b597bbafc6efa86c3ce1103",
+      "bytes": 1398,
+      "box": [
+        1222,
+        18,
+        1262,
+        58
+      ],
+      "search": [
+        1206,
+        2,
+        1278,
+        74
+      ],
+      "threshold": 0.97,
+      "source": "release_catalog",
+      "source_sha256": "44434a8f04ca034ed47adfa6404618b198d1b735dce27be8638998a1537c1419",
+      "source_size": [
+        1280,
+        960
+      ],
+      "crop_native": [
+        1222,
+        18,
+        1262,
+        58
+      ],
+      "scale": [
+        1,
+        1
+      ],
+      "coordinates_for_input": false,
+      "match_mode": "light_text"
+    },
+    "goto_processing_disabled_glyph": {
+      "match_mode": "light_text",
+      "glyph_threshold": 0.97,
+      "path": "assets/templates/navigation_ui/1280x960/goto_processing_live_nav52.png",
+      "sha256": "ba7f54845adca497e3b5b02a3506708101f3f3a9cb46ea0e7642f782b2195b3f",
+      "bytes": 1850,
+      "box": [
+        950,
+        890,
+        1052,
+        917
+      ],
+      "search": [
+        934,
+        874,
+        1068,
+        933
+      ],
+      "threshold": 0.97,
+      "source": "release_catalog",
+      "source_sha256": "3cf3b9f0a415ca95238576559d3b512478872375d26b81026aa3767567f32cf1",
+      "source_size": [
+        1280,
+        960
+      ],
+      "crop_native": [
+        950,
+        890,
+        1052,
+        917
+      ],
+      "output_size": [
+        102,
+        27
+      ],
+      "scale": [
+        1,
+        1
+      ],
+      "coordinates_for_input": false,
+      "variant_for": "goto_processing",
+      "light_threshold": 40
+    },
+    "metal_equipment_live_20261025": {
+      "path": "assets/templates/navigation_ui/1280x960/metal_equipment_live_20261025.png",
+      "sha256": "c561bf50e352f8b5ad6aef25a755606fa7a7d2c84d6c3884f5a231c9a460acde",
+      "bytes": 3459,
+      "box": [
+        77,
+        112,
+        193,
+        133
+      ],
+      "search": [
+        68,
+        104,
+        198,
+        142
+      ],
+      "threshold": 0.97,
+      "match_mode": "grayscale",
+      "source": "release_catalog",
+      "source_sha256": "3aab9a80655a046c611c4d77e7303e4c75f88fbfec9bf72e2c6e3dbc874cdc21",
+      "source_size": [
+        1280,
+        960
+      ],
+      "crop_native": [
+        77,
+        112,
+        193,
+        133
+      ],
+      "output_size": [
+        116,
+        21
+      ],
+      "scale": [
+        1,
+        1
+      ],
+      "coordinates_for_input": false,
+      "variant_for": "metal_equipment",
+      "excluded_variable_level": true
+    },
+    "bag_tools_label": {
+      "path": "assets/templates/navigation_ui/1280x960/bag_tools_label.png",
+      "sha256": "03811a6baa444269b7ad51b8548c2e503e1cabed9c4483d1c933a5237269fa86",
+      "bytes": 655,
+      "box": [
+        845,
+        908,
+        885,
+        933
+      ],
+      "search": [
+        810,
+        900,
+        930,
+        947
+      ],
+      "threshold": 0.97,
+      "glyph_threshold": 0.97,
+      "match_mode": "light_text",
+      "source": "release_catalog",
+      "source_sha256": "a3e258c04ef9e6f0fa7bf869098c6e7c783ae4e4f7499f4e768fdf87e3230890",
+      "source_size": [
+        1280,
+        960
+      ],
+      "crop_native": [
+        845,
+        908,
+        885,
+        933
+      ],
+      "output_size": [
+        40,
+        25
+      ],
+      "scale": [
+        1,
+        1
+      ],
+      "coordinates_for_input": false,
+      "variant_for": "bag_tools_tab",
+      "relative_contrast": true
+    },
+    "bag_fashion_current_inactive": {
+      "path": "assets/templates/navigation_ui/1280x960/bag_fashion_current_inactive.png",
+      "sha256": "1d0a6a22ac1863e12ef6fb9c769e7ad7e797c7dbc0f4f8fb60d0bd334bfb0a10",
+      "bytes": 2110,
+      "box": [
+        1032,
+        865,
+        1084,
+        938
+      ],
+      "search": [
+        1000,
+        848,
+        1120,
+        960
+      ],
+      "threshold": 0.97,
+      "source": "release_catalog",
+      "source_sha256": "7c97ab450b1a7a60ca4df5b0df141cd25842abafc6fc61ce1c60dd7f55281ab2",
+      "source_size": [
+        1280,
+        960
+      ],
+      "crop_native": [
+        1032,
+        865,
+        1084,
+        938
+      ],
+      "output_size": [
+        52,
+        73
+      ],
+      "scale": [
+        1,
+        1
+      ],
+      "coordinates_for_input": false,
+      "variant_of": "bag_fashion_tab"
+    }
+  },
+  "conditional_transitions": {
+    "scene.open_skills": "Positive current skills or category_page only; remembered processing tab is independently recognized."
+  },
+  "unsupported_pages": [
+    "production",
+    "collection",
+    "empty_queue"
+  ],
+  "remote_device_warnings": [
+    "goto_device",
+    "goto_processing"
+  ],
+  "page_variants": {
+    "arrived_metal": {
+      "page": "metal_panel",
+      "anchors": [
+        "arrived_title",
+        "arrived_equipment"
+      ],
+      "targets": {
+        "metal.open_iron_recipe": "metal_iron_ore_tile"
+      },
+      "coordinate_targets": {
+        "page.close": [
+          1222,
+          20,
+          1264,
+          65
+        ]
+      }
+    },
+    "arrived_recipe": {
+      "page": "recipe_detail",
+      "anchors": [
+        "detail_iron_name",
+        "detail_output_three",
+        "detail_equipment",
+        "detail_ore_name",
+        "detail_ore_ten",
+        "craft_processing",
+        "detail_close_arrived"
+      ],
+      "targets": {
+        "recipe_detail.close": "detail_close_arrived"
+      }
+    }
+  },
+  "coordinate_control_targets": [
+    "scene.open_bag",
+    "scene.open_skills",
+    "scene.open_map",
+    "character.open",
+    "character.open_life_skills",
+    "skills.open_processing",
+    "skills.close",
+    "category.open_metal",
+    "category.open_wood",
+    "category.open_leather",
+    "category.open_fabric",
+    "category.open_chemical",
+    "category.open_food",
+    "page.close",
+    "recipe_detail.close",
+    "bag.close",
+    "bag.open_items",
+    "bag.search_open",
+    "bag.search_input",
+    "bag.search_apply",
+    "bag.search_reset",
+    "bag.tools",
+    "bag.tidy_open",
+    "tidy.bold",
+    "tidy.materials",
+    "tidy.prepare",
+    "tidy.cancel",
+    "tidy.back",
+    "repair.prepare",
+    "repair.back",
+    "repair.close",
+    "dialog.skip",
+    "dialog.advance",
+    "storage_account.close",
+    "storage_character.close",
+    "storage.open_account",
+    "storage.open_character",
+    "storage.detail_close",
+    "storage.prepare",
+    "storage_dialog.leave",
+    "storage_farewell.leave",
+    "storage.advance",
+    "storage.travel",
+    "storage.exit_room",
+    "storage.cancel_exit",
+    "bag.sell_open",
+    "bag.sale_cancel",
+    "gathering.start",
+    "gathering.close",
+    "fishing.cancel_mode",
+    "purchase.materials",
+    "purchase.close",
+    "purchase.back",
+    "purchase.increase",
+    "purchase.decrease",
+    "purchase.advance_intro",
+    "purchase.finish_dialog"
+  ]
+}

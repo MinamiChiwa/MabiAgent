@@ -1,0 +1,4581 @@
+{
+  "schema_version": 1,
+  "client_size": [
+    1280,
+    960
+  ],
+  "dpi": 96,
+  "navigation_profile": "config/navigation_ui.1280x960.tw.json",
+  "default_recipe": "iron_ingot_from_iron_ore",
+  "ui": {
+    "anchor_variants": {
+      "screen_overlay_back": [
+        "preset_metal_steel_detail_back"
+      ]
+    },
+    "close_anchors": [
+      "detail_close_arrived",
+      "skills_close"
+    ],
+    "templates": {
+      "screen_category_wood": {
+        "path": "assets/templates/screen_ui/1280x960/screen_category_wood.png",
+        "sha256": "caa682fe27d3326331f6fbe548a722f7ebfc9646dd1bfb88df9537777048011d",
+        "bytes": 2317,
+        "box": [
+          484,
+          252,
+          610,
+          287
+        ],
+        "search": [
+          468,
+          236,
+          626,
+          303
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "227381e134a2d2b821a5930d2b0d5f473f9a0017700b9d57b7d876bb39a8bc6b",
+        "source_size": [
+          1280,
+          960
+        ],
+        "crop_native": [
+          484,
+          252,
+          610,
+          287
+        ],
+        "output_size": [
+          126,
+          35
+        ],
+        "scale": [
+          1,
+          1
+        ],
+        "coordinates_for_input": false
+      },
+      "screen_category_leather": {
+        "path": "assets/templates/screen_ui/1280x960/screen_category_leather.png",
+        "sha256": "88275be2a5d41e097a603c00f5a3e8ce1bfdff194dab75a32cb99de032267fef",
+        "bytes": 2490,
+        "box": [
+          760,
+          252,
+          899,
+          287
+        ],
+        "search": [
+          744,
+          236,
+          915,
+          303
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "227381e134a2d2b821a5930d2b0d5f473f9a0017700b9d57b7d876bb39a8bc6b",
+        "source_size": [
+          1280,
+          960
+        ],
+        "crop_native": [
+          760,
+          252,
+          899,
+          287
+        ],
+        "output_size": [
+          139,
+          35
+        ],
+        "scale": [
+          1,
+          1
+        ],
+        "coordinates_for_input": false
+      },
+      "screen_category_fabric": {
+        "path": "assets/templates/screen_ui/1280x960/screen_category_fabric.png",
+        "sha256": "2b35a81142ddd818b0d43952d06cbafbd1d79efb4fba6e21b9992c6ecd2efee5",
+        "bytes": 2643,
+        "box": [
+          1037,
+          252,
+          1171,
+          287
+        ],
+        "search": [
+          1021,
+          236,
+          1187,
+          303
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "227381e134a2d2b821a5930d2b0d5f473f9a0017700b9d57b7d876bb39a8bc6b",
+        "source_size": [
+          1280,
+          960
+        ],
+        "crop_native": [
+          1037,
+          252,
+          1171,
+          287
+        ],
+        "output_size": [
+          134,
+          35
+        ],
+        "scale": [
+          1,
+          1
+        ],
+        "coordinates_for_input": false
+      },
+      "screen_category_chemical": {
+        "path": "assets/templates/screen_ui/1280x960/screen_category_chemical.png",
+        "sha256": "58ceaa52d35e1cdd88c9f5efec0c6cded32e1f28b4b8d218220642f13b863e3c",
+        "bytes": 2804,
+        "box": [
+          211,
+          644,
+          350,
+          680
+        ],
+        "search": [
+          195,
+          628,
+          366,
+          696
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "227381e134a2d2b821a5930d2b0d5f473f9a0017700b9d57b7d876bb39a8bc6b",
+        "source_size": [
+          1280,
+          960
+        ],
+        "crop_native": [
+          211,
+          644,
+          350,
+          680
+        ],
+        "output_size": [
+          139,
+          36
+        ],
+        "scale": [
+          1,
+          1
+        ],
+        "coordinates_for_input": false
+      },
+      "screen_category_food": {
+        "path": "assets/templates/screen_ui/1280x960/screen_category_food.png",
+        "sha256": "057f61fee5606cc94af136605c5689382b6fc1d903fd0f9888be4a104bf9062f",
+        "bytes": 2432,
+        "box": [
+          484,
+          644,
+          618,
+          680
+        ],
+        "search": [
+          468,
+          628,
+          634,
+          696
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "227381e134a2d2b821a5930d2b0d5f473f9a0017700b9d57b7d876bb39a8bc6b",
+        "source_size": [
+          1280,
+          960
+        ],
+        "crop_native": [
+          484,
+          644,
+          618,
+          680
+        ],
+        "output_size": [
+          134,
+          36
+        ],
+        "scale": [
+          1,
+          1
+        ],
+        "coordinates_for_input": false
+      },
+      "screen_wood_title": {
+        "path": "assets/templates/screen_ui/1280x960/screen_wood_title.png",
+        "sha256": "83e5a72e67a618aa9607ff7639c2e8a47fdd6d23eca9fc6c0ee190dc9b9403ad",
+        "bytes": 1977,
+        "box": [
+          68,
+          22,
+          130,
+          57
+        ],
+        "search": [
+          56,
+          10,
+          142,
+          69
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "15591db7959241cbab1ae7abb365cfb5a559fb70e4aa3d9d32476e9be4d536bf",
+        "source_size": [
+          1280,
+          960
+        ],
+        "crop_native": [
+          68,
+          22,
+          130,
+          57
+        ],
+        "output_size": [
+          62,
+          35
+        ],
+        "scale": [
+          1,
+          1
+        ],
+        "coordinates_for_input": false
+      },
+      "screen_wood_equipment": {
+        "path": "assets/templates/screen_ui/1280x960/screen_wood_equipment.png",
+        "sha256": "8b0abfa89848bbecb93ccbf5ffc9e37fade4842566bf48cfb677c4abafc05f07",
+        "bytes": 613,
+        "box": [
+          75,
+          110,
+          93,
+          138
+        ],
+        "search": [
+          63,
+          98,
+          105,
+          150
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "15591db7959241cbab1ae7abb365cfb5a559fb70e4aa3d9d32476e9be4d536bf",
+        "source_size": [
+          1280,
+          960
+        ],
+        "crop_native": [
+          75,
+          110,
+          93,
+          138
+        ],
+        "output_size": [
+          18,
+          28
+        ],
+        "scale": [
+          1,
+          1
+        ],
+        "coordinates_for_input": false
+      },
+      "screen_wood_first_recipe": {
+        "path": "assets/templates/screen_ui/1280x960/screen_wood_first_recipe.png",
+        "sha256": "21e0f90ab98590e59e292811bad2e73fc975f8ba7ef182a1231fd6e7a5193119",
+        "bytes": 1026,
+        "box": [
+          546,
+          278,
+          618,
+          307
+        ],
+        "search": [
+          534,
+          266,
+          630,
+          319
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "15591db7959241cbab1ae7abb365cfb5a559fb70e4aa3d9d32476e9be4d536bf",
+        "source_size": [
+          1280,
+          960
+        ],
+        "crop_native": [
+          546,
+          278,
+          618,
+          307
+        ],
+        "output_size": [
+          72,
+          29
+        ],
+        "scale": [
+          1,
+          1
+        ],
+        "coordinates_for_input": false
+      },
+      "screen_panel_back": {
+        "path": "assets/templates/screen_ui/1280x960/screen_panel_back.png",
+        "sha256": "e2bb3fca98a964e63eaf048f10735b2e6a5d981b8f8fb608f3292f25147c3d98",
+        "bytes": 703,
+        "box": [
+          24,
+          23,
+          52,
+          57
+        ],
+        "search": [
+          12,
+          11,
+          64,
+          69
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "15591db7959241cbab1ae7abb365cfb5a559fb70e4aa3d9d32476e9be4d536bf",
+        "source_size": [
+          1280,
+          960
+        ],
+        "crop_native": [
+          24,
+          23,
+          52,
+          57
+        ],
+        "output_size": [
+          28,
+          34
+        ],
+        "scale": [
+          1,
+          1
+        ],
+        "coordinates_for_input": false
+      },
+      "screen_wood_detail_name": {
+        "path": "assets/templates/screen_ui/1280x960/screen_wood_detail_name.png",
+        "sha256": "780117e3978bc7400d1eeafbd5a1037c9c774d071285a3bebddbdd4a47e80f07",
+        "bytes": 1123,
+        "box": [
+          820,
+          503,
+          900,
+          535
+        ],
+        "search": [
+          808,
+          491,
+          912,
+          547
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "dc399c119ff842be535fc035c84703d9edd0031c3f9a5564e43e384610246ef3",
+        "source_size": [
+          1280,
+          960
+        ],
+        "crop_native": [
+          820,
+          503,
+          900,
+          535
+        ],
+        "output_size": [
+          80,
+          32
+        ],
+        "scale": [
+          1,
+          1
+        ],
+        "coordinates_for_input": false
+      },
+      "screen_wood_detail_equipment": {
+        "path": "assets/templates/screen_ui/1280x960/screen_wood_detail_equipment.png",
+        "sha256": "2f6d8f7d7dd639be7237aa785145fcf2c4bbeb52dfe32bb330de9d02dda7d5b8",
+        "bytes": 2557,
+        "box": [
+          822,
+          574,
+          947,
+          599
+        ],
+        "search": [
+          810,
+          562,
+          959,
+          611
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "dc399c119ff842be535fc035c84703d9edd0031c3f9a5564e43e384610246ef3",
+        "source_size": [
+          1280,
+          960
+        ],
+        "crop_native": [
+          822,
+          574,
+          947,
+          599
+        ],
+        "output_size": [
+          125,
+          25
+        ],
+        "scale": [
+          1,
+          1
+        ],
+        "coordinates_for_input": false
+      },
+      "screen_wood_detail_material": {
+        "path": "assets/templates/screen_ui/1280x960/screen_wood_detail_material.png",
+        "sha256": "9972f4a12f7c79466a3416baf289f5b2fd73c982036105bf06e5f663ab358844",
+        "bytes": 739,
+        "box": [
+          946,
+          766,
+          984,
+          790
+        ],
+        "search": [
+          934,
+          754,
+          996,
+          802
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "dc399c119ff842be535fc035c84703d9edd0031c3f9a5564e43e384610246ef3",
+        "source_size": [
+          1280,
+          960
+        ],
+        "crop_native": [
+          946,
+          766,
+          984,
+          790
+        ],
+        "output_size": [
+          38,
+          24
+        ],
+        "scale": [
+          1,
+          1
+        ],
+        "coordinates_for_input": false
+      },
+      "screen_overlay_back": {
+        "path": "assets/templates/screen_ui/1280x960/screen_overlay_back.png",
+        "sha256": "a1fbe1320b0f65d690102950090b0a1af5efcb61e8c893454f338f76e436f4ce",
+        "bytes": 438,
+        "box": [
+          24,
+          23,
+          52,
+          57
+        ],
+        "search": [
+          12,
+          11,
+          64,
+          69
+        ],
+        "threshold": 0.97,
+        "match_mode": "gray",
+        "source": "release_catalog",
+        "source_sha256": "dc399c119ff842be535fc035c84703d9edd0031c3f9a5564e43e384610246ef3",
+        "source_size": [
+          1280,
+          960
+        ],
+        "crop_native": [
+          24,
+          23,
+          52,
+          57
+        ],
+        "output_size": [
+          28,
+          34
+        ],
+        "scale": [
+          1,
+          1
+        ],
+        "coordinates_for_input": false
+      },
+      "screen_leather_title": {
+        "path": "assets/templates/screen_ui/1280x960/screen_leather_title.png",
+        "sha256": "9b5d1f502fa258b66e972215e8f15c18ee5c24524d0edab2ac2719b0851c16a2",
+        "bytes": 2055,
+        "box": [
+          68,
+          22,
+          130,
+          57
+        ],
+        "search": [
+          56,
+          10,
+          142,
+          69
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "1f762af342e5b3f9cc5ebdc124d1f15c117b4b89de48ea16d2515a84e318fcce",
+        "source_size": [
+          1280,
+          960
+        ],
+        "crop_native": [
+          68,
+          22,
+          130,
+          57
+        ],
+        "output_size": [
+          62,
+          35
+        ],
+        "scale": [
+          1,
+          1
+        ],
+        "coordinates_for_input": false
+      },
+      "screen_leather_equipment": {
+        "path": "assets/templates/screen_ui/1280x960/screen_leather_equipment.png",
+        "sha256": "3a8fd6b7e410aeef493e773d10c696f93769dd577bc7847494d8f426b3aa7c61",
+        "bytes": 723,
+        "box": [
+          75,
+          110,
+          93,
+          138
+        ],
+        "search": [
+          63,
+          98,
+          105,
+          150
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "1f762af342e5b3f9cc5ebdc124d1f15c117b4b89de48ea16d2515a84e318fcce",
+        "source_size": [
+          1280,
+          960
+        ],
+        "crop_native": [
+          75,
+          110,
+          93,
+          138
+        ],
+        "output_size": [
+          18,
+          28
+        ],
+        "scale": [
+          1,
+          1
+        ],
+        "coordinates_for_input": false
+      },
+      "screen_leather_first_recipe": {
+        "path": "assets/templates/screen_ui/1280x960/screen_leather_first_recipe.png",
+        "sha256": "4ad50a7e3b3db974c1a79062d90a46b783cfa1a9af226325b1b1afe4227a28ed",
+        "bytes": 1124,
+        "box": [
+          546,
+          278,
+          618,
+          307
+        ],
+        "search": [
+          534,
+          266,
+          630,
+          319
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "1f762af342e5b3f9cc5ebdc124d1f15c117b4b89de48ea16d2515a84e318fcce",
+        "source_size": [
+          1280,
+          960
+        ],
+        "crop_native": [
+          546,
+          278,
+          618,
+          307
+        ],
+        "output_size": [
+          72,
+          29
+        ],
+        "scale": [
+          1,
+          1
+        ],
+        "coordinates_for_input": false
+      },
+      "screen_leather_detail_name": {
+        "path": "assets/templates/screen_ui/1280x960/screen_leather_detail_name.png",
+        "sha256": "a5539c817bf172d0919dd3fbe703c9e9a0e10235d688e175cd4523f646058e33",
+        "bytes": 1233,
+        "box": [
+          820,
+          503,
+          900,
+          535
+        ],
+        "search": [
+          808,
+          491,
+          912,
+          547
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "d1f41cbbd3b87b34ba1a7d19315ac766b84d11fa0a54e24d929eadca325487b6",
+        "source_size": [
+          1280,
+          960
+        ],
+        "crop_native": [
+          820,
+          503,
+          900,
+          535
+        ],
+        "output_size": [
+          80,
+          32
+        ],
+        "scale": [
+          1,
+          1
+        ],
+        "coordinates_for_input": false
+      },
+      "screen_leather_detail_equipment": {
+        "path": "assets/templates/screen_ui/1280x960/screen_leather_detail_equipment.png",
+        "sha256": "b199039b676dcd152bb36871a5346f6dbedb7665211daa71530e61920edf0ca1",
+        "bytes": 2780,
+        "box": [
+          822,
+          574,
+          947,
+          599
+        ],
+        "search": [
+          810,
+          562,
+          959,
+          611
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "d1f41cbbd3b87b34ba1a7d19315ac766b84d11fa0a54e24d929eadca325487b6",
+        "source_size": [
+          1280,
+          960
+        ],
+        "crop_native": [
+          822,
+          574,
+          947,
+          599
+        ],
+        "output_size": [
+          125,
+          25
+        ],
+        "scale": [
+          1,
+          1
+        ],
+        "coordinates_for_input": false
+      },
+      "screen_leather_detail_material": {
+        "path": "assets/templates/screen_ui/1280x960/screen_leather_detail_material.png",
+        "sha256": "63a4baf179463c976b6f61548d7f41997e76bf701ce96926c8a2873e56800a66",
+        "bytes": 659,
+        "box": [
+          946,
+          766,
+          984,
+          790
+        ],
+        "search": [
+          934,
+          754,
+          996,
+          802
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "d1f41cbbd3b87b34ba1a7d19315ac766b84d11fa0a54e24d929eadca325487b6",
+        "source_size": [
+          1280,
+          960
+        ],
+        "crop_native": [
+          946,
+          766,
+          984,
+          790
+        ],
+        "output_size": [
+          38,
+          24
+        ],
+        "scale": [
+          1,
+          1
+        ],
+        "coordinates_for_input": false
+      },
+      "screen_fabric_title": {
+        "path": "assets/templates/screen_ui/1280x960/screen_fabric_title.png",
+        "sha256": "5d5589e7e31f6b70a9a124835a1d8cb90a3cb6189bab65f1524b3a0d4756bbdb",
+        "bytes": 2126,
+        "box": [
+          68,
+          22,
+          130,
+          57
+        ],
+        "search": [
+          56,
+          10,
+          142,
+          69
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "4a3e176b32b850823a712d75ad9202d9bd72ece84abfe4c13281e963d9bed354",
+        "source_size": [
+          1280,
+          960
+        ],
+        "crop_native": [
+          68,
+          22,
+          130,
+          57
+        ],
+        "output_size": [
+          62,
+          35
+        ],
+        "scale": [
+          1,
+          1
+        ],
+        "coordinates_for_input": false
+      },
+      "screen_fabric_equipment": {
+        "path": "assets/templates/screen_ui/1280x960/screen_fabric_equipment.png",
+        "sha256": "57f4d8de5de7b4e1da1b325cb74b6c89c2628f3d01e840991182de8756a16330",
+        "bytes": 599,
+        "box": [
+          75,
+          110,
+          93,
+          138
+        ],
+        "search": [
+          63,
+          98,
+          105,
+          150
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "4a3e176b32b850823a712d75ad9202d9bd72ece84abfe4c13281e963d9bed354",
+        "source_size": [
+          1280,
+          960
+        ],
+        "crop_native": [
+          75,
+          110,
+          93,
+          138
+        ],
+        "output_size": [
+          18,
+          28
+        ],
+        "scale": [
+          1,
+          1
+        ],
+        "coordinates_for_input": false
+      },
+      "screen_fabric_first_recipe": {
+        "path": "assets/templates/screen_ui/1280x960/screen_fabric_first_recipe.png",
+        "sha256": "90c201911c144395d39282a6e85182eb086b6736b7f52e9babc086d8a33af0ad",
+        "bytes": 1092,
+        "box": [
+          546,
+          278,
+          618,
+          307
+        ],
+        "search": [
+          534,
+          266,
+          630,
+          319
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "4a3e176b32b850823a712d75ad9202d9bd72ece84abfe4c13281e963d9bed354",
+        "source_size": [
+          1280,
+          960
+        ],
+        "crop_native": [
+          546,
+          278,
+          618,
+          307
+        ],
+        "output_size": [
+          72,
+          29
+        ],
+        "scale": [
+          1,
+          1
+        ],
+        "coordinates_for_input": false
+      },
+      "screen_fabric_detail_name": {
+        "path": "assets/templates/screen_ui/1280x960/screen_fabric_detail_name.png",
+        "sha256": "bf8d3561846fec7792f13ad48c4613dd6fe65f758c1d0d6aee26b0c966424de5",
+        "bytes": 1306,
+        "box": [
+          820,
+          503,
+          900,
+          535
+        ],
+        "search": [
+          808,
+          491,
+          912,
+          547
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "ce0255180cdf844c2a0b53b368fb15add05f014338d3cecdaae9e8f3670fb755",
+        "source_size": [
+          1280,
+          960
+        ],
+        "crop_native": [
+          820,
+          503,
+          900,
+          535
+        ],
+        "output_size": [
+          80,
+          32
+        ],
+        "scale": [
+          1,
+          1
+        ],
+        "coordinates_for_input": false
+      },
+      "screen_fabric_detail_equipment": {
+        "path": "assets/templates/screen_ui/1280x960/screen_fabric_detail_equipment.png",
+        "sha256": "cab54526b6c5a943051f53e1c225b9f79f1c8d9ce98b1a21e2a068a5c94f1fb4",
+        "bytes": 2803,
+        "box": [
+          822,
+          574,
+          947,
+          599
+        ],
+        "search": [
+          810,
+          562,
+          959,
+          611
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "ce0255180cdf844c2a0b53b368fb15add05f014338d3cecdaae9e8f3670fb755",
+        "source_size": [
+          1280,
+          960
+        ],
+        "crop_native": [
+          822,
+          574,
+          947,
+          599
+        ],
+        "output_size": [
+          125,
+          25
+        ],
+        "scale": [
+          1,
+          1
+        ],
+        "coordinates_for_input": false
+      },
+      "screen_fabric_detail_material": {
+        "path": "assets/templates/screen_ui/1280x960/screen_fabric_detail_material.png",
+        "sha256": "0a7c62dd111de3cf52b250cb1814d315cccc01a70a9b208519162af3fa765392",
+        "bytes": 695,
+        "box": [
+          946,
+          766,
+          984,
+          790
+        ],
+        "search": [
+          934,
+          754,
+          996,
+          802
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "ce0255180cdf844c2a0b53b368fb15add05f014338d3cecdaae9e8f3670fb755",
+        "source_size": [
+          1280,
+          960
+        ],
+        "crop_native": [
+          946,
+          766,
+          984,
+          790
+        ],
+        "output_size": [
+          38,
+          24
+        ],
+        "scale": [
+          1,
+          1
+        ],
+        "coordinates_for_input": false
+      },
+      "screen_chemical_title": {
+        "path": "assets/templates/screen_ui/1280x960/screen_chemical_title.png",
+        "sha256": "1a34868312c076ad9aa315a551ed7922b1b046e6e753fd241b3ab2ad61c89115",
+        "bytes": 2355,
+        "box": [
+          68,
+          22,
+          130,
+          57
+        ],
+        "search": [
+          56,
+          10,
+          142,
+          69
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "567910ed35521eeb56717e5714146c8cf981a2f459a1e4396bb92b70c611211f",
+        "source_size": [
+          1280,
+          960
+        ],
+        "crop_native": [
+          68,
+          22,
+          130,
+          57
+        ],
+        "output_size": [
+          62,
+          35
+        ],
+        "scale": [
+          1,
+          1
+        ],
+        "coordinates_for_input": false
+      },
+      "screen_chemical_equipment": {
+        "path": "assets/templates/screen_ui/1280x960/screen_chemical_equipment.png",
+        "sha256": "b3062b8bd4b503cc36a93f4109bf4d9ee102d4c7ebde96b37dc5889d20ed7931",
+        "bytes": 864,
+        "box": [
+          75,
+          110,
+          93,
+          138
+        ],
+        "search": [
+          63,
+          98,
+          105,
+          150
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "567910ed35521eeb56717e5714146c8cf981a2f459a1e4396bb92b70c611211f",
+        "source_size": [
+          1280,
+          960
+        ],
+        "crop_native": [
+          75,
+          110,
+          93,
+          138
+        ],
+        "output_size": [
+          18,
+          28
+        ],
+        "scale": [
+          1,
+          1
+        ],
+        "coordinates_for_input": false
+      },
+      "screen_chemical_first_recipe": {
+        "path": "assets/templates/screen_ui/1280x960/screen_chemical_first_recipe.png",
+        "sha256": "082c78d05d14fa7965c99b843cc45e69be5a08eb009c534e2b725b7d5d3ec975",
+        "bytes": 2957,
+        "box": [
+          520,
+          278,
+          632,
+          307
+        ],
+        "search": [
+          508,
+          266,
+          644,
+          319
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "567910ed35521eeb56717e5714146c8cf981a2f459a1e4396bb92b70c611211f",
+        "source_size": [
+          1280,
+          960
+        ],
+        "crop_native": [
+          520,
+          278,
+          632,
+          307
+        ],
+        "output_size": [
+          112,
+          29
+        ],
+        "scale": [
+          1,
+          1
+        ],
+        "coordinates_for_input": false
+      },
+      "screen_chemical_detail_name": {
+        "path": "assets/templates/screen_ui/1280x960/screen_chemical_detail_name.png",
+        "sha256": "bde3b063c0f30d520ee3882f9af00daf05b92aab83874ed3f35b1372ee27cc8e",
+        "bytes": 3770,
+        "box": [
+          820,
+          503,
+          970,
+          535
+        ],
+        "search": [
+          808,
+          491,
+          982,
+          547
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "3f9d60dfbba5c7758b58e3b4920d680612ce3747e29c215498e207b737012b23",
+        "source_size": [
+          1280,
+          960
+        ],
+        "crop_native": [
+          820,
+          503,
+          970,
+          535
+        ],
+        "output_size": [
+          150,
+          32
+        ],
+        "scale": [
+          1,
+          1
+        ],
+        "coordinates_for_input": false
+      },
+      "screen_chemical_detail_equipment": {
+        "path": "assets/templates/screen_ui/1280x960/screen_chemical_detail_equipment.png",
+        "sha256": "71bd766722158479d892c80057b80f8c4bc904b45006f07301251e0ad3b5f3bc",
+        "bytes": 2657,
+        "box": [
+          822,
+          574,
+          947,
+          599
+        ],
+        "search": [
+          810,
+          562,
+          959,
+          611
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "3f9d60dfbba5c7758b58e3b4920d680612ce3747e29c215498e207b737012b23",
+        "source_size": [
+          1280,
+          960
+        ],
+        "crop_native": [
+          822,
+          574,
+          947,
+          599
+        ],
+        "output_size": [
+          125,
+          25
+        ],
+        "scale": [
+          1,
+          1
+        ],
+        "coordinates_for_input": false
+      },
+      "screen_chemical_detail_material": {
+        "path": "assets/templates/screen_ui/1280x960/screen_chemical_detail_material.png",
+        "sha256": "fc39f6ed26947d6ec5bd1a7c4224e9fab91aa3e004f4d451ce3e6c9dd01755d5",
+        "bytes": 2242,
+        "box": [
+          868,
+          766,
+          960,
+          790
+        ],
+        "search": [
+          856,
+          754,
+          972,
+          802
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "3f9d60dfbba5c7758b58e3b4920d680612ce3747e29c215498e207b737012b23",
+        "source_size": [
+          1280,
+          960
+        ],
+        "crop_native": [
+          868,
+          766,
+          960,
+          790
+        ],
+        "output_size": [
+          92,
+          24
+        ],
+        "scale": [
+          1,
+          1
+        ],
+        "coordinates_for_input": false
+      },
+      "screen_food_title": {
+        "path": "assets/templates/screen_ui/1280x960/screen_food_title.png",
+        "sha256": "b9ef25467dd89feb910087030efc7248400bcd6d1512d4ec77d8d400dd50fbcb",
+        "bytes": 2168,
+        "box": [
+          68,
+          22,
+          130,
+          57
+        ],
+        "search": [
+          56,
+          10,
+          142,
+          69
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "574af8fb1133c5b339f3843398539ae68784bd236cec71b6e1d48f1890a2566a",
+        "source_size": [
+          1280,
+          960
+        ],
+        "crop_native": [
+          68,
+          22,
+          130,
+          57
+        ],
+        "output_size": [
+          62,
+          35
+        ],
+        "scale": [
+          1,
+          1
+        ],
+        "coordinates_for_input": false
+      },
+      "screen_food_equipment": {
+        "path": "assets/templates/screen_ui/1280x960/screen_food_equipment.png",
+        "sha256": "5cba660e52b60c6b2319db6846e6833a4aa9ff25df9249748d9991e17100c661",
+        "bytes": 696,
+        "box": [
+          75,
+          110,
+          93,
+          138
+        ],
+        "search": [
+          63,
+          98,
+          105,
+          150
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "574af8fb1133c5b339f3843398539ae68784bd236cec71b6e1d48f1890a2566a",
+        "source_size": [
+          1280,
+          960
+        ],
+        "crop_native": [
+          75,
+          110,
+          93,
+          138
+        ],
+        "output_size": [
+          18,
+          28
+        ],
+        "scale": [
+          1,
+          1
+        ],
+        "coordinates_for_input": false
+      },
+      "screen_food_first_recipe": {
+        "path": "assets/templates/screen_ui/1280x960/screen_food_first_recipe.png",
+        "sha256": "73af2e3f6e2ef8e3f6c9449e9689fc0556e869907e110e077f819f722d65c279",
+        "bytes": 1582,
+        "box": [
+          546,
+          278,
+          618,
+          307
+        ],
+        "search": [
+          534,
+          266,
+          630,
+          319
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "574af8fb1133c5b339f3843398539ae68784bd236cec71b6e1d48f1890a2566a",
+        "source_size": [
+          1280,
+          960
+        ],
+        "crop_native": [
+          546,
+          278,
+          618,
+          307
+        ],
+        "output_size": [
+          72,
+          29
+        ],
+        "scale": [
+          1,
+          1
+        ],
+        "coordinates_for_input": false
+      },
+      "screen_food_detail_name": {
+        "path": "assets/templates/screen_ui/1280x960/screen_food_detail_name.png",
+        "sha256": "b0c611a4b12fe1e84ffd4f1eeb403de6cbfcf49de6b347844e2f6ad143c903b4",
+        "bytes": 2004,
+        "box": [
+          820,
+          503,
+          900,
+          535
+        ],
+        "search": [
+          808,
+          491,
+          912,
+          547
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "3c2c1a936170f250cee3c223b5e959118abf228d79398ca16fe3450449252956",
+        "source_size": [
+          1280,
+          960
+        ],
+        "crop_native": [
+          820,
+          503,
+          900,
+          535
+        ],
+        "output_size": [
+          80,
+          32
+        ],
+        "scale": [
+          1,
+          1
+        ],
+        "coordinates_for_input": false
+      },
+      "screen_food_detail_equipment": {
+        "path": "assets/templates/screen_ui/1280x960/screen_food_detail_equipment.png",
+        "sha256": "46e75b9a5ca7b20b7d9afdb250ac02ed01356801943772973b3d7f8acf7e5a76",
+        "bytes": 2735,
+        "box": [
+          822,
+          574,
+          947,
+          599
+        ],
+        "search": [
+          810,
+          562,
+          959,
+          611
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "3c2c1a936170f250cee3c223b5e959118abf228d79398ca16fe3450449252956",
+        "source_size": [
+          1280,
+          960
+        ],
+        "crop_native": [
+          822,
+          574,
+          947,
+          599
+        ],
+        "output_size": [
+          125,
+          25
+        ],
+        "scale": [
+          1,
+          1
+        ],
+        "coordinates_for_input": false
+      },
+      "screen_food_detail_material": {
+        "path": "assets/templates/screen_ui/1280x960/screen_food_detail_material.png",
+        "sha256": "26ae1c126bbe01521c19fe12e23e558161b18d4dcd5c3f5a3341db62de0fffe8",
+        "bytes": 1007,
+        "box": [
+          896,
+          766,
+          934,
+          790
+        ],
+        "search": [
+          884,
+          754,
+          946,
+          802
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "3c2c1a936170f250cee3c223b5e959118abf228d79398ca16fe3450449252956",
+        "source_size": [
+          1280,
+          960
+        ],
+        "crop_native": [
+          896,
+          766,
+          934,
+          790
+        ],
+        "output_size": [
+          38,
+          24
+        ],
+        "scale": [
+          1,
+          1
+        ],
+        "coordinates_for_input": false
+      },
+      "preset_category_title": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/title.png",
+        "sha256": "d741f73800cf4700e060203174744fd17efd673c6754ed5931f001fbbc837b3f",
+        "box": [
+          184,
+          23,
+          245,
+          58
+        ],
+        "search": [
+          184,
+          23,
+          245,
+          58
+        ],
+        "threshold": 0.97,
+        "match_mode": "grayscale",
+        "source": "release_catalog",
+        "source_sha256": "17ab9273976b4b459957f9a4acb6e4bd7c82aebe59767025873d1d77ac586515",
+        "crop_native": [
+          184,
+          23,
+          245,
+          58
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_category_processing": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/processing.png",
+        "sha256": "74843bf526c2888dbee1f75c53e6ae7965cb3ccac92dad4c6b16990b67fe52bb",
+        "box": [
+          38,
+          416,
+          90,
+          450
+        ],
+        "search": [
+          38,
+          416,
+          90,
+          450
+        ],
+        "threshold": 0.97,
+        "match_mode": "grayscale",
+        "source": "release_catalog",
+        "source_sha256": "17ab9273976b4b459957f9a4acb6e4bd7c82aebe59767025873d1d77ac586515",
+        "crop_native": [
+          38,
+          416,
+          90,
+          450
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_category_metal": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/metal.png",
+        "sha256": "a7de92d90d2c90890db5963f28746865902573ab86f9676a7014a4e53749f55a",
+        "box": [
+          231,
+          253,
+          324,
+          286
+        ],
+        "search": [
+          231,
+          253,
+          324,
+          286
+        ],
+        "threshold": 0.97,
+        "match_mode": "grayscale",
+        "source": "release_catalog",
+        "source_sha256": "17ab9273976b4b459957f9a4acb6e4bd7c82aebe59767025873d1d77ac586515",
+        "crop_native": [
+          231,
+          253,
+          324,
+          286
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_category_wood": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/wood.png",
+        "sha256": "e3fb2380ff8ab3a4bae2dc4fb4dd23db165ce8b485509db1ecbf0fdcf9b306a1",
+        "box": [
+          510,
+          253,
+          608,
+          286
+        ],
+        "search": [
+          510,
+          253,
+          608,
+          286
+        ],
+        "threshold": 0.97,
+        "match_mode": "grayscale",
+        "source": "release_catalog",
+        "source_sha256": "17ab9273976b4b459957f9a4acb6e4bd7c82aebe59767025873d1d77ac586515",
+        "crop_native": [
+          510,
+          253,
+          608,
+          286
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_category_leather": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/leather.png",
+        "sha256": "04f0f730832f0c38d2b5862ad93ac8caa28b0cb2b6568cf8c665e38ffa2f50a9",
+        "box": [
+          789,
+          253,
+          887,
+          286
+        ],
+        "search": [
+          789,
+          253,
+          887,
+          286
+        ],
+        "threshold": 0.97,
+        "match_mode": "grayscale",
+        "source": "release_catalog",
+        "source_sha256": "17ab9273976b4b459957f9a4acb6e4bd7c82aebe59767025873d1d77ac586515",
+        "crop_native": [
+          789,
+          253,
+          887,
+          286
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_category_fabric": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/fabric.png",
+        "sha256": "7de30514614d93d8202d526cc215b682e4403cb150a4b88bc53db34ca89e4ba2",
+        "box": [
+          1067,
+          253,
+          1167,
+          286
+        ],
+        "search": [
+          1067,
+          253,
+          1167,
+          286
+        ],
+        "threshold": 0.97,
+        "match_mode": "grayscale",
+        "source": "release_catalog",
+        "source_sha256": "17ab9273976b4b459957f9a4acb6e4bd7c82aebe59767025873d1d77ac586515",
+        "crop_native": [
+          1067,
+          253,
+          1167,
+          286
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_category_chemical": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/chemical.png",
+        "sha256": "c66a653ee3a9da0ae30add9737f799224cf709c578c87525bb978f6ad2ae3f04",
+        "box": [
+          231,
+          641,
+          324,
+          676
+        ],
+        "search": [
+          231,
+          641,
+          324,
+          676
+        ],
+        "threshold": 0.97,
+        "match_mode": "grayscale",
+        "source": "release_catalog",
+        "source_sha256": "17ab9273976b4b459957f9a4acb6e4bd7c82aebe59767025873d1d77ac586515",
+        "crop_native": [
+          231,
+          641,
+          324,
+          676
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_category_food": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/food.png",
+        "sha256": "69202dde31a21c964381ec4fab013cee20e14c32dd23522a25c69b057b6f672a",
+        "box": [
+          510,
+          641,
+          608,
+          676
+        ],
+        "search": [
+          510,
+          641,
+          608,
+          676
+        ],
+        "threshold": 0.97,
+        "match_mode": "grayscale",
+        "source": "release_catalog",
+        "source_sha256": "17ab9273976b4b459957f9a4acb6e4bd7c82aebe59767025873d1d77ac586515",
+        "crop_native": [
+          510,
+          641,
+          608,
+          676
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_wood_title": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_wood_title.png",
+        "sha256": "fddc8f4fcced8431378a66cbcff2e9a64c13381fdff0deb6689a82172c46fe76",
+        "box": [
+          70,
+          24,
+          180,
+          55
+        ],
+        "search": [
+          70,
+          24,
+          180,
+          55
+        ],
+        "threshold": 0.97,
+        "match_mode": "grayscale",
+        "source": "release_catalog",
+        "source_sha256": "e5d7a4a8bf7365e64d6f6d5a50c8e1aadb156005718f6ef57e7f15af8d172327",
+        "crop_native": [
+          70,
+          24,
+          180,
+          55
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_wood_equipment": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_wood_equipment.png",
+        "sha256": "05cce958b9a426db7502844b436029906cee4981f635142a4fdfe03cfe0fe413",
+        "box": [
+          76,
+          111,
+          250,
+          138
+        ],
+        "search": [
+          76,
+          111,
+          250,
+          138
+        ],
+        "threshold": 0.97,
+        "match_mode": "grayscale",
+        "source": "release_catalog",
+        "source_sha256": "6b05cecbc9786f603f46351d3282c5c2bf60ef971580492758ecbf0b7a8da637",
+        "crop_native": [
+          76,
+          111,
+          250,
+          138
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_wood_first": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_wood_first.png",
+        "sha256": "e51fb1f54f98805e50b35a311e56d0dc72ad12f120ce049cfb811871c72da61c",
+        "box": [
+          550,
+          281,
+          605,
+          304
+        ],
+        "search": [
+          550,
+          281,
+          605,
+          304
+        ],
+        "threshold": 0.97,
+        "match_mode": "grayscale",
+        "source": "release_catalog",
+        "source_sha256": "6b05cecbc9786f603f46351d3282c5c2bf60ef971580492758ecbf0b7a8da637",
+        "crop_native": [
+          550,
+          281,
+          605,
+          304
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_panel_back": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_panel_back.png",
+        "sha256": "40da7f5d73639e41a72736daa585fb13c1b5ae60c6f945a411eb9a044ef603d6",
+        "box": [
+          23,
+          21,
+          49,
+          58
+        ],
+        "search": [
+          23,
+          21,
+          49,
+          58
+        ],
+        "threshold": 0.97,
+        "match_mode": "grayscale",
+        "source": "release_catalog",
+        "source_sha256": "5e92f295df530460119a4fdc2444a3cf45cf5482824c5265b43dc42ab31cf023",
+        "crop_native": [
+          23,
+          21,
+          49,
+          58
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_wood_detail_name": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_wood_detail_name.png",
+        "sha256": "e98160ce2e61b0a4627b67fca56e3132e4f8227120ab7b9dba217f67d1bdf44e",
+        "box": [
+          820,
+          503,
+          1010,
+          535
+        ],
+        "search": [
+          808,
+          491,
+          1022,
+          547
+        ],
+        "threshold": 0.97,
+        "match_mode": "grayscale",
+        "source": "release_catalog",
+        "source_sha256": "b46654792de2cebf0ae197c0602d58427e131e215d9c949e7e2faeaffd181666",
+        "crop_native": [
+          820,
+          503,
+          1010,
+          535
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_wood_detail_equipment": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_wood_detail_equipment.png",
+        "sha256": "e41d62e215d114576584bad111df8b1e137b2b21ef10604a21ee584e3748ea9b",
+        "box": [
+          824,
+          570,
+          1030,
+          597
+        ],
+        "search": [
+          812,
+          558,
+          1042,
+          609
+        ],
+        "threshold": 0.97,
+        "match_mode": "grayscale",
+        "source": "release_catalog",
+        "source_sha256": "b46654792de2cebf0ae197c0602d58427e131e215d9c949e7e2faeaffd181666",
+        "crop_native": [
+          824,
+          570,
+          1030,
+          597
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_wood_detail_material": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_wood_detail_material.png",
+        "sha256": "0466c036cae2a96e54c1325f25819fbfa9fd22a55049ddf1bc4dab7e3df231d5",
+        "box": [
+          910,
+          766,
+          1030,
+          790
+        ],
+        "search": [
+          898,
+          754,
+          1042,
+          802
+        ],
+        "threshold": 0.97,
+        "match_mode": "grayscale",
+        "source": "release_catalog",
+        "source_sha256": "b46654792de2cebf0ae197c0602d58427e131e215d9c949e7e2faeaffd181666",
+        "crop_native": [
+          910,
+          766,
+          1030,
+          790
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_wood_detail_back": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_wood_detail_back.png",
+        "sha256": "8dcc7ed41ea93d40cc9578bbea90f62058c006ecb8ec89bbe36723dab2452c8d",
+        "box": [
+          24,
+          23,
+          52,
+          57
+        ],
+        "search": [
+          12,
+          11,
+          64,
+          69
+        ],
+        "threshold": 0.97,
+        "match_mode": "grayscale",
+        "source": "release_catalog",
+        "source_sha256": "b46654792de2cebf0ae197c0602d58427e131e215d9c949e7e2faeaffd181666",
+        "crop_native": [
+          24,
+          23,
+          52,
+          57
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_leather_title": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_leather_title.png",
+        "sha256": "d112e81a6a0845199602c8b9d5cba0b4433600f8d2862ebaafc14b7041200385",
+        "box": [
+          70,
+          24,
+          180,
+          55
+        ],
+        "search": [
+          70,
+          24,
+          180,
+          55
+        ],
+        "threshold": 0.97,
+        "match_mode": "grayscale",
+        "source": "release_catalog",
+        "source_sha256": "5e92f295df530460119a4fdc2444a3cf45cf5482824c5265b43dc42ab31cf023",
+        "crop_native": [
+          70,
+          24,
+          180,
+          55
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_leather_equipment": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_leather_equipment.png",
+        "sha256": "7c244d31666521efeced72f9abd0c27ebab83912cab61f92d1aa33cae7b194bb",
+        "box": [
+          76,
+          111,
+          250,
+          138
+        ],
+        "search": [
+          76,
+          111,
+          250,
+          138
+        ],
+        "threshold": 0.97,
+        "match_mode": "grayscale",
+        "source": "release_catalog",
+        "source_sha256": "5e92f295df530460119a4fdc2444a3cf45cf5482824c5265b43dc42ab31cf023",
+        "crop_native": [
+          76,
+          111,
+          250,
+          138
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_leather_first": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_leather_first.png",
+        "sha256": "e472c360e0f7555b6ea5d4f7105514000b9de0f60261bb76df62817c929615ba",
+        "box": [
+          550,
+          281,
+          605,
+          304
+        ],
+        "search": [
+          550,
+          281,
+          605,
+          304
+        ],
+        "threshold": 0.97,
+        "match_mode": "grayscale",
+        "source": "release_catalog",
+        "source_sha256": "5e92f295df530460119a4fdc2444a3cf45cf5482824c5265b43dc42ab31cf023",
+        "crop_native": [
+          550,
+          281,
+          605,
+          304
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_leather_detail_name": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_leather_detail_name.png",
+        "sha256": "32e8483c816644355a7ff2c4f9fdafb5f45e6f4cf1bd60c1fb21cc69bfa142ee",
+        "box": [
+          820,
+          503,
+          1010,
+          535
+        ],
+        "search": [
+          808,
+          491,
+          1022,
+          547
+        ],
+        "threshold": 0.97,
+        "match_mode": "grayscale",
+        "source": "release_catalog",
+        "source_sha256": "0abaf2b6fb0030f67bf9f1f0a0ec9a967980168c4817d340bd34ce91b744bf07",
+        "crop_native": [
+          820,
+          503,
+          1010,
+          535
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_leather_detail_equipment": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_leather_detail_equipment.png",
+        "sha256": "cbce644f345ebf851adc7bdb6c005077c59f13e64ee785c454cd8b45e53d0f9a",
+        "box": [
+          824,
+          570,
+          1030,
+          597
+        ],
+        "search": [
+          812,
+          558,
+          1042,
+          609
+        ],
+        "threshold": 0.97,
+        "match_mode": "grayscale",
+        "source": "release_catalog",
+        "source_sha256": "0abaf2b6fb0030f67bf9f1f0a0ec9a967980168c4817d340bd34ce91b744bf07",
+        "crop_native": [
+          824,
+          570,
+          1030,
+          597
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_leather_detail_material": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_leather_detail_material.png",
+        "sha256": "f87a56d2fcede7fcb26cb9f015a66b5d85e926d3ebbc30dc18f77131242e486b",
+        "box": [
+          910,
+          766,
+          1030,
+          790
+        ],
+        "search": [
+          898,
+          754,
+          1042,
+          802
+        ],
+        "threshold": 0.97,
+        "match_mode": "grayscale",
+        "source": "release_catalog",
+        "source_sha256": "0abaf2b6fb0030f67bf9f1f0a0ec9a967980168c4817d340bd34ce91b744bf07",
+        "crop_native": [
+          910,
+          766,
+          1030,
+          790
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_leather_detail_back": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_leather_detail_back.png",
+        "sha256": "8dcc7ed41ea93d40cc9578bbea90f62058c006ecb8ec89bbe36723dab2452c8d",
+        "box": [
+          24,
+          23,
+          52,
+          57
+        ],
+        "search": [
+          12,
+          11,
+          64,
+          69
+        ],
+        "threshold": 0.97,
+        "match_mode": "grayscale",
+        "source": "release_catalog",
+        "source_sha256": "0abaf2b6fb0030f67bf9f1f0a0ec9a967980168c4817d340bd34ce91b744bf07",
+        "crop_native": [
+          24,
+          23,
+          52,
+          57
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_fabric_title": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_fabric_title.png",
+        "sha256": "8e673c58476f6dc8d20dedbc3c508bcf152d34d8e95f1e2f4c721e7c462b8748",
+        "box": [
+          70,
+          24,
+          180,
+          55
+        ],
+        "search": [
+          70,
+          24,
+          180,
+          55
+        ],
+        "threshold": 0.97,
+        "match_mode": "grayscale",
+        "source": "release_catalog",
+        "source_sha256": "a881baba411cda342364a0da737b69176fbd8f3d6246f8ce35e3a59f92a910b2",
+        "crop_native": [
+          70,
+          24,
+          180,
+          55
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_fabric_equipment": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_fabric_equipment.png",
+        "sha256": "893a21dfe52e6029afbcd0cd605778e40c7ccc30a324f51eee7f67650bfaa330",
+        "box": [
+          76,
+          111,
+          250,
+          138
+        ],
+        "search": [
+          76,
+          111,
+          250,
+          138
+        ],
+        "threshold": 0.97,
+        "match_mode": "grayscale",
+        "source": "release_catalog",
+        "source_sha256": "a881baba411cda342364a0da737b69176fbd8f3d6246f8ce35e3a59f92a910b2",
+        "crop_native": [
+          76,
+          111,
+          250,
+          138
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_fabric_first": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_fabric_first.png",
+        "sha256": "4039c50d6a4710f1ec76e4dbc6e96bb63988f1ee9e13463837a63e3fd785d38c",
+        "box": [
+          550,
+          281,
+          605,
+          304
+        ],
+        "search": [
+          550,
+          281,
+          605,
+          304
+        ],
+        "threshold": 0.97,
+        "match_mode": "grayscale",
+        "source": "release_catalog",
+        "source_sha256": "a881baba411cda342364a0da737b69176fbd8f3d6246f8ce35e3a59f92a910b2",
+        "crop_native": [
+          550,
+          281,
+          605,
+          304
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_fabric_detail_name": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_fabric_detail_name.png",
+        "sha256": "a69919c2b2cb453c876a51fb46c853bd262ef684c1d09fcf7a36f6f1942d2712",
+        "box": [
+          820,
+          503,
+          1010,
+          535
+        ],
+        "search": [
+          808,
+          491,
+          1022,
+          547
+        ],
+        "threshold": 0.97,
+        "match_mode": "grayscale",
+        "source": "release_catalog",
+        "source_sha256": "6a8dde6887371e8deeeca77e17c2606be11c7ac10d44ac6bb36e2123446f82e9",
+        "crop_native": [
+          820,
+          503,
+          1010,
+          535
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_fabric_detail_equipment": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_fabric_detail_equipment.png",
+        "sha256": "b60e11fae5874ecfbaf20d4d051b8ccbd8d8841cf5183febf63174a9df8b60ae",
+        "box": [
+          824,
+          570,
+          1030,
+          597
+        ],
+        "search": [
+          812,
+          558,
+          1042,
+          609
+        ],
+        "threshold": 0.97,
+        "match_mode": "grayscale",
+        "source": "release_catalog",
+        "source_sha256": "6a8dde6887371e8deeeca77e17c2606be11c7ac10d44ac6bb36e2123446f82e9",
+        "crop_native": [
+          824,
+          570,
+          1030,
+          597
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_fabric_detail_material": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_fabric_detail_material.png",
+        "sha256": "3f2ca5be956786dd93e807b0f30048a5bfc00d2c55095667d41ec475b1f2131a",
+        "box": [
+          910,
+          766,
+          1030,
+          790
+        ],
+        "search": [
+          898,
+          754,
+          1042,
+          802
+        ],
+        "threshold": 0.97,
+        "match_mode": "grayscale",
+        "source": "release_catalog",
+        "source_sha256": "6a8dde6887371e8deeeca77e17c2606be11c7ac10d44ac6bb36e2123446f82e9",
+        "crop_native": [
+          910,
+          766,
+          1030,
+          790
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_fabric_detail_back": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_fabric_detail_back.png",
+        "sha256": "8dcc7ed41ea93d40cc9578bbea90f62058c006ecb8ec89bbe36723dab2452c8d",
+        "box": [
+          24,
+          23,
+          52,
+          57
+        ],
+        "search": [
+          12,
+          11,
+          64,
+          69
+        ],
+        "threshold": 0.97,
+        "match_mode": "grayscale",
+        "source": "release_catalog",
+        "source_sha256": "6a8dde6887371e8deeeca77e17c2606be11c7ac10d44ac6bb36e2123446f82e9",
+        "crop_native": [
+          24,
+          23,
+          52,
+          57
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_chemical_title": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_chemical_title.png",
+        "sha256": "88586de5a3792b1dded94f1087800e026535db1cd0409a0bd91fd4f016405fe5",
+        "box": [
+          70,
+          24,
+          180,
+          55
+        ],
+        "search": [
+          70,
+          24,
+          180,
+          55
+        ],
+        "threshold": 0.97,
+        "match_mode": "grayscale",
+        "source": "release_catalog",
+        "source_sha256": "fcef0d090074205405d54546896f8e962efeede3c7376722d558bc8ddf04d865",
+        "crop_native": [
+          70,
+          24,
+          180,
+          55
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_chemical_equipment": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_chemical_equipment.png",
+        "sha256": "4f7283c3934b6f995405655cc0bfc1c29eb0eed44f829153d11e67d0c71bdf9a",
+        "box": [
+          76,
+          111,
+          250,
+          138
+        ],
+        "search": [
+          76,
+          111,
+          250,
+          138
+        ],
+        "threshold": 0.97,
+        "match_mode": "grayscale",
+        "source": "release_catalog",
+        "source_sha256": "fcef0d090074205405d54546896f8e962efeede3c7376722d558bc8ddf04d865",
+        "crop_native": [
+          76,
+          111,
+          250,
+          138
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_chemical_first": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_chemical_first.png",
+        "sha256": "d3979df72f2b5ed8eaa26f704f469bc05ec8612666d3a0c55d4fd2f572fa2bfc",
+        "box": [
+          550,
+          281,
+          605,
+          304
+        ],
+        "search": [
+          550,
+          281,
+          605,
+          304
+        ],
+        "threshold": 0.97,
+        "match_mode": "grayscale",
+        "source": "release_catalog",
+        "source_sha256": "fcef0d090074205405d54546896f8e962efeede3c7376722d558bc8ddf04d865",
+        "crop_native": [
+          550,
+          281,
+          605,
+          304
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_chemical_detail_name": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_chemical_detail_name.png",
+        "sha256": "0ed4a0a99894da7cba0783ef8ce29739a5b8fd1a3be2788f5c697aa84432a695",
+        "box": [
+          820,
+          503,
+          1010,
+          535
+        ],
+        "search": [
+          808,
+          491,
+          1022,
+          547
+        ],
+        "threshold": 0.97,
+        "match_mode": "grayscale",
+        "source": "release_catalog",
+        "source_sha256": "4183b7c7bfcf4a7ae58b8e7323baf822839dfc7a405edb5c3db0322c955d454c",
+        "crop_native": [
+          820,
+          503,
+          1010,
+          535
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_chemical_detail_equipment": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_chemical_detail_equipment.png",
+        "sha256": "84a43e32e617f208034bfb8e4b0eb8f0730a0662f5332c22febf2e3c8c30d4e6",
+        "box": [
+          824,
+          570,
+          1030,
+          597
+        ],
+        "search": [
+          812,
+          558,
+          1042,
+          609
+        ],
+        "threshold": 0.97,
+        "match_mode": "grayscale",
+        "source": "release_catalog",
+        "source_sha256": "4183b7c7bfcf4a7ae58b8e7323baf822839dfc7a405edb5c3db0322c955d454c",
+        "crop_native": [
+          824,
+          570,
+          1030,
+          597
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_chemical_detail_material": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_chemical_detail_material.png",
+        "sha256": "7b1d91bc79a316e7cb0bab4961cc9a315d5970d08d4e3001bd85bf85559f43a9",
+        "box": [
+          910,
+          766,
+          1030,
+          790
+        ],
+        "search": [
+          898,
+          754,
+          1042,
+          802
+        ],
+        "threshold": 0.97,
+        "match_mode": "grayscale",
+        "source": "release_catalog",
+        "source_sha256": "4183b7c7bfcf4a7ae58b8e7323baf822839dfc7a405edb5c3db0322c955d454c",
+        "crop_native": [
+          910,
+          766,
+          1030,
+          790
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_chemical_detail_back": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_chemical_detail_back.png",
+        "sha256": "8dcc7ed41ea93d40cc9578bbea90f62058c006ecb8ec89bbe36723dab2452c8d",
+        "box": [
+          24,
+          23,
+          52,
+          57
+        ],
+        "search": [
+          12,
+          11,
+          64,
+          69
+        ],
+        "threshold": 0.97,
+        "match_mode": "grayscale",
+        "source": "release_catalog",
+        "source_sha256": "4183b7c7bfcf4a7ae58b8e7323baf822839dfc7a405edb5c3db0322c955d454c",
+        "crop_native": [
+          24,
+          23,
+          52,
+          57
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_food_title": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_food_title.png",
+        "sha256": "292a1ae86e145880b2f32c2eab3d17ee0dabfdab0492d1477e39260584e6821c",
+        "box": [
+          70,
+          24,
+          180,
+          55
+        ],
+        "search": [
+          70,
+          24,
+          180,
+          55
+        ],
+        "threshold": 0.97,
+        "match_mode": "grayscale",
+        "source": "release_catalog",
+        "source_sha256": "f9e6b219076f118376f3e455f9ca4e82a11236000fded1d258b2e56f30074880",
+        "crop_native": [
+          70,
+          24,
+          180,
+          55
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_food_equipment": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_food_equipment.png",
+        "sha256": "67f22bf29bd502877f4d214e6386af2d46dd03a5fe5fdd985bb8fd324b0238f9",
+        "box": [
+          76,
+          111,
+          250,
+          138
+        ],
+        "search": [
+          76,
+          111,
+          250,
+          138
+        ],
+        "threshold": 0.97,
+        "match_mode": "grayscale",
+        "source": "release_catalog",
+        "source_sha256": "f9e6b219076f118376f3e455f9ca4e82a11236000fded1d258b2e56f30074880",
+        "crop_native": [
+          76,
+          111,
+          250,
+          138
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_food_first": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_food_first.png",
+        "sha256": "698884ea5b4d2d61fd0c6b9648f9a0cb30e6a1215a00d00a17cc4b73d2286d72",
+        "box": [
+          550,
+          281,
+          605,
+          304
+        ],
+        "search": [
+          550,
+          281,
+          605,
+          304
+        ],
+        "threshold": 0.97,
+        "match_mode": "grayscale",
+        "source": "release_catalog",
+        "source_sha256": "f9e6b219076f118376f3e455f9ca4e82a11236000fded1d258b2e56f30074880",
+        "crop_native": [
+          550,
+          281,
+          605,
+          304
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_food_detail_name": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_food_detail_name.png",
+        "sha256": "38834fe738935b64d1038f4e17e310b209cd2631645de5bb0114427c69e0502b",
+        "box": [
+          820,
+          503,
+          1010,
+          535
+        ],
+        "search": [
+          808,
+          491,
+          1022,
+          547
+        ],
+        "threshold": 0.97,
+        "match_mode": "grayscale",
+        "source": "release_catalog",
+        "source_sha256": "47121be0509036e4abfa323bb23d250d1865bf612b27ce9704156221d51eb691",
+        "crop_native": [
+          820,
+          503,
+          1010,
+          535
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_food_detail_equipment": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_food_detail_equipment.png",
+        "sha256": "12fe101b268a483e0082b698fbe2bce5e3743ce71de4334e1092fd64cce8f310",
+        "box": [
+          824,
+          570,
+          1030,
+          597
+        ],
+        "search": [
+          812,
+          558,
+          1042,
+          609
+        ],
+        "threshold": 0.97,
+        "match_mode": "grayscale",
+        "source": "release_catalog",
+        "source_sha256": "47121be0509036e4abfa323bb23d250d1865bf612b27ce9704156221d51eb691",
+        "crop_native": [
+          824,
+          570,
+          1030,
+          597
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_food_detail_material": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_food_detail_material.png",
+        "sha256": "d649b6decc597ee7f0d262d1a2fa66fb7641b901c6f5fab72dfa4e85ea4cfcca",
+        "box": [
+          910,
+          766,
+          1030,
+          790
+        ],
+        "search": [
+          898,
+          754,
+          1042,
+          802
+        ],
+        "threshold": 0.97,
+        "match_mode": "grayscale",
+        "source": "release_catalog",
+        "source_sha256": "47121be0509036e4abfa323bb23d250d1865bf612b27ce9704156221d51eb691",
+        "crop_native": [
+          910,
+          766,
+          1030,
+          790
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_food_detail_back": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_food_detail_back.png",
+        "sha256": "8dcc7ed41ea93d40cc9578bbea90f62058c006ecb8ec89bbe36723dab2452c8d",
+        "box": [
+          24,
+          23,
+          52,
+          57
+        ],
+        "search": [
+          12,
+          11,
+          64,
+          69
+        ],
+        "threshold": 0.97,
+        "match_mode": "grayscale",
+        "source": "release_catalog",
+        "source_sha256": "47121be0509036e4abfa323bb23d250d1865bf612b27ce9704156221d51eb691",
+        "crop_native": [
+          24,
+          23,
+          52,
+          57
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_metal_steel_tile": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/metal_steel_tile.png",
+        "sha256": "3ea09d8a9ca23945186171851632b7939cb283d6dbca9201785ed27ff839d4a4",
+        "box": [
+          806,
+          280,
+          895,
+          306
+        ],
+        "search": [
+          806,
+          280,
+          895,
+          306
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "722e6bb4a2c113f3ff66112f13fd0a6737a58cad31e8adc4f636f63184429f73",
+        "crop_native": [
+          806,
+          280,
+          895,
+          306
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_metal_alloy_tile": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/metal_alloy_tile.png",
+        "sha256": "b1a44b7562f17b42598bad49ed84c92025007b8e8640179aa4dc1dafc4aa119a",
+        "box": [
+          931,
+          280,
+          1040,
+          306
+        ],
+        "search": [
+          931,
+          280,
+          1040,
+          306
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "722e6bb4a2c113f3ff66112f13fd0a6737a58cad31e8adc4f636f63184429f73",
+        "crop_native": [
+          931,
+          280,
+          1040,
+          306
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_metal_fuel_tile": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/metal_fuel_tile.png",
+        "sha256": "cb6a70d3fd0f1ff9c8e262a9b89b8c4e749e9e318440c32dd55461da1ede2450",
+        "box": [
+          1104,
+          280,
+          1155,
+          306
+        ],
+        "search": [
+          1104,
+          280,
+          1155,
+          306
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "722e6bb4a2c113f3ff66112f13fd0a6737a58cad31e8adc4f636f63184429f73",
+        "crop_native": [
+          1104,
+          280,
+          1155,
+          306
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_metal_special_tile": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/metal_special_tile.png",
+        "sha256": "f37228625871f0f547d4347c65c892cb8d73055e9ae0c6e251b5c91d956d127d",
+        "box": [
+          539,
+          476,
+          611,
+          502
+        ],
+        "search": [
+          539,
+          476,
+          611,
+          502
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "722e6bb4a2c113f3ff66112f13fd0a6737a58cad31e8adc4f636f63184429f73",
+        "crop_native": [
+          539,
+          476,
+          611,
+          502
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_metal_silver_tile": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/metal_silver_tile.png",
+        "sha256": "6e4e22646f205878ca5c0560d8c7b8e9cd05b4b7f17c843f12911208488f143a",
+        "box": [
+          681,
+          476,
+          755,
+          502
+        ],
+        "search": [
+          681,
+          476,
+          755,
+          502
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "722e6bb4a2c113f3ff66112f13fd0a6737a58cad31e8adc4f636f63184429f73",
+        "crop_native": [
+          681,
+          476,
+          755,
+          502
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_metal_steel_detail_name": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_metal_steel_detail_name.png",
+        "sha256": "341c2b9fb035a2af9aaaa3ed4715f9a05f15b241faf9706b74a25ccd3a917ad6",
+        "box": [
+          820,
+          503,
+          1010,
+          535
+        ],
+        "search": [
+          808,
+          491,
+          1022,
+          547
+        ],
+        "threshold": 0.97,
+        "match_mode": "grayscale",
+        "source": "release_catalog",
+        "source_sha256": "21fb396c7a28ba6db677c91433f4b11d88b7d80cf2d7a53ab4be0ab174cd9f2d",
+        "crop_native": [
+          820,
+          503,
+          1010,
+          535
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_metal_steel_detail_equipment": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_metal_steel_detail_equipment.png",
+        "sha256": "38ebd619dfc320b22957bfe1570cbbd19ced65cce70fd45a77ef728a3672ebc8",
+        "box": [
+          824,
+          570,
+          1030,
+          597
+        ],
+        "search": [
+          812,
+          558,
+          1042,
+          609
+        ],
+        "threshold": 0.97,
+        "match_mode": "grayscale",
+        "source": "release_catalog",
+        "source_sha256": "21fb396c7a28ba6db677c91433f4b11d88b7d80cf2d7a53ab4be0ab174cd9f2d",
+        "crop_native": [
+          824,
+          570,
+          1030,
+          597
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_metal_steel_detail_material": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_metal_steel_detail_material.png",
+        "sha256": "9fa68a81088a67b6ec1dfae3f953fe8d7a40204e21df75e172269e8f678fa348",
+        "box": [
+          910,
+          766,
+          1030,
+          790
+        ],
+        "search": [
+          898,
+          754,
+          1042,
+          802
+        ],
+        "threshold": 0.97,
+        "match_mode": "grayscale",
+        "source": "release_catalog",
+        "source_sha256": "21fb396c7a28ba6db677c91433f4b11d88b7d80cf2d7a53ab4be0ab174cd9f2d",
+        "crop_native": [
+          910,
+          766,
+          1030,
+          790
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_metal_steel_detail_back": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_metal_steel_detail_back.png",
+        "sha256": "8dcc7ed41ea93d40cc9578bbea90f62058c006ecb8ec89bbe36723dab2452c8d",
+        "box": [
+          24,
+          23,
+          52,
+          57
+        ],
+        "search": [
+          12,
+          11,
+          64,
+          69
+        ],
+        "threshold": 0.97,
+        "match_mode": "grayscale",
+        "source": "release_catalog",
+        "source_sha256": "21fb396c7a28ba6db677c91433f4b11d88b7d80cf2d7a53ab4be0ab174cd9f2d",
+        "crop_native": [
+          24,
+          23,
+          52,
+          57
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_metal_alloy_detail_name": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_metal_alloy_detail_name.png",
+        "sha256": "6fa517b6691c076971f51174b702ccb24214f07d6090d070b1da713c88e695bd",
+        "box": [
+          820,
+          503,
+          1010,
+          535
+        ],
+        "search": [
+          808,
+          491,
+          1022,
+          547
+        ],
+        "threshold": 0.97,
+        "match_mode": "grayscale",
+        "source": "release_catalog",
+        "source_sha256": "5ccbede9da0506933bfb01f7cf8428608254e9699f8b715038fc24422925e0fc",
+        "crop_native": [
+          820,
+          503,
+          1010,
+          535
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_metal_alloy_detail_equipment": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_metal_alloy_detail_equipment.png",
+        "sha256": "bb2b9ea9dc33d11f68c1bba7e48ef5174f7f5b60c4713261777f4c43c5d20f18",
+        "box": [
+          824,
+          570,
+          1030,
+          597
+        ],
+        "search": [
+          812,
+          558,
+          1042,
+          609
+        ],
+        "threshold": 0.97,
+        "match_mode": "grayscale",
+        "source": "release_catalog",
+        "source_sha256": "5ccbede9da0506933bfb01f7cf8428608254e9699f8b715038fc24422925e0fc",
+        "crop_native": [
+          824,
+          570,
+          1030,
+          597
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_metal_alloy_detail_material": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_metal_alloy_detail_material.png",
+        "sha256": "a4e25a366e19714484bb6b894bc6915376cb2b32091ec1dcb8967af67a4000e5",
+        "box": [
+          910,
+          766,
+          1030,
+          790
+        ],
+        "search": [
+          898,
+          754,
+          1042,
+          802
+        ],
+        "threshold": 0.97,
+        "match_mode": "grayscale",
+        "source": "release_catalog",
+        "source_sha256": "5ccbede9da0506933bfb01f7cf8428608254e9699f8b715038fc24422925e0fc",
+        "crop_native": [
+          910,
+          766,
+          1030,
+          790
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_metal_alloy_detail_back": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_metal_alloy_detail_back.png",
+        "sha256": "8dcc7ed41ea93d40cc9578bbea90f62058c006ecb8ec89bbe36723dab2452c8d",
+        "box": [
+          24,
+          23,
+          52,
+          57
+        ],
+        "search": [
+          12,
+          11,
+          64,
+          69
+        ],
+        "threshold": 0.97,
+        "match_mode": "grayscale",
+        "source": "release_catalog",
+        "source_sha256": "5ccbede9da0506933bfb01f7cf8428608254e9699f8b715038fc24422925e0fc",
+        "crop_native": [
+          24,
+          23,
+          52,
+          57
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_metal_fuel_detail_name": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_metal_fuel_detail_name.png",
+        "sha256": "445b3ee809d6c4fff28809b4b62ad6353e1ef40af24a84b9114f2b269ffc39e0",
+        "box": [
+          820,
+          503,
+          1010,
+          535
+        ],
+        "search": [
+          808,
+          491,
+          1022,
+          547
+        ],
+        "threshold": 0.97,
+        "match_mode": "grayscale",
+        "source": "release_catalog",
+        "source_sha256": "6aa4e4e6ec1e72fe5074302be944760f16ea96abb94126d6fd97f097700c3dd2",
+        "crop_native": [
+          820,
+          503,
+          1010,
+          535
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_metal_fuel_detail_equipment": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_metal_fuel_detail_equipment.png",
+        "sha256": "bb2b9ea9dc33d11f68c1bba7e48ef5174f7f5b60c4713261777f4c43c5d20f18",
+        "box": [
+          824,
+          570,
+          1030,
+          597
+        ],
+        "search": [
+          812,
+          558,
+          1042,
+          609
+        ],
+        "threshold": 0.97,
+        "match_mode": "grayscale",
+        "source": "release_catalog",
+        "source_sha256": "6aa4e4e6ec1e72fe5074302be944760f16ea96abb94126d6fd97f097700c3dd2",
+        "crop_native": [
+          824,
+          570,
+          1030,
+          597
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_metal_fuel_detail_material": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_metal_fuel_detail_material.png",
+        "sha256": "75e2ac50ff44ea159f79049fdd6a32a79b406f868585983c99ff35a9f9891b75",
+        "box": [
+          910,
+          766,
+          1030,
+          790
+        ],
+        "search": [
+          898,
+          754,
+          1042,
+          802
+        ],
+        "threshold": 0.97,
+        "match_mode": "grayscale",
+        "source": "release_catalog",
+        "source_sha256": "6aa4e4e6ec1e72fe5074302be944760f16ea96abb94126d6fd97f097700c3dd2",
+        "crop_native": [
+          910,
+          766,
+          1030,
+          790
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_metal_fuel_detail_back": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_metal_fuel_detail_back.png",
+        "sha256": "8dcc7ed41ea93d40cc9578bbea90f62058c006ecb8ec89bbe36723dab2452c8d",
+        "box": [
+          24,
+          23,
+          52,
+          57
+        ],
+        "search": [
+          12,
+          11,
+          64,
+          69
+        ],
+        "threshold": 0.97,
+        "match_mode": "grayscale",
+        "source": "release_catalog",
+        "source_sha256": "6aa4e4e6ec1e72fe5074302be944760f16ea96abb94126d6fd97f097700c3dd2",
+        "crop_native": [
+          24,
+          23,
+          52,
+          57
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_metal_special_detail_name": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_metal_special_detail_name.png",
+        "sha256": "8bc0901d3024c44ff20bf82b35d3f4f1a5bff1e17db542856bdb362d6018bc1a",
+        "box": [
+          820,
+          503,
+          1010,
+          535
+        ],
+        "search": [
+          808,
+          491,
+          1022,
+          547
+        ],
+        "threshold": 0.97,
+        "match_mode": "grayscale",
+        "source": "release_catalog",
+        "source_sha256": "8dd8ff9e45879f877153eb72edd7eef11696d1ea17a473b34bcdaf160fb75082",
+        "crop_native": [
+          820,
+          503,
+          1010,
+          535
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_metal_special_detail_equipment": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_metal_special_detail_equipment.png",
+        "sha256": "c6d0da21d900ff629fbff6d19ad5edcbfad766f9ce4780080cf1c5711611cf94",
+        "box": [
+          824,
+          570,
+          1030,
+          597
+        ],
+        "search": [
+          812,
+          558,
+          1042,
+          609
+        ],
+        "threshold": 0.97,
+        "match_mode": "grayscale",
+        "source": "release_catalog",
+        "source_sha256": "8dd8ff9e45879f877153eb72edd7eef11696d1ea17a473b34bcdaf160fb75082",
+        "crop_native": [
+          824,
+          570,
+          1030,
+          597
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_metal_special_detail_material": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_metal_special_detail_material.png",
+        "sha256": "b1e227a91dbd27e1650765efee185a32d433932c12751025b52727d3f66dee04",
+        "box": [
+          910,
+          766,
+          1030,
+          790
+        ],
+        "search": [
+          898,
+          754,
+          1042,
+          802
+        ],
+        "threshold": 0.97,
+        "match_mode": "grayscale",
+        "source": "release_catalog",
+        "source_sha256": "8dd8ff9e45879f877153eb72edd7eef11696d1ea17a473b34bcdaf160fb75082",
+        "crop_native": [
+          910,
+          766,
+          1030,
+          790
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_metal_special_detail_back": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_metal_special_detail_back.png",
+        "sha256": "8dcc7ed41ea93d40cc9578bbea90f62058c006ecb8ec89bbe36723dab2452c8d",
+        "box": [
+          24,
+          23,
+          52,
+          57
+        ],
+        "search": [
+          12,
+          11,
+          64,
+          69
+        ],
+        "threshold": 0.97,
+        "match_mode": "grayscale",
+        "source": "release_catalog",
+        "source_sha256": "8dd8ff9e45879f877153eb72edd7eef11696d1ea17a473b34bcdaf160fb75082",
+        "crop_native": [
+          24,
+          23,
+          52,
+          57
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_metal_silver_detail_name": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_metal_silver_detail_name.png",
+        "sha256": "c54e938657adfff156cce822524855ff1b3030621f16ae7f92f141baab8795ef",
+        "box": [
+          820,
+          503,
+          1010,
+          535
+        ],
+        "search": [
+          808,
+          491,
+          1022,
+          547
+        ],
+        "threshold": 0.97,
+        "match_mode": "grayscale",
+        "source": "release_catalog",
+        "source_sha256": "d24a83260be168d29738a595bc7993cda6cb66d65d12461a92a484d1b9f5e47c",
+        "crop_native": [
+          820,
+          503,
+          1010,
+          535
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_metal_silver_detail_equipment": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_metal_silver_detail_equipment.png",
+        "sha256": "e892f557d6ad226d59324a0156edc6fc03df396d646923882d6255aae6e69121",
+        "box": [
+          824,
+          570,
+          1030,
+          597
+        ],
+        "search": [
+          812,
+          558,
+          1042,
+          609
+        ],
+        "threshold": 0.97,
+        "match_mode": "grayscale",
+        "source": "release_catalog",
+        "source_sha256": "d24a83260be168d29738a595bc7993cda6cb66d65d12461a92a484d1b9f5e47c",
+        "crop_native": [
+          824,
+          570,
+          1030,
+          597
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_metal_silver_detail_material": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_metal_silver_detail_material.png",
+        "sha256": "4a018f0522be3bbdbcefe771a7b290daabc0116580a95c959d47a4129c0707ed",
+        "box": [
+          910,
+          766,
+          1030,
+          790
+        ],
+        "search": [
+          898,
+          754,
+          1042,
+          802
+        ],
+        "threshold": 0.97,
+        "match_mode": "grayscale",
+        "source": "release_catalog",
+        "source_sha256": "d24a83260be168d29738a595bc7993cda6cb66d65d12461a92a484d1b9f5e47c",
+        "crop_native": [
+          910,
+          766,
+          1030,
+          790
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_metal_silver_detail_back": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_metal_silver_detail_back.png",
+        "sha256": "8dcc7ed41ea93d40cc9578bbea90f62058c006ecb8ec89bbe36723dab2452c8d",
+        "box": [
+          24,
+          23,
+          52,
+          57
+        ],
+        "search": [
+          12,
+          11,
+          64,
+          69
+        ],
+        "threshold": 0.97,
+        "match_mode": "grayscale",
+        "source": "release_catalog",
+        "source_sha256": "d24a83260be168d29738a595bc7993cda6cb66d65d12461a92a484d1b9f5e47c",
+        "crop_native": [
+          24,
+          23,
+          52,
+          57
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      }
+    },
+    "pages": {
+      "metal_panel": {
+        "anchors": [
+          "metal_title",
+          "metal_equipment"
+        ],
+        "targets": {
+          "metal.open_iron_recipe": "metal_iron_ore_tile",
+          "metal.open_steel": "preset_metal_steel_tile",
+          "metal.open_alloy": "preset_metal_alloy_tile",
+          "metal.open_fuel": "preset_metal_fuel_tile",
+          "metal.open_special": "preset_metal_special_tile",
+          "metal.open_silver": "preset_metal_silver_tile"
+        },
+        "coordinate_targets": {
+          "page.close": [
+            1222,
+            20,
+            1264,
+            65
+          ]
+        }
+      },
+      "recipe_detail": {
+        "anchors": [
+          "detail_iron_name",
+          "detail_output_three",
+          "detail_equipment",
+          "detail_ore_name",
+          "detail_ore_ten",
+          "screen_overlay_back"
+        ],
+        "targets": {
+          "recipe_detail.close": "screen_overlay_back"
+        }
+      },
+      "category_page": {
+        "covers_pages": [
+          "skills"
+        ],
+        "anchors": [
+          "category_title",
+          "category_metal",
+          "category_food",
+          "category_processing"
+        ],
+        "targets": {
+          "category.open_metal": "category_metal",
+          "category.open_wood": "screen_category_wood",
+          "category.open_leather": "screen_category_leather",
+          "category.open_fabric": "screen_category_fabric",
+          "category.open_chemical": "screen_category_chemical",
+          "category.open_food": "screen_category_food"
+        }
+      },
+      "wood_panel": {
+        "page": "wood_panel",
+        "device": "wood",
+        "anchors": [
+          "preset_wood_title",
+          "preset_wood_equipment"
+        ],
+        "targets": {
+          "wood.open_first_recipe": "preset_wood_first"
+        },
+        "coordinate_targets": {
+          "page.close": [
+            1222,
+            20,
+            1264,
+            65
+          ]
+        }
+      },
+      "leather_panel": {
+        "page": "leather_panel",
+        "device": "leather",
+        "anchors": [
+          "preset_leather_title",
+          "preset_leather_equipment"
+        ],
+        "targets": {
+          "leather.open_first_recipe": "preset_leather_first"
+        },
+        "coordinate_targets": {
+          "page.close": [
+            1222,
+            20,
+            1264,
+            65
+          ]
+        }
+      },
+      "fabric_panel": {
+        "page": "fabric_panel",
+        "device": "fabric",
+        "anchors": [
+          "preset_fabric_title",
+          "preset_fabric_equipment"
+        ],
+        "targets": {
+          "fabric.open_first_recipe": "preset_fabric_first"
+        },
+        "coordinate_targets": {
+          "page.close": [
+            1222,
+            20,
+            1264,
+            65
+          ]
+        }
+      },
+      "chemical_panel": {
+        "page": "chemical_panel",
+        "device": "chemical",
+        "anchors": [
+          "preset_chemical_title",
+          "preset_chemical_equipment"
+        ],
+        "targets": {
+          "chemical.open_first_recipe": "preset_chemical_first"
+        },
+        "coordinate_targets": {
+          "page.close": [
+            1222,
+            20,
+            1264,
+            65
+          ]
+        }
+      },
+      "food_panel": {
+        "page": "food_panel",
+        "device": "food",
+        "anchors": [
+          "preset_food_title",
+          "preset_food_equipment"
+        ],
+        "targets": {
+          "food.open_first_recipe": "preset_food_first"
+        },
+        "coordinate_targets": {
+          "page.close": [
+            1222,
+            20,
+            1264,
+            65
+          ]
+        }
+      }
+    },
+    "page_variants": {
+      "arrived_metal": {
+        "page": "metal_panel",
+        "anchors": [
+          "arrived_title",
+          "arrived_equipment"
+        ],
+        "targets": {
+          "metal.open_iron_recipe": "metal_iron_ore_tile"
+        },
+        "coordinate_targets": {
+          "page.close": [
+            1222,
+            20,
+            1264,
+            65
+          ]
+        }
+      },
+      "preset_category_live": {
+        "page": "category_page",
+        "anchors": [
+          "preset_category_title",
+          "preset_category_processing",
+          "preset_category_wood"
+        ],
+        "targets": {
+          "category.open_metal": "preset_category_metal",
+          "category.open_wood": "preset_category_wood",
+          "category.open_leather": "preset_category_leather",
+          "category.open_fabric": "preset_category_fabric",
+          "category.open_chemical": "preset_category_chemical",
+          "category.open_food": "preset_category_food"
+        }
+      },
+      "preset_wood_recipe": {
+        "page": "recipe_detail",
+        "device": "wood",
+        "anchors": [
+          "preset_wood_detail_name",
+          "preset_wood_detail_equipment",
+          "preset_wood_detail_material"
+        ],
+        "targets": {
+          "recipe_detail.close": "preset_wood_detail_back"
+        }
+      },
+      "preset_leather_recipe": {
+        "page": "recipe_detail",
+        "device": "leather",
+        "anchors": [
+          "preset_leather_detail_name",
+          "preset_leather_detail_equipment",
+          "preset_leather_detail_material"
+        ],
+        "targets": {
+          "recipe_detail.close": "preset_leather_detail_back"
+        }
+      },
+      "preset_fabric_recipe": {
+        "page": "recipe_detail",
+        "device": "fabric",
+        "anchors": [
+          "preset_fabric_detail_name",
+          "preset_fabric_detail_equipment",
+          "preset_fabric_detail_material"
+        ],
+        "targets": {
+          "recipe_detail.close": "preset_fabric_detail_back"
+        }
+      },
+      "preset_chemical_recipe": {
+        "page": "recipe_detail",
+        "device": "chemical",
+        "anchors": [
+          "preset_chemical_detail_name",
+          "preset_chemical_detail_equipment",
+          "preset_chemical_detail_material"
+        ],
+        "targets": {
+          "recipe_detail.close": "preset_chemical_detail_back"
+        }
+      },
+      "preset_food_recipe": {
+        "page": "recipe_detail",
+        "device": "food",
+        "anchors": [
+          "preset_food_detail_name",
+          "preset_food_detail_equipment",
+          "preset_food_detail_material"
+        ],
+        "targets": {
+          "recipe_detail.close": "preset_food_detail_back"
+        }
+      },
+      "preset_metal_steel_recipe": {
+        "page": "recipe_detail",
+        "device": "metal",
+        "anchors": [
+          "preset_metal_steel_detail_name",
+          "preset_metal_steel_detail_equipment",
+          "preset_metal_steel_detail_material"
+        ],
+        "targets": {
+          "recipe_detail.close": "preset_metal_steel_detail_back"
+        }
+      },
+      "preset_metal_alloy_recipe": {
+        "page": "recipe_detail",
+        "device": "metal",
+        "anchors": [
+          "preset_metal_alloy_detail_name",
+          "preset_metal_alloy_detail_equipment",
+          "preset_metal_alloy_detail_material"
+        ],
+        "targets": {
+          "recipe_detail.close": "preset_metal_alloy_detail_back"
+        }
+      },
+      "preset_metal_fuel_recipe": {
+        "page": "recipe_detail",
+        "device": "metal",
+        "anchors": [
+          "preset_metal_fuel_detail_name",
+          "preset_metal_fuel_detail_equipment",
+          "preset_metal_fuel_detail_material"
+        ],
+        "targets": {
+          "recipe_detail.close": "preset_metal_fuel_detail_back"
+        }
+      },
+      "preset_metal_special_recipe": {
+        "page": "recipe_detail",
+        "device": "metal",
+        "anchors": [
+          "preset_metal_special_detail_name",
+          "preset_metal_special_detail_equipment",
+          "preset_metal_special_detail_material"
+        ],
+        "targets": {
+          "recipe_detail.close": "preset_metal_special_detail_back"
+        }
+      },
+      "preset_metal_silver_recipe": {
+        "page": "recipe_detail",
+        "device": "metal",
+        "anchors": [
+          "preset_metal_silver_detail_name",
+          "preset_metal_silver_detail_equipment",
+          "preset_metal_silver_detail_material"
+        ],
+        "targets": {
+          "recipe_detail.close": "preset_metal_silver_detail_back"
+        }
+      }
+    }
+  },
+  "template_sources": {
+    "screen_queue_title": {
+      "profile": "config/empty_queue.1280x960.tw.json",
+      "select": [
+        "profiles",
+        0,
+        "title"
+      ]
+    },
+    "screen_queue_forge": {
+      "profile": "config/empty_queue.1280x960.tw.json",
+      "select": [
+        "profiles",
+        0,
+        "forge"
+      ],
+      "overrides": {
+        "threshold": 0.94
+      }
+    },
+    "screen_collect_current": {
+      "profile": "config/iron_ui.1280x960.tw.json",
+      "select": [
+        "collect_text"
+      ]
+    },
+    "screen_collect_historical": {
+      "profile": "config/iron_ui.1280x960.tw.json",
+      "select": [
+        "collect_text_variants",
+        "collect_text_historical"
+      ]
+    }
+  },
+  "devices": {
+    "metal": {
+      "queue_page": "metal_panel",
+      "category_target": "category.open_metal",
+      "goto_target": "metal.goto_device",
+      "slot_boxes": [
+        [
+          74,
+          754,
+          158,
+          838
+        ],
+        [
+          162,
+          754,
+          246,
+          838
+        ],
+        [
+          250,
+          754,
+          334,
+          838
+        ],
+        [
+          338,
+          754,
+          422,
+          838
+        ],
+        [
+          74,
+          842,
+          158,
+          926
+        ]
+      ],
+      "collect_anchors": [
+        "screen_collect_current",
+        "screen_collect_historical"
+      ],
+      "arrival_anchors": [
+        "screen_queue_title",
+        "screen_queue_forge"
+      ],
+      "recipe_close_target": "recipe_detail.close"
+    },
+    "wood": {
+      "queue_page": "wood_panel",
+      "category_target": "category.open_wood",
+      "goto_target": "wood.goto_device",
+      "slot_boxes": [
+        [
+          74,
+          754,
+          158,
+          838
+        ],
+        [
+          162,
+          754,
+          246,
+          838
+        ],
+        [
+          250,
+          754,
+          334,
+          838
+        ],
+        [
+          338,
+          754,
+          422,
+          838
+        ],
+        [
+          74,
+          842,
+          158,
+          926
+        ]
+      ],
+      "collect_anchors": [
+        "screen_collect_current",
+        "screen_collect_historical"
+      ],
+      "arrival_anchors": [
+        "screen_wood_title",
+        "screen_wood_equipment"
+      ],
+      "recipe_close_target": "recipe_detail.close"
+    },
+    "leather": {
+      "queue_page": "leather_panel",
+      "category_target": "category.open_leather",
+      "goto_target": "leather.goto_device",
+      "slot_boxes": [
+        [
+          74,
+          754,
+          158,
+          838
+        ],
+        [
+          162,
+          754,
+          246,
+          838
+        ],
+        [
+          250,
+          754,
+          334,
+          838
+        ],
+        [
+          338,
+          754,
+          422,
+          838
+        ],
+        [
+          74,
+          842,
+          158,
+          926
+        ]
+      ],
+      "collect_anchors": [
+        "screen_collect_current",
+        "screen_collect_historical"
+      ],
+      "arrival_anchors": [
+        "screen_leather_title",
+        "screen_leather_equipment"
+      ],
+      "recipe_close_target": "recipe_detail.close"
+    },
+    "fabric": {
+      "queue_page": "fabric_panel",
+      "category_target": "category.open_fabric",
+      "goto_target": "fabric.goto_device",
+      "slot_boxes": [
+        [
+          74,
+          754,
+          158,
+          838
+        ],
+        [
+          162,
+          754,
+          246,
+          838
+        ],
+        [
+          250,
+          754,
+          334,
+          838
+        ],
+        [
+          338,
+          754,
+          422,
+          838
+        ],
+        [
+          74,
+          842,
+          158,
+          926
+        ]
+      ],
+      "collect_anchors": [
+        "screen_collect_current",
+        "screen_collect_historical"
+      ],
+      "arrival_anchors": [
+        "screen_fabric_title",
+        "screen_fabric_equipment"
+      ],
+      "recipe_close_target": "recipe_detail.close"
+    },
+    "chemical": {
+      "queue_page": "chemical_panel",
+      "category_target": "category.open_chemical",
+      "goto_target": "chemical.goto_device",
+      "slot_boxes": [
+        [
+          74,
+          754,
+          158,
+          838
+        ],
+        [
+          162,
+          754,
+          246,
+          838
+        ],
+        [
+          250,
+          754,
+          334,
+          838
+        ],
+        [
+          338,
+          754,
+          422,
+          838
+        ],
+        [
+          74,
+          842,
+          158,
+          926
+        ]
+      ],
+      "collect_anchors": [
+        "screen_collect_current",
+        "screen_collect_historical"
+      ],
+      "arrival_anchors": [
+        "screen_chemical_title",
+        "screen_chemical_equipment"
+      ],
+      "recipe_close_target": "recipe_detail.close"
+    },
+    "food": {
+      "queue_page": "food_panel",
+      "category_target": "category.open_food",
+      "goto_target": "food.goto_device",
+      "slot_boxes": [
+        [
+          74,
+          754,
+          158,
+          838
+        ],
+        [
+          162,
+          754,
+          246,
+          838
+        ],
+        [
+          250,
+          754,
+          334,
+          838
+        ],
+        [
+          338,
+          754,
+          422,
+          838
+        ],
+        [
+          74,
+          842,
+          158,
+          926
+        ]
+      ],
+      "collect_anchors": [
+        "screen_collect_current",
+        "screen_collect_historical"
+      ],
+      "arrival_anchors": [
+        "screen_food_title",
+        "screen_food_equipment"
+      ],
+      "recipe_close_target": "recipe_detail.close"
+    }
+  },
+  "recipes": {
+    "iron_ingot_from_iron_ore": {
+      "device": "metal",
+      "page": "recipe_detail",
+      "open_target": "metal.open_iron_recipe",
+      "duration_s": 60,
+      "output_item_id": 1156816717,
+      "output_per_round": 3,
+      "confirm_anchors": [
+        "detail_iron_name",
+        "detail_output_three",
+        "detail_equipment",
+        "detail_ore_name",
+        "detail_ore_ten"
+      ],
+      "craft_anchor": "craft_processing",
+      "craft_button_box": [
+        825,
+        875,
+        1230,
+        945
+      ]
+    },
+    "wood_first": {
+      "name": "木材",
+      "device": "wood",
+      "page": "recipe_detail",
+      "open_target": "wood.open_first_recipe",
+      "duration_s": 90,
+      "output_item_id": 4557102894501861,
+      "output_per_round": 3,
+      "confirm_anchors": [
+        "preset_wood_detail_name",
+        "preset_wood_detail_equipment",
+        "preset_wood_detail_material"
+      ],
+      "craft_anchor": "craft_processing",
+      "craft_button_box": [
+        825,
+        875,
+        1230,
+        945
+      ],
+      "materials": [
+        {
+          "item_id": 4639622494368896,
+          "name": "原木",
+          "quantity": 10
+        }
+      ],
+      "verification": "menu_captured_untested"
+    },
+    "leather_first": {
+      "name": "皮革",
+      "device": "leather",
+      "page": "recipe_detail",
+      "open_target": "leather.open_first_recipe",
+      "duration_s": 60,
+      "output_item_id": 4599852079927382,
+      "output_per_round": 3,
+      "confirm_anchors": [
+        "preset_leather_detail_name",
+        "preset_leather_detail_equipment",
+        "preset_leather_detail_material"
+      ],
+      "craft_anchor": "craft_processing",
+      "craft_button_box": [
+        825,
+        875,
+        1230,
+        945
+      ],
+      "materials": [
+        {
+          "item_id": 4673095670348943,
+          "name": "生皮",
+          "quantity": 10
+        }
+      ],
+      "verification": "menu_captured_untested"
+    },
+    "fabric_first": {
+      "name": "布料",
+      "device": "fabric",
+      "page": "recipe_detail",
+      "open_target": "fabric.open_first_recipe",
+      "duration_s": 90,
+      "output_item_id": 4630719918887234,
+      "output_per_round": 3,
+      "confirm_anchors": [
+        "preset_fabric_detail_name",
+        "preset_fabric_detail_equipment",
+        "preset_fabric_detail_material"
+      ],
+      "craft_anchor": "craft_processing",
+      "craft_button_box": [
+        825,
+        875,
+        1230,
+        945
+      ],
+      "materials": [
+        {
+          "item_id": 4760586006624605,
+          "name": "羊毛",
+          "quantity": 10
+        }
+      ],
+      "verification": "menu_captured_untested"
+    },
+    "chemical_first": {
+      "name": "新芽蘑菇汁液",
+      "device": "chemical",
+      "page": "recipe_detail",
+      "open_target": "chemical.open_first_recipe",
+      "duration_s": 60,
+      "output_item_id": 4556427274072511,
+      "output_per_round": 5,
+      "confirm_anchors": [
+        "preset_chemical_detail_name",
+        "preset_chemical_detail_equipment",
+        "preset_chemical_detail_material"
+      ],
+      "craft_anchor": "craft_processing",
+      "craft_button_box": [
+        825,
+        875,
+        1230,
+        945
+      ],
+      "materials": [
+        {
+          "item_id": 4574251284714797,
+          "name": "新芽蘑菇孢子",
+          "quantity": 10
+        },
+        {
+          "item_id": 4646441242373032,
+          "name": "裝水的瓶子",
+          "quantity": 1
+        }
+      ],
+      "verification": "menu_captured_untested"
+    },
+    "food_first": {
+      "name": "美乃滋",
+      "device": "food",
+      "page": "recipe_detail",
+      "open_target": "food.open_first_recipe",
+      "duration_s": 90,
+      "output_item_id": 4513786907944276,
+      "output_per_round": 3,
+      "confirm_anchors": [
+        "preset_food_detail_name",
+        "preset_food_detail_equipment",
+        "preset_food_detail_material"
+      ],
+      "craft_anchor": "craft_processing",
+      "craft_button_box": [
+        825,
+        875,
+        1230,
+        945
+      ],
+      "materials": [
+        {
+          "item_id": 4733162338718597,
+          "name": "雞蛋",
+          "quantity": 10
+        },
+        {
+          "item_id": 4724303159057604,
+          "name": "食用油",
+          "quantity": 2
+        }
+      ],
+      "verification": "menu_captured_untested"
+    },
+    "metal_steel": {
+      "name": "鋼錠",
+      "device": "metal",
+      "page": "recipe_detail",
+      "open_target": "metal.open_steel",
+      "duration_s": 600,
+      "output_item_id": 4707342482275257,
+      "output_per_round": 3,
+      "confirm_anchors": [
+        "preset_metal_steel_detail_name",
+        "preset_metal_steel_detail_equipment",
+        "preset_metal_steel_detail_material"
+      ],
+      "craft_anchor": "craft_processing",
+      "craft_button_box": [
+        825,
+        875,
+        1230,
+        945
+      ],
+      "materials": [
+        {
+          "item_id": 1156816717,
+          "name": "鐵錠",
+          "quantity": 3
+        },
+        {
+          "item_id": 4730169604993909,
+          "name": "煤炭",
+          "quantity": 4
+        }
+      ],
+      "verification": "menu_captured_untested"
+    },
+    "metal_alloy": {
+      "name": "合金鋼錠",
+      "device": "metal",
+      "page": "recipe_detail",
+      "open_target": "metal.open_alloy",
+      "duration_s": 9600,
+      "output_item_id": 4670438946068723,
+      "output_per_round": 3,
+      "confirm_anchors": [
+        "preset_metal_alloy_detail_name",
+        "preset_metal_alloy_detail_equipment",
+        "preset_metal_alloy_detail_material"
+      ],
+      "craft_anchor": "craft_processing",
+      "craft_button_box": [
+        825,
+        875,
+        1230,
+        945
+      ],
+      "materials": [
+        {
+          "item_id": 4707342482275257,
+          "name": "鋼錠",
+          "quantity": 3
+        },
+        {
+          "item_id": 4724408309833606,
+          "name": "銅礦石",
+          "quantity": 15
+        },
+        {
+          "item_id": 4730169604993909,
+          "name": "煤炭",
+          "quantity": 8
+        }
+      ],
+      "verification": "menu_captured_untested"
+    },
+    "metal_fuel": {
+      "name": "焦油",
+      "device": "metal",
+      "page": "recipe_detail",
+      "open_target": "metal.open_fuel",
+      "duration_s": 10800,
+      "output_item_id": 4670227776295150,
+      "output_per_round": 5,
+      "confirm_anchors": [
+        "preset_metal_fuel_detail_name",
+        "preset_metal_fuel_detail_equipment",
+        "preset_metal_fuel_detail_material"
+      ],
+      "craft_anchor": "craft_processing",
+      "craft_button_box": [
+        825,
+        875,
+        1230,
+        945
+      ],
+      "materials": [
+        {
+          "item_id": 4639622494368896,
+          "name": "原木",
+          "quantity": 50
+        },
+        {
+          "item_id": 4688350412378145,
+          "name": "黏土",
+          "quantity": 25
+        }
+      ],
+      "verification": "menu_captured_untested"
+    },
+    "metal_special": {
+      "name": "特殊鋼錠",
+      "device": "metal",
+      "page": "recipe_detail",
+      "open_target": "metal.open_special",
+      "duration_s": 28800,
+      "output_item_id": 4517857428865226,
+      "output_per_round": 3,
+      "confirm_anchors": [
+        "preset_metal_special_detail_name",
+        "preset_metal_special_detail_equipment",
+        "preset_metal_special_detail_material"
+      ],
+      "craft_anchor": "craft_processing",
+      "craft_button_box": [
+        825,
+        875,
+        1230,
+        945
+      ],
+      "materials": [
+        {
+          "item_id": 4670438946068723,
+          "name": "合金鋼錠",
+          "quantity": 4
+        },
+        {
+          "item_id": 4521026529585687,
+          "name": "白鎢礦石",
+          "quantity": 20
+        },
+        {
+          "item_id": 4730169604993909,
+          "name": "煤炭",
+          "quantity": 12
+        }
+      ],
+      "verification": "menu_captured_untested"
+    },
+    "metal_silver": {
+      "name": "銀合金錠",
+      "device": "metal",
+      "page": "recipe_detail",
+      "open_target": "metal.open_silver",
+      "duration_s": 36000,
+      "output_item_id": 4571782785322623,
+      "output_per_round": 3,
+      "confirm_anchors": [
+        "preset_metal_silver_detail_name",
+        "preset_metal_silver_detail_equipment",
+        "preset_metal_silver_detail_material"
+      ],
+      "craft_anchor": "craft_processing",
+      "craft_button_box": [
+        825,
+        875,
+        1230,
+        945
+      ],
+      "materials": [
+        {
+          "item_id": 4517857428865226,
+          "name": "特殊鋼錠",
+          "quantity": 5
+        },
+        {
+          "item_id": 4592139253156484,
+          "name": "銀礦石",
+          "quantity": 20
+        },
+        {
+          "item_id": 4730169604993909,
+          "name": "煤炭",
+          "quantity": 16
+        }
+      ],
+      "verification": "menu_captured_untested"
+    }
+  },
+  "item_names": {
+    "4557102894501861": "木材",
+    "4639622494368896": "原木",
+    "4599852079927382": "皮革",
+    "4673095670348943": "生皮",
+    "4630719918887234": "布料",
+    "4760586006624605": "羊毛",
+    "4556427274072511": "新芽蘑菇汁液",
+    "4574251284714797": "新芽蘑菇孢子",
+    "4646441242373032": "裝水的瓶子",
+    "4513786907944276": "美乃滋",
+    "4733162338718597": "雞蛋",
+    "4724303159057604": "食用油",
+    "4707342482275257": "鋼錠",
+    "1156816717": "鐵錠",
+    "4730169604993909": "煤炭",
+    "4670438946068723": "合金鋼錠",
+    "4724408309833606": "銅礦石",
+    "4670227776295150": "焦油",
+    "4688350412378145": "黏土",
+    "4517857428865226": "特殊鋼錠",
+    "4521026529585687": "白鎢礦石",
+    "4571782785322623": "銀合金錠",
+    "4592139253156484": "銀礦石"
+  }
+}

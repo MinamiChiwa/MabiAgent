@@ -1,0 +1,11 @@
+* text=auto
+*.txt text eol=lf
+*.toml text eol=lf
+/.gitignore text eol=lf
+/.gitattributes text eol=lf
+*.py text eol=lf
+*.md text eol=lf
+*.json text eol=lf
+*.png binary
+/reference/candidates/item_names.tw.json -text -diff
+/reference/candidates/recipes.tw.json -text -diff

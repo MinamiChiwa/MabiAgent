@@ -1,0 +1,45 @@
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:ui="clr-namespace:MabiAgent.Desktop.Controls" xmlns:u="https://irihi.tech/ursa" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" x:Class="MabiAgent.Desktop.Accounts.AccountItemsPanel" KeyDown="HandleKeys">
+  <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+  <Grid RowDefinitions="Auto,Auto,Auto,*,Auto">
+    <!-- Scope: which account and which rows -->
+    <Grid ColumnDefinitions="240,*,Auto" Margin="0,0,0,10">
+      <ComboBox ItemsSource="{Binding Accounts}" SelectedItem="{Binding SelectedAccount}" AutomationProperties.Name="选择账户" DisplayMemberBinding="{Binding Label}" PlaceholderText="账户"/>
+      <TextBox Grid.Column="1" x:Name="SearchBox" Text="{Binding Search,UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="筛选账户道具" PlaceholderText="道具编号、名称或关联状态（Ctrl+F）" Margin="8,0,0,0"><TextBox.InnerLeftContent><ui:Icon Classes="prefix" Kind="search"/></TextBox.InnerLeftContent></TextBox>
+      <StackPanel Grid.Column="2" Orientation="Horizontal" Margin="8,0,0,0" Spacing="8">
+        <Button Content="刷新" Command="{Binding RefreshCommand}" ui:UiIcon.Kind="refresh"/>
+        <Button Content="表格文件" Click="OpenCsvMenu" IsEnabled="{Binding HasAccount}" AutomationProperties.Name="表格文件操作" ui:UiIcon.Kind="export">
+          <Button.ContextMenu>
+            <ContextMenu>
+              <MenuItem Header="导出账户表…" Click="ExportCsv"/>
+              <MenuItem x:Name="OpenFilesMenu" Header="打开表格文件" SubmenuOpened="PopulateCsvFiles">
+                <MenuItem Header="正在读取路径" IsEnabled="False"/>
+              </MenuItem>
+            </ContextMenu>
+          </Button.ContextMenu>
+        </Button>
+      </StackPanel>
+    </Grid>
+    <!-- Actions on the selected rows -->
+    <WrapPanel Grid.Row="1" Margin="0,0,0,6">
+      <Border Classes="pill" Margin="0,4,12,4"><TextBlock Text="{Binding SelectedCount,StringFormat=已选 {0} 行}"/></Border>
+      <Button Content="确认名称" Click="ConfirmSelected" IsEnabled="{Binding HasSelection}" ui:UiIcon.Kind="check" ToolTip.Tip="保存所选行的道具名称"/>
+      <Button Content="清除关联" Click="ClearSelected" IsEnabled="{Binding HasSelection}" ui:UiIcon.Kind="trash" Classes="danger" ToolTip.Tip="清除所选行的名称关联"/>
+      <Button Content="放弃编辑" Click="DiscardEdits" ui:UiIcon.Kind="refresh" ToolTip.Tip="放弃尚未保存的名称并刷新"/>
+      <Button Content="重置排序" Command="{Binding ResetSortCommand}" ui:UiIcon.Kind="refresh"/>
+      <ui:HelpButton x:Name="AccountsHelp" Margin="0,4,0,4" Message="名称关联来自直接抓包身份或手动编辑。双击名称可编辑，Ctrl 或 Shift 多选后确认；清除关联使用清除按钮。筛选会清除选择；未知表示尚无抓包数量记录。CSV 菜单可导出或打开账户文件。"/>
+    </WrapPanel>
+    <u:Banner Grid.Row="2" Type="Error" IsVisible="{Binding HasError}" Margin="0,0,0,8"><ScrollViewer MaxHeight="64" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><TextBlock Text="{Binding Error}" TextWrapping="Wrap"/></ScrollViewer></u:Banner>
+    <Border x:Name="ItemsCard" Grid.Row="3" Classes="card flush section-accounts" MinHeight="200" MaxHeight="600">
+      <Grid>
+        <DataGrid x:Name="ItemsGrid" ItemsSource="{Binding ItemsView}" IsReadOnly="False" AutoGenerateColumns="False" SelectionMode="Extended" SelectionChanged="SelectionChanged" Sorting="SortItems" ClipboardCopyMode="IncludeHeader" AutomationProperties.Name="账户道具表"/>
+        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8" IsHitTestVisible="False" Margin="24" IsVisible="{Binding ItemsView.IsEmpty}">
+          <Border Classes="icon-tile" HorizontalAlignment="Center"><ui:Icon Kind="account" Width="18" Height="18"/></Border>
+          <TextBlock Text="暂无可显示的账户道具" Classes="heading" TextWrapping="Wrap" HorizontalAlignment="Center"/>
+          <TextBlock Text="选择账户或调整筛选条件" Classes="muted" HorizontalAlignment="Center"/>
+        </StackPanel>
+      </Grid>
+    </Border>
+    <TextBlock Grid.Row="4" Text="{Binding Status}" Classes="caption" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Status}" Margin="0,10,0,0"/>
+  </Grid>
+  </ScrollViewer>
+</UserControl>

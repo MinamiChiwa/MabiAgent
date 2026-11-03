@@ -1,0 +1,107 @@
+{
+  "schema_version": 1,
+  "contract": "reviewed-iron-ui-1280-v1",
+  "client_size": [
+    1280,
+    960
+  ],
+  "dpi": 96,
+  "recipe_key": "iron_ingot_from_iron_ore",
+  "output_item_id": 1156816717,
+  "output_qty": 3,
+  "materials": [
+    {
+      "item_id": 198875762,
+      "quantity": 10
+    }
+  ],
+  "craft_button_box": [
+    825,
+    875,
+    1230,
+    945
+  ],
+  "collect_text": {
+    "match_mode": "light_text",
+    "path": "assets/templates/iron_ui/1280x960/collect_text_current.png",
+    "box": [
+      92,
+      716,
+      160,
+      738
+    ],
+    "search": [
+      76,
+      700,
+      176,
+      754
+    ],
+    "threshold": 0.97,
+    "sha256": "fdf1ba7e9b881aad4c6e6f64047bb0c7328956b3b9bfa58ae2577ba23689221b",
+    "bytes": 2186,
+    "source": "release_catalog",
+    "source_sha256": "fd75cdd3600ac90f0e99c009ccaed50ca06e86ee5b98a1dad16c178e717719f3",
+    "source_size": [
+      1280,
+      960
+    ],
+    "crop_native": [
+      92,
+      716,
+      160,
+      738
+    ],
+    "output_size": [
+      68,
+      22
+    ],
+    "scale": [
+      1,
+      1
+    ],
+    "coordinates_for_input": false
+  },
+  "scope": "native pixel calibration only; current session, owned queue and receipts remain independently required",
+  "collect_text_variants": {
+    "collect_text_historical": {
+      "match_mode": "light_text",
+      "path": "assets/templates/iron_ui/1280x960/collect_text.png",
+      "box": [
+        83,
+        733,
+        143,
+        755
+      ],
+      "search": [
+        67,
+        717,
+        159,
+        771
+      ],
+      "threshold": 0.97,
+      "sha256": "3692ce104848eb0d0da676725a8114fc0298b496b6b2ef275e9fbd73f9287d34",
+      "bytes": 1976,
+      "source": "release_catalog",
+      "source_sha256": "438c2256623d25210257b33d93771728da23152b587f1ba041394d5408d0c165",
+      "source_size": [
+        1280,
+        960
+      ],
+      "crop_native": [
+        83,
+        733,
+        143,
+        755
+      ],
+      "output_size": [
+        60,
+        22
+      ],
+      "scale": [
+        1,
+        1
+      ],
+      "coordinates_for_input": false
+    }
+  }
+}

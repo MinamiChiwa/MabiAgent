@@ -1,0 +1,15 @@
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" x:Class="MabiAgent.Desktop.Editors.AnchorSetPicker">
+ <StackPanel Spacing="6">
+  <TextBlock Text="已选锚点" Classes="field"/>
+  <TextBlock x:Name="EmptyHint" Text="尚未选择，请从锚点库添加。" Classes="caption"/>
+  <ListBox x:Name="Chosen" MaxHeight="180" DisplayMemberBinding="{Binding DisplayName}" AutomationProperties.Name="已选锚点"/>
+  <Button x:Name="RemoveAnchorButton" Content="移除选中锚点" Click="Remove" HorizontalAlignment="Left"/>
+  <Expander x:Name="Library" Header="从锚点库添加" IsExpanded="False">
+   <StackPanel Spacing="6">
+    <TextBox x:Name="Filter" PlaceholderText="搜索名称或标识" TextChanged="SearchChanged" AutomationProperties.Name="搜索锚点库"/>
+    <ListBox x:Name="Available" MaxHeight="180" DisplayMemberBinding="{Binding DisplayName}" AutomationProperties.Name="可添加锚点"/>
+    <Button x:Name="AddAnchorButton" Content="添加选中锚点" Click="Add" HorizontalAlignment="Left"/>
+   </StackPanel>
+  </Expander>
+ </StackPanel>
+</UserControl>

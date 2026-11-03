@@ -1,0 +1,249 @@
+{
+  "schema_version": 1,
+  "contract": "reviewed-empty-metal-panel-profile-v1",
+  "client_size": [
+    1280,
+    960
+  ],
+  "dpi": 96,
+  "profiles": [
+    {
+      "id": "metal-native-1280-empty",
+      "source": "release_catalog",
+      "source_sha256": "fd75cdd3600ac90f0e99c009ccaed50ca06e86ee5b98a1dad16c178e717719f3",
+      "title": {
+        "name": "title",
+        "path": "assets/templates/empty_queue/1280x960/title.png",
+        "box": [
+          20,
+          26,
+          166,
+          65
+        ],
+        "sha256": "ded3ddb59cbee49c30eb5defb29fd20c585f944195877d2b1acbb9ff67bd8cb9",
+        "bytes": 5375,
+        "source": "release_catalog",
+        "source_sha256": "fd75cdd3600ac90f0e99c009ccaed50ca06e86ee5b98a1dad16c178e717719f3",
+        "source_size": [
+          1280,
+          960
+        ],
+        "crop_native": [
+          20,
+          26,
+          166,
+          65
+        ],
+        "scale": [
+          1,
+          1
+        ],
+        "output_size": [
+          146,
+          39
+        ],
+        "coordinates_for_input": false
+      },
+      "forge": {
+        "name": "forge",
+        "path": "assets/templates/empty_queue/1280x960/forge.png",
+        "box": [
+          156,
+          390,
+          412,
+          660
+        ],
+        "sha256": "028085d28c56664991695e575a16bf5de7fbdb21cd0ebfb1ec54d12e94018677",
+        "bytes": 65591,
+        "source": "release_catalog",
+        "source_sha256": "fd75cdd3600ac90f0e99c009ccaed50ca06e86ee5b98a1dad16c178e717719f3",
+        "source_size": [
+          1280,
+          960
+        ],
+        "crop_native": [
+          156,
+          390,
+          412,
+          660
+        ],
+        "scale": [
+          1,
+          1
+        ],
+        "output_size": [
+          256,
+          270
+        ],
+        "coordinates_for_input": false
+      },
+      "slots": [
+        {
+          "name": "slot-1",
+          "path": "assets/templates/empty_queue/1280x960/slot-1.png",
+          "box": [
+            74,
+            754,
+            158,
+            838
+          ],
+          "sha256": "922c265ae1ff3f4936caf29d405fb646073158f4193861ffd83b64e46b1473e8",
+          "bytes": 3309,
+          "source": "release_catalog",
+          "source_sha256": "fd75cdd3600ac90f0e99c009ccaed50ca06e86ee5b98a1dad16c178e717719f3",
+          "source_size": [
+            1280,
+            960
+          ],
+          "crop_native": [
+            74,
+            754,
+            158,
+            838
+          ],
+          "scale": [
+            1,
+            1
+          ],
+          "output_size": [
+            84,
+            84
+          ],
+          "coordinates_for_input": false
+        },
+        {
+          "name": "slot-2",
+          "path": "assets/templates/empty_queue/1280x960/slot-2.png",
+          "box": [
+            162,
+            754,
+            246,
+            838
+          ],
+          "sha256": "81301b9a4874333eaf6b5e14db0e72477637e280bddf8be17e1cd5dc6f5996e3",
+          "bytes": 2674,
+          "source": "release_catalog",
+          "source_sha256": "fd75cdd3600ac90f0e99c009ccaed50ca06e86ee5b98a1dad16c178e717719f3",
+          "source_size": [
+            1280,
+            960
+          ],
+          "crop_native": [
+            162,
+            754,
+            246,
+            838
+          ],
+          "scale": [
+            1,
+            1
+          ],
+          "output_size": [
+            84,
+            84
+          ],
+          "coordinates_for_input": false
+        },
+        {
+          "name": "slot-3",
+          "path": "assets/templates/empty_queue/1280x960/slot-3.png",
+          "box": [
+            250,
+            754,
+            334,
+            838
+          ],
+          "sha256": "194159025b52ecb57b886a6e53cc912722608ab6637ad1c89224252c0d98114a",
+          "bytes": 2977,
+          "source": "release_catalog",
+          "source_sha256": "fd75cdd3600ac90f0e99c009ccaed50ca06e86ee5b98a1dad16c178e717719f3",
+          "source_size": [
+            1280,
+            960
+          ],
+          "crop_native": [
+            250,
+            754,
+            334,
+            838
+          ],
+          "scale": [
+            1,
+            1
+          ],
+          "output_size": [
+            84,
+            84
+          ],
+          "coordinates_for_input": false
+        },
+        {
+          "name": "slot-4",
+          "path": "assets/templates/empty_queue/1280x960/slot-4.png",
+          "box": [
+            338,
+            754,
+            422,
+            838
+          ],
+          "sha256": "71b731132f0a7eca0904e25fee2139c6d3254a9661edb35a0df48dcdd846334e",
+          "bytes": 2998,
+          "source": "release_catalog",
+          "source_sha256": "fd75cdd3600ac90f0e99c009ccaed50ca06e86ee5b98a1dad16c178e717719f3",
+          "source_size": [
+            1280,
+            960
+          ],
+          "crop_native": [
+            338,
+            754,
+            422,
+            838
+          ],
+          "scale": [
+            1,
+            1
+          ],
+          "output_size": [
+            84,
+            84
+          ],
+          "coordinates_for_input": false
+        },
+        {
+          "name": "slot-5",
+          "path": "assets/templates/empty_queue/1280x960/slot-5.png",
+          "box": [
+            74,
+            842,
+            158,
+            926
+          ],
+          "sha256": "bbfdab68875cdd9315fbcb10980daf086622705929cec84dd330ebeda772c2ce",
+          "bytes": 3433,
+          "source": "release_catalog",
+          "source_sha256": "fd75cdd3600ac90f0e99c009ccaed50ca06e86ee5b98a1dad16c178e717719f3",
+          "source_size": [
+            1280,
+            960
+          ],
+          "crop_native": [
+            74,
+            842,
+            158,
+            926
+          ],
+          "scale": [
+            1,
+            1
+          ],
+          "output_size": [
+            84,
+            84
+          ],
+          "coordinates_for_input": false
+        }
+      ]
+    }
+  ]
+}

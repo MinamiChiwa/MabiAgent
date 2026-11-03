@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><IsTestProject>true</IsTestProject><IsPackable>false</IsPackable></PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../MabiAgent.Core/MabiAgent.Core.csproj"/>
+    <ProjectReference Include="../MabiAgent.Workflows/MabiAgent.Workflows.csproj"/>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.10.0"/>
+    <PackageReference Include="xunit" Version="2.9.3"/>
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5" PrivateAssets="all"/>
+    <None Update="Fixtures/*.json" CopyToOutputDirectory="PreserveNewest"/>
+    <Compile Include="../MabiAgent.Desktop/Workspace.cs" Link="Desktop/Workspace.cs"/>
+    <Compile Include="../MabiAgent.Desktop/RuntimeActivity.cs" Link="Desktop/RuntimeActivity.cs"/>
+  </ItemGroup>
+</Project>

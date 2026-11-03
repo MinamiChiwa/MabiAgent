@@ -1,0 +1,65 @@
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:ui="clr-namespace:MabiAgent.Desktop.Controls" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" x:Class="MabiAgent.Desktop.QueuePanel">
+  <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+  <Grid x:Name="QueueLayout" RowDefinitions="Auto,Auto,Auto,Auto">
+    <Grid ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,12">
+      <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="10">
+        <TextBlock Text="我的任务" Classes="heading"/>
+        <Border Classes="pill"><TextBlock Text="{Binding ManualCount,StringFormat={}{0} 条}"/></Border>
+        <TextBlock Text="采集：1轮＝10次尝试" Classes="muted" VerticalAlignment="Center"/>
+      </StackPanel>
+      <Button Grid.Column="1" Content="新增目标" Command="{Binding OpenAddCommand}" Classes="Primary" Theme="{DynamicResource SolidButton}" ui:UiIcon.Kind="add"/>
+      <ui:HelpButton Grid.Column="2" x:Name="QueueHelp" Message="生产按件数，采集按轮数：1轮＝10次采集尝试，不代表材料产量；钓鱼按时长。Ctrl 或 Shift 多选，Ctrl+A 全选；计划在列表内修改，回车或失焦保存，Esc 撤回输入。拖动顺序列调整执行顺序；右键可暂停、恢复、删除。Delete 删除选中任务。" Margin="8,0,0,0"/>
+    </Grid>
+    <Border Grid.Row="1" Classes="selection-bar" IsVisible="{Binding HasQueueSelection}">
+      <WrapPanel>
+        <TextBlock Text="{Binding QueueSelectionCount,StringFormat=已选 {0} 条}" FontWeight="SemiBold" VerticalAlignment="Center" Margin="4,0,16,0"/>
+        <TextBox x:Name="BatchTargetInput" Text="{Binding BatchTarget}" PlaceholderText="{Binding BatchTargetHint}" IsEnabled="{Binding CanBatchEdit}" Width="180" Margin="0,4,8,4" AutomationProperties.Name="批量计划设置"/>
+        <Button Content="批量应用" ui:UiIcon.Kind="check" Command="{Binding ApplyBatchTargetCommand}" IsEnabled="{Binding CanBatchEdit}"/>
+        <Button Content="删除所选" Command="{Binding DeleteSelectedCommand}" ui:UiIcon.Kind="trash" Classes="danger"/>
+      </WrapPanel>
+    </Border>
+    <Border x:Name="ManualCard" Grid.Row="2" Classes="card flush section-queue" MinHeight="200" MaxHeight="520">
+      <Grid>
+        <DataGrid x:Name="ManualGrid" ItemsSource="{Binding QueueView}" SelectionChanged="SelectQueueRow" ClipboardCopyMode="IncludeHeader" AutomationProperties.Name="用户任务队列" AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Extended">
+          <DataGrid.Columns>
+            <DataGridTemplateColumn Header="顺序" SortMemberPath="Order" Width="60"><DataGridTemplateColumn.CellTemplate><DataTemplate><StackPanel Classes="queue-drag-handle" Orientation="Horizontal" Spacing="6" Background="Transparent" Margin="8,0" VerticalAlignment="Stretch" Cursor="SizeAll" ToolTip.Tip="按住拖动调整顺序"><ui:Icon Kind="grip" Width="12" Height="12" Opacity="0.55"/><TextBlock Classes="caption" Text="{Binding Order}" VerticalAlignment="Center"/></StackPanel></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
+            <DataGridTextColumn Header="目标" Binding="{Binding Name}" Width="2*" MinWidth="110"/>
+            <DataGridTextColumn Header="类型" Width="110" Binding="{Binding Kind}"/>
+            <DataGridTemplateColumn Header="计划（件／轮／时长）" SortMemberPath="Target" Width="1.4*" MinWidth="165">
+              <DataGridTemplateColumn.CellTemplate><DataTemplate>
+                <TextBox Classes="queue-target" Text="{Binding TargetInput,Mode=TwoWay,UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding CanEditTarget}" ToolTip.Tip="{Binding TargetHint}" KeyDown="TargetKeyDown" LostFocus="TargetLostFocus" AutomationProperties.Name="{Binding TargetHint}" Margin="4,2" MinHeight="30" VerticalContentAlignment="Center"><TextBox.InnerRightContent><TextBlock Text="{Binding InputUnit}" Classes="suffix"/></TextBox.InnerRightContent></TextBox>
+              </DataTemplate></DataGridTemplateColumn.CellTemplate>
+            </DataGridTemplateColumn>
+            <DataGridTextColumn Header="已确认" Width="*" MinWidth="92" Binding="{Binding CompletedLabel}"/>
+            <DataGridTemplateColumn Header="状态" SortMemberPath="Status" Width="1.4*" MinWidth="112">
+              <DataGridTemplateColumn.CellTemplate><DataTemplate>
+                <Border Classes="state"><TextBlock Text="{Binding Status}" Classes.status-success="{Binding IsCompleteState}" Classes.status-warning="{Binding IsWarningState}" Classes.status-info="{Binding IsActiveState}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Status}"/></Border>
+              </DataTemplate></DataGridTemplateColumn.CellTemplate>
+            </DataGridTemplateColumn>
+          </DataGrid.Columns>
+        </DataGrid>
+        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8" Margin="24,48,24,24" IsHitTestVisible="False" IsVisible="{Binding QueueView.IsEmpty}">
+          <Border Classes="icon-tile" HorizontalAlignment="Center"><ui:Icon Kind="inbox" Width="18" Height="18"/></Border>
+          <TextBlock Text="暂无任务" Classes="heading" HorizontalAlignment="Center"/>
+          <TextBlock Text="点击“新增目标”添加生产、采集或钓鱼任务" Classes="muted" TextAlignment="Center" HorizontalAlignment="Center"/>
+        </StackPanel>
+      </Grid>
+    </Border>
+    <Expander Grid.Row="3" IsExpanded="False" Margin="0,12,0,0" IsVisible="{Binding HasAutomaticTasks}">
+      <Expander.Header>
+        <TextBlock><Run Text="自动补充 · "/><Run Text="{Binding AutomaticCount,Mode=OneWay}"/></TextBlock>
+      </Expander.Header>
+      <DataGrid x:Name="AutomaticGrid" ItemsSource="{Binding AutomaticView}" SelectionChanged="SelectQueueRow" MaxHeight="180" AutomationProperties.Name="自动补充队列" AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Extended">
+        <DataGrid.Columns>
+          <DataGridTemplateColumn Header="顺序" SortMemberPath="Order" Width="60"><DataGridTemplateColumn.CellTemplate><DataTemplate><StackPanel Classes="queue-drag-handle" Orientation="Horizontal" Spacing="6" Background="Transparent" Margin="8,0" VerticalAlignment="Stretch" Cursor="SizeAll" ToolTip.Tip="按住拖动调整顺序"><ui:Icon Kind="grip" Width="12" Height="12" Opacity="0.55"/><TextBlock Classes="caption" Text="{Binding Order}" VerticalAlignment="Center"/></StackPanel></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
+          <DataGridTextColumn Header="目标" Binding="{Binding Name}" Width="2*" MinWidth="110"/>
+          <DataGridTextColumn Header="类型" Width="110" Binding="{Binding Kind}"/>
+          <DataGridTextColumn Header="待补" Width="*" MinWidth="92" Binding="{Binding RemainingLabel}"/>
+          <DataGridTextColumn Header="已确认" Width="*" MinWidth="92" Binding="{Binding CompletedLabel}"/>
+          <DataGridTemplateColumn Header="状态" SortMemberPath="Status" Width="1.4*" MinWidth="112"><DataGridTemplateColumn.CellTemplate><DataTemplate><Border Classes="state"><TextBlock Text="{Binding Status}" Classes.status-success="{Binding IsCompleteState}" Classes.status-warning="{Binding IsWarningState}" Classes.status-info="{Binding IsActiveState}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Status}"/></Border></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
+        </DataGrid.Columns>
+      </DataGrid>
+    </Expander>
+  </Grid>
+  </ScrollViewer>
+</UserControl>

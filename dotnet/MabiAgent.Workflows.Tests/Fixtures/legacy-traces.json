@@ -1,0 +1,760 @@
+{
+  "production": [
+    {
+      "schema_version": 1,
+      "recipe": {
+        "key": "iron",
+        "device": "furnace",
+        "duration_s": 30
+      },
+      "count": 2,
+      "status": "idle",
+      "phase": "queue",
+      "submitted": 0,
+      "completed": 0,
+      "owned_slots": [],
+      "before_empty": null,
+      "pending": null,
+      "due_at": null,
+      "timing_version": 2,
+      "production_due_at": null,
+      "pause_reason": null,
+      "reason": null,
+      "completed_steps": []
+    },
+    {
+      "schema_version": 1,
+      "recipe": {
+        "key": "iron",
+        "device": "furnace",
+        "duration_s": 30
+      },
+      "count": 2,
+      "status": "running",
+      "phase": "queue",
+      "submitted": 0,
+      "completed": 0,
+      "owned_slots": [],
+      "before_empty": null,
+      "pending": null,
+      "due_at": null,
+      "timing_version": 2,
+      "production_due_at": null,
+      "pause_reason": null,
+      "reason": null,
+      "completed_steps": []
+    },
+    {
+      "schema_version": 1,
+      "recipe": {
+        "key": "iron",
+        "device": "furnace",
+        "duration_s": 30
+      },
+      "count": 2,
+      "status": "running",
+      "phase": "recipe",
+      "submitted": 0,
+      "completed": 0,
+      "owned_slots": [],
+      "before_empty": [
+        0,
+        1
+      ],
+      "pending": null,
+      "due_at": null,
+      "timing_version": 2,
+      "production_due_at": null,
+      "pause_reason": null,
+      "reason": null,
+      "completed_steps": []
+    },
+    {
+      "schema_version": 1,
+      "recipe": {
+        "key": "iron",
+        "device": "furnace",
+        "duration_s": 30
+      },
+      "count": 2,
+      "status": "running",
+      "phase": "confirm_craft",
+      "submitted": 0,
+      "completed": 0,
+      "owned_slots": [],
+      "before_empty": [
+        0,
+        1
+      ],
+      "pending": {
+        "kind": "craft",
+        "before_empty": [
+          0,
+          1
+        ],
+        "target_slots": [],
+        "at": 100,
+        "deadline": 112,
+        "production_due_at": 180
+      },
+      "due_at": null,
+      "timing_version": 2,
+      "production_due_at": null,
+      "pause_reason": null,
+      "reason": null,
+      "completed_steps": []
+    },
+    {
+      "schema_version": 1,
+      "recipe": {
+        "key": "iron",
+        "device": "furnace",
+        "duration_s": 30
+      },
+      "count": 2,
+      "status": "running",
+      "phase": "queue",
+      "submitted": 1,
+      "completed": 0,
+      "owned_slots": [
+        0
+      ],
+      "before_empty": null,
+      "pending": null,
+      "due_at": 180,
+      "timing_version": 2,
+      "production_due_at": 180,
+      "pause_reason": null,
+      "reason": null,
+      "completed_steps": [
+        "craft:1"
+      ]
+    }
+  ],
+  "gathering": [
+    {
+      "schema_version": 1,
+      "route": {
+        "key": "ore",
+        "target_item_id": 1,
+        "skill": "mining",
+        "node": "node",
+        "attempts_per_batch": 10
+      },
+      "action_id": "action",
+      "count": 1,
+      "status": "idle",
+      "phase": "navigate",
+      "pending": null,
+      "pause_reason": null,
+      "reason": null,
+      "submitted": 0,
+      "completed": 0,
+      "task_id": null,
+      "actual_quantity": null,
+      "evidence": null,
+      "batch_deadline": null,
+      "due_at": null,
+      "owned_slots": [],
+      "stop_requested": false
+    },
+    {
+      "schema_version": 1,
+      "route": {
+        "key": "ore",
+        "target_item_id": 1,
+        "skill": "mining",
+        "node": "node",
+        "attempts_per_batch": 10
+      },
+      "action_id": "action",
+      "count": 1,
+      "status": "running",
+      "phase": "navigate",
+      "pending": null,
+      "pause_reason": null,
+      "reason": null,
+      "submitted": 0,
+      "completed": 0,
+      "task_id": null,
+      "actual_quantity": null,
+      "evidence": null,
+      "batch_deadline": null,
+      "due_at": null,
+      "owned_slots": [],
+      "stop_requested": false
+    },
+    {
+      "schema_version": 1,
+      "route": {
+        "key": "ore",
+        "target_item_id": 1,
+        "skill": "mining",
+        "node": "node",
+        "attempts_per_batch": 10
+      },
+      "action_id": "action",
+      "count": 1,
+      "status": "running",
+      "phase": "confirm_start",
+      "pending": {
+        "kind": "gathering",
+        "action_id": "action",
+        "before_task_id": null,
+        "at": 100,
+        "deadline": 220
+      },
+      "pause_reason": null,
+      "reason": null,
+      "submitted": 0,
+      "completed": 0,
+      "task_id": null,
+      "actual_quantity": null,
+      "evidence": null,
+      "batch_deadline": null,
+      "due_at": null,
+      "owned_slots": [],
+      "stop_requested": false
+    },
+    {
+      "schema_version": 1,
+      "route": {
+        "key": "ore",
+        "target_item_id": 1,
+        "skill": "mining",
+        "node": "node",
+        "attempts_per_batch": 10
+      },
+      "action_id": "action",
+      "count": 1,
+      "status": "waiting",
+      "phase": "gathering",
+      "pending": null,
+      "pause_reason": null,
+      "reason": null,
+      "submitted": 1,
+      "completed": 0,
+      "task_id": 7,
+      "actual_quantity": null,
+      "evidence": null,
+      "batch_deadline": 700,
+      "due_at": null,
+      "owned_slots": [],
+      "stop_requested": false
+    },
+    {
+      "schema_version": 1,
+      "route": {
+        "key": "ore",
+        "target_item_id": 1,
+        "skill": "mining",
+        "node": "node",
+        "attempts_per_batch": 10
+      },
+      "action_id": "action",
+      "count": 1,
+      "status": "complete",
+      "phase": "complete",
+      "pending": null,
+      "pause_reason": null,
+      "reason": null,
+      "submitted": 1,
+      "completed": 1,
+      "task_id": 7,
+      "actual_quantity": 3,
+      "evidence": {
+        "source": "screen"
+      },
+      "batch_deadline": null,
+      "due_at": null,
+      "owned_slots": [],
+      "stop_requested": false
+    }
+  ],
+  "storage": [
+    {
+      "schema_version": 1,
+      "plans": [
+        {
+          "item_id": 1,
+          "name": "ore",
+          "quantity": 3,
+          "scope": "shared",
+          "goal_ids": []
+        }
+      ],
+      "index": 0,
+      "status": "running",
+      "phase": "navigate",
+      "pending": null,
+      "completed": [],
+      "pause_reason": null,
+      "reason": null,
+      "wait": null,
+      "search": {}
+    },
+    {
+      "schema_version": 1,
+      "plans": [
+        {
+          "item_id": 1,
+          "name": "ore",
+          "quantity": 3,
+          "scope": "shared",
+          "goal_ids": []
+        }
+      ],
+      "index": 0,
+      "status": "running",
+      "phase": "prepare_transfer",
+      "pending": {
+        "kind": "prepare_transfer",
+        "item_id": 1,
+        "name": "ore",
+        "quantity": 3,
+        "scope": "shared",
+        "bag_scope": "bag:1",
+        "before_storage": 10,
+        "before_bag": 2,
+        "storage_balance_scope": "shared",
+        "bag_balance_scope": "bag:1",
+        "balance_source": "packet_capture",
+        "balances_at": 100,
+        "capture_id": "1",
+        "at": 100,
+        "deadline": 115
+      },
+      "completed": [],
+      "pause_reason": null,
+      "reason": null,
+      "wait": null,
+      "search": {}
+    },
+    {
+      "schema_version": 1,
+      "plans": [
+        {
+          "item_id": 1,
+          "name": "ore",
+          "quantity": 3,
+          "scope": "shared",
+          "goal_ids": []
+        }
+      ],
+      "index": 1,
+      "status": "complete",
+      "phase": "navigate",
+      "pending": null,
+      "completed": [
+        {
+          "item_id": 1,
+          "name": "ore",
+          "scope": "shared",
+          "bag_scope": "bag:1",
+          "quantity": 3,
+          "goal_ids": [],
+          "capture_id": "2",
+          "at": 101,
+          "balance_source": "packet_capture",
+          "storage_balance_scope": "shared",
+          "bag_balance_scope": "bag:1"
+        }
+      ],
+      "pause_reason": null,
+      "reason": null,
+      "wait": null,
+      "search": {}
+    }
+  ],
+  "fishing": [
+    {
+      "schema_version": 1,
+      "plan": {
+        "point_key": "lake",
+        "duration_s": 2
+      },
+      "status": "running",
+      "phase": "navigate",
+      "elapsed_s": 0.0,
+      "target_s": 2,
+      "pending": null,
+      "owned_slots": [],
+      "submitted": 0,
+      "completed": 0,
+      "pause_reason": null,
+      "reason": null,
+      "navigation_seen": false,
+      "navigation_deadline": null,
+      "next_direction": "a",
+      "last_move_at": null,
+      "sample_at": null,
+      "gauge_min": null,
+      "round_seen": false,
+      "yield_requested": false,
+      "stop_requested": false,
+      "hook_seen": false
+    },
+    {
+      "schema_version": 1,
+      "plan": {
+        "point_key": "lake",
+        "duration_s": 2
+      },
+      "status": "running",
+      "phase": "navigate",
+      "elapsed_s": 0.0,
+      "target_s": 2,
+      "pending": null,
+      "owned_slots": [],
+      "submitted": 0,
+      "completed": 0,
+      "pause_reason": null,
+      "reason": null,
+      "navigation_seen": false,
+      "navigation_deadline": 180,
+      "next_direction": "a",
+      "last_move_at": null,
+      "sample_at": null,
+      "gauge_min": null,
+      "round_seen": false,
+      "yield_requested": false,
+      "stop_requested": false,
+      "hook_seen": false
+    },
+    {
+      "schema_version": 1,
+      "plan": {
+        "point_key": "lake",
+        "duration_s": 2
+      },
+      "status": "running",
+      "phase": "navigate",
+      "elapsed_s": 0.0,
+      "target_s": 2,
+      "pending": null,
+      "owned_slots": [],
+      "submitted": 0,
+      "completed": 0,
+      "pause_reason": null,
+      "reason": null,
+      "navigation_seen": true,
+      "navigation_deadline": 180,
+      "next_direction": "a",
+      "last_move_at": null,
+      "sample_at": null,
+      "gauge_min": null,
+      "round_seen": false,
+      "yield_requested": false,
+      "stop_requested": false,
+      "hook_seen": false
+    },
+    {
+      "schema_version": 1,
+      "plan": {
+        "point_key": "lake",
+        "duration_s": 2
+      },
+      "status": "running",
+      "phase": "refresh",
+      "elapsed_s": 0.0,
+      "target_s": 2,
+      "pending": null,
+      "owned_slots": [],
+      "submitted": 0,
+      "completed": 0,
+      "pause_reason": null,
+      "reason": null,
+      "navigation_seen": true,
+      "navigation_deadline": 180,
+      "next_direction": "a",
+      "last_move_at": null,
+      "sample_at": null,
+      "gauge_min": null,
+      "round_seen": false,
+      "yield_requested": false,
+      "stop_requested": false,
+      "hook_seen": false
+    },
+    {
+      "schema_version": 1,
+      "plan": {
+        "point_key": "lake",
+        "duration_s": 2
+      },
+      "status": "running",
+      "phase": "confirm_start",
+      "elapsed_s": 0.0,
+      "target_s": 2,
+      "pending": {
+        "kind": "start",
+        "at": 3,
+        "capture_id": "4",
+        "deadline": 18,
+        "button_disappeared": false
+      },
+      "owned_slots": [],
+      "submitted": 0,
+      "completed": 0,
+      "pause_reason": null,
+      "reason": null,
+      "navigation_seen": true,
+      "navigation_deadline": 180,
+      "next_direction": "a",
+      "last_move_at": null,
+      "sample_at": null,
+      "gauge_min": null,
+      "round_seen": false,
+      "yield_requested": false,
+      "stop_requested": false,
+      "hook_seen": false
+    },
+    {
+      "schema_version": 1,
+      "plan": {
+        "point_key": "lake",
+        "duration_s": 2
+      },
+      "status": "running",
+      "phase": "round",
+      "elapsed_s": 0.0,
+      "target_s": 2,
+      "pending": null,
+      "owned_slots": [],
+      "submitted": 1,
+      "completed": 0,
+      "pause_reason": null,
+      "reason": null,
+      "navigation_seen": true,
+      "navigation_deadline": 180,
+      "next_direction": "a",
+      "last_move_at": null,
+      "sample_at": null,
+      "gauge_min": null,
+      "round_seen": true,
+      "yield_requested": false,
+      "stop_requested": false,
+      "hook_seen": false
+    },
+    {
+      "schema_version": 1,
+      "plan": {
+        "point_key": "lake",
+        "duration_s": 2
+      },
+      "status": "running",
+      "phase": "round",
+      "elapsed_s": 2.0,
+      "target_s": 2,
+      "pending": null,
+      "owned_slots": [],
+      "submitted": 1,
+      "completed": 0,
+      "pause_reason": null,
+      "reason": null,
+      "navigation_seen": true,
+      "navigation_deadline": 180,
+      "next_direction": "a",
+      "last_move_at": null,
+      "sample_at": null,
+      "gauge_min": null,
+      "round_seen": true,
+      "yield_requested": false,
+      "stop_requested": false,
+      "hook_seen": false
+    },
+    {
+      "schema_version": 1,
+      "plan": {
+        "point_key": "lake",
+        "duration_s": 2
+      },
+      "status": "complete",
+      "phase": "complete",
+      "elapsed_s": 2.0,
+      "target_s": 2,
+      "pending": null,
+      "owned_slots": [],
+      "submitted": 1,
+      "completed": 1,
+      "pause_reason": null,
+      "reason": null,
+      "navigation_seen": true,
+      "navigation_deadline": 180,
+      "next_direction": "a",
+      "last_move_at": null,
+      "sample_at": null,
+      "gauge_min": null,
+      "round_seen": false,
+      "yield_requested": false,
+      "stop_requested": false,
+      "hook_seen": false
+    }
+  ],
+  "maintenance": [
+    {
+      "schema_version": 1,
+      "active": null,
+      "paused": null,
+      "global_pause_required": false,
+      "pending": null,
+      "reason": null,
+      "repair": {
+        "phase": "idle",
+        "status": "idle",
+        "due_at": 101.0,
+        "quote_reads": 0,
+        "gold_reads": 0,
+        "last_capture": null,
+        "before_gold": null,
+        "quote": null,
+        "post_gold": null,
+        "outcome_seen": false,
+        "reserve_violated": false
+      },
+      "backpack": {
+        "phase": "idle",
+        "status": "idle",
+        "last_capture": null,
+        "weight": null,
+        "capacity": null,
+        "reads": 0,
+        "outcome_seen": false
+      },
+      "navigation_reserved": false
+    },
+    {
+      "schema_version": 1,
+      "active": "repair",
+      "paused": null,
+      "global_pause_required": false,
+      "pending": {
+        "action": "confirm_repair",
+        "at": 102,
+        "capture_id": "1",
+        "deadline": 117
+      },
+      "reason": null,
+      "repair": {
+        "phase": "result",
+        "status": "running",
+        "due_at": 101.0,
+        "quote_reads": 1,
+        "gold_reads": 0,
+        "last_capture": "1",
+        "before_gold": 100000,
+        "quote": 1000,
+        "post_gold": null,
+        "outcome_seen": false,
+        "reserve_violated": false
+      },
+      "backpack": {
+        "phase": "idle",
+        "status": "idle",
+        "last_capture": null,
+        "weight": null,
+        "capacity": null,
+        "reads": 0,
+        "outcome_seen": false
+      },
+      "navigation_reserved": true
+    },
+    {
+      "schema_version": 1,
+      "active": "repair",
+      "paused": null,
+      "global_pause_required": false,
+      "pending": null,
+      "reason": null,
+      "repair": {
+        "phase": "equip",
+        "status": "running",
+        "due_at": 101.0,
+        "quote_reads": 1,
+        "gold_reads": 1,
+        "last_capture": "2",
+        "before_gold": 100000,
+        "quote": 1000,
+        "post_gold": 99000,
+        "outcome_seen": true,
+        "reserve_violated": false
+      },
+      "backpack": {
+        "phase": "idle",
+        "status": "idle",
+        "last_capture": null,
+        "weight": null,
+        "capacity": null,
+        "reads": 0,
+        "outcome_seen": false
+      },
+      "navigation_reserved": true
+    },
+    {
+      "schema_version": 1,
+      "active": "repair",
+      "paused": null,
+      "global_pause_required": false,
+      "pending": {
+        "action": "auto_equip",
+        "at": 102,
+        "capture_id": "2",
+        "deadline": 117
+      },
+      "reason": null,
+      "repair": {
+        "phase": "equip",
+        "status": "running",
+        "due_at": 101.0,
+        "quote_reads": 1,
+        "gold_reads": 1,
+        "last_capture": "2",
+        "before_gold": 100000,
+        "quote": 1000,
+        "post_gold": 99000,
+        "outcome_seen": true,
+        "reserve_violated": false
+      },
+      "backpack": {
+        "phase": "idle",
+        "status": "idle",
+        "last_capture": null,
+        "weight": null,
+        "capacity": null,
+        "reads": 0,
+        "outcome_seen": false
+      },
+      "navigation_reserved": true
+    },
+    {
+      "schema_version": 1,
+      "active": null,
+      "paused": null,
+      "global_pause_required": false,
+      "pending": null,
+      "reason": null,
+      "repair": {
+        "phase": "idle",
+        "status": "idle",
+        "due_at": 103.0,
+        "quote_reads": 1,
+        "gold_reads": 1,
+        "last_capture": "2",
+        "before_gold": 100000,
+        "quote": 1000,
+        "post_gold": 99000,
+        "outcome_seen": true,
+        "reserve_violated": false
+      },
+      "backpack": {
+        "phase": "idle",
+        "status": "idle",
+        "last_capture": null,
+        "weight": null,
+        "capacity": null,
+        "reads": 0,
+        "outcome_seen": false
+      },
+      "navigation_reserved": false
+    }
+  ]
+}

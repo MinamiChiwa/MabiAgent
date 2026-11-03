@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "client_size": [
+    1280,
+    960
+  ],
+  "templates": {
+    "wing_quote_icon": {
+      "path": "assets/templates/navigation_ui/1280x960/travel/wing_quote_icon.png",
+      "bytes": 941,
+      "sha256": "03a2ef87fa37e80639d567b6abd6ee970cc9ee6107cd0b94af08eb18251a87ae",
+      "box": [
+        1065,
+        722,
+        1093,
+        740
+      ],
+      "search": [
+        1035,
+        695,
+        1140,
+        785
+      ],
+      "threshold": 0.94,
+      "match_mode": "light_text",
+      "light_threshold": 180,
+      "source": "release_catalog",
+      "source_sha256": "3c28da545b11051118f97cc9841376f735e27fb53dc07655852efb7e1b1aec89",
+      "crop_native": [
+        1065,
+        722,
+        1093,
+        740
+      ]
+    }
+  },
+  "use_box": [
+    1097,
+    785,
+    1147,
+    824
+  ],
+  "quote": {
+    "offset": [
+      2,
+      -4,
+      112,
+      21
+    ],
+    "min_confidence": 0.85,
+    "threshold": 100
+  },
+  "confirmation_timeout_s": 12
+}

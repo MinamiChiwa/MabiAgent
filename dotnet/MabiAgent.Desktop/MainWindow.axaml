@@ -1,0 +1,176 @@
+<u:UrsaWindow xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:u="https://irihi.tech/ursa" xmlns:local="clr-namespace:MabiAgent.Desktop" xmlns:accounts="clr-namespace:MabiAgent.Desktop.Accounts" xmlns:ui="clr-namespace:MabiAgent.Desktop.Controls" x:Class="MabiAgent.Desktop.MainWindow" Title="MabiAgent 0.5.0" Width="1340" Height="920" MinWidth="860" MinHeight="560" KeyDown="HandleKeys">
+ <u:UrsaWindow.Resources>
+  <DataTemplate x:Key="CaptureFactTemplate"><Grid ColumnDefinitions="104,*" Margin="0,3"><TextBlock Text="{Binding Label}" Classes="caption" VerticalAlignment="Top" Margin="0,1,0,0"/><TextBlock Grid.Column="1" Text="{Binding Value}" TextWrapping="Wrap" Classes.status-success="{Binding Good}" Classes.status-warning="{Binding Warning}"/></Grid></DataTemplate>
+ </u:UrsaWindow.Resources>
+ <Grid x:Name="ShellLayout" ColumnDefinitions="212,*">
+  <!-- Sidebar: brand, page navigation, secondary links -->
+  <Border x:Name="Sidebar" Classes="sidebar" Padding="14,20" BorderThickness="0,0,1,0">
+   <DockPanel>
+    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="10" Margin="6,2,0,24">
+     <Border x:Name="BrandMark" Classes="brand-mark"><ui:Icon Kind="logo" Width="18" Height="18"/></Border>
+     <TextBlock x:Name="AppName" Text="MabiAgent 0.5.0" FontSize="15" FontWeight="SemiBold"/>
+    </StackPanel>
+    <StackPanel DockPanel.Dock="Bottom" Spacing="4" Margin="0,16,0,0">
+     <Button Classes="side" Content="GitHub 仓库" ui:UiIcon.Kind="github" Click="OpenRepository" ToolTip.Tip="打开项目私有仓库，需要访问权限"/>
+     <Button Classes="side" Content="数据目录" ui:UiIcon.Kind="folder" Click="OpenDataDirectory" ToolTip.Tip="{Binding DataPath}"/>
+     <Button Classes="side" Content="赞助作者" ui:UiIcon.Kind="heart" Click="ShowSponsor"/>
+    </StackPanel>
+    <ListBox x:Name="Navigation" Classes="nav" SelectedIndex="{Binding SelectedPage}" VerticalAlignment="Top" AutomationProperties.Name="主导航">
+     <ListBoxItem Content="任务队列" ui:UiIcon.Kind="queue"/>
+     <ListBoxItem Content="材料配方" ui:UiIcon.Kind="recipe"/>
+     <ListBoxItem Content="维护设置" ui:UiIcon.Kind="settings"/>
+     <ListBoxItem Content="账户道具" ui:UiIcon.Kind="account"/>
+     <ListBoxItem Classes="group-start" ToolTip.Tip="在独立工作台窗口中编辑" AutomationProperties.Name="任务链">
+      <StackPanel Orientation="Horizontal" Spacing="8"><ui:Icon Kind="chain"/><TextBlock Text="任务链"/><ui:Icon Classes="trailing" Kind="external"/></StackPanel>
+     </ListBoxItem>
+     <ListBoxItem ToolTip.Tip="在独立工作台窗口中编辑" AutomationProperties.Name="锚点调试">
+      <StackPanel Orientation="Horizontal" Spacing="8"><ui:Icon Kind="anchor"/><TextBlock Text="锚点调试"/><ui:Icon Classes="trailing" Kind="external"/></StackPanel>
+     </ListBoxItem>
+    </ListBox>
+   </DockPanel>
+  </Border>
+
+  <Grid x:Name="ContentLayout" Grid.Column="1" RowDefinitions="Auto,Auto,Auto,*,Auto" Margin="24,20,24,12">
+   <!-- Run bar: global execution state and controls, identical on every page -->
+   <Border x:Name="RunBar" Classes="card section-runtime" Padding="16,12" Margin="0,0,0,18">
+    <ScrollViewer x:Name="RuntimeViewer" MaxHeight="200" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+     <Grid RowDefinitions="Auto,Auto,Auto,Auto" ColumnDefinitions="*,Auto">
+      <Grid x:Name="RuntimeSummary" ColumnDefinitions="Auto,*" VerticalAlignment="Center">
+       <Border Classes="pill" Classes.success="{Binding IsRunning}" Classes.warning="{Binding HasExecutionWarning}" MaxWidth="260" ToolTip.Tip="{Binding ExecutionStatus}">
+        <StackPanel Orientation="Horizontal" Spacing="6"><Ellipse Classes="dot"/><TextBlock Text="{Binding ExecutionStatus}" TextTrimming="CharacterEllipsis"/></StackPanel>
+       </Border>
+       <TextBlock Grid.Column="1" Text="{Binding RuntimeTask}" FontWeight="SemiBold" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding RuntimeTask}" Margin="12,0,16,0"/>
+      </Grid>
+      <Grid x:Name="RuntimeControls" Grid.Column="1" ColumnDefinitions="*,Auto">
+       <Grid x:Name="RuntimeWindowRow" ColumnDefinitions="*,Auto" Width="260"><ComboBox ItemsSource="{Binding GameWindows}" SelectedItem="{Binding SelectedWindow}" DisplayMemberBinding="{Binding Label}" PlaceholderText="选择游戏窗口" MinWidth="120" ToolTip.Tip="{Binding SelectedWindow.Label}" AutomationProperties.Name="游戏窗口"/><Button Grid.Column="1" Content="查找" AutomationProperties.Name="查找游戏窗口" ui:UiIcon.Kind="refresh" Command="{Binding RefreshWindowsCommand}" Margin="8,0,0,0"/></Grid>
+       <StackPanel x:Name="RuntimeActions" Grid.Column="1" Orientation="Horizontal" Spacing="8" Margin="12,0,0,0"><Button Classes="Primary" Theme="{DynamicResource SolidButton}" Content="开始／继续" ui:UiIcon.Kind="play" Command="{Binding StartCommand}"/><Button Content="暂停" ui:UiIcon.Kind="pause" Command="{Binding PauseCommand}"/><Button Content="停止全部" Command="{Binding StopAllCommand}" ToolTip.Tip="清除全部进度、批次、待核账和消费意图；保留任务与设置，重新开始可能再次消耗材料。"/><ui:HelpButton Message="选择游戏窗口后开始。后台触控无需激活游戏，切换应用可继续；游戏最小化时暂停。前台鼠标在游戏失焦时暂停。手动暂停后点击继续。"/></StackPanel>
+      </Grid>
+      <WrapPanel x:Name="RuntimeMeta" Grid.Row="1" Grid.ColumnSpan="2" Margin="0,10,0,0">
+       <TextBlock Text="{Binding CaptureStatus}" Classes="caption" Margin="0,0,20,0" TextWrapping="Wrap"/>
+       <TextBlock Text="{Binding WindowStatus}" Classes="caption" TextWrapping="Wrap"/>
+      </WrapPanel>
+      <StackPanel x:Name="RuntimeDetails" Grid.Row="2" Grid.ColumnSpan="2" Spacing="4" Margin="0,6,0,0" IsVisible="{Binding HasRuntimeDetails}">
+       <TextBlock Text="{Binding RuntimeProgress}" TextWrapping="Wrap"/>
+       <TextBlock Text="{Binding RuntimeHealth}" Classes="caption" Classes.status-warning="{Binding HasRuntimeIssues}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding RuntimeHealth}"/>
+       <Expander Header="待处理问题" IsVisible="{Binding HasRuntimeIssues}"><ScrollViewer MaxHeight="120"><TextBlock Text="{Binding RuntimeIssues}" Classes="status-warning" TextWrapping="Wrap"/></ScrollViewer></Expander>
+      </StackPanel>
+     </Grid>
+    </ScrollViewer>
+   </Border>
+
+   <!-- Page header: title, page help, search for list pages -->
+   <Grid Grid.Row="1" ColumnDefinitions="Auto,*,Auto" Margin="0,0,0,14">
+    <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center"><TextBlock Text="{Binding PageTitle}" Classes="title" VerticalAlignment="Center"/><ui:HelpButton x:Name="PageHelp" Message="{Binding PageDescription}"/></StackPanel>
+    <Grid x:Name="SearchRow" Grid.Column="2" ColumnDefinitions="*,Auto" Width="360" IsVisible="{Binding ShowGlobalSearch}">
+     <TextBox x:Name="SearchBox" Text="{Binding Search,UpdateSourceTrigger=PropertyChanged}" PlaceholderText="{Binding SearchHint}" AutomationProperties.Name="搜索"><TextBox.InnerLeftContent><ui:Icon Classes="prefix" Kind="search"/></TextBox.InnerLeftContent></TextBox>
+     <Button Grid.Column="1" Content="刷新" ui:UiIcon.Kind="refresh" Command="{Binding RefreshCommand}" IsEnabled="{Binding CanEdit}" Margin="8,0,0,0"/>
+    </Grid>
+   </Grid>
+
+   <StackPanel Grid.Row="2">
+    <u:Banner Type="Error" IsVisible="{Binding HasError}" Margin="0,0,0,12"><ScrollViewer x:Name="GlobalErrorViewer" MaxHeight="80" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><TextBlock Text="{Binding Error}" TextWrapping="Wrap"/></ScrollViewer></u:Banner>
+    <ProgressBar Height="3" IsIndeterminate="True" IsVisible="{Binding IsBusy}" Margin="0,0,0,8"/>
+   </StackPanel>
+
+   <Grid Grid.Row="3" x:Name="PageHost">
+    <local:QueuePanel x:Name="QueuePage"/>
+    <local:RecipePanel x:Name="RecipePage"/>
+    <local:SettingsPanel x:Name="SettingsPage"/>
+    <accounts:AccountItemsPanel x:Name="AccountsPanel" DataContext="{Binding AccountItems}"/>
+    <ScrollViewer x:Name="DebugLauncher" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+     <Border Classes="card section-workflow" VerticalAlignment="Top" Padding="20">
+      <Grid ColumnDefinitions="Auto,*,Auto">
+       <Border Classes="icon-tile"><ui:Icon Kind="anchor" Width="18" Height="18"/></Border>
+       <StackPanel Grid.Column="1" Spacing="4" Margin="16,0" VerticalAlignment="Center">
+        <TextBlock Text="锚点与流程工作台" Classes="heading"/>
+        <TextBlock Text="任务链、页面状态、通用锚点和调度策略在独立窗口中编辑；关闭工作台不影响主窗口运行。" Classes="muted"/>
+       </StackPanel>
+       <Button Grid.Column="2" Content="打开工作台" Classes="Primary" Theme="{DynamicResource SolidButton}" ui:UiIcon.Kind="external" Click="OpenWorkbench"/>
+      </Grid>
+     </Border>
+    </ScrollViewer>
+   </Grid>
+
+   <Grid Grid.Row="4" ColumnDefinitions="*,Auto" Margin="0,10,0,0"><TextBlock Text="{Binding OperationStatus}" Classes="status-info" FontSize="12" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding OperationStatus}" Margin="0,0,12,0" IsVisible="{Binding HasOperationStatus}"/><TextBlock Grid.Column="1" Text="{Binding Status}" Classes="caption" VerticalAlignment="Center" MaxWidth="260" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Status}"/></Grid>
+  </Grid>
+
+  <!-- Add-task dialog -->
+  <Border x:Name="AddOverlay" Grid.ColumnSpan="2" Classes="overlay" IsVisible="{Binding AddDialogOpen}" ZIndex="10">
+   <Border x:Name="AddGoalCard" Classes="card dialog" HorizontalAlignment="Center" VerticalAlignment="Center" Width="480" MaxHeight="620">
+    <ScrollViewer><StackPanel KeyboardNavigation.TabNavigation="Cycle" Spacing="16" IsEnabled="{Binding CanEdit}">
+     <Grid ColumnDefinitions="*,Auto">
+      <StackPanel Spacing="2"><TextBlock Text="新增任务" Classes="heading" FontSize="18"/><TextBlock Text="生产按件数，采集按轮数，钓鱼按时长。" Classes="muted" FontSize="12"/></StackPanel>
+      <ui:HelpButton Grid.Column="1" VerticalAlignment="Top" Message="生产按产物件数；采集按轮数，1轮＝10次采集尝试，不代表材料产量；钓鱼按时长。"/>
+     </Grid>
+     <Border Classes="card section-settings" Padding="12"><Grid ColumnDefinitions="*,Auto"><StackPanel><TextBlock Text="生活 VIP · 加工时长减半" FontWeight="SemiBold"/><TextBlock Text="游戏内已生效时开启；全局共用，已提交槽位不重算。" Classes="caption" TextWrapping="Wrap"/></StackPanel><ToggleSwitch x:Name="NewTaskVip" Grid.Column="1" IsChecked="{Binding LifeVip,Mode=TwoWay}" OnContent="{x:Null}" OffContent="{x:Null}" AutomationProperties.Name="生活VIP" Margin="12,0,0,0"/></Grid></Border>
+     <Border Classes="segmented">
+      <u:SelectionList x:Name="TaskKindPicker" ItemsSource="{Binding TaskKinds}" SelectedItem="{Binding TaskKind}" AutomationProperties.Name="任务类型">
+       <u:SelectionList.ItemsPanel><ItemsPanelTemplate><UniformGrid Rows="1"/></ItemsPanelTemplate></u:SelectionList.ItemsPanel>
+      </u:SelectionList>
+     </Border>
+     <StackPanel IsVisible="{Binding IsProductionGoal}" Spacing="8"><TextBlock Text="配方" Classes="field"/><TextBox Text="{Binding RecipeSearch}" PlaceholderText="搜索名称或设备"><TextBox.InnerLeftContent><ui:Icon Classes="prefix" Kind="search"/></TextBox.InnerLeftContent></TextBox><ComboBox x:Name="RecipePicker" ItemsSource="{Binding RecipeChoices}" SelectedItem="{Binding SelectedRecipe}" DisplayMemberBinding="{Binding Label}" PlaceholderText="选择配方"/></StackPanel>
+     <StackPanel IsVisible="{Binding NeedsGatheringPoint}" Spacing="8"><TextBlock Text="采集点／钓鱼场" Classes="field"/><AutoCompleteBox x:Name="GatheringPicker" ItemsSource="{Binding GatheringChoices}" SelectedItem="{Binding SelectedGathering,Mode=TwoWay}" ValueMemberBinding="{Binding Name}" FilterMode="Contains" MinimumPrefixLength="0" MaxDropDownHeight="260" PlaceholderText="搜索并选择地点" AutomationProperties.Name="采集点或钓鱼场"><AutoCompleteBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding Name}"/></DataTemplate></AutoCompleteBox.ItemTemplate></AutoCompleteBox></StackPanel>
+     <TextBlock IsVisible="{Binding IsInPlaceFishing}" Text="请先将角色停在可钓鱼位置。直接原地开始，默认不修理，按背包设置整理。" TextWrapping="Wrap" Classes="muted"/>
+     <StackPanel IsVisible="{Binding !IsFishingGoal}" Spacing="8"><TextBlock Text="{Binding GoalQuantityLabel}" Classes="field"/><TextBox Text="{Binding TargetQuantity}" AutomationProperties.Name="{Binding GoalQuantityLabel}"><TextBox.InnerRightContent><TextBlock Text="{Binding GoalQuantityUnit}" Classes="suffix"/></TextBox.InnerRightContent></TextBox><TextBlock IsVisible="{Binding IsGatheringGoal}" Text="1轮＝10次采集尝试，轮数不代表材料产量。" TextWrapping="Wrap" Classes="muted"/></StackPanel>
+     <StackPanel IsVisible="{Binding IsFishingGoal}" Spacing="8"><TextBlock Text="钓鱼时长" Classes="field"/>
+      <Grid ColumnDefinitions="*,10,*,10,*">
+       <TextBox Text="{Binding FishingHours}" AutomationProperties.Name="小时"><TextBox.InnerRightContent><TextBlock Classes="suffix" Text="小时"/></TextBox.InnerRightContent></TextBox>
+       <TextBox Grid.Column="2" Text="{Binding FishingMinutes}" AutomationProperties.Name="分钟"><TextBox.InnerRightContent><TextBlock Classes="suffix" Text="分钟"/></TextBox.InnerRightContent></TextBox>
+       <TextBox Grid.Column="4" Text="{Binding FishingSeconds}" AutomationProperties.Name="秒"><TextBox.InnerRightContent><TextBlock Classes="suffix" Text="秒"/></TextBox.InnerRightContent></TextBox>
+      </Grid>
+     </StackPanel>
+     <TextBlock Text="{Binding TargetError}" Classes="error" IsVisible="{Binding HasTargetError}"/><TextBlock Text="{Binding AddError}" Classes="error" IsVisible="{Binding HasAddError}"/>
+     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10" Margin="0,4,0,0"><Button Content="取消" Command="{Binding CloseAddCommand}"/><Button Content="加入队列" ui:UiIcon.Kind="add" Classes="Primary" Theme="{DynamicResource SolidButton}" Command="{Binding AddGoalCommand}"/></StackPanel>
+    </StackPanel></ScrollViewer>
+   </Border>
+  </Border>
+
+  <!-- Capture settings drawer: second level of 维护设置 › 数据同步 -->
+  <Border x:Name="CaptureOverlay" Grid.ColumnSpan="2" Classes="overlay" IsVisible="{Binding CaptureSettingsOpen}" ZIndex="11" PointerPressed="CaptureOverlayPressed">
+   <Border x:Name="CaptureDrawer" Classes="card drawer" DataContext="{Binding CaptureSettings}" HorizontalAlignment="Right" Width="440" CornerRadius="16,0,0,16" BorderThickness="1,0,0,0" Padding="0">
+    <DockPanel>
+     <Grid DockPanel.Dock="Top" ColumnDefinitions="Auto,*,Auto" Margin="20,18,16,12">
+      <Border Classes="icon-tile"><ui:Icon Kind="sync"/></Border>
+      <StackPanel Grid.Column="1" Margin="12,0" Spacing="2" VerticalAlignment="Center"><TextBlock Text="抓包设置" Classes="heading" FontSize="17"/><TextBlock Text="校对网卡、进程绑定与库存覆盖" Classes="caption"/></StackPanel>
+      <Button Grid.Column="2" Content="关闭" ui:UiIcon.Kind="close" Command="{Binding $parent[Window].DataContext.CloseCaptureSettingsCommand}"/>
+     </Grid>
+     <Border DockPanel.Dock="Bottom" Padding="20,10" IsVisible="{Binding HasActionMessage}" Background="{DynamicResource WorkspaceInfoSoft}"><TextBlock Text="{Binding ActionMessage}" Classes="status-info" TextWrapping="Wrap" FontSize="12"/></Border>
+     <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+      <StackPanel Spacing="18" Margin="20,4,20,20" KeyboardNavigation.TabNavigation="Cycle">
+       <StackPanel Spacing="8">
+        <Grid ColumnDefinitions="*,Auto"><TextBlock Text="网卡" Classes="setting-title" VerticalAlignment="Center"/><Button Grid.Column="1" Content="重新扫描" ui:UiIcon.Kind="refresh" Command="{Binding RefreshDevicesCommand}"/></Grid>
+        <TextBlock Text="{Binding DeviceStatus}" Classes="caption" TextWrapping="Wrap"/>
+        <Grid Classes="setting-row" ColumnDefinitions="*,Auto">
+         <StackPanel><TextBlock Text="自动（全部可用网卡）" Classes="setting-title"/><TextBlock Text="关闭后只监听下方勾选的网卡；所选网卡不可用时不会改用其他网卡" Classes="caption" TextWrapping="Wrap"/></StackPanel>
+         <ToggleSwitch Grid.Column="1" IsChecked="{Binding AutoDevices}" OnContent="{x:Null}" OffContent="{x:Null}" AutomationProperties.Name="自动选择网卡"/>
+        </Grid>
+        <ItemsControl ItemsSource="{Binding Devices}" IsEnabled="{Binding !AutoDevices}">
+         <ItemsControl.ItemTemplate><DataTemplate>
+          <CheckBox IsChecked="{Binding Selected}" Margin="0,2" ToolTip.Tip="{Binding Name}"><StackPanel Spacing="1"><TextBlock Text="{Binding Description}" TextWrapping="Wrap"/><TextBlock Text="{Binding Name}" Classes="caption" TextTrimming="CharacterEllipsis"/></StackPanel></CheckBox>
+         </DataTemplate></ItemsControl.ItemTemplate>
+        </ItemsControl>
+        <Button Content="应用网卡设置" ui:UiIcon.Kind="check" Classes="Primary" Theme="{DynamicResource SolidButton}" Command="{Binding ApplyDevicesCommand}" IsEnabled="{Binding DevicesDirty}" HorizontalAlignment="Left"/>
+       </StackPanel>
+       <u:Divider/>
+       <StackPanel Spacing="8">
+        <Grid ColumnDefinitions="*,Auto"><TextBlock Text="进程绑定" Classes="setting-title" VerticalAlignment="Center"/><Button Grid.Column="1" Content="重新绑定" ui:UiIcon.Kind="refresh" Command="{Binding RebindCommand}" IsEnabled="{Binding !Working}"/></Grid>
+        <ItemsControl ItemsSource="{Binding Binding}" ItemTemplate="{StaticResource CaptureFactTemplate}"/>
+       </StackPanel>
+       <u:Divider/>
+       <StackPanel Spacing="8">
+        <Grid ColumnDefinitions="*,Auto"><TextBlock Text="同步覆盖" Classes="setting-title" VerticalAlignment="Center"/><Button Grid.Column="1" Content="私人剧场刷新" ui:UiIcon.Kind="play" Command="{Binding RefreshInventoryCommand}" IsEnabled="{Binding !Working}" ToolTip.Tip="使用私人剧场脚本主动获取完整库存；会操作游戏，需监听就绪且当前批次在安全边界"/></Grid>
+        <TextBlock Text="{Binding SyncSummary}" Classes="caption" TextWrapping="Wrap"/>
+        <ItemsControl ItemsSource="{Binding Coverage}" ItemTemplate="{StaticResource CaptureFactTemplate}"/>
+       </StackPanel>
+       <u:Divider/>
+       <StackPanel Spacing="8">
+        <Grid ColumnDefinitions="*,Auto"><TextBlock Text="诊断" Classes="setting-title" VerticalAlignment="Center"/><Button Grid.Column="1" Content="打开诊断日志" ui:UiIcon.Kind="folder" Command="{Binding OpenDiagnosticsCommand}"/></Grid>
+        <ItemsControl ItemsSource="{Binding Diagnostics}" ItemTemplate="{StaticResource CaptureFactTemplate}"/>
+       </StackPanel>
+      </StackPanel>
+     </ScrollViewer>
+    </DockPanel>
+   </Border>
+  </Border>
+ </Grid>
+</u:UrsaWindow>

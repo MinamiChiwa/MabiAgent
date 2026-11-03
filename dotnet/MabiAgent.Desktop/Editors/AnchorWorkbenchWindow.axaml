@@ -1,0 +1,379 @@
+<u:UrsaWindow xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:u="https://irihi.tech/ursa" xmlns:local="clr-namespace:MabiAgent.Desktop.Editors" xmlns:app="clr-namespace:MabiAgent.Desktop" xmlns:ui="clr-namespace:MabiAgent.Desktop.Controls" x:Class="MabiAgent.Desktop.Editors.AnchorWorkbenchWindow" Title="锚点与流程工作台" Width="1400" Height="920" MinWidth="760" MinHeight="560" WindowStartupLocation="CenterOwner" KeyDown="HandleKeys">
+ <u:UrsaWindow.Resources>
+  <!-- Small anchor thumbnail; coordinate-only anchors fall back to a target glyph. -->
+  <DataTemplate x:Key="AnchorChoice">
+   <StackPanel Orientation="Horizontal" Spacing="8">
+    <Border Classes="thumb small"><Grid><ui:Icon Kind="anchor" Width="12" Height="12" Opacity="0.5"/><Image Source="{Binding Converter={x:Static local:WorkbenchConverters.AnchorImage},ConverterParameter=96}" Stretch="Uniform"/></Grid></Border>
+    <TextBlock Text="{Binding DisplayName}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+   </StackPanel>
+  </DataTemplate>
+ </u:UrsaWindow.Resources>
+ <u:UrsaWindow.Styles>
+  <Style Selector="ListBox.steps"><Setter Property="Background" Value="Transparent"/><Setter Property="BorderThickness" Value="0"/></Style>
+  <Style Selector="ListBox.steps > ListBoxItem"><Setter Property="Padding" Value="0"/><Setter Property="Margin" Value="0,0,0,8"/><Setter Property="CornerRadius" Value="12"/><Setter Property="HorizontalContentAlignment" Value="Stretch"/></Style>
+  <Style Selector="ListBox.steps > ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="Transparent"/></Style>
+  <Style Selector="ListBox.steps > ListBoxItem:pointerover /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="Transparent"/></Style>
+  <Style Selector="ListBox.steps > ListBoxItem:selected Border.step"><Setter Property="BorderBrush" Value="{DynamicResource SemiColorPrimary}"/><Setter Property="Background" Value="{DynamicResource WorkspaceInfoSoft}"/></Style>
+  <Style Selector="ListBox.steps > ListBoxItem:pointerover Border.step"><Setter Property="BorderBrush" Value="{DynamicResource SemiColorPrimaryLightActive}"/></Style>
+  <Style Selector="Border.step"><Setter Property="Padding" Value="12"/><Setter Property="Transitions"><Transitions><BrushTransition Property="BorderBrush" Duration="0:0:0.16"/><BrushTransition Property="Background" Duration="0:0:0.16"/><DoubleTransition Property="Opacity" Duration="0:0:0.12"/></Transitions></Setter></Style>
+  <Style Selector="Border.step.disabled"><Setter Property="Opacity" Value="0.55"/></Style>
+  <Style Selector="Border.number"><Setter Property="Width" Value="26"/><Setter Property="Height" Value="26"/><Setter Property="CornerRadius" Value="13"/><Setter Property="Background" Value="{DynamicResource WorkspaceNeutralSoft}"/><Setter Property="VerticalAlignment" Value="Center"/></Style>
+  <Style Selector="Border.number > TextBlock"><Setter Property="FontSize" Value="12"/><Setter Property="FontWeight" Value="SemiBold"/><Setter Property="HorizontalAlignment" Value="Center"/><Setter Property="VerticalAlignment" Value="Center"/></Style>
+  <Style Selector="ListBox.steps > ListBoxItem:selected Border.number"><Setter Property="Background" Value="{DynamicResource SemiColorPrimary}"/></Style>
+  <Style Selector="ListBox.steps > ListBoxItem:selected Border.number > TextBlock"><Setter Property="Foreground" Value="White"/></Style>
+  <Style Selector="Border.thumb"><Setter Property="CornerRadius" Value="8"/><Setter Property="ClipToBounds" Value="True"/><Setter Property="Background" Value="{DynamicResource WorkspaceNeutralSoft}"/><Setter Property="Width" Value="64"/><Setter Property="Height" Value="44"/></Style>
+  <Style Selector="Border.thumb.small"><Setter Property="Width" Value="36"/><Setter Property="Height" Value="26"/><Setter Property="CornerRadius" Value="6"/></Style>
+  <Style Selector="Border.thumb.tile"><Setter Property="Width" Value="128"/><Setter Property="Height" Value="76"/></Style>
+  <Style Selector="TextBlock.section"><Setter Property="FontSize" Value="12"/><Setter Property="FontWeight" Value="SemiBold"/><Setter Property="Foreground" Value="{DynamicResource WorkspaceMuted}"/><Setter Property="Margin" Value="0,14,0,4"/></Style>
+  <Style Selector="StackPanel.fields TextBlock.field"><Setter Property="Margin" Value="0,8,0,2"/></Style>
+  <Style Selector="ListBox.list > ListBoxItem"><Setter Property="CornerRadius" Value="10"/><Setter Property="Padding" Value="10,8"/><Setter Property="Margin" Value="0,1"/></Style>
+  <Style Selector="ListBox.tiles"><Setter Property="Background" Value="Transparent"/><Setter Property="BorderThickness" Value="0"/></Style>
+  <Style Selector="ListBox.tiles > ListBoxItem"><Setter Property="Padding" Value="6"/><Setter Property="Margin" Value="0,0,8,8"/><Setter Property="CornerRadius" Value="10"/><Setter Property="BorderThickness" Value="2"/><Setter Property="BorderBrush" Value="Transparent"/></Style>
+  <Style Selector="ListBox.tiles > ListBoxItem:selected"><Setter Property="BorderBrush" Value="{DynamicResource SemiColorPrimary}"/></Style>
+  <Style Selector="Border.preview"><Setter Property="CornerRadius" Value="12"/><Setter Property="Background" Value="{DynamicResource WorkspaceNeutralSoft}"/><Setter Property="MinHeight" Value="200"/><Setter Property="ClipToBounds" Value="True"/></Style>
+ </u:UrsaWindow.Styles>
+
+ <Grid x:Name="WorkbenchShell" ColumnDefinitions="200,*">
+  <!-- Sidebar: what you edit, then what runs -->
+  <Border x:Name="WorkbenchSidebar" Classes="sidebar" Padding="14,20" BorderThickness="0,0,1,0">
+   <DockPanel>
+    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="10" Margin="6,2,0,22">
+     <Border Classes="brand-mark"><ui:Icon Kind="anchor" Width="18" Height="18"/></Border>
+     <StackPanel Spacing="1" VerticalAlignment="Center"><TextBlock Text="流程工作台" FontSize="17" FontWeight="SemiBold"/><TextBlock Text="任务链 · 页面 · 锚点" Classes="caption"/></StackPanel>
+    </StackPanel>
+    <StackPanel DockPanel.Dock="Bottom" Spacing="4" Margin="6,12,0,0"><TextBlock Text="Ctrl+S 保存 · Ctrl+Z 撤销" Classes="caption"/><TextBlock Text="F5 全流程 · F6 测试选中" Classes="caption"/><TextBlock Text="Esc 停止测试" Classes="caption"/></StackPanel>
+    <StackPanel>
+     <TextBlock Text="编辑" Classes="section" Margin="8,0,0,4"/>
+     <ListBox x:Name="CategoryNav" Classes="nav" SelectedIndex="{Binding Category}" AutomationProperties.Name="工作台分类">
+      <ListBoxItem Content="任务链" ui:UiIcon.Kind="chain"/>
+      <ListBoxItem Content="页面识别" ui:UiIcon.Kind="image"/>
+      <ListBoxItem Content="锚点库" ui:UiIcon.Kind="anchor"/>
+      <ListBoxItem Content="公共卡片" ui:UiIcon.Kind="folder"/>
+      <ListBoxItem Classes="group-start" Content="调度参数" ui:UiIcon.Kind="settings"/>
+      <ListBoxItem Content="测试记录" ui:UiIcon.Kind="check"/>
+     </ListBox>
+    </StackPanel>
+   </DockPanel>
+  </Border>
+
+  <Grid x:Name="WorkbenchBody" Grid.Column="1" RowDefinitions="Auto,*,Auto" Margin="24,20,24,14">
+   <!-- Header: category purpose, search, undo/redo/save -->
+   <Grid ColumnDefinitions="Auto,*,Auto" Margin="0,0,0,14">
+    <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+     <ComboBox x:Name="CompactCategory" IsVisible="False" Width="128" SelectedIndex="{Binding Category}" AutomationProperties.Name="工作台分类"><ComboBoxItem Content="任务链"/><ComboBoxItem Content="页面识别"/><ComboBoxItem Content="锚点库"/><ComboBoxItem Content="公共卡片"/><ComboBoxItem Content="调度参数"/><ComboBoxItem Content="测试记录"/></ComboBox>
+     <StackPanel x:Name="WorkbenchHeading" Spacing="2" VerticalAlignment="Center"><TextBlock x:Name="CategoryTitle" Text="任务链" Classes="title"/><TextBlock x:Name="CategoryPurpose" Classes="caption" TextTrimming="CharacterEllipsis"/></StackPanel>
+    </StackPanel>
+    <StackPanel x:Name="WorkbenchHeaderActions" Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+     <TextBox x:Name="WorkbenchSearch" Width="240" Text="{Binding Search,UpdateSourceTrigger=PropertyChanged}" PlaceholderText="搜索当前分类（Ctrl+F）"><TextBox.InnerLeftContent><ui:Icon Classes="prefix" Kind="search"/></TextBox.InnerLeftContent></TextBox>
+     <Border Classes="pill warning" IsVisible="{Binding HasUnsavedChanges}"><TextBlock Text="未保存"/></Border>
+     <Button Content="撤销" Command="{Binding UndoCommand}" ToolTip.Tip="Ctrl+Z"/>
+     <Button Content="重做" Command="{Binding RedoCommand}" ToolTip.Tip="Ctrl+Y"/>
+     <Button x:Name="WorkbenchSave" Content="保存" ui:UiIcon.Kind="save" Classes="Primary" Theme="{DynamicResource SolidButton}" Command="{Binding SaveCommand}" ToolTip.Tip="Ctrl+S · 下次开始任务时生效"/>
+    </StackPanel>
+   </Grid>
+
+   <Grid Grid.Row="1">
+    <!-- ================= 任务链 ================= -->
+    <Grid x:Name="ChainLayout" IsVisible="{Binding IsChains}" ColumnDefinitions="232,16,*,16,340">
+     <Border x:Name="ChainSidebar" Classes="card section-workflow" Padding="10">
+      <DockPanel>
+       <StackPanel DockPanel.Dock="Bottom" Spacing="8" Margin="0,10,0,0"><Button Content="从模板新建采集" Click="NewGatheringFromTemplate" HorizontalAlignment="Stretch"/><Expander Header="高级新建"><Button Content="空白自定义任务链" Command="{Binding AddChainCommand}"/></Expander></StackPanel>
+       <TextBlock DockPanel.Dock="Top" Text="全部任务链" Classes="section" Margin="6,2,0,8"/>
+       <ListBox Classes="list" ItemsSource="{Binding ChainView}" SelectedItem="{Binding SelectedChain}" Background="Transparent" AutomationProperties.Name="全部任务链">
+        <ListBox.ItemTemplate><DataTemplate>
+         <Grid ColumnDefinitions="*,Auto">
+          <StackPanel Spacing="3"><TextBlock Text="{Binding DisplayName}" TextWrapping="Wrap"/><TextBlock Text="{Binding KindLabel}" Classes="caption"/></StackPanel>
+          <Ellipse Grid.Column="1" Width="8" Height="8" Fill="{DynamicResource WorkspaceSuccess}" IsVisible="{Binding Enabled}" ToolTip.Tip="已应用到任务运行" Margin="8,4,0,0" VerticalAlignment="Top"/>
+         </Grid>
+        </DataTemplate></ListBox.ItemTemplate>
+       </ListBox>
+      </DockPanel>
+     </Border>
+
+     <DockPanel Grid.Column="2">
+      <!-- Chain header: name, whether it runs, and how to test it -->
+      <Border DockPanel.Dock="Top" Classes="card section-workflow" Padding="16,12" Margin="0,0,0,12">
+       <StackPanel Spacing="8">
+        <Grid x:Name="CompactChainRow" IsVisible="False" ColumnDefinitions="*,Auto"><ComboBox ItemsSource="{Binding ChainView}" SelectedItem="{Binding SelectedChain}" DisplayMemberBinding="{Binding DisplayName}" PlaceholderText="选择任务链" AutomationProperties.Name="全部任务链"/><Button Grid.Column="1" Content="模板新建" Click="NewGatheringFromTemplate" Margin="8,0,0,0"/></Grid>
+        <Grid ColumnDefinitions="*,Auto">
+         <TextBox Text="{Binding SelectedChain.DisplayName}" FontSize="16" FontWeight="SemiBold" PlaceholderText="任务链名称" AutomationProperties.Name="任务链名称"/>
+         <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" Margin="12,0,0,0" ToolTip.Tip="启用后，任务运行使用此链的步骤与顺序；生产、采购等动作仍执行原有材料、空槽和消费核实。"><TextBlock Text="应用到运行" Classes="caption"/><ToggleSwitch IsChecked="{Binding SelectedChain.Enabled}" OnContent="{x:Null}" OffContent="{x:Null}" AutomationProperties.Name="应用到任务运行"/></StackPanel>
+        </Grid>
+        <ComboBox ItemsSource="{Binding RuntimeChoices}" DisplayMemberBinding="{Binding Label}" SelectedValueBinding="{Binding Key}" SelectedValue="{Binding SelectedChain.RuntimeKey,Mode=OneWay}" IsVisible="{Binding CanConfigureFlowLogic}" Tag="SelectedChain.RuntimeKey" SelectionChanged="KeyChoiceChanged" PlaceholderText="关联运行任务（可选）" AutomationProperties.Name="关联运行任务"/>
+        <TextBlock x:Name="ChainHintText" Text="{Binding ChainHint}" Classes="caption" TextWrapping="Wrap"/>
+        <WrapPanel x:Name="WorkbenchTestActions">
+         <CheckBox x:Name="WorkbenchRecognizeOnly" Content="仅验证识别" IsChecked="{Binding RecognizeOnly}" Margin="0,4,12,4" ToolTip.Tip="关闭后会实际执行所选步骤；生产或消费沿用原任务的确认流程。"/>
+         <Button x:Name="WorkbenchTestAll" Content="全流程测试" ui:UiIcon.Kind="play" Command="{Binding TestAllCommand}" IsEnabled="{Binding !Testing}" ToolTip.Tip="F5"/>
+         <Button Content="测试选中" Command="{Binding TestSelectedCommand}" IsEnabled="{Binding !Testing}" ToolTip.Tip="F6"/>
+         <Button x:Name="WorkbenchStop" Content="停止" ui:UiIcon.Kind="pause" Command="{Binding StopTestCommand}" IsEnabled="{Binding Testing}" ToolTip.Tip="Esc"/>
+        </WrapPanel>
+       </StackPanel>
+      </Border>
+      <Grid DockPanel.Dock="Bottom" ColumnDefinitions="*,Auto" Margin="0,8,0,0">
+       <WrapPanel><Button Content="添加步骤" ui:UiIcon.Kind="add" Command="{Binding AddCardCommand}" ToolTip.Tip="Insert · 插入到选中步骤之后"/><Button Content="从公共库加入" ui:UiIcon.Kind="folder" Click="ShowLibrary"/></WrapPanel>
+       <TextBlock Grid.Column="1" Text="{Binding SelectionText}" Classes="caption" VerticalAlignment="Center"/>
+      </Grid>
+      <Grid>
+       <ListBox x:Name="StepList" Classes="steps" ItemsSource="{Binding SelectedChain.Cards}" SelectedItem="{Binding SelectedCard,Mode=OneWay}" SelectionMode="Multiple" SelectionChanged="CardsSelected" ScrollViewer.HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="任务步骤卡片">
+        <ListBox.ContextMenu><ContextMenu MinWidth="260"><MenuItem Header="新增步骤" Command="{Binding AddCardCommand}" InputGesture="Insert"/><MenuItem Header="复制" Command="{Binding CopyCardsCommand}" InputGesture="Ctrl+C"/><MenuItem Header="剪切" Command="{Binding CutCardsCommand}" InputGesture="Ctrl+X"/><MenuItem Header="粘贴" Command="{Binding PasteCardsCommand}" InputGesture="Ctrl+V"/><MenuItem Header="创建副本" Command="{Binding DuplicateCardsCommand}" InputGesture="Ctrl+D"/><MenuItem Header="存入公共卡片库" Command="{Binding StoreCardsCommand}"/><Separator/><MenuItem Header="上移" Click="MoveUp" InputGesture="Alt+Up"/><MenuItem Header="下移" Click="MoveDown" InputGesture="Alt+Down"/><MenuItem Header="测试选中步骤" Command="{Binding TestSelectedCommand}" InputGesture="F6"/><Separator/><MenuItem Header="删除选中" Command="{Binding DeleteCardsCommand}" InputGesture="Delete"/></ContextMenu></ListBox.ContextMenu>
+        <ListBox.ItemTemplate><DataTemplate>
+         <Border Classes="card step section-workflow" Classes.disabled="{Binding !Enabled}">
+          <Grid ColumnDefinitions="Auto,Auto,*,Auto">
+           <Border Classes="number" Margin="0,0,10,0"><TextBlock Text="{Binding $parent[ListBoxItem].Tag}"/></Border>
+           <Border Grid.Column="1" Classes="icon-tile" Width="34" Height="34" ToolTip.Tip="按住卡片拖动排序"><ui:Icon Kind="{Binding Action,Converter={x:Static local:WorkbenchConverters.ActionIcon}}"/></Border>
+           <StackPanel Grid.Column="2" Spacing="3" Margin="12,0" VerticalAlignment="Center">
+            <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" TextWrapping="Wrap"/>
+            <TextBlock Text="{Binding Summary}" Classes="caption" TextWrapping="Wrap"/>
+            <TextBlock Text="{Binding StageLabel}" IsVisible="{Binding HasStage}" Classes="caption"/>
+           </StackPanel>
+           <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+            <Border Classes="pill" IsVisible="{Binding !Enabled}"><TextBlock Text="已停用"/></Border>
+            <Border Classes="pill" IsVisible="{Binding RandomClick}"><TextBlock Text="中心偏移"/></Border>
+            <Border Classes="thumb">
+             <Image Stretch="Uniform"><Image.Source><MultiBinding Converter="{x:Static local:WorkbenchConverters.CardTarget}"><Binding Path="AnchorId"/><Binding Path="StateId"/><Binding Path="$parent[Window].DataContext.Document"/></MultiBinding></Image.Source></Image>
+            </Border>
+           </StackPanel>
+          </Grid>
+         </Border>
+        </DataTemplate></ListBox.ItemTemplate>
+       </ListBox>
+       <StackPanel IsVisible="{Binding SelectedChain, Converter={x:Static ObjectConverters.IsNull}}" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8">
+        <Border Classes="icon-tile" HorizontalAlignment="Center"><ui:Icon Kind="chain"/></Border>
+        <TextBlock Text="选择或新增一条任务链" Classes="muted" HorizontalAlignment="Center"/>
+       </StackPanel>
+      </Grid>
+     </DockPanel>
+
+     <!-- Step inspector: sections appear only for the selected action -->
+     <Border x:Name="Inspector" Grid.Column="4" Classes="card section-workflow" Padding="0">
+      <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+       <StackPanel Classes="fields" Margin="16,12,16,16" IsEnabled="{Binding !Testing}">
+        <Grid ColumnDefinitions="*,Auto"><TextBlock Text="步骤设置" Classes="heading" VerticalAlignment="Center"/><ToggleSwitch Grid.Column="1" IsChecked="{Binding SelectedCard.Enabled}" OnContent="启用" OffContent="停用" AutomationProperties.Name="启用步骤"/></Grid>
+        <TextBlock x:Name="InspectorEmpty" Text="在中间选择一个步骤查看设置。" Classes="muted" Margin="0,8,0,0"/>
+        <StackPanel x:Name="InspectorBody" Classes="fields">
+         <TextBlock Text="基本" Classes="section"/>
+         <TextBlock Text="名称" Classes="field"/><TextBox Text="{Binding SelectedCard.DisplayName}" AutomationProperties.Name="步骤名称"/>
+         <TextBlock Text="操作" Classes="field"/><ComboBox x:Name="ActionPicker" ItemsSource="{Binding ActionChoices}" DisplayMemberBinding="{Binding Label}" SelectedValueBinding="{Binding Key}" SelectedValue="{Binding SelectedCard.Action,Mode=OneWay}" Tag="SelectedCard.Action" SelectionChanged="KeyChoiceChanged" AutomationProperties.Name="操作"/>
+         <TextBlock Text="任务动作" Classes="field" IsVisible="{Binding IsSemanticCard}"/><ComboBox ItemsSource="{Binding SemanticRoles}" DisplayMemberBinding="{Binding Label}" SelectedValueBinding="{Binding Key}" SelectedValue="{Binding SelectedCard.Role,Mode=OneWay}" Tag="SelectedCard.Role" SelectionChanged="KeyChoiceChanged" IsVisible="{Binding IsSemanticCard}" PlaceholderText="选择原任务动作"/>
+
+         <StackPanel x:Name="TargetSection" Classes="fields">
+          <TextBlock Text="目标" Classes="section"/>
+          <Border Classes="preview" MinHeight="96" Height="120">
+           <Grid>
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="4"><ui:Icon Kind="anchor" HorizontalAlignment="Center" Opacity="0.5"/><TextBlock Text="未关联图片锚点" Classes="caption" HorizontalAlignment="Center"/></StackPanel>
+            <Image Stretch="Uniform" Margin="8" RenderOptions.BitmapInterpolationMode="None"><Image.Source><MultiBinding Converter="{x:Static local:WorkbenchConverters.CardTarget}"><Binding Path="SelectedCard.AnchorId"/><Binding Path="SelectedCard.StateId"/><Binding Path="Document"/></MultiBinding></Image.Source></Image>
+           </Grid>
+          </Border>
+          <TextBlock Text="当前页面" Classes="field"/><ComboBox ItemsSource="{Binding Document.Pages}" DisplayMemberBinding="{Binding DisplayName}" SelectedValueBinding="{Binding Id}" SelectedValue="{Binding SelectedCard.PageId,Mode=OneWay}" Tag="SelectedCard.PageId" SelectionChanged="KeyChoiceChanged" PlaceholderText="选择页面"/>
+          <TextBlock Text="目标锚点" Classes="field"/>
+          <Grid ColumnDefinitions="*,Auto"><ComboBox ItemsSource="{Binding Document.Anchors}" ItemTemplate="{StaticResource AnchorChoice}" SelectedValueBinding="{Binding Id}" SelectedValue="{Binding SelectedCard.AnchorId,Mode=OneWay}" Tag="SelectedCard.AnchorId" SelectionChanged="KeyChoiceChanged" PlaceholderText="选择目标锚点" AutomationProperties.Name="目标锚点"/><Button Grid.Column="1" Content="编辑" Click="OpenCardAnchor" Margin="8,0,0,0" ToolTip.Tip="在锚点库中打开此锚点"/></Grid>
+          <TextBlock Text="锚点状态" Classes="field"/><ComboBox x:Name="CardStatePicker" DisplayMemberBinding="{Binding DisplayName}" SelectedValueBinding="{Binding Id}" SelectedValue="{Binding SelectedCard.StateId,Mode=OneWay}" Tag="SelectedCard.StateId" SelectionChanged="KeyChoiceChanged" PlaceholderText="锚点状态"/>
+          <TextBlock Text="点击位置" Classes="field"/><ComboBox ItemsSource="{x:Static local:AnchorWorkbenchViewModel.RandomModes}" DisplayMemberBinding="{Binding Label}" SelectedValueBinding="{Binding Key}" SelectedValue="{Binding SelectedCard.RandomMode,Mode=OneWay}" Tag="SelectedCard.RandomMode" SelectionChanged="KeyChoiceChanged" ToolTip.Tip="随机点位于锚点中央约60%的区域，极小范围使用中心像素。"/>
+          <TextBlock Text="采用页面跳转" Classes="field"/><ComboBox ItemsSource="{Binding TransitionChoices}" DisplayMemberBinding="{Binding Label}" SelectedValueBinding="{Binding Key}" SelectedValue="{Binding SelectedCard.TransitionId,Mode=OneWay}" IsEnabled="{Binding CanLinkTransition}" Tag="SelectedCard.TransitionId" SelectionChanged="KeyChoiceChanged" ToolTip.Tip="点击类步骤可直接沿用页面识别中配置的跳转"/>
+         </StackPanel>
+
+         <StackPanel x:Name="KeySection" Classes="fields">
+          <TextBlock Text="按键与文字" Classes="section"/>
+          <TextBlock Text="按键代码（空格32，ESC27，I73，K75，W87，S83）" Classes="field" TextWrapping="Wrap"/><NumericUpDown Value="{Binding SelectedCard.KeyCode}" Minimum="0" Maximum="255"/>
+          <TextBlock Text="按住毫秒" Classes="field"/><NumericUpDown Value="{Binding SelectedCard.KeyDurationMilliseconds}" Minimum="1" Maximum="2000"/>
+          <TextBlock Text="输入文字" Classes="field"/><TextBox Text="{Binding SelectedCard.InputText}" MaxLength="128"/>
+          <TextBlock Text="输入前退格次数" Classes="field"/><NumericUpDown Value="{Binding SelectedCard.Backspaces}" Minimum="0" Maximum="128"/>
+         </StackPanel>
+
+         <StackPanel x:Name="ScrollSection" Classes="fields">
+          <TextBlock Text="滚动与拖拽" Classes="section"/>
+          <TextBlock Text="滚动格数（正数向上）" Classes="field"/><NumericUpDown Value="{Binding SelectedCard.ScrollSteps}" Minimum="-12" Maximum="12"/>
+          <TextBlock Text="拖拽终点" Classes="field"/><Grid ColumnDefinitions="*,Auto"><TextBox Text="{Binding SelectedCard.Destination}" PlaceholderText="横坐标，纵坐标"/><Button Grid.Column="1" Content="窗口取点" Click="PickDragEnd" Margin="8,0,0,0"/></Grid>
+         </StackPanel>
+
+         <TextBlock Text="完成条件" Classes="section"/>
+         <TextBlock Text="完成后页面" Classes="field"/><ComboBox ItemsSource="{Binding Document.Pages}" DisplayMemberBinding="{Binding DisplayName}" SelectedValueBinding="{Binding Id}" SelectedValue="{Binding SelectedCard.ExpectedPageId,Mode=OneWay}" Tag="SelectedCard.ExpectedPageId" SelectionChanged="KeyChoiceChanged" PlaceholderText="可选：等待页面变化"/>
+         <Expander Header="完成状态锚点" IsVisible="{Binding CanConfigureFlowLogic}" Margin="0,8,0,0"><StackPanel Spacing="6"><TextBlock Text="可多选，等待操作后出现的新状态" Classes="field"/><local:AnchorSetPicker x:Name="ExpectedAnchors" Anchors="{Binding Document.Anchors}" SelectedIds="{Binding SelectedCard.ExpectedAnchorIds,Mode=TwoWay}"/></StackPanel></Expander>
+         <Expander Header="条件与分支" IsVisible="{Binding CanConfigureFlowLogic}" Margin="0,8,0,0"><StackPanel Classes="fields" Spacing="6"><ComboBox ItemsSource="{x:Static local:AnchorWorkbenchViewModel.Conditions}" DisplayMemberBinding="{Binding Label}" SelectedValueBinding="{Binding Key}" SelectedValue="{Binding SelectedCard.ConditionOperation,Mode=OneWay}" Tag="SelectedCard.ConditionOperation" SelectionChanged="KeyChoiceChanged"/><TextBlock Text="判断锚点" Classes="field"/><local:AnchorSetPicker x:Name="ConditionAnchors" Anchors="{Binding Document.Anchors}" SelectedIds="{Binding SelectedCard.ConditionAnchorIds,Mode=TwoWay}"/><TextBlock Text="满足时转到" Classes="field"/><ComboBox ItemsSource="{Binding SelectedChain.Cards}" DisplayMemberBinding="{Binding DisplayName}" SelectedValueBinding="{Binding Id}" SelectedValue="{Binding SelectedCard.SuccessId,Mode=OneWay}" Tag="SelectedCard.SuccessId" SelectionChanged="KeyChoiceChanged" PlaceholderText="默认下一步"/><TextBlock Text="不满足时转到" Classes="field"/><ComboBox ItemsSource="{Binding SelectedChain.Cards}" DisplayMemberBinding="{Binding DisplayName}" SelectedValueBinding="{Binding Id}" SelectedValue="{Binding SelectedCard.FailureId,Mode=OneWay}" Tag="SelectedCard.FailureId" SelectionChanged="KeyChoiceChanged" PlaceholderText="默认结束并显示原因"/></StackPanel></Expander>
+         <Expander Header="等待与重试" Margin="0,8,0,0"><StackPanel Classes="fields" Spacing="6"><TextBlock Text="步骤超时（秒）" Classes="field"/><NumericUpDown Value="{Binding SelectedCard.TimeoutSeconds}" Minimum="1" Maximum="86400"/><TextBlock Text="重试次数" Classes="field" IsVisible="{Binding CanConfigureFlowLogic}"/><NumericUpDown Value="{Binding SelectedCard.RetryLimit}" Minimum="0" Maximum="10" IsVisible="{Binding CanConfigureFlowLogic}"/><TextBlock Text="短暂等待（毫秒）" Classes="field" IsVisible="{Binding CanConfigureFlowLogic}"/><NumericUpDown Value="{Binding SelectedCard.DelayMilliseconds}" Minimum="0" Maximum="600000" IsVisible="{Binding CanConfigureFlowLogic}"/></StackPanel></Expander>
+        </StackPanel>
+       </StackPanel>
+      </ScrollViewer>
+     </Border>
+    </Grid>
+
+    <!-- ================= 页面识别 ================= -->
+    <Grid x:Name="PageLayout" IsVisible="{Binding IsPages}" ColumnDefinitions="232,16,*">
+     <Border Classes="card section-anchor" Padding="10">
+      <DockPanel>
+       <Button DockPanel.Dock="Bottom" Content="新增页面" Command="{Binding AddPageCommand}" ui:UiIcon.Kind="add" HorizontalAlignment="Stretch" Margin="0,10,0,0"/>
+       <TextBlock DockPanel.Dock="Top" Text="全部页面" Classes="section" Margin="6,2,0,8"/>
+       <ListBox Classes="list" ItemsSource="{Binding PageView}" SelectedItem="{Binding SelectedPage}" Background="Transparent" AutomationProperties.Name="全部页面"><ListBox.ItemTemplate><DataTemplate><StackPanel Spacing="3"><TextBlock Text="{Binding DisplayName}" TextWrapping="Wrap"/><TextBlock Text="{Binding Transitions.Count,StringFormat={}{0} 个跳转}" Classes="caption"/></StackPanel></DataTemplate></ListBox.ItemTemplate></ListBox>
+      </DockPanel>
+     </Border>
+     <ScrollViewer Grid.Column="2" HorizontalScrollBarVisibility="Disabled">
+      <StackPanel Spacing="16" Margin="0,0,8,0">
+       <Border Classes="card section-anchor">
+        <StackPanel Classes="fields" Spacing="6">
+         <TextBox Text="{Binding SelectedPage.DisplayName}" FontSize="16" FontWeight="SemiBold" PlaceholderText="页面名称" AutomationProperties.Name="页面名称"/>
+         <TextBlock Text="识别规则" Classes="field"/><ComboBox ItemsSource="{x:Static local:AnchorWorkbenchViewModel.PageRules}" DisplayMemberBinding="{Binding Label}" SelectedValueBinding="{Binding Key}" SelectedValue="{Binding SelectedPage.MatchRule,Mode=OneWay}" Tag="SelectedPage.MatchRule" SelectionChanged="KeyChoiceChanged" MaxWidth="320" HorizontalAlignment="Left"/>
+         <TextBlock Text="识别锚点 · 点选能确认此页面的稳定图片（可多选）" Classes="field"/>
+         <local:AnchorSetPicker x:Name="PageAnchors" Anchors="{Binding Document.Anchors}" SelectedIds="{Binding SelectedPage.AnchorIds,Mode=TwoWay}"/>
+        </StackPanel>
+       </Border>
+       <Border Classes="card section-anchor">
+        <StackPanel Spacing="10">
+         <Grid ColumnDefinitions="*,Auto"><StackPanel Spacing="2"><TextBlock Text="页面跳转" Classes="heading"/><TextBlock Text="点击哪个锚点会到达哪个页面；步骤可直接沿用。" Classes="caption"/></StackPanel><Button Grid.Column="1" Content="添加跳转" Command="{Binding AddTransitionCommand}" ui:UiIcon.Kind="add"/></Grid>
+         <ItemsControl ItemsSource="{Binding SelectedPage.Transitions}">
+          <ItemsControl.ItemTemplate><DataTemplate>
+           <Border Classes="card section-anchor" Padding="12" Margin="0,0,0,8">
+            <Grid ColumnDefinitions="*,8,*,Auto,*,Auto" RowDefinitions="Auto">
+             <TextBox Text="{Binding DisplayName}" PlaceholderText="跳转名称"/>
+             <ComboBox Grid.Column="2" ItemsSource="{Binding $parent[Window].DataContext.Document.Anchors}" ItemTemplate="{StaticResource AnchorChoice}" SelectedValueBinding="{Binding Id}" SelectedValue="{Binding AnchorId,Mode=OneWay}" Tag="AnchorId" SelectionChanged="KeyChoiceChanged" PlaceholderText="点击锚点"/>
+             <ui:Icon Grid.Column="3" Kind="external" Margin="10,0" Opacity="0.6"/>
+             <ComboBox Grid.Column="4" ItemsSource="{Binding $parent[Window].DataContext.Document.Pages}" DisplayMemberBinding="{Binding DisplayName}" SelectedValueBinding="{Binding Id}" SelectedValue="{Binding DestinationPageId,Mode=OneWay}" Tag="DestinationPageId" SelectionChanged="KeyChoiceChanged" PlaceholderText="到达页面"/>
+             <Button Grid.Column="5" Content="删除" ui:UiIcon.Kind="trash" Classes="danger" Click="DeleteTransition" Margin="8,0,0,0"/>
+            </Grid>
+           </Border>
+          </DataTemplate></ItemsControl.ItemTemplate>
+         </ItemsControl>
+        </StackPanel>
+       </Border>
+      </StackPanel>
+     </ScrollViewer>
+    </Grid>
+
+    <!-- ================= 锚点库 ================= -->
+    <Grid x:Name="AnchorLayout" IsVisible="{Binding IsAnchors}" ColumnDefinitions="272,16,*">
+     <Border Classes="card section-anchor" Padding="10">
+      <DockPanel>
+       <WrapPanel DockPanel.Dock="Bottom" Margin="0,10,0,0"><Button Content="新增锚点" Command="{Binding AddAnchorCommand}" ui:UiIcon.Kind="add"/><Button Content="删除" ui:UiIcon.Kind="trash" Classes="danger" Command="{Binding DeleteAnchorCommand}"/></WrapPanel>
+       <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="6,2,0,8"><TextBlock Text="全部锚点" Classes="section" Margin="0" VerticalAlignment="Center"/><CheckBox Grid.Column="1" Content="仅公共" IsChecked="{Binding LibraryAnchorsOnly}" ToolTip.Tip="只显示存入公共锚点库的锚点"/></Grid>
+       <ListBox Classes="list" ItemsSource="{Binding AnchorView}" SelectedItem="{Binding SelectedAnchor}" Background="Transparent" AutomationProperties.Name="全部锚点">
+        <ListBox.ItemTemplate><DataTemplate>
+         <Grid ColumnDefinitions="Auto,*">
+          <Border Classes="thumb"><Grid><ui:Icon Kind="anchor" Opacity="0.45"/><Image Source="{Binding Converter={x:Static local:WorkbenchConverters.AnchorImage},ConverterParameter=128}" Stretch="Uniform"/></Grid></Border>
+          <StackPanel Grid.Column="1" Spacing="3" Margin="10,0,0,0" VerticalAlignment="Center"><TextBlock Text="{Binding DisplayName}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding DisplayName}"/><TextBlock Text="{Binding States.Count,StringFormat={}{0} 个状态}" Classes="caption"/></StackPanel>
+         </Grid>
+        </DataTemplate></ListBox.ItemTemplate>
+       </ListBox>
+      </DockPanel>
+     </Border>
+     <ScrollViewer Grid.Column="2" HorizontalScrollBarVisibility="Disabled">
+      <StackPanel Spacing="16" Margin="0,0,8,0">
+       <Border Classes="card section-anchor">
+        <StackPanel Spacing="8">
+         <TextBox Text="{Binding SelectedAnchor.DisplayName}" FontSize="16" FontWeight="SemiBold" PlaceholderText="锚点名称" AutomationProperties.Name="锚点名称"/>
+         <Grid ColumnDefinitions="*,Auto">
+          <ComboBox ItemsSource="{Binding Document.Pages}" DisplayMemberBinding="{Binding DisplayName}" SelectedValueBinding="{Binding Id}" SelectedValue="{Binding SelectedAnchor.PageId,Mode=OneWay}" Tag="SelectedAnchor.PageId" SelectionChanged="KeyChoiceChanged" PlaceholderText="所属页面" AutomationProperties.Name="所属页面"/>
+          <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" Margin="12,0,0,0"><TextBlock Text="公共锚点库" Classes="caption"/><ToggleSwitch IsChecked="{Binding SelectedAnchor.InLibrary}" OnContent="{x:Null}" OffContent="{x:Null}" AutomationProperties.Name="存入公共锚点库"/></StackPanel>
+         </Grid>
+         <TextBlock Text="{Binding AnchorReferences}" Classes="caption"/>
+        </StackPanel>
+       </Border>
+       <Border Classes="card section-anchor">
+        <StackPanel Spacing="12">
+         <Grid ColumnDefinitions="*,Auto"><StackPanel Spacing="2"><TextBlock Text="锚点状态" Classes="heading"/><TextBlock Text="同一目标的不同外观（如选中/未选中），步骤可指定使用哪个。" Classes="caption"/></StackPanel><StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8"><Button Content="添加状态" Command="{Binding AddStateCommand}" ui:UiIcon.Kind="add"/><Button Content="删除状态" Classes="danger" ui:UiIcon.Kind="trash" Command="{Binding DeleteStateCommand}"/></StackPanel></Grid>
+         <Border Classes="segmented" HorizontalAlignment="Left">
+          <ListBox x:Name="StateChips" ItemsSource="{Binding SelectedAnchor.States}" SelectedItem="{Binding SelectedState,Mode=OneWay}" SelectionChanged="StateChipSelected" Background="Transparent" BorderThickness="0" AutomationProperties.Name="锚点状态">
+           <ListBox.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ListBox.ItemsPanel>
+           <ListBox.ItemTemplate><DataTemplate><StackPanel Orientation="Horizontal" Spacing="6"><TextBlock Text="{Binding DisplayName}"/><TextBlock Text="{Binding ModeLabel}" Classes="caption"/></StackPanel></DataTemplate></ListBox.ItemTemplate>
+          </ListBox>
+         </Border>
+         <Grid x:Name="StateEditor" ColumnDefinitions="*,16,300">
+          <!-- Preview and image actions -->
+          <StackPanel x:Name="StatePreviewColumn" Spacing="10">
+           <Border Classes="preview" MinHeight="220">
+            <Grid>
+             <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="6" Margin="16">
+              <ui:Icon Kind="image" Width="28" Height="28" HorizontalAlignment="Center" Opacity="0.45"/>
+              <TextBlock Text="{Binding SelectedState.ModeLabel,StringFormat=当前为{0}}" Classes="caption" HorizontalAlignment="Center"/>
+              <TextBlock Text="{Binding SelectedState.Box,StringFormat=点击范围：{0}}" Classes="caption" HorizontalAlignment="Center" IsVisible="{Binding SelectedState.IsCoordinate}"/>
+              <TextBlock Text="截取或浏览图片后在此预览" Classes="caption" HorizontalAlignment="Center" IsVisible="{Binding SelectedState.IsImage}"/>
+             </StackPanel>
+             <Image x:Name="AnchorPreview" RenderOptions.BitmapInterpolationMode="None" Stretch="Uniform" MaxHeight="320" Margin="12" Source="{Binding SelectedState.Path,Converter={x:Static local:WorkbenchConverters.PathImage},ConverterParameter=720}"/>
+            </Grid>
+           </Border>
+           <WrapPanel>
+            <Button Content="从游戏截取" ui:UiIcon.Kind="image" Click="CaptureAnchor" ToolTip.Tip="在游戏窗口中框选区域作为图片锚点"/>
+            <Button Content="浏览图片…" ui:UiIcon.Kind="folder" Click="BrowseAnchor" ToolTip.Tip="选择一张完整游戏截图，再框选锚点区域"/>
+            <Button Content="框选点击范围" ui:UiIcon.Kind="anchor" Click="PickRegion"/>
+            <Button Content="点击定位" Click="PickPoint" IsVisible="{Binding SelectedState.IsCoordinate}"/>
+            <Button Content="框选搜索范围" Click="PickSearch" IsVisible="{Binding SelectedState.IsImage}"/>
+            <Button Content="实时测试" ui:UiIcon.Kind="play" Click="TestAnchor"/>
+           </WrapPanel>
+           <TextBlock x:Name="AnchorTestText" Classes="caption" TextWrapping="Wrap"/>
+          </StackPanel>
+          <!-- State fields -->
+          <StackPanel x:Name="StateFieldsColumn" Grid.Column="2" Classes="fields">
+           <TextBlock Text="状态名称" Classes="field"/><TextBox Text="{Binding SelectedState.DisplayName}" PlaceholderText="状态名称"/>
+           <TextBlock Text="识别方式" Classes="field"/><ComboBox ItemsSource="{x:Static local:AnchorWorkbenchViewModel.Modes}" DisplayMemberBinding="{Binding Label}" SelectedValueBinding="{Binding Key}" SelectedValue="{Binding SelectedState.Mode,Mode=OneWay}" Tag="SelectedState.Mode" SelectionChanged="KeyChoiceChanged"/>
+           <TextBlock Text="范围形状" Classes="field"/><ComboBox ItemsSource="{x:Static local:AnchorWorkbenchViewModel.Shapes}" DisplayMemberBinding="{Binding Label}" SelectedValueBinding="{Binding Key}" SelectedValue="{Binding SelectedState.Shape,Mode=OneWay}" Tag="SelectedState.Shape" SelectionChanged="KeyChoiceChanged"/>
+           <TextBlock Text="点击范围（左，上，右，下）" Classes="field"/><TextBox Text="{Binding SelectedState.Box}" PlaceholderText="左，上，右，下"/>
+           <StackPanel Classes="fields" IsVisible="{Binding SelectedState.IsImage}">
+            <TextBlock Text="匹配模式" Classes="field"/><ComboBox ItemsSource="{x:Static local:EditorRepository.ModeChoices}" DisplayMemberBinding="{Binding Label}" SelectedValueBinding="{Binding Key}" SelectedValue="{Binding SelectedState.MatchMode,Mode=OneWay}" Tag="SelectedState.MatchMode" SelectionChanged="KeyChoiceChanged"/>
+            <TextBlock Text="匹配阈值" Classes="field"/><TextBox Text="{Binding SelectedState.Threshold}"/>
+            <TextBlock Text="搜索区域（左，上，右，下）" Classes="field"/><TextBox Text="{Binding SelectedState.Search}" PlaceholderText="留空为全画面"/>
+            <TextBlock Text="{Binding SelectedState.Path,StringFormat=图片：{0}}" Classes="caption" TextWrapping="Wrap" Margin="0,8,0,0"/>
+           </StackPanel>
+           <CheckBox Content="鼠标模式中心随机点击" ToolTip.Tip="后台触控统一采用全局设置中的中心偏移" IsChecked="{Binding SelectedState.RandomClick}" Margin="0,8,0,0"/>
+          </StackPanel>
+         </Grid>
+        </StackPanel>
+       </Border>
+      </StackPanel>
+     </ScrollViewer>
+    </Grid>
+
+    <!-- ================= 公共卡片 ================= -->
+    <Grid IsVisible="{Binding IsLibrary}" ColumnDefinitions="*,16,300">
+     <Border Classes="card section-library">
+      <DockPanel>
+       <StackPanel DockPanel.Dock="Top" Spacing="2" Margin="0,0,0,12"><TextBlock Text="公共卡片库" Classes="heading"/><TextBlock Text="可复用的步骤。任务链中选中步骤后右键“存入公共卡片库”。" Classes="caption"/></StackPanel>
+       <Grid>
+        <ListBox Classes="steps" ItemsSource="{Binding LibraryView}" SelectedItem="{Binding SelectedLibraryCard}">
+         <ListBox.ContextMenu><ContextMenu MinWidth="240"><MenuItem Header="加入当前任务链" Command="{Binding InsertLibraryCommand}"/><MenuItem Header="删除库中卡片" Command="{Binding DeleteLibraryCommand}"/></ContextMenu></ListBox.ContextMenu>
+         <ListBox.ItemTemplate><DataTemplate><Border Classes="card step"><Grid ColumnDefinitions="Auto,*"><Border Classes="icon-tile" Width="34" Height="34"><ui:Icon Kind="{Binding Action,Converter={x:Static local:WorkbenchConverters.ActionIcon}}"/></Border><StackPanel Grid.Column="1" Spacing="3" Margin="12,0,0,0"><TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold"/><TextBlock Text="{Binding Summary}" Classes="caption"/></StackPanel></Grid></Border></DataTemplate></ListBox.ItemTemplate>
+        </ListBox>
+        <StackPanel IsVisible="{Binding LibraryView.IsEmpty}" VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="320" Spacing="8" Margin="16"><Border Classes="icon-tile" HorizontalAlignment="Center"><ui:Icon Kind="folder"/></Border><TextBlock Text="暂无公共卡片" Classes="heading" HorizontalAlignment="Center"/><Button Content="前往任务链" Click="ShowChains" HorizontalAlignment="Center"/></StackPanel>
+       </Grid>
+      </DockPanel>
+     </Border>
+     <Border Grid.Column="2" Classes="card section-library" VerticalAlignment="Top">
+      <StackPanel Spacing="10"><TextBlock Text="加入任务链" Classes="heading"/><TextBlock Text="复制选中卡片到目标链的当前步骤之后，保留通用锚点引用。" Classes="caption" TextWrapping="Wrap"/><ComboBox ItemsSource="{Binding Document.Chains}" SelectedItem="{Binding SelectedChain}" DisplayMemberBinding="{Binding DisplayName}" PlaceholderText="目标任务链"/><Button Content="插入当前步骤后" Command="{Binding InsertLibraryCommand}" ui:UiIcon.Kind="add" Classes="Primary" Theme="{DynamicResource SolidButton}"/></StackPanel>
+     </Border>
+    </Grid>
+
+    <!-- ================= 调度参数 ================= -->
+    <TabControl IsVisible="{Binding IsStrategies}">
+     <TabItem Header="常用调度"><app:SettingsPanel DataContext="{Binding Host}"/></TabItem>
+     <TabItem Header="全部策略参数">
+      <Border Classes="card flush section-settings" Margin="0,12,0,0">
+       <DataGrid ItemsSource="{Binding StrategyView}" AutoGenerateColumns="False" GridLinesVisibility="Horizontal">
+        <DataGrid.Columns>
+         <DataGridTextColumn Header="分类" Binding="{Binding CategoryLabel}" IsReadOnly="True" Width="100"/>
+         <DataGridTextColumn Header="参数" Binding="{Binding ParameterLabel}" IsReadOnly="True" Width="2*" MinWidth="160"/>
+         <DataGridTemplateColumn Header="值" Width="170"><DataGridTemplateColumn.CellTemplate><DataTemplate><Grid><CheckBox Content="启用" IsChecked="{Binding BooleanValue}" IsVisible="{Binding IsBoolean}"/><TextBox Text="{Binding Value}" IsVisible="{Binding !IsBoolean}" MinHeight="30" Margin="0,2"/></Grid></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
+         <DataGridTemplateColumn Header="定位" Width="110"><DataGridTemplateColumn.CellTemplate><DataTemplate><Button Content="窗口定位" Click="LocateStrategy" IsVisible="{Binding IsCoordinate}"/></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
+         <DataGridTextColumn Header="说明" Binding="{Binding DescriptionLabel}" IsReadOnly="True" Width="3*" MinWidth="180"/>
+        </DataGrid.Columns>
+       </DataGrid>
+      </Border>
+     </TabItem>
+    </TabControl>
+
+    <!-- ================= 测试记录 ================= -->
+    <Border IsVisible="{Binding IsResults}" Classes="card flush section-workflow">
+     <Grid>
+      <DataGrid ItemsSource="{Binding Results}" IsReadOnly="True" AutoGenerateColumns="False">
+       <DataGrid.Columns>
+        <DataGridTextColumn Header="时间" Binding="{Binding Time}" Width="90"/>
+        <DataGridTextColumn Header="步骤" Binding="{Binding Card}" Width="180"/>
+        <DataGridTemplateColumn Header="结果" Width="110"><DataGridTemplateColumn.CellTemplate><DataTemplate><Border Classes="state"><TextBlock Text="{Binding Result}" Classes.status-success="{Binding IsSuccess}" Classes.status-warning="{Binding IsWarning}" Classes.status-error="{Binding IsError}" Classes.status-info="{Binding IsInfo}"/></Border></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
+        <DataGridTextColumn Header="详情" Binding="{Binding Details}" Width="*"/>
+       </DataGrid.Columns>
+      </DataGrid>
+      <StackPanel IsVisible="{Binding !HasResults}" VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="380" Spacing="8" Margin="16"><Border Classes="icon-tile" HorizontalAlignment="Center"><ui:Icon Kind="check"/></Border><TextBlock Text="暂无测试结果" Classes="heading" HorizontalAlignment="Center"/><TextBlock Text="在任务链中运行全流程测试（F5）或测试选中步骤（F6）。" Classes="muted" TextAlignment="Center"/></StackPanel>
+     </Grid>
+    </Border>
+   </Grid>
+
+   <Grid Grid.Row="2" RowDefinitions="Auto,Auto" Margin="0,12,0,0"><ProgressBar IsVisible="{Binding Testing}" IsIndeterminate="True" Height="3" Margin="0,0,0,8"/><ScrollViewer x:Name="WorkbenchStatusViewer" Grid.Row="1" MaxHeight="64" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><TextBlock Text="{Binding Status}" TextWrapping="Wrap" FontSize="12" Classes.status-error="{Binding StatusIsError}" Classes.status-warning="{Binding StatusIsWarning}" Classes.status-success="{Binding StatusIsSuccess}" Classes.status-info="{Binding StatusIsInfo}"/></ScrollViewer></Grid>
+  </Grid>
+ </Grid>
+</u:UrsaWindow>

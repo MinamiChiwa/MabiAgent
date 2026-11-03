@@ -1,0 +1,164 @@
+<UserControl xmlns:local="clr-namespace:MabiAgent.Desktop.Editors" xmlns="https://github.com/avaloniaui" xmlns:ui="clr-namespace:MabiAgent.Desktop.Controls" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" x:Class="MabiAgent.Desktop.Editors.ChainEditorPanel">
+  <DockPanel Margin="0">
+    <TextBlock DockPanel.Dock="Bottom" Text="{Binding Status}" Margin="0,12,0,0" TextWrapping="Wrap" />
+    <Grid>
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="0.28*" MinWidth="180" MaxWidth="240" />
+        <ColumnDefinition Width="16" />
+        <ColumnDefinition Width="*" />
+      </Grid.ColumnDefinitions>
+      <Border Classes="card section-workflow" Padding="14">
+        <DockPanel>
+          <StackPanel DockPanel.Dock="Top" Spacing="12">
+            <Grid ColumnDefinitions="*,Auto"><TextBlock Text="任务链库" Classes="heading" VerticalAlignment="Center"/><ui:HelpButton Grid.Column="1" Message="选择预设后新建草稿，或选择已保存的任务链继续编辑。切换前会提示保存当前修改。"/></Grid>
+            <ComboBox ItemsSource="{Binding Templates}" SelectedItem="{Binding SelectedTemplate}" DisplayMemberBinding="{Binding Name}" PlaceholderText="选择预设" />
+            <Button ui:UiIcon.Kind="add" Content="新建草稿" Command="{Binding NewDraftCommand}" Margin="0,0,0,12" />
+          </StackPanel>
+          <ListBox ItemsSource="{Binding Chains}" SelectedItem="{Binding SelectedChain}" ScrollViewer.HorizontalScrollBarVisibility="Disabled"><ListBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding Label}" TextWrapping="Wrap" Margin="0,6"/></DataTemplate></ListBox.ItemTemplate></ListBox>
+        </DockPanel>
+      </Border>
+      <Grid Grid.Column="2">
+        <Border VerticalAlignment="Center" IsVisible="{Binding !HasCurrent}" Classes="card section-workflow">
+          <StackPanel>
+            <TextBlock Text="新建任务链" Classes="heading" />
+            <TextBlock Text="选择左侧预设，创建草稿。" TextWrapping="Wrap" Classes="muted" />
+          </StackPanel>
+        </Border>
+        <DockPanel IsVisible="{Binding HasCurrent}">
+          <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,10">
+            <Button ui:UiIcon.Kind="save" Content="保存草稿" Command="{Binding SaveCommand}" Margin="0,0,8,8" />
+            <Button ui:UiIcon.Kind="check" Content="发布到目录" Command="{Binding PublishCommand}" Margin="0,0,8,8" />
+            <Button ui:UiIcon.Kind="add" Content="另存副本" Command="{Binding DuplicateCommand}" Margin="0,0,8,8" />
+            <Button Classes="danger" ui:UiIcon.Kind="trash" Content="删除任务链" Command="{Binding DeleteCommand}" Margin="0,0,8,8" />
+          </WrapPanel>
+          <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <StackPanel>
+              <Border Padding="16" Classes="card section-workflow">
+                <StackPanel>
+                  <DockPanel Margin="0,0,0,12">
+                    <ui:HelpButton Message="填写名称、产物和材料后保存草稿。发布后可在配方目录创建任务。识别图片和流程节点可在下方展开编辑。" DockPanel.Dock="Right" />
+                    <TextBlock Text="基本信息" Classes="heading" />
+                  </DockPanel>
+                  <StackPanel Spacing="6" Margin="0,8">
+                    <TextBlock Text="任务名称" Classes="muted" FontSize="13" />
+                    <TextBox Text="{Binding Name,UpdateSourceTrigger=PropertyChanged}" PlaceholderText="任务名称" />
+                  </StackPanel>
+                  <StackPanel Spacing="6" Margin="0,8">
+                    <TextBlock Text="产物名称" Classes="muted" FontSize="13" />
+                    <TextBox Text="{Binding Product,UpdateSourceTrigger=PropertyChanged}" PlaceholderText="完整道具名称" />
+                  </StackPanel>
+                  <WrapPanel IsVisible="{Binding IsProduction}">
+                    <StackPanel Spacing="6" Width="90" Margin="0,8,12,8">
+                      <TextBlock Text="小时" Classes="muted" FontSize="13" />
+                      <TextBox Text="{Binding Hours}" PlaceholderText="小时" />
+                    </StackPanel>
+                    <StackPanel Spacing="6" Width="90" Margin="0,8,12,8">
+                      <TextBlock Text="分钟" Classes="muted" FontSize="13" />
+                      <TextBox Text="{Binding Minutes}" PlaceholderText="分钟" />
+                    </StackPanel>
+                    <StackPanel Spacing="6" Width="90" Margin="0,8,12,8">
+                      <TextBlock Text="秒" Classes="muted" FontSize="13" />
+                      <TextBox Text="{Binding Seconds}" PlaceholderText="秒" />
+                    </StackPanel>
+                    <StackPanel Spacing="6" Width="100" Margin="0,8,12,8">
+                      <TextBlock Text="每轮产量" Classes="muted" FontSize="13" />
+                      <TextBox Text="{Binding Output}" PlaceholderText="每轮产量" />
+                    </StackPanel>
+                  </WrapPanel>
+                  <WrapPanel IsVisible="{Binding IsGathering}">
+                    <StackPanel Spacing="6" Width="160" Margin="0,8,12,8">
+                      <TextBlock Text="采集技能" Classes="muted" FontSize="13" />
+                      <TextBox Text="{Binding Skill}" PlaceholderText="采集技能" />
+                    </StackPanel>
+                    <StackPanel Spacing="6" Width="160" Margin="0,8,12,8">
+                      <TextBlock Text="采集点" Classes="muted" FontSize="13" />
+                      <TextBox Text="{Binding Point}" PlaceholderText="采集点" />
+                    </StackPanel>
+                    <StackPanel Spacing="6" Width="120" Margin="0,8,12,8">
+                      <TextBlock Text="每批尝试次数" Classes="muted" FontSize="13" />
+                      <TextBox Text="{Binding Attempts}" PlaceholderText="每批尝试次数" />
+                    </StackPanel>
+                  </WrapPanel>
+                  <StackPanel IsVisible="{Binding IsProduction}">
+                    <TextBlock Text="配方材料" Margin="0,16,0,8" />
+                    <ItemsControl ItemsSource="{Binding Materials}">
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                          <DockPanel Margin="0,4">
+                            <Button DockPanel.Dock="Right" Content="删除" Classes="danger" VerticalAlignment="Bottom" Command="{Binding $parent[UserControl].DataContext.RemoveMaterialCommand}" CommandParameter="{Binding}" />
+                            <StackPanel Spacing="6" Width="80" Margin="12,0" DockPanel.Dock="Right">
+                              <TextBlock Text="数量" Classes="muted" FontSize="13" />
+                              <TextBox Text="{Binding Quantity,UpdateSourceTrigger=PropertyChanged}" PlaceholderText="数量" />
+                            </StackPanel>
+                            <StackPanel Spacing="6">
+                              <TextBlock Text="材料名称" Classes="muted" FontSize="13" />
+                              <TextBox Text="{Binding Name,UpdateSourceTrigger=PropertyChanged}" PlaceholderText="材料名称" />
+                            </StackPanel>
+                          </DockPanel>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <Button ui:UiIcon.Kind="add" Content="添加材料" Command="{Binding AddMaterialCommand}" HorizontalAlignment="Left" Margin="0,12,0,0" />
+                  </StackPanel>
+                </StackPanel>
+              </Border>
+              <CheckBox Content="高级编辑：显示全部公共步骤" IsChecked="{Binding AdvancedEditing}" IsVisible="{Binding IsGathering}" Margin="0,12,0,8"/>
+              <TextBlock Text="先选同技能模板，再填写名称和采集点；下方仅显示目标列表、详情和轮次身份差异，公共导航、维护与重试沿用共享流程。" IsVisible="{Binding IsGathering}" Classes="caption" TextWrapping="Wrap"/>
+              <Expander Header="识别与流程" Margin="0,14,0,0" IsExpanded="False">
+                <Border Padding="16" Margin="0" Classes="card section-workflow">
+                  <StackPanel>
+                    <DockPanel>
+                      <ui:HelpButton Message="按实际操作顺序选择节点，再编辑对应锚点。图片框选使用原图坐标；请选固定文字或图案，避开等级、数量和动效。" DockPanel.Dock="Right" />
+                      <TextBlock Text="流程节点" FontSize="18" Classes="heading" />
+                    </DockPanel>
+                    <ComboBox ItemsSource="{Binding VisibleNodes}" SelectedItem="{Binding SelectedNode}" Margin="0,12" DisplayMemberBinding="{Binding Caption}" />
+                    <StackPanel Spacing="6">
+                      <TextBlock Text="节点名称" Classes="muted" FontSize="13" />
+                      <TextBox Text="{Binding SelectedNode.Label}" PlaceholderText="节点名称" />
+                    </StackPanel>
+                    <WrapPanel Margin="0,12">
+                      <Button Classes="danger" ui:UiIcon.Kind="trash" Content="删除节点" Command="{Binding RemoveNodeCommand}" Margin="0,0,8,8" />
+                      <Button ui:UiIcon.Kind="refresh" Content="补回缺失节点" Command="{Binding RestoreNodesCommand}" Margin="0,0,8,8" />
+                    </WrapPanel>
+                    <ComboBox ItemsSource="{Binding SelectedNode.Anchors}" SelectedItem="{Binding SelectedAnchor}" Margin="0,8" DisplayMemberBinding="{Binding Label}" PlaceholderText="锚点" />
+                    <ComboBox ItemsSource="{Binding SelectedAnchor.Variants}" SelectedItem="{Binding SelectedVariant}" Margin="0,8" PlaceholderText="显示状态" DisplayMemberBinding="{Binding Label}">
+                  </ComboBox>
+                    <Image x:Name="PreviewImage" Height="100" Stretch="Uniform" Margin="0,8" IsVisible="False" />
+                    <WrapPanel>
+                      <Button ui:UiIcon.Kind="image" Content="选择图片" Click="BrowseClick" Margin="0,0,8,8" />
+                      <Button ui:UiIcon.Kind="image" Content="窗口内框选图片" Click="CaptureClick" Margin="0,0,8,8" />
+                      <Button ui:UiIcon.Kind="add" Content="添加显示状态" Click="AppendClick" Margin="0,0,8,8" />
+                      <Button Classes="danger" ui:UiIcon.Kind="trash" Content="删除状态" Command="{Binding RemoveVariantCommand}" Margin="0,0,8,8" />
+                    </WrapPanel>
+                    <ComboBox ItemsSource="{x:Static local:EditorRepository.ModeChoices}" SelectedValueBinding="{Binding Key}" SelectedValue="{Binding SelectedVariant.Mode}" Margin="0,8" DisplayMemberBinding="{Binding Label}" PlaceholderText="识别方式" />
+                    <StackPanel Spacing="6" Margin="0,8">
+                      <TextBlock Text="匹配阈值（0.7–1）" Classes="muted" FontSize="13" />
+                      <TextBox Text="{Binding SelectedVariant.Threshold}" PlaceholderText="阈值 0.7–1" />
+                    </StackPanel>
+                    <StackPanel Spacing="6" Margin="0,8">
+                      <TextBlock Text="图片区域（左、上、右、下）" Classes="muted" FontSize="13" />
+                      <TextBox Text="{Binding SelectedVariant.Box}" PlaceholderText="原生区域：左、上、右、下" />
+                    </StackPanel>
+                    <StackPanel Spacing="6" Margin="0,8">
+                      <TextBlock Text="搜索范围（左、上、右、下）" Classes="field" />
+                      <TextBox Text="{Binding SelectedVariant.Search}" Margin="0" PlaceholderText="搜索区域：左、上、右、下" />
+                    </StackPanel>
+                  </StackPanel>
+                </Border>
+              </Expander>
+              <Expander Header="版本管理" Margin="0,14,0,0" IsExpanded="False">
+                <Border Classes="card section-workflow" Padding="16">
+                  <WrapPanel Margin="0">
+                    <Button ui:UiIcon.Kind="refresh" Content="恢复预设" Command="{Binding RestorePresetCommand}" Margin="0,0,12,8" />
+                    <ComboBox Width="220" Margin="0,0,0,8" ItemsSource="{Binding Versions}" SelectedItem="{Binding SelectedVersion}" DisplayMemberBinding="{Binding Label}" />
+                    <Button ui:UiIcon.Kind="refresh" Content="载入历史版本" Command="{Binding RestoreVersionCommand}" Margin="12,0,0,8" />
+                  </WrapPanel>
+                </Border>
+              </Expander>
+            </StackPanel>
+          </ScrollViewer>
+        </DockPanel>
+      </Grid>
+    </Grid>
+  </DockPanel>
+</UserControl>

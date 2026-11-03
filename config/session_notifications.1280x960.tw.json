@@ -1,0 +1,225 @@
+{
+  "contract": "reviewed-session-notifications-v1",
+  "client_size": [
+    1280,
+    960
+  ],
+  "dpi": 96,
+  "templates": {
+    "stella_title": {
+      "path": "assets/templates/session_notifications/stella_pick_1280x960/stella_title.png",
+      "box": [
+        71,
+        25,
+        306,
+        52
+      ],
+      "search": [
+        61,
+        15,
+        316,
+        62
+      ],
+      "match_mode": "light_text",
+      "threshold": 0.95,
+      "light_threshold": 200,
+      "bytes": 776,
+      "sha256": "fa3dbc108a28d50b1f4aca9a4a96ada3375a308a6e616db3ac8efe6097a3da7b",
+      "source": "tests/fixtures/production/stella-pick-current.jpg",
+      "source_sha256": "fbb2aef77df09b899723cb34aad71cfca5c96530a2cae5de64a7801a5a4a2279",
+      "crop_native": [
+        71,
+        25,
+        306,
+        52
+      ]
+    },
+    "stella_close": {
+      "path": "assets/templates/session_notifications/stella_pick_1280x960/close.png",
+      "box": [
+        1212,
+        8,
+        1272,
+        68
+      ],
+      "search": [
+        1198,
+        0,
+        1280,
+        82
+      ],
+      "match_mode": "grayscale",
+      "threshold": 0.97,
+      "bytes": 2016,
+      "sha256": "b9f16eb8ba7778a3101dddec46e117c9cda74bd0c5054fee2468fc40a2e76c20",
+      "source": "release_catalog",
+      "source_sha256": "9fea763c2abbbaae6ebe13a6f991065564b69d497e675b46d0ff0040541928e2"
+    },
+    "news_tabs": {
+      "path": "assets/templates/session_notifications/news_1280x960/news_tabs.png",
+      "box": [
+        172,
+        632,
+        209,
+        657
+      ],
+      "search": [
+        168,
+        628,
+        213,
+        661
+      ],
+      "match_mode": "grayscale",
+      "threshold": 0.94,
+      "bytes": 2051,
+      "sha256": "5a630ad73e82d588a2a828b4123920507878a0b0386e846393eb6d25e7c05a06",
+      "crop_native": [
+        172,
+        632,
+        209,
+        657
+      ]
+    },
+    "news_close": {
+      "path": "assets/templates/session_notifications/news_1280x960/news_close.png",
+      "box": [
+        1100,
+        210,
+        1148,
+        258
+      ],
+      "search": [
+        1088,
+        198,
+        1160,
+        270
+      ],
+      "match_mode": "grayscale",
+      "threshold": 0.97,
+      "bytes": 1687,
+      "sha256": "58fbef166d20d21a1f54b43c32970c17822c5ae480adec98af91e254a108e2f1",
+      "source": "release_catalog",
+      "source_sha256": "231fd192c84301ac6bac9ec82306344d2757e431d8c206baceebb79f9d6ea9c7"
+    },
+    "attendance_title": {
+      "path": "assets/templates/session_notifications/attendance_1280x960/attendance_title.png",
+      "box": [
+        73,
+        862,
+        379,
+        900
+      ],
+      "search": [
+        69,
+        858,
+        383,
+        904
+      ],
+      "match_mode": "light_text",
+      "threshold": 0.98,
+      "bytes": 11740,
+      "sha256": "02a935a476a23182320e631ab8db112bdee72257053f0b543e391f4d6a56cafd",
+      "source": "release_catalog",
+      "source_sha256": "12e0a88485f109f3aa27dc70814748328657de0cef7520549ffbe2d58a888c86",
+      "light_threshold": 180,
+      "glyph_threshold": 0.98
+    },
+    "attendance_skip": {
+      "path": "assets/templates/session_notifications/attendance_1280x960/attendance_skip.png",
+      "box": [
+        1169,
+        28,
+        1266,
+        48
+      ],
+      "search": [
+        1165,
+        24,
+        1270,
+        52
+      ],
+      "match_mode": "grayscale",
+      "threshold": 0.98,
+      "bytes": 2402,
+      "sha256": "8af8825704161becb6bfa721d771f19de44c8bddd4df38093deb1f144d4b9118",
+      "source": "release_catalog",
+      "source_sha256": "12e0a88485f109f3aa27dc70814748328657de0cef7520549ffbe2d58a888c86"
+    },
+    "attendance_complete_title": {
+      "path": "assets/templates/session_notifications/attendance_1280x960/attendance_complete_title.png",
+      "box": [
+        560,
+        170,
+        733,
+        208
+      ],
+      "search": [
+        556,
+        166,
+        737,
+        212
+      ],
+      "match_mode": "light_text",
+      "threshold": 0.98,
+      "bytes": 10011,
+      "sha256": "9f4e9b918f9f287fd4dca316190fad4cf8a1db1390b7480adf8b9a59ed0e1ed0",
+      "source": "release_catalog",
+      "source_sha256": "a202737bdc2b82b9e4ada37d09144cdc287ad8a0f42e1fbbd2cf56a09741ad82",
+      "light_threshold": 200,
+      "glyph_threshold": 0.98
+    },
+    "attendance_complete_confirm": {
+      "path": "assets/templates/session_notifications/attendance_1280x960/attendance_complete_confirm.png",
+      "box": [
+        618,
+        893,
+        663,
+        916
+      ],
+      "search": [
+        614,
+        889,
+        667,
+        920
+      ],
+      "match_mode": "light_text",
+      "threshold": 0.98,
+      "bytes": 1552,
+      "sha256": "89da2acea6349919e97a309f215ff157fa34fd1778011f9cc2f32011e4726889",
+      "source": "release_catalog",
+      "source_sha256": "a202737bdc2b82b9e4ada37d09144cdc287ad8a0f42e1fbbd2cf56a09741ad82",
+      "light_threshold": 200,
+      "glyph_threshold": 0.98
+    }
+  },
+  "flows": {
+    "stella_pick": {
+      "anchors": [
+        "stella_title",
+        "stella_close"
+      ],
+      "close": "stella_close"
+    },
+    "news": {
+      "anchors": [
+        "news_tabs",
+        "news_close"
+      ],
+      "close": "news_close"
+    },
+    "attendance_reward": {
+      "anchors": [
+        "attendance_title",
+        "attendance_skip"
+      ],
+      "close": "attendance_skip"
+    },
+    "attendance_complete": {
+      "anchors": [
+        "attendance_complete_title",
+        "attendance_complete_confirm"
+      ],
+      "close": "attendance_complete_confirm"
+    }
+  }
+}

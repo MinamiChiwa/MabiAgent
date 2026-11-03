@@ -1,0 +1,28 @@
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:ui="clr-namespace:MabiAgent.Desktop.Controls" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" x:Class="MabiAgent.Desktop.RecipePanel">
+  <DockPanel>
+    <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,12">
+      <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+        <TextBlock Text="配方目录" Classes="heading"/>
+        <TextBlock Text="双击配方可直接创建任务" Classes="caption"/>
+      </StackPanel>
+      <Button Grid.Column="1" Content="创建任务" Command="{Binding CreateRecipeGoalCommand}" Classes="Primary" Theme="{DynamicResource SolidButton}" ui:UiIcon.Kind="add"/>
+      <ui:HelpButton Grid.Column="2" x:Name="RecipeHelp" Message="选择配方后创建任务；目标填写成品总量，所需材料由任务队列安排。" Margin="8,0,0,0"/>
+    </Grid>
+    <Border Classes="card flush section-catalog">
+      <Grid>
+        <DataGrid x:Name="RecipesGrid" ItemsSource="{Binding RecipeView}" SelectedItem="{Binding CatalogSelectedRecipe}" DoubleTapped="CreateFromRow" ClipboardCopyMode="IncludeHeader" AutomationProperties.Name="配方列表" AutoGenerateColumns="False" IsReadOnly="True">
+          <DataGrid.Columns>
+            <DataGridTextColumn Header="产物" Binding="{Binding Name}" Width="*" MinWidth="150"/>
+            <DataGridTextColumn Header="加工设备" Binding="{Binding Device}" Width="*" MinWidth="120"/>
+            <DataGridTextColumn Header="每轮产量" Binding="{Binding Output}" Width="100"/>
+            <DataGridTextColumn Header="每轮耗时" Binding="{Binding DurationLabel}" Width="*" MinWidth="140"/>
+          </DataGrid.Columns>
+        </DataGrid>
+        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8" IsHitTestVisible="False" IsVisible="{Binding RecipeView.IsEmpty}">
+          <Border Classes="icon-tile" HorizontalAlignment="Center"><ui:Icon Kind="search" Width="18" Height="18"/></Border>
+          <TextBlock Text="暂无匹配配方" Classes="muted" HorizontalAlignment="Center"/>
+        </StackPanel>
+      </Grid>
+    </Border>
+  </DockPanel>
+</UserControl>

@@ -1,0 +1,8 @@
+<Window xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:ui="clr-namespace:MabiAgent.Desktop.Controls" x:Class="MabiAgent.Desktop.SponsorWindow" Title="赞助作者" Width="460" SizeToContent="Height" WindowStartupLocation="CenterOwner" CanResize="False">
+ <Border Classes="card section-library" Margin="20" Padding="24"><StackPanel Spacing="18">
+  <Grid ColumnDefinitions="*,Auto"><TextBlock Text="支持南千和" FontSize="23" FontWeight="SemiBold" VerticalAlignment="Center"/><ui:HelpButton Grid.Column="1" Message="点击平台按钮，在浏览器打开作者的赞助页面。"/></Grid>
+  <TextBlock Text="感谢支持工具的开发与维护。" Classes="muted" TextWrapping="Wrap"/>
+  <Grid ColumnDefinitions="*,12,*"><Button Content="爱发电" ui:UiIcon.Kind="heart" Click="OpenAfdian" HorizontalAlignment="Stretch" Classes="Primary" Theme="{DynamicResource SolidButton}"/><Button Grid.Column="2" Content="Patreon" ui:UiIcon.Kind="heart" Click="OpenPatreon" HorizontalAlignment="Stretch"/></Grid>
+  <Button Content="返回" Click="CloseDialog" HorizontalAlignment="Right" IsCancel="True"/>
+ </StackPanel></Border>
+</Window>

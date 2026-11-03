@@ -1,0 +1,849 @@
+{
+  "schema_version": 1,
+  "client_size": [
+    1280,
+    960
+  ],
+  "dpi": 96,
+  "templates": {
+    "map_npc_name": {
+      "path": "assets/templates/purchase/map_npc_name.png",
+      "sha256": "081258a95e1a6c51064922e4c89f2ced4148d66a480541ce391db14a8cfbd417",
+      "bytes": 4294,
+      "box": [
+        799,
+        704,
+        868,
+        727
+      ],
+      "search": [
+        780,
+        670,
+        910,
+        770
+      ],
+      "threshold": 0.97,
+      "match_mode": "light_text",
+      "light_threshold": 170,
+      "glyph_threshold": 0.94,
+      "source": "assets/templates/purchase/shop-map.jpg",
+      "crop_native": [
+        799,
+        704,
+        868,
+        727
+      ]
+    },
+    "map_goto": {
+      "path": "assets/templates/purchase/map_goto.png",
+      "sha256": "93bfbdcee95ef3d2255c8fc1fbc6049ff1567f96f27c9b958cfaac151d2b76c6",
+      "bytes": 5609,
+      "box": [
+        920,
+        889,
+        1011,
+        915
+      ],
+      "search": [
+        880,
+        850,
+        1070,
+        950
+      ],
+      "threshold": 0.97,
+      "match_mode": "light_text",
+      "light_threshold": 170,
+      "glyph_threshold": 0.94,
+      "source": "assets/templates/purchase/shop-map.jpg",
+      "crop_native": [
+        920,
+        889,
+        1011,
+        915
+      ]
+    },
+    "dialog_name_native": {
+      "path": "assets/templates/purchase/dialog_name_native.png",
+      "bytes": 2189,
+      "sha256": "45112e5d20304d4c2910e8594ddc95226bfe4f30b9735d924f1af176d73369d8",
+      "box": [
+        513,
+        76,
+        574,
+        95
+      ],
+      "search": [
+        508,
+        71,
+        579,
+        100
+      ],
+      "threshold": 0.97,
+      "match_mode": "light_text",
+      "light_threshold": 170,
+      "glyph_threshold": 0.94,
+      "source": "tests/fixtures/screen_ui/shop-menu-current.png",
+      "matching_notes": "当前原生名称字形；旧JPEG来源模板不能替代原生回归。"
+    },
+    "dialog_name": {
+      "path": "assets/templates/purchase/dialog_name.png",
+      "sha256": "cb54884d8b55a3c43266dad304e550efdfa8273e4ca79bead927ff62f9e4f574",
+      "bytes": 2842,
+      "box": [
+        513,
+        76,
+        574,
+        95
+      ],
+      "search": [
+        508,
+        71,
+        579,
+        100
+      ],
+      "threshold": 0.97,
+      "match_mode": "light_text",
+      "light_threshold": 170,
+      "glyph_threshold": 0.94,
+      "source": "assets/templates/purchase/shop-dialog.jpg",
+      "crop_native": [
+        513,
+        76,
+        574,
+        95
+      ]
+    },
+    "dialog_shop": {
+      "path": "assets/templates/purchase/dialog_shop.png",
+      "sha256": "6b0b26eb99ad62c79fbed6a758e16da0072d123f43abdbc5e458eaec4f36df6d",
+      "bytes": 3929,
+      "box": [
+        481,
+        880,
+        552,
+        904
+      ],
+      "search": [
+        476,
+        875,
+        557,
+        909
+      ],
+      "threshold": 0.97,
+      "match_mode": "light_text",
+      "light_threshold": 170,
+      "glyph_threshold": 0.94,
+      "source": "assets/templates/purchase/shop-dialog.jpg",
+      "crop_native": [
+        481,
+        880,
+        552,
+        904
+      ]
+    },
+    "dialog_end": {
+      "path": "assets/templates/purchase/dialog_end.png",
+      "sha256": "8c15b0b4b22ebb712cc7cde7e6cdf71960d5e8039798f9c01c6df71f33df37c9",
+      "bytes": 4670,
+      "box": [
+        716,
+        880,
+        795,
+        904
+      ],
+      "search": [
+        711,
+        875,
+        800,
+        909
+      ],
+      "threshold": 0.97,
+      "match_mode": "light_text",
+      "light_threshold": 170,
+      "glyph_threshold": 0.94,
+      "source": "assets/templates/purchase/shop-dialog.jpg",
+      "crop_native": [
+        716,
+        880,
+        795,
+        904
+      ]
+    },
+    "shop_title": {
+      "path": "assets/templates/purchase/shop_title.png",
+      "sha256": "1deab858c72ebb36fa389d975af4985dc997cf2b89e731b25220531d12ef8c3a",
+      "bytes": 11924,
+      "box": [
+        23,
+        26,
+        218,
+        52
+      ],
+      "search": [
+        18,
+        21,
+        223,
+        57
+      ],
+      "threshold": 0.97,
+      "match_mode": "light_text",
+      "light_threshold": 170,
+      "glyph_threshold": 0.94,
+      "source": "assets/templates/purchase/shop-materials.jpg",
+      "crop_native": [
+        23,
+        26,
+        218,
+        52
+      ]
+    },
+    "shop_close": {
+      "path": "assets/templates/purchase/shop_close.png",
+      "sha256": "e349597b1e52c5acab039ace113309e257f0473036717c024b2d87a8a5c5a900",
+      "bytes": 2070,
+      "box": [
+        1228,
+        25,
+        1257,
+        53
+      ],
+      "search": [
+        1223,
+        20,
+        1262,
+        58
+      ],
+      "threshold": 0.97,
+      "match_mode": "light_text",
+      "light_threshold": 170,
+      "glyph_threshold": 0.94,
+      "source": "assets/templates/purchase/shop-materials.jpg",
+      "crop_native": [
+        1228,
+        25,
+        1257,
+        53
+      ]
+    },
+    "bottle_list": {
+      "path": "assets/templates/purchase/bottle_list.png",
+      "sha256": "023161f4bbea9ddb77019f8f893236f22b4adba2296a2dbc8bee22afa337d066",
+      "bytes": 1449,
+      "box": [
+        745,
+        257,
+        778,
+        274
+      ],
+      "search": [
+        740,
+        252,
+        783,
+        279
+      ],
+      "threshold": 0.97,
+      "match_mode": "light_text",
+      "light_threshold": 170,
+      "glyph_threshold": 0.94,
+      "source": "assets/templates/purchase/shop-materials.jpg",
+      "crop_native": [
+        745,
+        257,
+        778,
+        274
+      ]
+    },
+    "purchase_name": {
+      "path": "assets/templates/purchase/purchase_name.png",
+      "sha256": "08887f5dcbfcff7ce439fc2975195ed2d63caf09d9bd51637d0ade39bba44ceb",
+      "bytes": 3028,
+      "box": [
+        711,
+        634,
+        761,
+        658
+      ],
+      "search": [
+        706,
+        629,
+        766,
+        663
+      ],
+      "threshold": 0.97,
+      "match_mode": "light_text",
+      "light_threshold": 170,
+      "glyph_threshold": 0.94,
+      "source": "assets/templates/purchase/shop-bottle.jpg",
+      "crop_native": [
+        711,
+        634,
+        761,
+        658
+      ]
+    },
+    "purchase_label": {
+      "path": "assets/templates/purchase/purchase_label.png",
+      "sha256": "68ecd85f3cd59897f3c8722cedea709d6b734fea0c350b87de1fcca290e601eb",
+      "bytes": 2678,
+      "box": [
+        984,
+        891,
+        1027,
+        916
+      ],
+      "search": [
+        979,
+        886,
+        1032,
+        921
+      ],
+      "threshold": 0.97,
+      "match_mode": "light_text",
+      "light_threshold": 170,
+      "glyph_threshold": 0.94,
+      "source": "assets/templates/purchase/shop-bottle.jpg",
+      "crop_native": [
+        984,
+        891,
+        1027,
+        916
+      ]
+    },
+    "purchase_back": {
+      "path": "assets/templates/purchase/purchase_back.png",
+      "sha256": "21a4f9649376007bb5e718f327577455c64857390b63939c59089ab3435b494a",
+      "bytes": 1244,
+      "box": [
+        26,
+        26,
+        45,
+        52
+      ],
+      "search": [
+        21,
+        21,
+        50,
+        57
+      ],
+      "threshold": 0.97,
+      "match_mode": "light_text",
+      "light_threshold": 170,
+      "glyph_threshold": 0.94,
+      "source": "assets/templates/purchase/shop-bottle.jpg",
+      "crop_native": [
+        26,
+        26,
+        45,
+        52
+      ]
+    },
+    "increase": {
+      "path": "assets/templates/purchase/increase.png",
+      "sha256": "cb05ec385b120120777686a8ccdd95f978422891a6cd549aef4f539859885b7e",
+      "bytes": 1527,
+      "box": [
+        1050,
+        790,
+        1078,
+        818
+      ],
+      "search": [
+        1045,
+        785,
+        1083,
+        823
+      ],
+      "threshold": 0.97,
+      "match_mode": "color_glyph",
+      "light_threshold": 170,
+      "glyph_threshold": 0.94,
+      "source": "assets/templates/purchase/shop-bottle.jpg",
+      "crop_native": [
+        1050,
+        790,
+        1078,
+        818
+      ]
+    },
+    "decrease": {
+      "path": "assets/templates/purchase/decrease.png",
+      "sha256": "709ebdfd6d22d5178f593b5aebb703e346bcbc2885e9d1b3310194cf42dc7a36",
+      "bytes": 874,
+      "box": [
+        855,
+        790,
+        882,
+        817
+      ],
+      "search": [
+        850,
+        785,
+        887,
+        822
+      ],
+      "threshold": 0.97,
+      "match_mode": "color_glyph",
+      "light_threshold": 170,
+      "glyph_threshold": 0.94,
+      "source": "assets/templates/purchase/shop-bottle-two.jpg",
+      "crop_native": [
+        855,
+        790,
+        882,
+        817
+      ]
+    },
+    "materials_tab": {
+      "path": "assets/templates/purchase/materials_tab.png",
+      "sha256": "e16264682e28fd12f9b344235d65d96276bd16dcf2d2900a7fbdcb570e5a49c0",
+      "bytes": 1906,
+      "box": [
+        837,
+        129,
+        872,
+        150
+      ],
+      "search": [
+        832,
+        124,
+        877,
+        155
+      ],
+      "threshold": 0.97,
+      "match_mode": "light_text",
+      "light_threshold": 140,
+      "glyph_threshold": 0.94,
+      "source": "assets/templates/purchase/shop-default.jpg",
+      "crop_native": [
+        837,
+        129,
+        872,
+        150
+      ]
+    },
+    "map_region": {
+      "path": "assets/templates/purchase/map_region.png",
+      "sha256": "11e4479ec0d8fbe2121f180f7b66f92d600ed118a2b8ad5908aac840121cacb6",
+      "bytes": 5231,
+      "box": [
+        192,
+        27,
+        280,
+        50
+      ],
+      "search": [
+        180,
+        20,
+        292,
+        57
+      ],
+      "threshold": 0.97,
+      "match_mode": "light_text",
+      "light_threshold": 170,
+      "glyph_threshold": 0.94,
+      "source": "assets/templates/purchase/shop-map-unselected.jpg",
+      "crop_native": [
+        192,
+        27,
+        280,
+        50
+      ]
+    },
+    "map_portrait_player_lowerface": {
+      "path": "assets/templates/purchase/map_portrait_player_lowerface.png",
+      "bytes": 1033,
+      "sha256": "b084b70e1c2792df7c95885da4a2f883714bb04aa5024199aecc97be110711da",
+      "box": [
+        312,
+        283,
+        346,
+        302
+      ],
+      "search": [
+        40,
+        80,
+        1230,
+        815
+      ],
+      "threshold": 0.97,
+      "match_mode": "portrait_core",
+      "control_box": [
+        313,
+        267,
+        346,
+        302
+      ],
+      "source": "tests/fixtures/screen_ui/shop-portrait-player-marker.png",
+      "matching_notes": "原生下半脸，避开额头上的玩家标记；保持严格阈值及唯一匹配。"
+    },
+    "map_portrait": {
+      "path": "assets/templates/purchase/map_portrait.png",
+      "sha256": "85762de6e5bdc16d4b4ea625e42cea654661a0816cc71ed89ded71e3816608ab",
+      "bytes": 2639,
+      "box": [
+        648,
+        534,
+        681,
+        569
+      ],
+      "search": [
+        40,
+        80,
+        1230,
+        815
+      ],
+      "threshold": 0.97,
+      "match_mode": "portrait_core",
+      "light_threshold": 170,
+      "glyph_threshold": 0.94,
+      "source": "assets/templates/purchase/shop-map-unselected.jpg",
+      "crop_native": [
+        648,
+        534,
+        681,
+        569
+      ]
+    },
+    "map_store_label_min": {
+      "path": "assets/templates/purchase/map_store_label_min.png",
+      "bytes": 3727,
+      "sha256": "794b87df9779f1c688a932216013bf193ee16109c6d4e2adc6f5037b07820a33",
+      "box": [
+        516,
+        249,
+        584,
+        273
+      ],
+      "search": [
+        80,
+        100,
+        1200,
+        815
+      ],
+      "threshold": 0.97,
+      "glyph_threshold": 0.93,
+      "match_mode": "light_text",
+      "light_threshold": 180,
+      "source": "native-client-capture",
+      "source_notes": "原生客户区裁图保留于 path；原始位置见 box，临时全图不保留。"
+    },
+    "map_store_label": {
+      "path": "assets/templates/purchase/map_store_label.png",
+      "sha256": "8c8f5534ae343276c60000f3e85a779cfea3451130f7b62c06ad99b8d8d5cf2e",
+      "bytes": 4387,
+      "box": [
+        625,
+        493,
+        700,
+        518
+      ],
+      "search": [
+        80,
+        100,
+        1200,
+        815
+      ],
+      "threshold": 0.94,
+      "match_mode": "light_text",
+      "source": "assets/templates/purchase/shop-map-unselected.jpg",
+      "crop_native": [
+        625,
+        493,
+        700,
+        518
+      ]
+    }
+  },
+  "pages": {
+    "shop_travel": {
+      "anchors": [
+        "purchase.map_npc_name",
+        "maint_map_close"
+      ],
+      "targets": {},
+      "covers_pages": [
+        "region_map"
+      ],
+      "coordinate_targets": {
+        "purchase.travel": [
+          900,
+          870,
+          1100,
+          930
+        ]
+      }
+    },
+    "shop_dialog": {
+      "anchors": [
+        "purchase.dialog_name",
+        "purchase.dialog_shop",
+        "purchase.dialog_end"
+      ],
+      "targets": {
+        "dialog.end": "purchase.dialog_end"
+      },
+      "covers_pages": [
+        "repair_dialog"
+      ],
+      "coordinate_targets": {
+        "purchase.open": [
+          481,
+          880,
+          552,
+          904
+        ]
+      }
+    },
+    "shop_materials": {
+      "anchors": [
+        "purchase.shop_title",
+        "purchase.bottle_list"
+      ],
+      "targets": {
+        "purchase.select_bottle": "purchase.bottle_list"
+      },
+      "covers_pages": [
+        "shop_catalog"
+      ],
+      "coordinate_targets": {
+        "purchase.close": [
+          1228,
+          25,
+          1257,
+          53
+        ],
+        "purchase.select_paper": [
+          840,
+          235,
+          950,
+          410
+        ]
+      }
+    },
+    "shop": {
+      "anchors": [
+        "purchase.purchase_label"
+      ],
+      "targets": {
+        "purchase.confirm": "purchase.purchase_label"
+      },
+      "covers_pages": [
+        "shop_materials",
+        "shop_catalog"
+      ],
+      "coordinate_targets": {
+        "purchase.increase": [
+          1050,
+          790,
+          1078,
+          818
+        ],
+        "purchase.decrease": [
+          855,
+          790,
+          882,
+          817
+        ],
+        "purchase.back": [
+          26,
+          26,
+          45,
+          52
+        ]
+      }
+    },
+    "shop_catalog": {
+      "anchors": [
+        "purchase.shop_title",
+        "purchase.materials_tab"
+      ],
+      "targets": {},
+      "coordinate_targets": {
+        "purchase.materials": [
+          837,
+          129,
+          872,
+          150
+        ],
+        "purchase.close": [
+          1228,
+          25,
+          1257,
+          53
+        ]
+      }
+    }
+  },
+  "payment_page": "shop",
+  "direct_purchase": true,
+  "quantity_mode": "stepper",
+  "pages_with_item": [
+    "shop",
+    "shop_materials"
+  ],
+  "item_name_region": [
+    707,
+    629,
+    769,
+    662
+  ],
+  "item_name_regions": {
+    "shop": [
+      707,
+      629,
+      769,
+      662
+    ],
+    "shop_materials": [
+      742,
+      254,
+      785,
+      277
+    ]
+  },
+  "confirm_target": "purchase.confirm",
+  "increase_target": "purchase.increase",
+  "decrease_target": "purchase.decrease",
+  "navigation": {
+    "enabled": true
+  },
+  "exit_navigation": {
+    "shop": {
+      "target": "purchase.back"
+    },
+    "shop_materials": {
+      "target": "purchase.close"
+    },
+    "shop_catalog": {
+      "target": "purchase.close"
+    },
+    "shop_dialog": {
+      "target": "dialog.end"
+    },
+    "npc_dialogue": {
+      "target": "dialog.advance"
+    }
+  },
+  "quantity": {
+    "region": [
+      953,
+      787,
+      981,
+      819
+    ],
+    "format": "integer",
+    "min_confidence": 0.8,
+    "thresholds": [
+      120,
+      160
+    ]
+  },
+  "total_price": {
+    "region": [
+      939,
+      889,
+      977,
+      915
+    ],
+    "format": "integer",
+    "min_confidence": 0.8,
+    "thresholds": [
+      120,
+      160
+    ]
+  },
+  "bottles": {
+    "region": [
+      502,
+      266,
+      545,
+      294
+    ],
+    "format": "integer",
+    "min_confidence": 0.8,
+    "thresholds": [
+      120,
+      160
+    ]
+  },
+  "bottles_by_page": {
+    "shop_materials": {
+      "region": [
+        787,
+        286,
+        811,
+        305
+      ],
+      "format": "integer",
+      "min_confidence": 0.8,
+      "thresholds": [
+        90,
+        120
+      ]
+    }
+  },
+  "gold": {
+    "region": [
+      1093,
+      24,
+      1195,
+      53
+    ],
+    "format": "grouped_integer",
+    "min_confidence": 0.8,
+    "thresholds": [
+      120,
+      160
+    ]
+  },
+  "navigation_pages": {
+    "scene": {
+      "target": "scene.open_map"
+    },
+    "shop_travel": {
+      "target": "purchase.travel",
+      "wait_for_pages": [
+        "shop_dialog",
+        "npc_dialogue"
+      ],
+      "timeout_s": 120
+    },
+    "shop_dialog": {
+      "target": "purchase.open"
+    },
+    "shop_materials": {
+      "target": "purchase.select_bottle"
+    },
+    "shop_catalog": {
+      "target": "purchase.materials"
+    },
+    "npc_dialogue": {
+      "target": "dialog.advance"
+    }
+  },
+  "confirm_enabled_region": [
+    712,
+    873,
+    1220,
+    931
+  ],
+  "items": {
+    "紙": {
+      "select_target": "purchase.select_paper",
+      "item_name_regions": {
+        "shop": [
+          707,
+          629,
+          800,
+          662
+        ],
+        "shop_materials": [
+          880,
+          253,
+          915,
+          279
+        ]
+      }
+    }
+  }
+}

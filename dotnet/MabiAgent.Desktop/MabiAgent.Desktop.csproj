@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>WinExe</OutputType><TargetFramework>net10.0-windows</TargetFramework><ApplicationManifest>app.manifest</ApplicationManifest><AvaloniaUseCompiledBindingsByDefault>false</AvaloniaUseCompiledBindingsByDefault></PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia.Desktop" Version="12.1.4"/>
+    <PackageReference Include="Avalonia.Controls.DataGrid" Version="12.1.2"/>
+    <PackageReference Include="Semi.Avalonia" Version="12.1.0.1"/>
+    <PackageReference Include="Semi.Avalonia.DataGrid" Version="12.1.0.1"/>
+    <PackageReference Include="Irihi.Ursa" Version="2.2.0"/>
+    <PackageReference Include="Irihi.Ursa.Themes.Semi" Version="2.2.0"/>
+  </ItemGroup>
+  <ItemGroup><ProjectReference Include="../MabiAgent.Core/MabiAgent.Core.csproj"/><PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2"/><PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.13"/></ItemGroup>
+  <ItemGroup><ProjectReference Include="../MabiAgent.Windows/MabiAgent.Windows.csproj"/></ItemGroup>
+  <ItemGroup><ProjectReference Include="../MabiAgent.Workflows/MabiAgent.Workflows.csproj"/><ProjectReference Include="../MabiAgent.Capture/MabiAgent.Capture.csproj"/></ItemGroup>
+  <Target Name="ExcludeVendorNativeSymbols" AfterTargets="ComputeFilesToPublish">
+    <ItemGroup>
+      <ResolvedFileToPublish Remove="@(ResolvedFileToPublish)" Condition="'%(ResolvedFileToPublish.Extension)' == '.pdb' And ('%(ResolvedFileToPublish.Filename)' == 'libSkiaSharp' Or '%(ResolvedFileToPublish.Filename)' == 'libHarfBuzzSharp')" />
+    </ItemGroup>
+  </Target>
+  <Target Name="CreatePortableEntry" AfterTargets="Publish" Condition="'$(PortableEntryPath)' != ''">
+    <CreateAppHost AppHostSourcePath="$(AppHostSourcePath)" AppHostDestinationPath="$(PortableEntryPath)" AppBinaryName="app/MabiAgent.Desktop.dll" IntermediateAssembly="@(IntermediateAssembly->'%(FullPath)')" WindowsGraphicalUserInterface="true" />
+  </Target>
+</Project>

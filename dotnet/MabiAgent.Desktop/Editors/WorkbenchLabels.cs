@@ -1,0 +1,20 @@
+using System.Text.RegularExpressions;
+
+namespace MabiAgent.Desktop.Editors;
+
+public static partial class WorkbenchLabels
+{
+    // Presentation aliases never replace configuration keys or saved user names.
+    static readonly IReadOnlyDictionary<string,string> DisplayWords = (
+        "account=账户;active=激活;advance=下一步;after=之后;all=全部;alloy=合金;anchor=锚点;anchors=锚点;apply=套用;arrival=到达;arrived=已到达;attempts=尝试次数;auto=自动;back=返回;backpack=背包;badge=标记;bag=背包;bank=银行;batch=批次;between=间隔;blacksmith=铁匠铺;bold=粗体;bottom=底部;box=区域;boxes=区域;button=按钮;by=依据;c=列;calibration=校准;cancel=取消;candidates=候选;canvas=画面;capabilities=能力;cast=抛竿;catalog=目录;category=分类;character=角色;chem=化学;chemical=化学;chest=箱子;choices=选项;client=客户区;close=关闭;collect=领取;columns=列数;compass=罗盘;completion=完成;confidence=置信度;confirm=确认;confirmations=确认次数;containers=容器;coordinate=坐标;corn=玉米;count=数量;covers=覆盖;crop=裁剪;curly=字形;daily=日常;destination=终点;detail=详情;device=设备;devices=设备;dialog=对话;dismount=下坐骑;dpi=缩放比例;empty=空闲;enabled=启用;end=结束;equip=装备;equipment=装备;equipped=已装备;evidence=证据;exit=退出;expected=预期;fabric=纺织;farewell=告别;ferghus=弗格斯;filtered=已筛选;first=首项;fishing=钓鱼;fixed=固定;focused=焦点;food=烹饪;for=用于;format=格式;from=来自;fuel=燃料;gather=采集;gathering=采集;gauge=进度条;general=杂货;glyph=字形;gold=金币;goto=前往;grid=网格;harvest=收获;herb=药草;high=高;hoeing=锄地;hook=提竿;icon=图标;id=编号;identity=身份;idle=空闲;inactive=未激活;include=包含;ingot=锭;input=输入;insect=昆虫;interact=交互;interval=间隔;iron=铁;item=道具;items=道具;key=标识;kind=类型;label=文字;leather=皮革;leave=离开;leisure=休闲;life=生活;light=亮度;limit=上限;list=列表;live=实时;local=本地;locate=定位;log=日志;logging=伐木;maint=维护;maintenance=维护;map=地图;match=匹配;materials=材料;max=最大;menu=菜单;metal=金属;min=最小;minimum=最少;mining=采矿;mode=模式;move=移动;name=名称;native=原生;nav=导航;navigation=导航;nearby=附近;needed=需要;next=下一步;node=节点;nodes=节点;not=无需;note=说明;notes=说明;npc=人物;observations=观察次数;occupied=占用;only=仅;open=打开;ore=矿石;origin=原点;overlay=浮层;page=页面;pages=页面;panel=面板;per=每次;pixels=像素;point=采集点;portrait=头像;prefix=前缀;prepare=准备;preset=预设;priority=优先级;processing=加工;product=产物;progress=进度;quantity=数量;queue=队列;quote=报价;raw=原始;recipe=配方;recipes=配方;red=红色;region=区域;repair=维修;required=必需;requires=需要;reset=重置;result=结果;room=房间;routes=路线;row=行;rows=行数;s=秒;sale=出售;scale=比例;scene=主界面;schema=结构;scope=范围;score=得分;screen=画面;scroll=滚动;search=搜索;seconds=秒;select=选择;selected=已选择;selection=选区;sell=出售;settle=稳定等待;sha=校验;shop=商店;shortcut=快捷方式;silver=银;size=尺寸;skill=技能;skills=技能;skip=跳过;slot=槽位;slots=槽位;source=来源;special=特殊;speech=对话;stages=阶段;stalk=秸秆;start=开始;status=状态;steel=钢;step=步长;steps=步骤;stop=停止;storage=仓库;store=商店;suffix=后缀;supply=补给;surfaces=界面;surplus=剩余;switch=切换;system=系统;talk=交谈;target=目标;targets=目标;task=任务;template=模板;templates=模板;text=文字;thick=粗体;threshold=阈值;thresholds=阈值;tidy=整理;timeout=超时;tir=迪尔科内尔;title=标题;to=至;toggle=切换;tool=工具;tools=工具;total=总计;town=城镇;transfer=转移;travel=移动;tree=树;user=用户;variants=变体;vein=矿脉;version=版本;wait=等待;weight=重量;wood=木材;wool=羊毛;world=世界;zoom=缩放;ui=界面;runtime=运行;scheduler=调度;notifications=通知;observer=观察;policy=策略;rules=规则;offset=偏移;destinationpage=目标页面;ms=毫秒;retry=重试;retries=重试次数;duration=时长;reserve=保留量;rounds=轮数;output=产出;number=数字;set=设置;enabledonly=仅启用;true=开启;false=关闭;none=无;default=默认;production=生产;notification=通知;relogin=重新登录;purchase=采购;observation=观察;hour=小时;hours=小时;minute=分钟;minutes=分钟;check=检查;grayscale=灰度识别;color=彩色识别;binary=二值识别;state=状态;states=状态;branch=分支;logic=逻辑;condition=条件;transition=跳转"
+    ).Split(';').Select(entry=>entry.Split('=',2)).ToDictionary(parts=>parts[0],parts=>parts[1],StringComparer.OrdinalIgnoreCase);
+
+    public static string Friendly(string key)
+    {
+        if(string.IsNullOrWhiteSpace(key))return "未设置";
+        if(key.Any(c=>c is >= '\u3400' and <= '\u9fff'))return key;
+        if(int.TryParse(key,out var index))return $"第 {index+1} 项";
+        var translated=Regex.Replace(key,@"[A-Za-z]+",match=>DisplayWords.GetValueOrDefault(match.Value,"自定义（"+match.Value+"）"));
+        return Regex.Replace(translated.Replace('_',' ').Replace('.', '·'),@"\s+"," ").Trim();
+    }
+}

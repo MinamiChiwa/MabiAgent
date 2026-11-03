@@ -1,0 +1,131 @@
+{
+  "menu_region": [
+    1066,
+    22,
+    1098,
+    54
+  ],
+  "client_size": [
+    1280,
+    960
+  ],
+  "templates": {
+    "menu_settings": {
+      "path": "assets/templates/screen_ui/relogin/menu_settings.png",
+      "box": [
+        1209,
+        413,
+        1269,
+        435
+      ],
+      "search": [
+        1201,
+        405,
+        1277,
+        443
+      ],
+      "sha256": "bf90e1b023c61426ec574417ae468a6ad14a78e0788062f0fa03a1e5cf200598",
+      "bytes": 3125,
+      "threshold": 0.92,
+      "match_mode": "light_text"
+    },
+    "menu_exit": {
+      "path": "assets/templates/screen_ui/relogin/menu_exit.png",
+      "box": [
+        1207,
+        897,
+        1270,
+        916
+      ],
+      "search": [
+        1199,
+        889,
+        1278,
+        924
+      ],
+      "sha256": "1f7468f1128283084c9ae9ec772c55aa847d2429b673a2de3707e819cf335f54",
+      "bytes": 2777,
+      "threshold": 0.92,
+      "match_mode": "light_text"
+    },
+    "exit_title": {
+      "path": "assets/templates/screen_ui/relogin/exit_title.png",
+      "box": [
+        552,
+        559,
+        731,
+        586
+      ],
+      "search": [
+        544,
+        551,
+        739,
+        594
+      ],
+      "sha256": "02a82680073835d11b9707637d01997f201ecc38d57bb168de189165f295bda6",
+      "bytes": 9831,
+      "threshold": 0.92,
+      "match_mode": "light_text"
+    },
+    "select_character": {
+      "path": "assets/templates/screen_ui/relogin/select_character.png",
+      "box": [
+        481,
+        674,
+        642,
+        699
+      ],
+      "search": [
+        473,
+        666,
+        650,
+        707
+      ],
+      "sha256": "97b77caded7508e282142fed4a1b670d9b646b1f88682712703d89ce1ca634f5",
+      "bytes": 9135,
+      "threshold": 0.92,
+      "match_mode": "light_text"
+    },
+    "character_title": {
+      "path": "assets/templates/screen_ui/relogin/character_title.png",
+      "box": [
+        68,
+        24,
+        180,
+        55
+      ],
+      "search": [
+        60,
+        16,
+        188,
+        63
+      ],
+      "sha256": "d0865263bfc192726c324e61830a7d17d98ff851bb782ea0246f9f025409efa4",
+      "bytes": 7479,
+      "threshold": 0.92,
+      "match_mode": "light_text"
+    },
+    "start_game": {
+      "path": "assets/templates/screen_ui/relogin/start_game.png",
+      "box": [
+        590,
+        887,
+        689,
+        918
+      ],
+      "search": [
+        582,
+        879,
+        697,
+        926
+      ],
+      "sha256": "ace2ed80fcbdef819bfb7becddf670e83a5355348b4b5ffc99ec60c515252ffd",
+      "bytes": 5726,
+      "threshold": 0.92,
+      "match_mode": "light_text"
+    }
+  },
+  "timeout_s": 600,
+  "phase_timeout_s": 120,
+  "sync_timeout_s": 240
+}

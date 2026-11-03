@@ -1,0 +1,2591 @@
+{
+  "extends": "config/screen_routes.1280x960.tw.json",
+  "quantity": {},
+  "private_theater_refresh": {
+    "client_size": [
+      1280,
+      960
+    ],
+    "capture_wait_s": 60,
+    "steps": [
+      {
+        "id": "open_bag",
+        "kind": "key",
+        "key": 73,
+        "delay_ms": 1500
+      },
+      {
+        "id": "bag_ready",
+        "kind": "wait",
+        "anchors": [
+          "bag_tools_label"
+        ],
+        "delay_ms": 100,
+        "timeout_s": 60
+      },
+      {
+        "id": "tools_tab",
+        "kind": "key",
+        "key": 83,
+        "delay_ms": 1500
+      },
+      {
+        "id": "tools_selected",
+        "kind": "wait",
+        "anchors": [
+          "maint_tools_selected"
+        ],
+        "delay_ms": 100,
+        "timeout_s": 60
+      },
+      {
+        "id": "game_tab",
+        "kind": "click",
+        "point": [
+          1139,
+          140
+        ],
+        "delay_ms": 3000
+      },
+      {
+        "id": "game_tab_selected",
+        "kind": "wait",
+        "anchors": [
+          "bag_game_selected"
+        ],
+        "delay_ms": 300,
+        "timeout_s": 60
+      },
+      {
+        "id": "private_theater_item",
+        "kind": "click",
+        "point": [
+          1060,
+          218
+        ],
+        "delay_ms": 2500
+      },
+      {
+        "id": "use_item",
+        "kind": "key",
+        "key": 32,
+        "delay_ms": 1500
+      },
+      {
+        "id": "create_ready",
+        "kind": "wait",
+        "anchors": [
+          "private_theater_create_title"
+        ],
+        "delay_ms": 300,
+        "timeout_s": 60
+      },
+      {
+        "id": "leader_review",
+        "kind": "click",
+        "point": [
+          866,
+          238
+        ],
+        "delay_ms": 1500
+      },
+      {
+        "id": "create",
+        "kind": "key",
+        "key": 32,
+        "delay_ms": 8000
+      },
+      {
+        "id": "map_loaded",
+        "kind": "wait",
+        "anchors": [
+          "private_theater_loaded_text"
+        ],
+        "delay_ms": 300,
+        "timeout_s": 120
+      },
+      {
+        "id": "map_exit",
+        "kind": "click",
+        "point": [
+          1244,
+          32
+        ],
+        "delay_ms": 1500
+      },
+      {
+        "id": "leave",
+        "kind": "key",
+        "key": 32,
+        "delay_ms": 2000
+      },
+      {
+        "id": "returned",
+        "kind": "wait",
+        "anchors": [
+          "theater_returned_menu_glyph"
+        ],
+        "delay_ms": 0,
+        "timeout_s": 120
+      }
+    ]
+  },
+  "ui": {
+    "templates": {
+      "life_skills_entry": {
+        "path": "assets/templates/gathering_ui/life_skills_entry_live.png",
+        "sha256": "606140e149484974c121f7806829f742ed250ba2fc1665291b243b6fcf95901f",
+        "bytes": 3245,
+        "box": [
+          20,
+          507,
+          108,
+          584
+        ],
+        "search": [
+          0,
+          483,
+          140,
+          608
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "6b9734ffe4fd1affe372305c4763bb41b4129a32693a09ea3e777dbc95bfa148",
+        "crop_native": [
+          20,
+          507,
+          108,
+          584
+        ],
+        "scale": [
+          1,
+          1
+        ],
+        "fixed_point": [
+          64,
+          563
+        ]
+      },
+      "mining_icon": {
+        "path": "assets/templates/gathering_ui/mining_entry_label.png",
+        "sha256": "f1f232c49a6f42989f00fbcece30be792c3b57b5fabf92b0b76235ba9b437cc7",
+        "bytes": 1129,
+        "source": "release_catalog",
+        "source_sha256": "e3df0697fc8d3196ffa1a43302317e6c860dc097ebd084b536e988f54920662f",
+        "crop_native": [
+          470,
+          222,
+          515,
+          245
+        ],
+        "box": [
+          470,
+          222,
+          515,
+          245
+        ],
+        "search": [
+          465,
+          218,
+          520,
+          249
+        ],
+        "match_mode": "light_text",
+        "relative_contrast": true,
+        "glyph_threshold": 0.97,
+        "threshold": 0.97,
+        "scale": [
+          1,
+          1
+        ],
+        "matching_notes": "Use stable mining label, excluding skill level and animated/progress ring. Historical icon asset retained with source provenance."
+      },
+      "mining_title": {
+        "path": "assets/templates/gathering_ui/mining_title_live.png",
+        "sha256": "e472396f69f10d8da9408da67583b03868a29d5f557ef285f308dead25c05d8a",
+        "bytes": 2008,
+        "box": [
+          704,
+          384,
+          759,
+          415
+        ],
+        "search": [
+          675,
+          340,
+          850,
+          460
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "e1a2ce700440f5d6a098cc278842542bcdd03fc6a261bfe685d77c39bcc978e3",
+        "crop_native": [
+          704,
+          384,
+          759,
+          415
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "iron_vein_list_name": {
+        "path": "assets/templates/gathering_ui/iron_vein_list_name_live.png",
+        "sha256": "90e02acc56aeaf4e2bc91ff4aa2930632541c4f8acad53bd5b46e2cd3e3d4dc2",
+        "bytes": 2666,
+        "box": [
+          804,
+          707,
+          884,
+          741
+        ],
+        "search": [
+          792,
+          697,
+          896,
+          751
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "e1a2ce700440f5d6a098cc278842542bcdd03fc6a261bfe685d77c39bcc978e3",
+        "crop_native": [
+          804,
+          707,
+          884,
+          741
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "iron_vein_detail_name": {
+        "path": "assets/templates/gathering_ui/iron_vein_detail_name_live.png",
+        "sha256": "190e44b61418e26b0608320f6e8df48e497035549a52d4daed83c92b6f57c6b0",
+        "bytes": 2836,
+        "box": [
+          452,
+          265,
+          536,
+          296
+        ],
+        "search": [
+          442,
+          255,
+          546,
+          306
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "7676afca530d8111b27c0eb696067594f8542d153edc5fc891b6a40465f1fbca",
+        "crop_native": [
+          452,
+          265,
+          536,
+          296
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "find_nearby": {
+        "path": "assets/templates/gathering_ui/find_nearby_live.png",
+        "sha256": "f7594042315b3902f5e5c46b86ea0bf9827364fbf203d73a74206ad443265ddb",
+        "bytes": 3266,
+        "box": [
+          452,
+          523,
+          573,
+          553
+        ],
+        "search": [
+          442,
+          513,
+          583,
+          563
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "7676afca530d8111b27c0eb696067594f8542d153edc5fc891b6a40465f1fbca",
+        "crop_native": [
+          452,
+          523,
+          573,
+          553
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "detail_confirm_close": {
+        "path": "assets/templates/gathering_ui/detail_confirm_close_live.png",
+        "sha256": "df034976b3d4bf97c8cb8d1b5ee7d7eab403f538f3fb1b916fc11667f8653941",
+        "bytes": 1525,
+        "box": [
+          616,
+          876,
+          661,
+          903
+        ],
+        "search": [
+          606,
+          866,
+          671,
+          913
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "7676afca530d8111b27c0eb696067594f8542d153edc5fc891b6a40465f1fbca",
+        "crop_native": [
+          616,
+          876,
+          661,
+          903
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "gathering_bag_items_tab": {
+        "path": "assets/templates/gathering_ui/bag_items_tab.png",
+        "sha256": "9789f0e5fe4190e8f49d6b5da3b0e58089a3eb09bccb2d8c9f6b432d7a45bf49",
+        "bytes": 1076,
+        "box": [
+          937,
+          903,
+          986,
+          935
+        ],
+        "search": [
+          920,
+          880,
+          1005,
+          950
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "55608dffc6a8c9c8bbcaed5a97cfa6a3af8ccbb8698793c72f60c6634110f945",
+        "crop_native": [
+          937,
+          903,
+          986,
+          935
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "character_combat_label": {
+        "path": "assets/templates/gathering_ui/character_combat_label_live.png",
+        "sha256": "3c56ddb6625cff5243f70267b1befab9314c589114fd926dc7426b737440203a",
+        "bytes": 2390,
+        "box": [
+          21,
+          429,
+          108,
+          461
+        ],
+        "search": [
+          0,
+          405,
+          140,
+          485
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "6b9734ffe4fd1affe372305c4763bb41b4129a32693a09ea3e777dbc95bfa148",
+        "crop_native": [
+          21,
+          429,
+          108,
+          461
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "character_life_title": {
+        "path": "assets/templates/gathering_ui/character_life_title_live.png",
+        "sha256": "5140311cf2bd7e3a36c28405eb434ed3c656f3995c6b61d75cf6195bd435be89",
+        "bytes": 3832,
+        "box": [
+          137,
+          23,
+          252,
+          54
+        ],
+        "search": [
+          117,
+          3,
+          272,
+          74
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "e3df0697fc8d3196ffa1a43302317e6c860dc097ebd084b536e988f54920662f",
+        "crop_native": [
+          137,
+          23,
+          252,
+          54
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "bag_search_open": {
+        "path": "assets/templates/gathering_ui/bag_search_open.png",
+        "sha256": "01356fdd711b085050ee7c40004e108f8b55ea0c3e9a64477a83328e1d031321",
+        "bytes": 865,
+        "box": [
+          700,
+          121,
+          733,
+          157
+        ],
+        "search": [
+          690,
+          112,
+          743,
+          167
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "a16f58ae555b762c0cf9f6e239d04169653feeeafd4a8913901298b449585d96",
+        "crop_native": [
+          700,
+          121,
+          733,
+          157
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "bag_search_name": {
+        "path": "assets/templates/gathering_ui/bag_search_name.png",
+        "sha256": "13025bde46a37a75a81b1baf4433eab886355c3a4e2c7fb20ac444197007e25d",
+        "bytes": 1283,
+        "box": [
+          720,
+          121,
+          787,
+          151
+        ],
+        "search": [
+          712,
+          113,
+          795,
+          159
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "c2720a18648451215fc88fb4e281a259d291797b6a510bf06ea2d0bc74e3cf3a",
+        "crop_native": [
+          720,
+          121,
+          787,
+          151
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "bag_search_rarity": {
+        "path": "assets/templates/gathering_ui/bag_search_rarity.png",
+        "sha256": "3535b54c6ed710a135f45fc81b314feff088b9826e297c94618c29dee5c60b46",
+        "bytes": 1805,
+        "box": [
+          720,
+          232,
+          799,
+          266
+        ],
+        "search": [
+          712,
+          224,
+          807,
+          274
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "c2720a18648451215fc88fb4e281a259d291797b6a510bf06ea2d0bc74e3cf3a",
+        "crop_native": [
+          720,
+          232,
+          799,
+          266
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "bag_search_input": {
+        "path": "assets/templates/gathering_ui/bag_search_input.png",
+        "sha256": "4e68b856c838c2393abfe04939a95349f19017ffa7ef4a34816c3efaef073af1",
+        "bytes": 631,
+        "box": [
+          1205,
+          184,
+          1234,
+          207
+        ],
+        "search": [
+          1202,
+          181,
+          1237,
+          210
+        ],
+        "threshold": 0.94,
+        "match_mode": "grayscale",
+        "source": "release_catalog",
+        "source_sha256": "035351338969c53a33af6d6ad44984af61caaed717b34c1a5db09ba4e664189e",
+        "crop_native": [
+          1205,
+          184,
+          1234,
+          207
+        ],
+        "scale": [
+          1,
+          1
+        ],
+        "fixed_point": [
+          900,
+          183
+        ],
+        "control_box": [
+          780,
+          166,
+          1140,
+          200
+        ]
+      },
+      "bag_search_apply": {
+        "path": "assets/templates/gathering_ui/bag_search_apply.png",
+        "sha256": "a8e489fc155aa18553fbc7b1f5276a04286bb6e7c962d56547e79cc1e6ed8c82",
+        "bytes": 1222,
+        "box": [
+          1060,
+          885,
+          1134,
+          924
+        ],
+        "search": [
+          1052,
+          877,
+          1142,
+          932
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "c2720a18648451215fc88fb4e281a259d291797b6a510bf06ea2d0bc74e3cf3a",
+        "crop_native": [
+          1060,
+          885,
+          1134,
+          924
+        ],
+        "scale": [
+          1,
+          1
+        ],
+        "fixed_point": [
+          1097,
+          904
+        ]
+      },
+      "bag_search_active": {
+        "path": "assets/templates/gathering_ui/bag_search_active.png",
+        "sha256": "a98b24f2dfb845df0a2562d96d4b3ee045080a0bde38380938128ed0ca782613",
+        "bytes": 790,
+        "box": [
+          700,
+          121,
+          733,
+          157
+        ],
+        "search": [
+          690,
+          112,
+          743,
+          167
+        ],
+        "threshold": 0.97,
+        "match_mode": "color_glyph",
+        "source": "release_catalog",
+        "source_sha256": "a3eb68be2ebb4eaaa284eb5e25213e603cb08483f3f844127086eb4ed6b3532b",
+        "crop_native": [
+          700,
+          121,
+          733,
+          157
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "bag_game_selected": {
+        "path": "assets/templates/gathering_ui/bag_game_selected.png",
+        "sha256": "af5b3fce48daadf3ac2a91a0503b57d4d3f8866d1f772fe2f6b00f5296c713cc",
+        "bytes": 2368,
+        "box": [
+          1104,
+          116,
+          1176,
+          162
+        ],
+        "search": [
+          1100,
+          112,
+          1180,
+          166
+        ],
+        "threshold": 0.96,
+        "glyph_threshold": 0.96,
+        "match_mode": "light_text",
+        "light_threshold": 180,
+        "source": "tests/fixtures/private-theater/game-selected-20261102.jpg",
+        "source_sha256": "65d4f75ac2682410a66dfbb799322cb914a44ff480fb67ad7aec17c16e922ad3",
+        "crop_native": [
+          1104,
+          116,
+          1176,
+          162
+        ]
+      },
+      "bag_items_selected": {
+        "path": "assets/templates/gathering_ui/bag_items_selected.png",
+        "sha256": "11d589679c7e1638550f62ebf72fb3023b1f524f4e00c668f5190d31ea24e2de",
+        "bytes": 1636,
+        "box": [
+          937,
+          866,
+          984,
+          933
+        ],
+        "search": [
+          933,
+          862,
+          988,
+          937
+        ],
+        "threshold": 0.97,
+        "match_mode": "color_glyph",
+        "source": "release_catalog",
+        "source_sha256": "a3eb68be2ebb4eaaa284eb5e25213e603cb08483f3f844127086eb4ed6b3532b",
+        "crop_native": [
+          937,
+          866,
+          984,
+          933
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "bag_search_empty": {
+        "path": "assets/templates/gathering_ui/bag_search_empty.png",
+        "sha256": "bd3cb4f343d80037f477fc70f57ef7a68048cba105b973862a8db23641a5e4f0",
+        "bytes": 6321,
+        "box": [
+          771,
+          165,
+          1067,
+          197
+        ],
+        "search": [
+          767,
+          161,
+          1071,
+          201
+        ],
+        "threshold": 0.94,
+        "match_mode": "grayscale",
+        "source": "release_catalog",
+        "source_sha256": "c2720a18648451215fc88fb4e281a259d291797b6a510bf06ea2d0bc74e3cf3a",
+        "crop_native": [
+          771,
+          165,
+          1067,
+          197
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "bag_search_reset": {
+        "path": "assets/templates/gathering_ui/bag_search_reset.png",
+        "sha256": "60c4e3caa072ff5cc583c1e77d54c277498b95ddfa952a219f7c400cae725cb0",
+        "bytes": 1188,
+        "box": [
+          805,
+          884,
+          870,
+          924
+        ],
+        "search": [
+          801,
+          880,
+          874,
+          928
+        ],
+        "threshold": 0.94,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "b25a97cef44e821e990648837333da788b3a661e0315bd728d68a61f2d678434",
+        "crop_native": [
+          805,
+          884,
+          870,
+          924
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_life_0": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_life_0.png",
+        "sha256": "04ecc484ab399b66cc1b0c57295452e7e35b117640c298eb227dac2dda981d15",
+        "box": [
+          151,
+          218,
+          263,
+          246
+        ],
+        "search": [
+          151,
+          218,
+          263,
+          246
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "c4f6ea81d8293797fd65ab6449b9d4c612c827ad7495527d8612a2ee5bba5b1f",
+        "crop_native": [
+          151,
+          218,
+          263,
+          246
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_life_1": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_life_1.png",
+        "sha256": "06399bb754cc98a9b478320864cf4df6003b931db73f3aea7b2ff313e441b19d",
+        "box": [
+          289,
+          218,
+          401,
+          246
+        ],
+        "search": [
+          289,
+          218,
+          401,
+          246
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "c4f6ea81d8293797fd65ab6449b9d4c612c827ad7495527d8612a2ee5bba5b1f",
+        "crop_native": [
+          289,
+          218,
+          401,
+          246
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_life_2": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_life_2.png",
+        "sha256": "f1002c91baffd7d539df516fc5ad0ec5f8a437f04248141780ff5457978c611a",
+        "box": [
+          427,
+          218,
+          539,
+          246
+        ],
+        "search": [
+          427,
+          218,
+          539,
+          246
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "c4f6ea81d8293797fd65ab6449b9d4c612c827ad7495527d8612a2ee5bba5b1f",
+        "crop_native": [
+          427,
+          218,
+          539,
+          246
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_life_3": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_life_3.png",
+        "sha256": "3ed7f6244239d7d96eb8e54568b15d2d82f534f69749babffe0d1395a14c9acb",
+        "box": [
+          565,
+          218,
+          677,
+          246
+        ],
+        "search": [
+          565,
+          218,
+          677,
+          246
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "c4f6ea81d8293797fd65ab6449b9d4c612c827ad7495527d8612a2ee5bba5b1f",
+        "crop_native": [
+          565,
+          218,
+          677,
+          246
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_life_4": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_life_4.png",
+        "sha256": "672908f869e513023c9bdb519a7327b99ab11c5cc67bc5f9944265f311f34842",
+        "box": [
+          703,
+          218,
+          815,
+          246
+        ],
+        "search": [
+          703,
+          218,
+          815,
+          246
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "c4f6ea81d8293797fd65ab6449b9d4c612c827ad7495527d8612a2ee5bba5b1f",
+        "crop_native": [
+          703,
+          218,
+          815,
+          246
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_life_5": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_life_5.png",
+        "sha256": "44da6c13fa969007db56c3720a86b415ae8436e82bbff43ff22dd5c6a29530e4",
+        "box": [
+          841,
+          218,
+          953,
+          246
+        ],
+        "search": [
+          841,
+          218,
+          953,
+          246
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "c4f6ea81d8293797fd65ab6449b9d4c612c827ad7495527d8612a2ee5bba5b1f",
+        "crop_native": [
+          841,
+          218,
+          953,
+          246
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_life_6": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_life_6.png",
+        "sha256": "6b9961d001b7ddd5ff1746ad66351e33dfa83a0574aba1c7e6e38e21638f180b",
+        "box": [
+          979,
+          218,
+          1091,
+          246
+        ],
+        "search": [
+          979,
+          218,
+          1091,
+          246
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "c4f6ea81d8293797fd65ab6449b9d4c612c827ad7495527d8612a2ee5bba5b1f",
+        "crop_native": [
+          979,
+          218,
+          1091,
+          246
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_life_7": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_life_7.png",
+        "sha256": "02cbac7b7ef3578eb2221d6213fe6f6ed0e0b8e69f3073f7db731d04382aa648",
+        "box": [
+          1117,
+          218,
+          1229,
+          246
+        ],
+        "search": [
+          1117,
+          218,
+          1229,
+          246
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "c4f6ea81d8293797fd65ab6449b9d4c612c827ad7495527d8612a2ee5bba5b1f",
+        "crop_native": [
+          1117,
+          218,
+          1229,
+          246
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_life_8": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_life_8.png",
+        "sha256": "8357848e0322ba9c8bdcc65fbda0f208a3e386c16bbbd52296d6c4221f6683fc",
+        "box": [
+          151,
+          421,
+          263,
+          449
+        ],
+        "search": [
+          151,
+          421,
+          263,
+          449
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "c4f6ea81d8293797fd65ab6449b9d4c612c827ad7495527d8612a2ee5bba5b1f",
+        "crop_native": [
+          151,
+          421,
+          263,
+          449
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_life_9": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_life_9.png",
+        "sha256": "73347524cc942c1162a5bbe58af268b5c77bef2e68cb1fca055b588530b5e532",
+        "box": [
+          289,
+          421,
+          401,
+          449
+        ],
+        "search": [
+          289,
+          421,
+          401,
+          449
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "c4f6ea81d8293797fd65ab6449b9d4c612c827ad7495527d8612a2ee5bba5b1f",
+        "crop_native": [
+          289,
+          421,
+          401,
+          449
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_life_10": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_life_10.png",
+        "sha256": "d980400ab15330e2a64532d53b3d332f595903b4e1d841ea7b77eb7cb700a726",
+        "box": [
+          427,
+          421,
+          539,
+          449
+        ],
+        "search": [
+          427,
+          421,
+          539,
+          449
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "c4f6ea81d8293797fd65ab6449b9d4c612c827ad7495527d8612a2ee5bba5b1f",
+        "crop_native": [
+          427,
+          421,
+          539,
+          449
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_life_11": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_life_11.png",
+        "sha256": "688dfbc007b11f034d81c46677a8caf30e2eccbc9a357018c8e910ed1cb69192",
+        "box": [
+          565,
+          421,
+          677,
+          449
+        ],
+        "search": [
+          565,
+          421,
+          677,
+          449
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "c4f6ea81d8293797fd65ab6449b9d4c612c827ad7495527d8612a2ee5bba5b1f",
+        "crop_native": [
+          565,
+          421,
+          677,
+          449
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_life_12": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_life_12.png",
+        "sha256": "a509834766b2ecd4f53b1123e3695bd1f7b2fcdd64ede6cfb2e94009f4ad089a",
+        "box": [
+          703,
+          421,
+          815,
+          449
+        ],
+        "search": [
+          703,
+          421,
+          815,
+          449
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "c4f6ea81d8293797fd65ab6449b9d4c612c827ad7495527d8612a2ee5bba5b1f",
+        "crop_native": [
+          703,
+          421,
+          815,
+          449
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_life_13": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_life_13.png",
+        "sha256": "ff2063039c16b660676b43b255b10dacfddd1e40e462ef2292583103b3bfcd87",
+        "box": [
+          841,
+          421,
+          953,
+          449
+        ],
+        "search": [
+          841,
+          421,
+          953,
+          449
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "c4f6ea81d8293797fd65ab6449b9d4c612c827ad7495527d8612a2ee5bba5b1f",
+        "crop_native": [
+          841,
+          421,
+          953,
+          449
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_life_14": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_life_14.png",
+        "sha256": "448fe1b2d159cb829ef505222ce5a098a5484b8c27a152a5e617f44460ea7c1c",
+        "box": [
+          979,
+          421,
+          1091,
+          449
+        ],
+        "search": [
+          979,
+          421,
+          1091,
+          449
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "c4f6ea81d8293797fd65ab6449b9d4c612c827ad7495527d8612a2ee5bba5b1f",
+        "crop_native": [
+          979,
+          421,
+          1091,
+          449
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_life_15": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_life_15.png",
+        "sha256": "a88eb1c50b43a7572a0e61c6a75bbf0e1eeada395b0b82921936d919373aef65",
+        "box": [
+          1117,
+          421,
+          1229,
+          449
+        ],
+        "search": [
+          1117,
+          421,
+          1229,
+          449
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "c4f6ea81d8293797fd65ab6449b9d4c612c827ad7495527d8612a2ee5bba5b1f",
+        "crop_native": [
+          1117,
+          421,
+          1229,
+          449
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_life_16": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_life_16.png",
+        "sha256": "dde2c8888eeb1418ebddeb4ad04d64577084b73f1f2251bb36cc2b53a6c16346",
+        "box": [
+          151,
+          624,
+          263,
+          652
+        ],
+        "search": [
+          151,
+          624,
+          263,
+          652
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "c4f6ea81d8293797fd65ab6449b9d4c612c827ad7495527d8612a2ee5bba5b1f",
+        "crop_native": [
+          151,
+          624,
+          263,
+          652
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_life_17": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_life_17.png",
+        "sha256": "1e1e6924667edbd94f049f5e14c38a5e9141173dab9f53ece216778218183af7",
+        "box": [
+          289,
+          624,
+          401,
+          652
+        ],
+        "search": [
+          289,
+          624,
+          401,
+          652
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "c4f6ea81d8293797fd65ab6449b9d4c612c827ad7495527d8612a2ee5bba5b1f",
+        "crop_native": [
+          289,
+          624,
+          401,
+          652
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_life_18": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_life_18.png",
+        "sha256": "0b36fb4f5e278e31137c7e767b677e82f2acfb0f7410ed3ced14f3eb54b35c17",
+        "box": [
+          427,
+          624,
+          539,
+          652
+        ],
+        "search": [
+          427,
+          624,
+          539,
+          652
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "c4f6ea81d8293797fd65ab6449b9d4c612c827ad7495527d8612a2ee5bba5b1f",
+        "crop_native": [
+          427,
+          624,
+          539,
+          652
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_life_19": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_life_19.png",
+        "sha256": "e39ad272178da1ab0386742c28ef5cfcce02d600dfb4482999c1ff40f443a6a0",
+        "box": [
+          565,
+          624,
+          677,
+          652
+        ],
+        "search": [
+          565,
+          624,
+          677,
+          652
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "c4f6ea81d8293797fd65ab6449b9d4c612c827ad7495527d8612a2ee5bba5b1f",
+        "crop_native": [
+          565,
+          624,
+          677,
+          652
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_life_header": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_life_header.png",
+        "sha256": "377b8dc32876a35e59ba78d40a5eb23aec87d089784cfb7e5166ff1a0b3f8053",
+        "box": [
+          137,
+          23,
+          255,
+          57
+        ],
+        "search": [
+          137,
+          23,
+          255,
+          57
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "c4f6ea81d8293797fd65ab6449b9d4c612c827ad7495527d8612a2ee5bba5b1f",
+        "crop_native": [
+          137,
+          23,
+          255,
+          57
+        ],
+        "scale": [
+          1,
+          1
+        ],
+        "relative_contrast_threshold": 40
+      },
+      "preset_life_selected": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_life_selected.png",
+        "sha256": "2ed7cbf0a345f4560a5c2ffdbb104898d158ce439d4db677f2a1b0149b0135da",
+        "box": [
+          23,
+          551,
+          106,
+          578
+        ],
+        "search": [
+          23,
+          551,
+          106,
+          578
+        ],
+        "threshold": 0.97,
+        "match_mode": "grayscale",
+        "source": "release_catalog",
+        "source_sha256": "c4f6ea81d8293797fd65ab6449b9d4c612c827ad7495527d8612a2ee5bba5b1f",
+        "crop_native": [
+          23,
+          551,
+          106,
+          578
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_logging_title": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_logging_title.png",
+        "sha256": "43d4132706ab3005703817b29026e3f19982270eb4e6ba673ca63f57e392a7d3",
+        "box": [
+          702,
+          382,
+          767,
+          414
+        ],
+        "search": [
+          702,
+          382,
+          767,
+          414
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "bf7f70e5007fa86a78ce77620e25f1b0e51a4904ef25fd68ccede35912bff245",
+        "crop_native": [
+          702,
+          382,
+          767,
+          414
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_logging_node": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_logging_node.png",
+        "sha256": "129eb78fe22da28ad97e08c59811aba6276c0ad610ab8ad6db316c75687bc2ee",
+        "box": [
+          802,
+          610,
+          932,
+          641
+        ],
+        "search": [
+          802,
+          610,
+          932,
+          641
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "bf7f70e5007fa86a78ce77620e25f1b0e51a4904ef25fd68ccede35912bff245",
+        "crop_native": [
+          802,
+          610,
+          932,
+          641
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_gathering_close": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_gathering_close.png",
+        "sha256": "b25f37544eb29af097da179674cfb0ae300c0db3e3f2659ad76cd7e77d1e31fb",
+        "box": [
+          1225,
+          22,
+          1258,
+          58
+        ],
+        "search": [
+          1225,
+          22,
+          1258,
+          58
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "bf7f70e5007fa86a78ce77620e25f1b0e51a4904ef25fd68ccede35912bff245",
+        "crop_native": [
+          1225,
+          22,
+          1258,
+          58
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_tree_name": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_tree_name.png",
+        "sha256": "9e2de551e65ab6dfdda3b71cffd302a573d8f5e0abdbb58eb4fb5c696cb250ac",
+        "box": [
+          454,
+          301,
+          514,
+          331
+        ],
+        "search": [
+          454,
+          301,
+          514,
+          331
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "4c5a2913c556af24b7e73dc9e202ac1951b9d2305e22525d2ff9730e516fd3d2",
+        "crop_native": [
+          454,
+          301,
+          514,
+          331
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_tree_description": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_tree_description.png",
+        "sha256": "abe0717beb299d19bfe6eaa6f9f1f464f6867e1efaffefe15c5c22f1e37d7d0c",
+        "box": [
+          454,
+          447,
+          660,
+          472
+        ],
+        "search": [
+          454,
+          447,
+          660,
+          472
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "4c5a2913c556af24b7e73dc9e202ac1951b9d2305e22525d2ff9730e516fd3d2",
+        "crop_native": [
+          454,
+          447,
+          660,
+          472
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_tree_find": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_tree_find.png",
+        "sha256": "13afaaef49335e5c1fa7996151c810859cfe9f8c7b565ee0606aaf30920fef1a",
+        "box": [
+          455,
+          491,
+          572,
+          515
+        ],
+        "search": [
+          455,
+          491,
+          572,
+          515
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "4c5a2913c556af24b7e73dc9e202ac1951b9d2305e22525d2ff9730e516fd3d2",
+        "crop_native": [
+          455,
+          491,
+          572,
+          515
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_tree_confirm": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_tree_confirm.png",
+        "sha256": "48940e1783b916d29739582a1e081b57a97a4ad95fa5c7f771a6a4f6372a48a8",
+        "box": [
+          620,
+          879,
+          661,
+          902
+        ],
+        "search": [
+          620,
+          879,
+          661,
+          902
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "4c5a2913c556af24b7e73dc9e202ac1951b9d2305e22525d2ff9730e516fd3d2",
+        "crop_native": [
+          620,
+          879,
+          661,
+          902
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_daily_title": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_daily_title.png",
+        "sha256": "b04066a9ed1e9ee0167526d09b9b7776e4a0eefbf5127b8cd5a7b604a8f447e6",
+        "box": [
+          702,
+          382,
+          755,
+          414
+        ],
+        "search": [
+          702,
+          382,
+          755,
+          414
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "ddc58a8779c818508304aa70174c91a929d42071356d9022023029acc366d6cc",
+        "crop_native": [
+          702,
+          382,
+          755,
+          414
+        ],
+        "scale": [
+          1,
+          1
+        ],
+        "bytes": 1029,
+        "matching_notes": "Category-specific stable glyphs only; exclude the shared 採集 suffix to avoid cross-category ambiguity."
+      },
+      "preset_daily_node": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_daily_node.png",
+        "sha256": "812c5a8c8e1d6ccd2bf85d702ac955bb0c060ba6959b66920ad827d11c2acf1b",
+        "box": [
+          802,
+          610,
+          940,
+          641
+        ],
+        "search": [
+          802,
+          610,
+          940,
+          641
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "ddc58a8779c818508304aa70174c91a929d42071356d9022023029acc366d6cc",
+        "crop_native": [
+          802,
+          610,
+          940,
+          641
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_herb_title": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_herb_title.png",
+        "sha256": "8fc3ecbb69367a984a82744bbe1338d6038126af378fb2ec68890f5d1dc8fc8d",
+        "box": [
+          702,
+          382,
+          860,
+          414
+        ],
+        "search": [
+          702,
+          382,
+          860,
+          414
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "e16eadc315532e5b78bdba792ef2ee920b4cee24188ed119f07c9c08d7a387b3",
+        "crop_native": [
+          702,
+          382,
+          860,
+          414
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_herb_node": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_herb_node.png",
+        "sha256": "bba68ce16e193e806ab5474282b0f9c8f431b2cd7f00100b74273b987fb37c6a",
+        "box": [
+          802,
+          610,
+          940,
+          641
+        ],
+        "search": [
+          802,
+          610,
+          940,
+          641
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "e16eadc315532e5b78bdba792ef2ee920b4cee24188ed119f07c9c08d7a387b3",
+        "crop_native": [
+          802,
+          610,
+          940,
+          641
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_wool_title": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_wool_title.png",
+        "sha256": "c55cbd6d804ff27ac9259ac8310743b262adc8c567871c98f438ce0f3f7300f9",
+        "box": [
+          702,
+          382,
+          860,
+          414
+        ],
+        "search": [
+          702,
+          382,
+          860,
+          414
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "43d63e1cc764f07df7b64dbb4239a2460d00c35203e9f542b4d18cf1b6934ce6",
+        "crop_native": [
+          702,
+          382,
+          860,
+          414
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_wool_node": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_wool_node.png",
+        "sha256": "600d612029fdd1333c6929b1e5558487820bee546983a88efba9506375280664",
+        "box": [
+          802,
+          610,
+          940,
+          641
+        ],
+        "search": [
+          802,
+          610,
+          940,
+          641
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "43d63e1cc764f07df7b64dbb4239a2460d00c35203e9f542b4d18cf1b6934ce6",
+        "crop_native": [
+          802,
+          610,
+          940,
+          641
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_harvest_title": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_harvest_title.png",
+        "sha256": "e9cc805a333b319d0a0354c888c20518d2ac5d43a999eeadb1a97515a4504b8e",
+        "box": [
+          702,
+          382,
+          860,
+          414
+        ],
+        "search": [
+          702,
+          382,
+          860,
+          414
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "c098f8c62fe14521e0110b166a1eb6bc08af281d316def0df66be152246479b8",
+        "crop_native": [
+          702,
+          382,
+          860,
+          414
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_harvest_node": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_harvest_node.png",
+        "sha256": "1b49289a17fdf668e28a9156777a6591ff1d6e955b29bde44215642666c2a6fb",
+        "box": [
+          802,
+          610,
+          940,
+          641
+        ],
+        "search": [
+          802,
+          610,
+          940,
+          641
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "c098f8c62fe14521e0110b166a1eb6bc08af281d316def0df66be152246479b8",
+        "crop_native": [
+          802,
+          610,
+          940,
+          641
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_hoeing_title": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_hoeing_title.png",
+        "sha256": "c66b66528c2cbc8a66130a62b0389a27ab2b6a2bd35adc6cbc7c5af5196ddbc0",
+        "box": [
+          702,
+          382,
+          860,
+          414
+        ],
+        "search": [
+          702,
+          382,
+          860,
+          414
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "734745f1559dfb5b6b21f572a04b3d8cd5eea91dfc72d2b1c4bfc9f66f0d0899",
+        "crop_native": [
+          702,
+          382,
+          860,
+          414
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_hoeing_node": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_hoeing_node.png",
+        "sha256": "58e24e050da752c1ca4ed9f6a542b71e73b0476edf756e9c1d45c65cd7f3decd",
+        "box": [
+          802,
+          610,
+          940,
+          641
+        ],
+        "search": [
+          802,
+          610,
+          940,
+          641
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "734745f1559dfb5b6b21f572a04b3d8cd5eea91dfc72d2b1c4bfc9f66f0d0899",
+        "crop_native": [
+          802,
+          610,
+          940,
+          641
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_insect_title": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_insect_title.png",
+        "sha256": "1e4870e413dc2f377d4368c517478e274492507424920fb50fc6b7b0de21eae1",
+        "box": [
+          702,
+          382,
+          755,
+          414
+        ],
+        "search": [
+          702,
+          382,
+          755,
+          414
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "ca4450a95ad04489be49ee3e154eb19fa94ae960c3031e1915c65d1e19b0175f",
+        "crop_native": [
+          702,
+          382,
+          755,
+          414
+        ],
+        "scale": [
+          1,
+          1
+        ],
+        "bytes": 1671,
+        "matching_notes": "Category-specific stable glyphs only; exclude the shared 採集 suffix to avoid cross-category ambiguity."
+      },
+      "preset_insect_node": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_insect_node.png",
+        "sha256": "73cf8c65987e4a40b641db279106c1ee86c12e52e99847bcefad1e9bfa17898d",
+        "box": [
+          802,
+          610,
+          940,
+          641
+        ],
+        "search": [
+          802,
+          610,
+          940,
+          641
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "ca4450a95ad04489be49ee3e154eb19fa94ae960c3031e1915c65d1e19b0175f",
+        "crop_native": [
+          802,
+          610,
+          940,
+          641
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_fishing_title": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_fishing_title.png",
+        "sha256": "cbc2200a178c29f1eb685cde95723ce5cac8082424f695ab936e55fbd38679cc",
+        "box": [
+          702,
+          382,
+          860,
+          414
+        ],
+        "search": [
+          702,
+          382,
+          860,
+          414
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "0afa1fce89a11b52544537bd3d5a907ca5b33812b7a58074240f3c679a97a966",
+        "crop_native": [
+          702,
+          382,
+          860,
+          414
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_fishing_node": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_fishing_node.png",
+        "sha256": "1002c40ad0573b7900fc479c2c7562fddfc5845276dec615ea4d99e09c94f3b3",
+        "box": [
+          802,
+          610,
+          940,
+          641
+        ],
+        "search": [
+          802,
+          610,
+          940,
+          641
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "0afa1fce89a11b52544537bd3d5a907ca5b33812b7a58074240f3c679a97a966",
+        "crop_native": [
+          802,
+          610,
+          940,
+          641
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_mining_title": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_mining_title.png",
+        "sha256": "5cb1a6d1666e6c88e453203d08b08acab2c909162c207c834147250e82ce5095",
+        "box": [
+          702,
+          382,
+          860,
+          414
+        ],
+        "search": [
+          702,
+          382,
+          860,
+          414
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "bdf8ee473e019c980506b3b4b8947bee877d7f79ab763cd2207f78626819ba05",
+        "crop_native": [
+          702,
+          382,
+          860,
+          414
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "preset_mining_node": {
+        "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_mining_node.png",
+        "sha256": "a2cb572496dd51d2407935be7a6bee5005561b0179b37b81232b6b470c5366e7",
+        "box": [
+          802,
+          610,
+          940,
+          641
+        ],
+        "search": [
+          802,
+          610,
+          940,
+          641
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "bdf8ee473e019c980506b3b4b8947bee877d7f79ab763cd2207f78626819ba05",
+        "crop_native": [
+          802,
+          610,
+          940,
+          641
+        ],
+        "scale": [
+          1,
+          1
+        ]
+      },
+      "private_theater_loaded_text": {
+        "path": "assets/templates/screen_ui/stable_labels/private_theater_loaded_text.png",
+        "sha256": "b1c2310d50afd3100d4cc4ae4422a4b3af81c9fc6f722e74f0a9ff7817cc0f97",
+        "bytes": 501,
+        "box": [
+          1138,
+          470,
+          1257,
+          491
+        ],
+        "search": [
+          1128,
+          460,
+          1267,
+          501
+        ],
+        "threshold": 0.92,
+        "match_mode": "light_text",
+        "light_threshold": 200,
+        "matching_notes": "Pure static function glyph mask, excluding button background and variable content."
+      },
+      "private_theater_create_title": {
+        "path": "assets/templates/gathering_ui/theater_create_title.png",
+        "sha256": "ea4182cace54aa840f4225443c0f187bc42b590dd68c63c1e82850dca6e339cd",
+        "bytes": 533,
+        "box": [
+          21,
+          25,
+          138,
+          54
+        ],
+        "search": [
+          11,
+          15,
+          148,
+          64
+        ],
+        "threshold": 0.92,
+        "match_mode": "light_text",
+        "light_threshold": 200,
+        "source": "tests/fixtures/private-theater/create-current.jpg",
+        "source_sha256": "1084228edc87e465b5d173c49646ddf55478b67c4060594ba793febb96073be0",
+        "crop_native": [
+          21,
+          25,
+          138,
+          54
+        ],
+        "scale": [
+          1,
+          1
+        ],
+        "matching_notes": "Stable create-party title glyphs only; excludes character name, buttons and translucent background."
+      },
+      "theater_returned_menu_glyph": {
+        "path": "assets/templates/gathering_ui/scene_menu_glyph.png",
+        "sha256": "7e85431febd626d71cda17791fe1bbc14ea2dd91bd53dbbdb9fc86e245a48004",
+        "bytes": 131,
+        "box": [
+          1070,
+          26,
+          1092,
+          50
+        ],
+        "search": [
+          1060,
+          16,
+          1102,
+          60
+        ],
+        "threshold": 0.95,
+        "match_mode": "light_text",
+        "light_threshold": 195,
+        "source": "tests/fixtures/private-theater/returned-hidden-bag-current.jpg",
+        "source_sha256": "1e1ef0815f3ea523122602e76f5cdd7b56521c4992c4ef27c0b97931709a325a",
+        "crop_native": [
+          1070,
+          26,
+          1092,
+          50
+        ],
+        "matching_notes": "Static menu lines only, excludes notification badge and hotkey."
+      }
+    },
+    "pages": {
+      "scene": {
+        "anchors": [
+          "scene_bag",
+          "scene_skills",
+          "scene_menu"
+        ],
+        "targets": {
+          "scene.open_bag": "scene_bag",
+          "scene.open_skills": "scene_skills",
+          "character.open": "scene_bag"
+        }
+      },
+      "skills": {
+        "anchors": [
+          "skills_processing_inactive",
+          "skills_close"
+        ],
+        "targets": {
+          "skills.open_processing": "skills_processing_inactive",
+          "skills.close": "skills_close"
+        }
+      },
+      "character_menu": {
+        "anchors": [
+          "character_combat_label",
+          "life_skills_entry"
+        ],
+        "targets": {
+          "character.open_life_skills": "life_skills_entry",
+          "page.close": "skills_close"
+        }
+      },
+      "mining_nodes": {
+        "anchors": [
+          "preset_mining_title",
+          "preset_mining_node"
+        ],
+        "targets": {
+          "page.close": "preset_gathering_close",
+          "gathering.open_mining_node": "preset_mining_node",
+          "gathering.open_node": "iron_vein_list_name"
+        }
+      },
+      "iron_vein_detail": {
+        "anchors": [
+          "iron_vein_detail_name",
+          "find_nearby"
+        ],
+        "targets": {
+          "gathering.start": "find_nearby",
+          "gathering.close": "detail_confirm_close",
+          "page.close": "detail_confirm_close"
+        }
+      },
+      "bag": {
+        "anchors": [
+          "bag_tools_tab",
+          "bag_fashion_tab",
+          "bag_auto_wear",
+          "bag_close"
+        ],
+        "targets": {
+          "bag.close": "bag_close",
+          "bag.open_items": "gathering_bag_items_tab",
+          "bag.search_open": "bag_search_open",
+          "bag.items_selected": "bag_items_selected"
+        }
+      },
+      "character_life_skills": {
+        "anchors": [
+          "preset_life_header",
+          "preset_life_1",
+          "preset_life_2"
+        ],
+        "targets": {
+          "gathering.open_mining": "preset_life_2",
+          "page.close": "skills_close",
+          "gathering.open_skill_0": "preset_life_0",
+          "gathering.open_skill_1": "preset_life_1",
+          "gathering.open_skill_2": "preset_life_2",
+          "gathering.open_skill_3": "preset_life_3",
+          "gathering.open_skill_4": "preset_life_4",
+          "gathering.open_skill_5": "preset_life_5",
+          "gathering.open_skill_6": "preset_life_6",
+          "gathering.open_skill_7": "preset_life_7",
+          "gathering.open_skill_8": "preset_life_8",
+          "gathering.open_skill_9": "preset_life_9",
+          "gathering.open_skill_10": "preset_life_10",
+          "gathering.open_skill_11": "preset_life_11",
+          "gathering.open_skill_12": "preset_life_12",
+          "gathering.open_skill_13": "preset_life_13",
+          "gathering.open_skill_14": "preset_life_14",
+          "gathering.open_skill_15": "preset_life_15",
+          "gathering.open_skill_16": "preset_life_16",
+          "gathering.open_skill_17": "preset_life_17",
+          "gathering.open_skill_18": "preset_life_18",
+          "gathering.open_skill_19": "preset_life_19"
+        },
+        "surfaces": {
+          "list.scroll": [
+            120,
+            190,
+            1200,
+            850
+          ]
+        }
+      },
+      "bag_search": {
+        "anchors": [
+          "bag_search_name",
+          "bag_search_rarity",
+          "bag_search_apply"
+        ],
+        "targets": {
+          "bag.search_input": "bag_search_input",
+          "bag.search_apply": "bag_search_apply",
+          "bag.search_empty": "bag_search_empty",
+          "bag.search_reset": "bag_search_reset",
+          "bag.close": "bag_close"
+        },
+        "fixed_targets": {
+          "bag.close": [
+            1226,
+            16,
+            1255,
+            58
+          ]
+        }
+      },
+      "logging_nodes": {
+        "anchors": [
+          "preset_logging_title",
+          "preset_logging_node"
+        ],
+        "targets": {
+          "gathering.open_logging_node": "preset_logging_node",
+          "page.close": "preset_gathering_close"
+        }
+      },
+      "tree_detail": {
+        "anchors": [
+          "preset_tree_name",
+          "preset_tree_description",
+          "preset_tree_find"
+        ],
+        "targets": {
+          "gathering.close": "preset_tree_confirm",
+          "gathering.start": "preset_tree_find"
+        }
+      },
+      "daily_nodes": {
+        "anchors": [
+          "preset_daily_title",
+          "preset_daily_node"
+        ],
+        "targets": {
+          "page.close": "preset_gathering_close",
+          "gathering.open_daily_node": "preset_daily_node"
+        }
+      },
+      "herb_nodes": {
+        "anchors": [
+          "preset_herb_title",
+          "preset_herb_node"
+        ],
+        "targets": {
+          "page.close": "preset_gathering_close",
+          "gathering.open_herb_node": "preset_herb_node"
+        }
+      },
+      "wool_nodes": {
+        "anchors": [
+          "preset_wool_title",
+          "preset_wool_node"
+        ],
+        "targets": {
+          "page.close": "preset_gathering_close",
+          "gathering.open_wool_node": "preset_wool_node"
+        }
+      },
+      "harvest_nodes": {
+        "anchors": [
+          "preset_harvest_title",
+          "preset_harvest_node"
+        ],
+        "targets": {
+          "page.close": "preset_gathering_close",
+          "gathering.open_harvest_node": "preset_harvest_node"
+        }
+      },
+      "hoeing_nodes": {
+        "anchors": [
+          "preset_hoeing_title",
+          "preset_hoeing_node"
+        ],
+        "targets": {
+          "page.close": "preset_gathering_close",
+          "gathering.open_hoeing_node": "preset_hoeing_node"
+        }
+      },
+      "insect_nodes": {
+        "anchors": [
+          "preset_insect_title",
+          "preset_insect_node"
+        ],
+        "targets": {
+          "page.close": "preset_gathering_close",
+          "gathering.open_insect_node": "preset_insect_node"
+        }
+      },
+      "fishing_nodes": {
+        "anchors": [
+          "preset_fishing_title",
+          "preset_fishing_node"
+        ],
+        "targets": {
+          "page.close": "preset_gathering_close",
+          "gathering.open_fishing_node": "preset_fishing_node"
+        }
+      }
+    },
+    "anchor_variants": {
+      "bag_search_open": [
+        "bag_search_active"
+      ]
+    },
+    "priority_pages": [
+      "daily_nodes",
+      "herb_nodes",
+      "wool_nodes",
+      "harvest_nodes",
+      "hoeing_nodes",
+      "insect_nodes",
+      "fishing_nodes",
+      "mining_nodes"
+    ]
+  },
+  "gathering_observer": {
+    "schema_version": 1,
+    "client_size": [
+      1280,
+      960
+    ],
+    "completion_idle_seconds": 2,
+    "completion_idle_observations": 3,
+    "templates": {
+      "task_title": {
+        "source": "release_catalog",
+        "source_sha256": "cd6533fc7ec381cfe14a888f7951a286e432b796cc164e4e381db7597fa7cc44",
+        "crop_native": [
+          1130,
+          198,
+          1266,
+          223
+        ],
+        "search": [
+          1118,
+          187,
+          1278,
+          234
+        ],
+        "match_mode": "light_text",
+        "threshold": 0.9,
+        "path": "assets/templates/gathering_ui/observer_task_title.png",
+        "sha256": "d6c28dfea52045622a6fe82ce07be60e474df8d75bcfd851faf68f3b13d3b8e1",
+        "bytes": 586,
+        "scale": [
+          1,
+          1
+        ],
+        "light_threshold": 200,
+        "matching_notes": "Pure stable task glyph mask; no source background, progress digits, count or dynamic icon."
+      },
+      "iron_vein_objective": {
+        "source": "release_catalog",
+        "source_sha256": "cd6533fc7ec381cfe14a888f7951a286e432b796cc164e4e381db7597fa7cc44",
+        "crop_native": [
+          1187,
+          226,
+          1230,
+          245
+        ],
+        "search": [
+          1175,
+          217,
+          1242,
+          254
+        ],
+        "match_mode": "gold_text",
+        "threshold": 0.8,
+        "path": "assets/templates/gathering_ui/observer_iron_vein_objective.png",
+        "sha256": "9ac0d1cea5b3cb271fe5e00ec9edf65296d24680b6ef0b12e0e6409e9e235572",
+        "bytes": 222,
+        "scale": [
+          1,
+          1
+        ],
+        "light_threshold": 200,
+        "matching_notes": "Pure stable task glyph mask; no source background, progress digits, count or dynamic icon."
+      }
+    },
+    "routes": {
+      "iron_ore_nearby": {
+        "task_label": "採集鐵礦脈",
+        "task_anchors": [
+          "task_title",
+          "iron_vein_objective"
+        ],
+        "total": 10
+      }
+    },
+    "evidence_note": "A bound native task completes only after its stable task labels disappear on the scene for the declared settle interval; no stop/idle icon or quantity is recognized.",
+    "task_title_template": "task_title"
+  },
+  "calibration": {
+    "source_profile": "config/screen_routes.1280x960.tw.json",
+    "candidate_profile": "config/gathering_routes.tw.json",
+    "scope": "Native 1280x960 DPI96 menu localization, earlier guarded bridge batch, and one product-panel iron-vein batch with same-scope yield accounting. Production routes are inherited from source_profile.",
+    "current_full_client_verified": true,
+    "verified_client_size": [
+      1280,
+      960
+    ],
+    "verified_dpi": 96,
+    "candidate_boxes_are_client_coordinates": false,
+    "search_policy": "Used live targets have native crop/scale provenance and bounded current-client search regions. Input uses a fresh match through InputGuard, never preview coordinates. Iron-vein list search covers only its observed visible position; general scrolling is not implemented.",
+    "known_risks": [
+      "The shared C badge worked in this run; other character portraits and UI scales have not been exercised.",
+      "Unused candidate sprites retain their original provenance and are not live input authority.",
+      "A wider iron-vein search encountered blank-area match peaks; the current narrow region does not support arbitrary scroll positions.",
+      "The independent character_life_skills page preserves the original processing skills page. Generic scrolling and filtered-bag totals remain unimplemented.",
+      "Product completion was observed after progress 9/10 disappeared and stable native idle; no explicit 10/10 frame was captured. Yield 46 is a same-scope recipe-material difference, not ten guaranteed drops or a verified warehouse total."
+    ],
+    "gathering_target_semantics": {
+      "gathering.start": "Click the user-confirmed nearby-position link. Actual gathering arrival/start state must be observed afterward; the click is not success.",
+      "gathering.close": "Dismiss node details using the bottom confirmation. Never a gathering start target."
+    }
+  },
+  "gathering_routes": {
+    "iron_ore_nearby": {
+      "target_item_id": 198875762,
+      "skill": "mining",
+      "node": "鐵礦脈",
+      "attempts_per_batch": 10,
+      "navigation": {
+        "steps": [
+          {
+            "page": "scene",
+            "target": "character.open",
+            "expected_page": "character_menu"
+          },
+          {
+            "page": "character_menu",
+            "target": "character.open_life_skills",
+            "expected_page": "character_life_skills"
+          },
+          {
+            "page": "character_life_skills",
+            "target": "gathering.open_mining",
+            "expected_page": "mining_nodes"
+          },
+          {
+            "page": "mining_nodes",
+            "target": "gathering.open_node",
+            "expected_page": "iron_vein_detail"
+          }
+        ],
+        "start_target": "gathering.start",
+        "detail_page": "iron_vein_detail"
+      }
+    }
+  },
+  "navigation_retry": {
+    "interval_s": 8,
+    "max_retries": 4,
+    "timeout_s": 90
+  }
+}

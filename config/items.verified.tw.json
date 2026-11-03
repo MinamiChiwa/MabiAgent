@@ -1,0 +1,1649 @@
+{
+  "saved": "2026-11-03",
+  "source": "verified-and-user-confirmed",
+  "items": {
+    "198875762": {
+      "name": "鐵礦石",
+      "status": "verified",
+      "historical_static_only": true,
+      "review_date": "2026-10-21"
+    },
+    "1156816717": {
+      "name": "鐵錠",
+      "status": "verified",
+      "historical_static_only": true,
+      "review_date": "2026-10-21"
+    },
+    "16921337": {
+      "name": "新芽蘑菇",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "23326115": {
+      "name": "黃金雞蛋",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "23601394": {
+      "name": "最高級木材",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "64857730": {
+      "name": "封印的憤怒碎片",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "92360592": {
+      "name": "魯艾利的冒險日誌",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "93633707": {
+      "name": "映夢之鏡的碎片",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "94119737": {
+      "name": "廢墟的魔力石",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "101380668": {
+      "name": "鳳凰羽毛",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "105816262": {
+      "name": "秘術骰鑰匙",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "115582255": {
+      "name": "大蒜",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "122129023": {
+      "name": "番茄",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "125441832": {
+      "name": "堤爾克那改良型材料箱",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "141159521": {
+      "name": "生命的魔力石",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "161162564": {
+      "name": "菁英鍊金術再燃燒催化劑碎片",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "164492686": {
+      "name": "壯壯蘑菇",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "166731921": {
+      "name": "角色名稱變更券",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "176757062": {
+      "name": "雕琢石榴石",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "181811078": {
+      "name": "閃閃發亮的苔蘚",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "203928202": {
+      "name": "杜巴頓普及型材料箱",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "207451083": {
+      "name": "專業營火套組",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "222156871": {
+      "name": "提爾的信",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "238892990": {
+      "name": "職業大師勳章",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "267114859": {
+      "name": "健康飲料",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "280910364": {
+      "name": "小銀幣箱",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "281681764": {
+      "name": "支配的圖樣選擇箱",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "293018641": {
+      "name": "喵喵魔法榴彈",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "294717747": {
+      "name": "新芽蘑菇汁液",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "303057424": {
+      "name": "高級原木",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "318325482": {
+      "name": "未加工黃金原石",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "322618131": {
+      "name": "凱琳的怦怦巧克力",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "332636885": {
+      "name": "鋼錠",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "336610545": {
+      "name": "堤爾克那寶物材料箱",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "364202266": {
+      "name": "鮮奶油",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "382097073": {
+      "name": "馬鈴薯",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "384237528": {
+      "name": "煤炭",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "393824971": {
+      "name": "淨淨蘑菇汁液",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "401640121": {
+      "name": "壯壯蘑菇孢子",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "403367994": {
+      "name": "生活基礎樣本指南書",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "406209798": {
+      "name": "高級皮革+",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "409599309": {
+      "name": "擠著吃的點心",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "423151035": {
+      "name": "聖水",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "424609249": {
+      "name": "高級布料",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "425284749": {
+      "name": "上鎖的秘術骰 (1697)",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "445753894": {
+      "name": "布料+",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "457735307": {
+      "name": "增幅蘑菇",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "471812439": {
+      "name": "堤爾克那高級料理選擇箱",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "476724970": {
+      "name": "洋蔥",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "478057209": {
+      "name": "最高級自動恢復藥水",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "486653633": {
+      "name": "黃金鮭魚",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "503309746": {
+      "name": "皮革+",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "506494487": {
+      "name": "馬賽魚湯",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "507811282": {
+      "name": "多彩營火套組",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "514161695": {
+      "name": "雕琢鋯石SS",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "518458318": {
+      "name": "原木",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "521244471": {
+      "name": "傷痕花",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "523344614": {
+      "name": "四葉草",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "526903628": {
+      "name": "菁英食物選擇箱",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "531266227": {
+      "name": "強化再燃燒催化劑碎片",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "537514193": {
+      "name": "血紅藥草",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "545807217": {
+      "name": "黏土",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "548936715": {
+      "name": "香魚",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "549140153": {
+      "name": "麵粉",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "550210735": {
+      "name": "冰霜結晶",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "573791040": {
+      "name": "上鎖的菁英秘術骰 (2232)",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "577034568": {
+      "name": "符文碎片",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "580126530": {
+      "name": "高級生皮",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "598603709": {
+      "name": "生皮",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "607331317": {
+      "name": "黃金鯉魚",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "609035528": {
+      "name": "黃金莖稈",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "615758160": {
+      "name": "咻咻蘑菇",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "617986339": {
+      "name": "強化再燃燒催化劑",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "620391453": {
+      "name": "鮭魚",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "637337796": {
+      "name": "巨大的符文碎片",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "651358256": {
+      "name": "藥草",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "659522517": {
+      "name": "深淵稀有秘術骰(2232)：武器",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "674847457": {
+      "name": "精靈之翼",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "679734366": {
+      "name": "憤怒的碎片",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "708379439": {
+      "name": "傷痕花粉末",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "712842472": {
+      "name": "時裝裝備(菁英)性別變更券",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "714851857": {
+      "name": "羊毛",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "720030200": {
+      "name": "染色劑選擇箱",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "729657329": {
+      "name": "高級羊毛+",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "737134565": {
+      "name": "彩虹鱒魚",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "738162341": {
+      "name": "清淡的肉",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "748505372": {
+      "name": "肉",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "753489475": {
+      "name": "時裝票券碎片寶箱",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "784382224": {
+      "name": "高級採集物箱",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "797820951": {
+      "name": "一般採集物箱",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "810529696": {
+      "name": "蘆筍",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "814221571": {
+      "name": "最高級原木",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "819043159": {
+      "name": "高級木材",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "821415023": {
+      "name": "附魔卷軸：狐狸碎片",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "824750738": {
+      "name": "木材",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "824830127": {
+      "name": "卓越自動恢復藥水",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "829798165": {
+      "name": "夜市食物箱",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "851218173": {
+      "name": "魔力藥草",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "855542137": {
+      "name": "雕琢石榴石SS",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "881517306": {
+      "name": "杜巴頓寶物材料箱",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "898995834": {
+      "name": "蜘蛛網",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "901469748": {
+      "name": "高級木材+",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "913546735": {
+      "name": "貝類",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "914777816": {
+      "name": "稀有秘術骰鑰匙",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "951116417": {
+      "name": "黃金苔蘚",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "957770458": {
+      "name": "精靈的痕跡",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "958157922": {
+      "name": "不死粉末",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "962165362": {
+      "name": "高級羊毛",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "970350386": {
+      "name": "電氣結晶",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "974685151": {
+      "name": "雕琢藍尖晶石S",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "981681071": {
+      "name": "礦石",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "985189850": {
+      "name": "樹枝",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "994229410": {
+      "name": "小銀幣箱",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "997547546": {
+      "name": "遺忘的碎片",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1015119052": {
+      "name": "一般料理材料選擇箱",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1017353537": {
+      "name": "凝聚的風",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1017757294": {
+      "name": "珍珠",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1027172969": {
+      "name": "史詩鍊金術再燃燒催化劑碎片",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1036181901": {
+      "name": "空白樂譜",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1070014984": {
+      "name": "高級抗魔石粉末",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1073650655": {
+      "name": "班克爾基本型材料箱",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1086696631": {
+      "name": "傳說時裝鞋子晉階券碎片",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1101953531": {
+      "name": "石塊",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1120497298": {
+      "name": "卓越繃帶",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1125390553": {
+      "name": "增幅蘑菇孢子",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1134486524": {
+      "name": "庫漢普及型材料箱",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1139895336": {
+      "name": "鯖魚",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1162249720": {
+      "name": "黃金四葉草",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1175741324": {
+      "name": "封印的遺忘碎片",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1188983168": {
+      "name": "星辰印章選擇箱",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1191784322": {
+      "name": "高級秘術骰鑰匙",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1202292919": {
+      "name": "空瓶",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1214264949": {
+      "name": "高級支配的圖紙(飾品)",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1239893517": {
+      "name": "小銀幣箱",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1241970565": {
+      "name": "最高級羊毛",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1251509631": {
+      "name": "真愛魚",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1253226127": {
+      "name": "黃金羊毛",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1263511643": {
+      "name": "道具部件",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1278773214": {
+      "name": "支配的圖紙(武器)",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1283411388": {
+      "name": "牛奶",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1290670861": {
+      "name": "糖",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1295353656": {
+      "name": "盛宴材料：不滅之火",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1298386125": {
+      "name": "寵物飼料",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1303157400": {
+      "name": "封印的野性碎片",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1314217732": {
+      "name": "毒囊",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1319700955": {
+      "name": "躲躲花粉末",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1323633703": {
+      "name": "凱琳特製全麥麵包",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1345278556": {
+      "name": "淨淨蘑菇孢子",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1345598381": {
+      "name": "卡丹的信",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1356981294": {
+      "name": "高級料理材料選擇箱",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1365845276": {
+      "name": "獨角仙",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1374108602": {
+      "name": "雕琢藍尖晶石SS",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1375756248": {
+      "name": "高級設備改良零件",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1400334680": {
+      "name": "寶石技能雕琢器",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1421471816": {
+      "name": "鍊金術碎屑",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1424198644": {
+      "name": "菁英鍊金術再燃燒催化劑",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1427452351": {
+      "name": "高級布料+",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1436063804": {
+      "name": "釘子",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1458660129": {
+      "name": "木材+",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1473884120": {
+      "name": "高級生皮+",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1484382524": {
+      "name": "雕琢鋯石S",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1516056091": {
+      "name": "高麗菜",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1526680639": {
+      "name": "淨淨蘑菇",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1527259825": {
+      "name": "上鎖的高級秘術骰 (1697)",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1527801530": {
+      "name": "深淵化石袋",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1529621297": {
+      "name": "庫漢改良型材料箱",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1530441200": {
+      "name": "解除詛咒藥水",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1535643029": {
+      "name": "峽谷的魔力石",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1545476620": {
+      "name": "銀合金錠",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1553205181": {
+      "name": "稀有鍊金術再燃燒催化劑",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1553586563": {
+      "name": "布料",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1563660414": {
+      "name": "野性的碎片",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1577117434": {
+      "name": "巨大呼喊號角",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1595367853": {
+      "name": "分解的裝備零件",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1602912837": {
+      "name": "黃金金龜子",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1604367201": {
+      "name": "私人劇場",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1609734989": {
+      "name": "時裝票券",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1632271147": {
+      "name": "傳說裁縫剪刀",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1635910675": {
+      "name": "單寧粉末",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1636872069": {
+      "name": "高級支配的圖紙(防具)",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1639315929": {
+      "name": "抗魔石粉末",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1644179994": {
+      "name": "樹液",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1652781561": {
+      "name": "銅礦石",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1658498560": {
+      "name": "杜巴頓改良型材料箱",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1666007307": {
+      "name": "堤爾克那普及型材料箱",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1672456814": {
+      "name": "銀礦石",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1673767024": {
+      "name": "魔法絲線",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1683169186": {
+      "name": "無主的黑色坑洞戰利品",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1714829736": {
+      "name": "深淵菁英秘術骰(2232)：武器",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1718990288": {
+      "name": "蘊含魔力的石頭",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1723100400": {
+      "name": "高級繃帶",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1725823086": {
+      "name": "班克爾改良型材料箱",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1727081349": {
+      "name": "奶油醬牛排",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1729002945": {
+      "name": "小魔族貢品箱",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1729908640": {
+      "name": "曠野的魔力石",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1741334734": {
+      "name": "最高級皮革",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1748923791": {
+      "name": "染色劑",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1762731356": {
+      "name": "變化之核",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1767557899": {
+      "name": "支配的圖紙(飾品)",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1773481161": {
+      "name": "指定染色劑",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1778223289": {
+      "name": "高級鍊金術再燃燒催化劑",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1779593446": {
+      "name": "黃金蝴蝶",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1791225963": {
+      "name": "友情袋(賽季0)",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1793283870": {
+      "name": "合金鋼錠",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1804591185": {
+      "name": "皮革",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1832948142": {
+      "name": "范．戈斯特的羅盤",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1837785241": {
+      "name": "裝水的瓶子",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1878979109": {
+      "name": "史詩鍊金術再燃燒催化劑",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1905934634": {
+      "name": "雕琢橄欖石SS",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1934593251": {
+      "name": "紙",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1946206837": {
+      "name": "毅力草",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1952032774": {
+      "name": "絲綢",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1953925395": {
+      "name": "火苗結晶",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1961002722": {
+      "name": "大塊肉",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1972418933": {
+      "name": "冰草莓飲",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1980205661": {
+      "name": "紅茶茶包",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "1997591409": {
+      "name": "高級秘術骰 (2232)",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "2003405808": {
+      "name": "最高級生皮",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "2004023076": {
+      "name": "檸檬",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "2019168353": {
+      "name": "光輝結晶",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "2030290592": {
+      "name": "支配的圖紙(防具)",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "2034576976": {
+      "name": "改良道具部件",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "2056490709": {
+      "name": "庫漢寶物材料箱",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "2061877585": {
+      "name": "最高級蜘蛛網",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "2083106069": {
+      "name": "白銅礦石",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "2092549524": {
+      "name": "營火套組",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "2110569181": {
+      "name": "布雷夫尼鯉魚",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "2122271456": {
+      "name": "礦山的魔力石",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "2136714664": {
+      "name": "染色劑基底",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "612255730": {
+      "name": "高級原木+",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-11-02"
+    },
+    "2140693743": {
+      "name": "黃金碎屑",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "release_catalog",
+      "review_date": "2026-10-31"
+    },
+    "639212127": {
+      "name": "厚實羊毛",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "user_authorized_named_storage_transfer",
+      "historical_static_only": true
+    },
+    "1581920793": {
+      "name": "柔軟原木",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "user_authorized_named_storage_transfer",
+      "historical_static_only": true
+    },
+    "1128414187": {
+      "name": "堅硬原木",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "user_authorized_named_storage_transfer",
+      "historical_static_only": true
+    },
+    "565427660": {
+      "name": "蜂蠟",
+      "status": "verified",
+      "association": "user_confirmed",
+      "source": "user_authorized_named_storage_transfer",
+      "historical_static_only": true
+    }
+  }
+}

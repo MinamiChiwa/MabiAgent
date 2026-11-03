@@ -1,0 +1,21 @@
+{
+  "model": "ch_PP-OCRv5_rec_mobile.onnx",
+  "sha256": "5825fc7ebf84ae7a412be049820b4d86d77620f204a041697b0494669b1742c5",
+  "bytes": 16631306,
+  "license": "Apache-2.0",
+  "upstream": "https://github.com/PaddlePaddle/PaddleOCR",
+  "exporter": "https://github.com/RapidAI/RapidOCR",
+  "exporter_commit": "80b427d69bfc5b91a12913394875910296c6f315",
+  "manifest": "https://raw.githubusercontent.com/RapidAI/RapidOCR/80b427d69bfc5b91a12913394875910296c6f315/python/rapidocr/default_models.yaml",
+  "download": "https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.10.0/onnx/PP-OCRv5/rec/ch_PP-OCRv5_rec_mobile.onnx",
+  "checked_at": "2026-10-29",
+  "runtime": "Existing C# ONNX Runtime, CPU, offline, single-line recognition only",
+  "community": {
+    "source": "GitHub REST /repos/{owner}/{repo}",
+    "note": "社区关注度不代表本项目准确率",
+    "PaddleOCR_stars": 91865,
+    "RapidOCR_stars": 8363,
+    "checked_at": "2026-10-29",
+    "Tesseract_stars": 77216
+  }
+}

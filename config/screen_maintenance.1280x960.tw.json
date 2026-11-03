@@ -1,0 +1,2660 @@
+{
+  "extends": "config/screen_gathering.1280x960.tw.json",
+  "ui": {
+    "templates": {
+      "maint_tidy_open": {
+        "path": "assets/templates/maintenance_ui/tidy_open.png",
+        "sha256": "5ad563a40ec7f7e22a41471991bfadb7953c7824d8b9033fd04bd8597160b95c",
+        "bytes": 2284,
+        "box": [
+          1142,
+          802,
+          1194,
+          833
+        ],
+        "search": [
+          1137,
+          797,
+          1199,
+          838
+        ],
+        "threshold": 0.94,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "crop_native": [
+          1142,
+          802,
+          1194,
+          833
+        ]
+      },
+      "maint_tools_tab": {
+        "path": "assets/templates/maintenance_ui/tools_tab.png",
+        "sha256": "19b448dceca1591e2bcaebec9a73ebd0c6b7b96337ddae52115cfe9759b5e85f",
+        "bytes": 1577,
+        "box": [
+          838,
+          858,
+          892,
+          936
+        ],
+        "search": [
+          833,
+          853,
+          897,
+          941
+        ],
+        "threshold": 0.94,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "crop_native": [
+          838,
+          858,
+          892,
+          936
+        ]
+      },
+      "maint_auto_equip": {
+        "path": "assets/templates/maintenance_ui/auto_equip.png",
+        "sha256": "850e325346309b508b612fcca5ea71e7d580a1a9f156f70e76f6f64e254e2238",
+        "bytes": 2545,
+        "box": [
+          18,
+          20,
+          127,
+          54
+        ],
+        "search": [
+          13,
+          15,
+          132,
+          59
+        ],
+        "threshold": 0.94,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "crop_native": [
+          18,
+          20,
+          127,
+          54
+        ]
+      },
+      "maint_tidy_title": {
+        "path": "assets/templates/maintenance_ui/tidy_title.png",
+        "sha256": "f27e5ae6528809f1a6844546e0d3d405fb46c42ec3228f80e6aa93d9a2679171",
+        "bytes": 2712,
+        "box": [
+          415,
+          383,
+          508,
+          419
+        ],
+        "search": [
+          411,
+          379,
+          512,
+          423
+        ],
+        "threshold": 0.94,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "crop_native": [
+          415,
+          383,
+          508,
+          419
+        ]
+      },
+      "maint_tidy_weight_label": {
+        "path": "assets/templates/maintenance_ui/tidy_weight_label.png",
+        "sha256": "72c62edc26e3c9cbb172ec7ce6edcd8a91de84ae0ce25e37f6081897095b84db",
+        "bytes": 1545,
+        "box": [
+          458,
+          735,
+          523,
+          764
+        ],
+        "search": [
+          454,
+          731,
+          527,
+          768
+        ],
+        "threshold": 0.94,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "crop_native": [
+          458,
+          735,
+          523,
+          764
+        ]
+      },
+      "maint_tidy_cancel": {
+        "path": "assets/templates/maintenance_ui/tidy_cancel.png",
+        "sha256": "aca1b4b318e6217b93ca3dee8bbb50761410e531b2c37f04670e99b5fc148e22",
+        "bytes": 1524,
+        "box": [
+          474,
+          845,
+          527,
+          877
+        ],
+        "search": [
+          470,
+          841,
+          531,
+          881
+        ],
+        "threshold": 0.94,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "crop_native": [
+          474,
+          845,
+          527,
+          877
+        ]
+      },
+      "maint_bold_label": {
+        "path": "assets/templates/maintenance_ui/bold_label.png",
+        "sha256": "7ba0e92489c186aa0036b21fa1058ec8d30d9fe81fbbcc229ddddc3020387278",
+        "bytes": 2041,
+        "box": [
+          470,
+          432,
+          541,
+          459
+        ],
+        "search": [
+          466,
+          428,
+          545,
+          463
+        ],
+        "threshold": 0.94,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "crop_native": [
+          470,
+          432,
+          541,
+          459
+        ]
+      },
+      "maint_materials_label": {
+        "path": "assets/templates/maintenance_ui/materials_label.png",
+        "sha256": "fae563633023a131a3ba402567b3463877215a6d19b6175d21e65572f2225d93",
+        "bytes": 1026,
+        "box": [
+          736,
+          515,
+          770,
+          546
+        ],
+        "search": [
+          732,
+          511,
+          774,
+          550
+        ],
+        "threshold": 0.94,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "crop_native": [
+          736,
+          515,
+          770,
+          546
+        ]
+      },
+      "maint_tidy_prepare": {
+        "path": "assets/templates/maintenance_ui/tidy_prepare.png",
+        "sha256": "06a4aa2ebf6847a1dd207bb523174be41717a2023f4c58b9d47be22806d96826",
+        "bytes": 1500,
+        "box": [
+          689,
+          851,
+          733,
+          876
+        ],
+        "search": [
+          600,
+          830,
+          850,
+          895
+        ],
+        "threshold": 0.94,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "crop_native": [
+          689,
+          851,
+          733,
+          876
+        ]
+      },
+      "maint_tidy_confirm_title": {
+        "path": "assets/templates/maintenance_ui/tidy_confirm_title.png",
+        "bytes": 4936,
+        "sha256": "e4e0de779bf7c3d6c749e94195663db5f44b2292fa9254e95f8b88251890706d",
+        "box": [
+          579,
+          204,
+          699,
+          241
+        ],
+        "search": [
+          574,
+          199,
+          704,
+          246
+        ],
+        "threshold": 0.94,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "crop_native": [
+          579,
+          204,
+          699,
+          241
+        ]
+      },
+      "maint_tidy_confirm_action": {
+        "path": "assets/templates/maintenance_ui/tidy_confirm_action.png",
+        "bytes": 1459,
+        "sha256": "b2796eeb798b1b9fde78ab8af37a980f24ad02199758c9152f13ca178010e059",
+        "box": [
+          614,
+          888,
+          664,
+          921
+        ],
+        "search": [
+          609,
+          883,
+          669,
+          926
+        ],
+        "threshold": 0.94,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "crop_native": [
+          614,
+          888,
+          664,
+          921
+        ]
+      },
+      "maint_tidy_confirm_back": {
+        "path": "assets/templates/maintenance_ui/tidy_confirm_back.png",
+        "bytes": 776,
+        "sha256": "a011b4069b182f2a22790c11f073bcede15eee53c65f887baf7401f9e2fcd145",
+        "box": [
+          22,
+          20,
+          49,
+          56
+        ],
+        "search": [
+          17,
+          15,
+          54,
+          61
+        ],
+        "threshold": 0.9,
+        "match_mode": "grayscale",
+        "source": "release_catalog",
+        "crop_native": [
+          22,
+          20,
+          49,
+          56
+        ]
+      },
+      "maint_tidy_done": {
+        "path": "assets/templates/maintenance_ui/tidy_done.png",
+        "sha256": "c834c2ab8eeda9b4acbbfbee69a92f2235fd6d0a472cce8920c65d7e2206f7e7",
+        "bytes": 7750,
+        "box": [
+          570,
+          190,
+          710,
+          225
+        ],
+        "search": [
+          565,
+          185,
+          715,
+          230
+        ],
+        "threshold": 0.94,
+        "match_mode": "light_text",
+        "light_threshold": 235,
+        "glyph_threshold": 0.9,
+        "source": "tests/fixtures/screen_ui/tidy-result-current.jpg",
+        "source_sha256": "ba64ebbcf4ddf167a7ef34f05237699e45d378cc7f3510386b8494ef3a260138",
+        "crop_native": [
+          570,
+          190,
+          710,
+          225
+        ]
+      },
+      "maint_scene_map": {
+        "path": "assets/templates/maintenance_ui/scene_map_key_core.png",
+        "sha256": "b4b9929e2732e67c182c6cff892d68551cf8ed96cafabefea427f1cfe83be18d",
+        "bytes": 541,
+        "box": [
+          1244,
+          129,
+          1261,
+          146
+        ],
+        "search": [
+          1240,
+          125,
+          1265,
+          150
+        ],
+        "threshold": 0.94,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "crop_native": [
+          1244,
+          129,
+          1261,
+          146
+        ],
+        "source_sha256": "9c057225ab3a213066fe0397031ad42b9fea21e86c4ea913a4a94c1d06f9b8ef",
+        "light_threshold": 180
+      },
+      "maint_region_world": {
+        "path": "assets/templates/maintenance_ui/region_world.png",
+        "sha256": "26809fabcfc304b4cb01aa1e9a7926fc8d959e31c20a7bf6d0630287fc361c3f",
+        "bytes": 4863,
+        "box": [
+          29,
+          24,
+          139,
+          53
+        ],
+        "search": [
+          24,
+          19,
+          144,
+          58
+        ],
+        "threshold": 0.94,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "crop_native": [
+          29,
+          24,
+          139,
+          53
+        ],
+        "light_threshold": 220,
+        "fixed_point": [
+          84,
+          38
+        ]
+      },
+      "maint_map_close": {
+        "path": "assets/templates/maintenance_ui/map_close_core.png",
+        "sha256": "a4a83e66b4332a1fdfc64274a04c6ae12518c808e4de4df4ab39a260682e5fb4",
+        "bytes": 2032,
+        "box": [
+          1228,
+          22,
+          1262,
+          56
+        ],
+        "search": [
+          1215,
+          9,
+          1276,
+          69
+        ],
+        "threshold": 0.94,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "crop_native": [
+          1228,
+          22,
+          1262,
+          56
+        ],
+        "light_threshold": 180
+      },
+      "maint_map_recenter": {
+        "path": "assets/templates/maintenance_ui/map_recenter.png",
+        "bytes": 2656,
+        "sha256": "1fef84e12139283005e4ca300b655ff3db19142e6dabc68f30bd409d6d4a0684",
+        "box": [
+          613,
+          896,
+          650,
+          933
+        ],
+        "search": [
+          603,
+          886,
+          660,
+          943
+        ],
+        "match_mode": "light_text",
+        "light_threshold": 180,
+        "source": "native-client-capture",
+        "source_notes": "原生客户区裁图保留于 path；原始位置见 box，临时全图不保留。"
+      },
+      "maint_tir_world_header": {
+        "path": "assets/templates/maintenance_ui/maint_tir_world_header.png",
+        "bytes": 3667,
+        "sha256": "004b2f71d80412330b1c32af95d26b14bc368e9154cebe62c76053d74b0c8b3f",
+        "box": [
+          209,
+          26,
+          279,
+          49
+        ],
+        "search": [
+          175,
+          20,
+          320,
+          65
+        ],
+        "match_mode": "light_text",
+        "light_threshold": 180,
+        "glyph_threshold": 0.97,
+        "source": "native-client-capture",
+        "source_notes": "原生客户区裁图保留于 path；原始位置见 box，临时全图不保留。"
+      },
+      "maint_tir_region_header": {
+        "path": "assets/templates/maintenance_ui/maint_tir_region_header.png",
+        "bytes": 4191,
+        "sha256": "386f4726491b093231c6e398fa082ed5b5e66d416e3b05839aeefb526e0e2923",
+        "box": [
+          195,
+          26,
+          279,
+          49
+        ],
+        "search": [
+          195,
+          26,
+          279,
+          49
+        ],
+        "match_mode": "light_text",
+        "light_threshold": 180,
+        "glyph_threshold": 0.97,
+        "source": "native-client-capture",
+        "matching_notes": "当前地区固定页眉文字，仅授权非消费地区导航；不使用玩家位置标记。",
+        "source_notes": "原生客户区裁图保留于 path；原始位置见 box，临时全图不保留。"
+      },
+      "maint_tir_town": {
+        "path": "assets/templates/maintenance_ui/maint_tir_town_label.png",
+        "bytes": 5099,
+        "sha256": "c78b44ad79f54b02e213b62385b93407103f5197680eee6c93be67e1a07cb4e0",
+        "source": "release_catalog",
+        "source_sha256": "8e8199d036cc7c69a3559f41ca7ba363c56bfda0bea9a33a2685fb6001f798f6",
+        "crop_native": [
+          687,
+          427,
+          794,
+          449
+        ],
+        "scale": [
+          1,
+          1
+        ],
+        "coordinates_for_input": false,
+        "box": [
+          687,
+          427,
+          794,
+          449
+        ],
+        "search": [
+          0,
+          100,
+          1180,
+          820
+        ],
+        "match_mode": "light_text",
+        "threshold": 0.94,
+        "light_threshold": 180,
+        "control_box": [
+          687,
+          379,
+          794,
+          427
+        ]
+      },
+      "maint_map_active": {
+        "path": "assets/templates/maintenance_ui/map_active.png",
+        "sha256": "953d762daee18e40ed15e5f08dca1ee55581a3c015ee7346408aca3d8ee9fc0b",
+        "bytes": 1630,
+        "box": [
+          768,
+          862,
+          809,
+          933
+        ],
+        "search": [
+          763,
+          857,
+          814,
+          938
+        ],
+        "threshold": 0.94,
+        "match_mode": "color_glyph",
+        "source": "release_catalog",
+        "crop_native": [
+          768,
+          862,
+          809,
+          933
+        ]
+      },
+      "maint_map_canvas": {
+        "path": "assets/templates/maintenance_ui/map_canvas.png",
+        "sha256": "61e48ac235e6c9b66a5f67094eba1506013e4bd5d5f3b3cdec8ee49030538652",
+        "bytes": 6506,
+        "box": [
+          590,
+          480,
+          650,
+          540
+        ],
+        "search": [
+          100,
+          100,
+          1100,
+          780
+        ],
+        "threshold": 0.94,
+        "match_mode": "grayscale",
+        "source": "release_catalog",
+        "crop_native": [
+          590,
+          480,
+          650,
+          540
+        ]
+      },
+      "maint_map_canvas_out": {
+        "path": "assets/templates/maintenance_ui/map_canvas_out.png",
+        "sha256": "f19a15ff1a57f2f7ea05e90e0e58f4c102c0c0063d358e6edf7403f8811f92a5",
+        "bytes": 4980,
+        "box": [
+          590,
+          480,
+          650,
+          540
+        ],
+        "search": [
+          100,
+          100,
+          1100,
+          780
+        ],
+        "threshold": 0.94,
+        "match_mode": "grayscale",
+        "source": "release_catalog",
+        "crop_native": [
+          590,
+          480,
+          650,
+          540
+        ]
+      },
+      "maint_map_canvas_school": {
+        "path": "assets/templates/maintenance_ui/map_canvas_school.png",
+        "sha256": "af89a0ad6aa6212ffd2f46c7c76e544598c1273f6c10786f4e99c6972bc8086b",
+        "bytes": 5559,
+        "box": [
+          660,
+          452,
+          730,
+          491
+        ],
+        "search": [
+          100,
+          100,
+          1100,
+          780
+        ],
+        "threshold": 0.94,
+        "match_mode": "grayscale",
+        "source": "release_catalog",
+        "crop_native": [
+          660,
+          452,
+          730,
+          491
+        ]
+      },
+      "maint_map_blacksmith": {
+        "path": "assets/templates/maintenance_ui/map_blacksmith.png",
+        "sha256": "1ed75407e337433fd718b4302a95a32ebe11e17378e067505bda2e70c391c9d6",
+        "bytes": 5856,
+        "box": [
+          720,
+          737,
+          800,
+          770
+        ],
+        "search": [
+          100,
+          100,
+          1280,
+          815
+        ],
+        "threshold": 0.94,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "crop_native": [
+          720,
+          737,
+          800,
+          770
+        ],
+        "light_threshold": 220
+      },
+      "maint_ferghus_portrait_subpixel": {
+        "path": "assets/templates/maintenance_ui/ferghus_face_subpixel.png",
+        "sha256": "6cf3dd100637af4a0328e357606b1102104ed868f1194e5429c6f175d118c86f",
+        "bytes": 1461,
+        "box": [
+          988,
+          662,
+          1019,
+          683
+        ],
+        "search": [
+          50,
+          60,
+          1280,
+          815
+        ],
+        "threshold": 0.97,
+        "match_mode": "portrait_core",
+        "source": "tests/fixtures/screen_ui/ferghus-portrait-subpixel.png",
+        "source_sha256": "f9e0aa41d4ff7f511b2ff13fe854ca61b456f5cbbe703d3545b7da4745949610",
+        "source_client_origin": [
+          972,
+          637
+        ],
+        "crop_native": [
+          988,
+          662,
+          1019,
+          683
+        ],
+        "coordinates_for_input": false,
+        "control_box": [
+          988,
+          652,
+          1019,
+          683
+        ]
+      },
+      "maint_ferghus_portrait": {
+        "path": "assets/templates/maintenance_ui/ferghus_face_core.png",
+        "sha256": "cbd54fe274aff41f4cf8e4fdb8e3f0e6e67d708f6d7440eac1e3891ccc929f22",
+        "bytes": 1454,
+        "box": [
+          748,
+          454,
+          779,
+          475
+        ],
+        "search": [
+          50,
+          60,
+          1280,
+          815
+        ],
+        "threshold": 0.97,
+        "match_mode": "portrait_core",
+        "source": "release_catalog",
+        "source_sha256": "e1d55e9a473345a4e7d2873739c9bd9ad71976e4385a9899e39740690db31e7e",
+        "crop_native": [
+          748,
+          454,
+          779,
+          475
+        ],
+        "scale": [
+          1,
+          1
+        ],
+        "coordinates_for_input": false,
+        "control_box": [
+          748,
+          444,
+          779,
+          475
+        ]
+      },
+      "maint_ferghus_name": {
+        "path": "assets/templates/maintenance_ui/ferghus_name.png",
+        "sha256": "b4903e78a52ef1d32157b3b355c06ae40e1b07ac12969e4e4e95e5fa2f0df7f9",
+        "bytes": 2127,
+        "box": [
+          799,
+          697,
+          869,
+          730
+        ],
+        "search": [
+          780,
+          670,
+          910,
+          770
+        ],
+        "threshold": 0.94,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "crop_native": [
+          799,
+          697,
+          869,
+          730
+        ]
+      },
+      "maint_npc_goto": {
+        "path": "assets/templates/maintenance_ui/npc_goto.png",
+        "sha256": "4356ecfe2cb2d463536ef8b3403e68577c5ca74b2f4a25a49a36f3154f34d8ad",
+        "bytes": 2404,
+        "box": [
+          921,
+          890,
+          1019,
+          919
+        ],
+        "search": [
+          880,
+          850,
+          1070,
+          950
+        ],
+        "threshold": 0.94,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "crop_native": [
+          921,
+          890,
+          1019,
+          919
+        ]
+      },
+      "maint_repair_menu": {
+        "path": "assets/templates/maintenance_ui/stable_glyphs/maint_repair_menu.png",
+        "sha256": "da92ab52c9d4974e431dd72dec9a0b8512f3696f428fa1cd86d8b8c3f5058a6d",
+        "bytes": 1281,
+        "box": [
+          288,
+          721,
+          332,
+          748
+        ],
+        "search": [
+          280,
+          712,
+          340,
+          756
+        ],
+        "threshold": 0.94,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "crop_native": [
+          288,
+          721,
+          332,
+          748
+        ],
+        "control_box": [
+          280,
+          717,
+          490,
+          751
+        ],
+        "fixed_point": [
+          400,
+          734
+        ],
+        "source_sha256": "06dc6ba9ead55c42f2885d4d03604d3b1f8ee4ffcd6030b0bedfef999ce8a698",
+        "scale": [
+          1,
+          1
+        ],
+        "relative_contrast": true,
+        "glyph_threshold": 0.97,
+        "matching_notes": "Inner stable text glyph crop; local contrast rejects animated/transparent button background. Existing fixed/control point retained. Old asset retained with audit hash."
+      },
+      "maint_dialog_end": {
+        "path": "assets/templates/maintenance_ui/dialog_end.png",
+        "sha256": "580441c0abac877c24b0e707d603c3393763928e6f03590f1497f53e21ac14ce",
+        "bytes": 2836,
+        "box": [
+          830,
+          876,
+          907,
+          907
+        ],
+        "search": [
+          400,
+          860,
+          1000,
+          920
+        ],
+        "threshold": 0.94,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "crop_native": [
+          830,
+          876,
+          907,
+          907
+        ],
+        "light_threshold": 180
+      },
+      "maint_repair_title": {
+        "path": "assets/templates/maintenance_ui/repair_title.png",
+        "sha256": "f3e19a69a799e91f35a06d997fa6be04b0263829bc3284c80bb50d6cf3511640",
+        "bytes": 2322,
+        "box": [
+          27,
+          22,
+          87,
+          58
+        ],
+        "search": [
+          22,
+          17,
+          92,
+          63
+        ],
+        "threshold": 0.94,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "crop_native": [
+          27,
+          22,
+          87,
+          58
+        ]
+      },
+      "maint_repair_items": {
+        "path": "assets/templates/maintenance_ui/repair_items.png",
+        "sha256": "e988122e64ff646eb22bea2efa45d1de56b50b90517e31f6234c78fa7591cd68",
+        "bytes": 3208,
+        "box": [
+          892,
+          101,
+          1017,
+          130
+        ],
+        "search": [
+          887,
+          96,
+          1022,
+          135
+        ],
+        "threshold": 0.94,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "crop_native": [
+          892,
+          101,
+          1017,
+          130
+        ]
+      },
+      "maint_repair_all": {
+        "path": "assets/templates/maintenance_ui/stable_glyphs/maint_repair_all.png",
+        "sha256": "c9d772721ef8afe9af8ba50769cb7212c9e45f1b083aaf5599b2e84686db1669",
+        "bytes": 2606,
+        "box": [
+          485,
+          900,
+          565,
+          925
+        ],
+        "search": [
+          410,
+          886,
+          610,
+          940
+        ],
+        "threshold": 0.94,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "crop_native": [
+          485,
+          900,
+          565,
+          925
+        ],
+        "fixed_point": [
+          525,
+          912
+        ],
+        "light_threshold": 100,
+        "source_sha256": "cc67f1cfbca1abf3c02f3cf7f72891d491820cccbd549ed2bd0fa399b615edc0",
+        "scale": [
+          1,
+          1
+        ],
+        "relative_contrast": true,
+        "glyph_threshold": 0.97,
+        "matching_notes": "Inner stable text glyph crop; local contrast rejects animated/transparent button background. Existing fixed/control point retained. Old asset retained with audit hash."
+      },
+      "maint_repair_quote_title": {
+        "path": "assets/templates/maintenance_ui/repair_quote_title.png",
+        "sha256": "68b1a8a46a99709bbe4a94e6438854634f1a2d923f721b126a17e33be2141a4a",
+        "bytes": 4366,
+        "box": [
+          567,
+          164,
+          716,
+          192
+        ],
+        "search": [
+          562,
+          159,
+          721,
+          197
+        ],
+        "threshold": 0.94,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "crop_native": [
+          567,
+          164,
+          716,
+          192
+        ]
+      },
+      "maint_repair_confirm": {
+        "path": "assets/templates/maintenance_ui/repair_confirm.png",
+        "sha256": "db2662b23d3c0aceddd1837a885f6eb484a10459b8c58362c7992a387f555343",
+        "bytes": 1500,
+        "box": [
+          650,
+          887,
+          704,
+          922
+        ],
+        "search": [
+          640,
+          882,
+          800,
+          927
+        ],
+        "threshold": 0.94,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "crop_native": [
+          650,
+          887,
+          704,
+          922
+        ],
+        "fixed_point": [
+          676,
+          904
+        ]
+      },
+      "maint_repair_gold": {
+        "path": "assets/templates/maintenance_ui/repair_gold.png",
+        "sha256": "c18b03417bf5f0f1025efc405d47a0dddd82cae4c0090fc946218db2a531655d",
+        "bytes": 968,
+        "box": [
+          587,
+          891,
+          613,
+          914
+        ],
+        "search": [
+          500,
+          886,
+          640,
+          919
+        ],
+        "threshold": 0.94,
+        "match_mode": "yellow_text",
+        "glyph_threshold": 0.97,
+        "source": "release_catalog",
+        "crop_native": [
+          587,
+          891,
+          613,
+          914
+        ]
+      },
+      "maint_repair_skip": {
+        "path": "assets/templates/maintenance_ui/repair_skip.png",
+        "sha256": "88ba3cf759256b69f0512b9c698c835fd447af96c6893969b107e5b0a5ec1d24",
+        "bytes": 3884,
+        "box": [
+          1136,
+          21,
+          1246,
+          57
+        ],
+        "search": [
+          1131,
+          16,
+          1251,
+          62
+        ],
+        "threshold": 0.94,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "crop_native": [
+          1136,
+          21,
+          1246,
+          57
+        ]
+      },
+      "maint_repair_menu_done": {
+        "path": "assets/templates/maintenance_ui/repair_menu_done.png",
+        "sha256": "298280f6d98d4158265b8e8650bed0fe7591efa6d75f161fb7ccb123e57d95fd",
+        "bytes": 2072,
+        "box": [
+          285,
+          717,
+          335,
+          751
+        ],
+        "search": [
+          280,
+          712,
+          340,
+          756
+        ],
+        "threshold": 0.94,
+        "match_mode": "grayscale",
+        "source": "release_catalog",
+        "crop_native": [
+          285,
+          717,
+          335,
+          751
+        ],
+        "control_box": [
+          280,
+          717,
+          490,
+          751
+        ],
+        "fixed_point": [
+          400,
+          734
+        ]
+      },
+      "maint_dialog_shop": {
+        "path": "assets/templates/maintenance_ui/dialog_shop.png",
+        "sha256": "4be0a40eef2278c6a7169fcccf721264cc66155b69770b26e95aac029ed114e8",
+        "bytes": 1440,
+        "box": [
+          612,
+          876,
+          672,
+          907
+        ],
+        "search": [
+          400,
+          860,
+          1000,
+          920
+        ],
+        "threshold": 0.94,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "crop_native": [
+          612,
+          876,
+          672,
+          907
+        ],
+        "light_threshold": 180
+      },
+      "maint_tools_selected": {
+        "path": "assets/templates/maintenance_ui/tools_selected.png",
+        "sha256": "36c165dbfcd68012590183ea0b014303fb0a3adfa096d9d1ce3e022cfa1873f8",
+        "bytes": 1368,
+        "box": [
+          845,
+          864,
+          886,
+          932
+        ],
+        "search": [
+          840,
+          859,
+          891,
+          937
+        ],
+        "threshold": 0.94,
+        "match_mode": "color_glyph",
+        "source": "release_catalog",
+        "crop_native": [
+          845,
+          864,
+          886,
+          932
+        ]
+      },
+      "maint_tir_town_min": {
+        "path": "assets/templates/maintenance_ui/maint_tir_town_min_label.png",
+        "bytes": 5181,
+        "sha256": "1013cc2f7828a6d1fdba22f8752829bdeffc924f051dd07addb681105ae21035",
+        "source": "release_catalog",
+        "source_sha256": "7d3c2b3cf14e118dc2229990eda7c9c0c45b2a1eb96bd01195d0f2c833999174",
+        "crop_native": [
+          257,
+          435,
+          364,
+          457
+        ],
+        "scale": [
+          1,
+          1
+        ],
+        "coordinates_for_input": false,
+        "box": [
+          257,
+          435,
+          364,
+          457
+        ],
+        "search": [
+          0,
+          100,
+          1180,
+          820
+        ],
+        "match_mode": "light_text",
+        "threshold": 0.94,
+        "light_threshold": 180,
+        "control_box": [
+          257,
+          387,
+          364,
+          435
+        ]
+      },
+      "maint_map_blacksmith_min": {
+        "path": "assets/templates/maintenance_ui/map_blacksmith_min.png",
+        "sha256": "c3af323442f97e90c56ce09b2051fdc5f280e87206a7b6761bf1c9fcdc587e4e",
+        "bytes": 5047,
+        "box": [
+          532,
+          510,
+          605,
+          542
+        ],
+        "search": [
+          100,
+          100,
+          1280,
+          815
+        ],
+        "threshold": 0.94,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "crop_native": [
+          532,
+          510,
+          605,
+          542
+        ],
+        "light_threshold": 220
+      },
+      "maint_repair_back": {
+        "path": "assets/templates/maintenance_ui/repair_back.png",
+        "sha256": "ffae4ca49a2cfdea81c618007e40796bfa534c6a95977646ed7b8b77bfc49df2",
+        "bytes": 804,
+        "box": [
+          20,
+          35,
+          55,
+          80
+        ],
+        "search": [
+          15,
+          30,
+          60,
+          85
+        ],
+        "threshold": 0.94,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "2b4e2126204a20d44ad6da72c5076b257af5a8c02f77acd6ccb0da829420af95",
+        "crop_native": [
+          20,
+          35,
+          55,
+          80
+        ]
+      },
+      "maint_repair_close": {
+        "path": "assets/templates/maintenance_ui/repair_close.png",
+        "sha256": "9a16ceb168aa373b3e49740bee9fb7431b9b3f957ac2a55248a1dacf34019992",
+        "bytes": 865,
+        "box": [
+          1222,
+          20,
+          1264,
+          65
+        ],
+        "search": [
+          1217,
+          15,
+          1269,
+          70
+        ],
+        "threshold": 0.94,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_sha256": "cc67f1cfbca1abf3c02f3cf7f72891d491820cccbd549ed2bd0fa399b615edc0",
+        "crop_native": [
+          1222,
+          20,
+          1264,
+          65
+        ]
+      },
+      "maint_region_world_icon_hover": {
+        "path": "assets/templates/maintenance_ui/region_world_icon_hover.png",
+        "sha256": "329f6cf94e9a0259d46b304ce780563eaa5f006801e704d5234a5e84e152cd34",
+        "bytes": 2492,
+        "box": [
+          32,
+          22,
+          62,
+          56
+        ],
+        "search": [
+          27,
+          17,
+          67,
+          61
+        ],
+        "threshold": 0.94,
+        "match_mode": "light_text",
+        "light_threshold": 220,
+        "control_box": [
+          29,
+          24,
+          139,
+          53
+        ],
+        "fixed_point": [
+          84,
+          38
+        ],
+        "source": "release_catalog",
+        "source_sha256": "9e27e165d6755ad518d73e10f45c39632d769c5ca883b4dec6c1628da9df34ee",
+        "source_size": [
+          1282,
+          992
+        ],
+        "crop_native": [
+          33,
+          53,
+          63,
+          87
+        ],
+        "client_crop": [
+          32,
+          22,
+          62,
+          56
+        ],
+        "scale": [
+          1,
+          1
+        ],
+        "coordinates_for_input": false
+      },
+      "maint_ferghus_face_core": {
+        "path": "assets/templates/maintenance_ui/ferghus_face_core.png",
+        "sha256": "cbd54fe274aff41f4cf8e4fdb8e3f0e6e67d708f6d7440eac1e3891ccc929f22",
+        "bytes": 1454,
+        "box": [
+          748,
+          454,
+          779,
+          475
+        ],
+        "search": [
+          50,
+          60,
+          1280,
+          815
+        ],
+        "threshold": 0.97,
+        "match_mode": "portrait_core",
+        "source": "release_catalog",
+        "source_sha256": "e1d55e9a473345a4e7d2873739c9bd9ad71976e4385a9899e39740690db31e7e",
+        "crop_native": [
+          748,
+          454,
+          779,
+          475
+        ],
+        "scale": [
+          1,
+          1
+        ],
+        "coordinates_for_input": false,
+        "control_box": [
+          748,
+          444,
+          779,
+          475
+        ]
+      },
+      "maint_ferghus_scene_name": {
+        "path": "assets/templates/maintenance_ui/ferghus_scene_name.png",
+        "sha256": "45aa2217d2466a8936338b1c215723d117da468db870ee7a4884c39282dc34d7",
+        "bytes": 2091,
+        "box": [
+          335,
+          374,
+          396,
+          396
+        ],
+        "search": [
+          80,
+          160,
+          1160,
+          780
+        ],
+        "threshold": 0.94,
+        "match_mode": "yellow_text",
+        "source": "release_catalog",
+        "crop_native": [
+          335,
+          374,
+          396,
+          396
+        ],
+        "light_threshold": 180,
+        "glyph_threshold": 0.9,
+        "control_box": [
+          335,
+          409,
+          396,
+          431
+        ],
+        "fixed_point": [
+          365,
+          422
+        ]
+      },
+      "maint_npc_interact_smile": {
+        "path": "assets/templates/maintenance_ui/npc_interact_smile.png",
+        "sha256": "d707c3722995ac337a36a7409e086126cf3333572a90345e5d328760d9757f45",
+        "bytes": 1727,
+        "box": [
+          1180,
+          860,
+          1226,
+          908
+        ],
+        "search": [
+          1176,
+          856,
+          1230,
+          912
+        ],
+        "threshold": 0.94,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "crop_native": [
+          1180,
+          860,
+          1226,
+          908
+        ],
+        "light_threshold": 200,
+        "glyph_threshold": 0.94
+      },
+      "maint_repair_shop_destination": {
+        "path": "assets/templates/maintenance_ui/repair_shop_destination.png",
+        "sha256": "00af52e07806960b84d672baa4d89f307188df4ec6d2aa086e048409d1ed8645",
+        "bytes": 2442,
+        "box": [
+          777,
+          700,
+          865,
+          734
+        ],
+        "search": [
+          740,
+          670,
+          1000,
+          780
+        ],
+        "threshold": 0.94,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "crop_native": [
+          777,
+          700,
+          865,
+          734
+        ]
+      },
+      "maint_ferghus_scene_name_selected": {
+        "path": "assets/templates/maintenance_ui/ferghus_scene_name_selected.png",
+        "sha256": "62c6aa412bc409d7d3bb3a3c01173ff90f51cc367c8a9907881588c3a9c13481",
+        "bytes": 2088,
+        "box": [
+          332,
+          374,
+          393,
+          396
+        ],
+        "search": [
+          80,
+          160,
+          1160,
+          780
+        ],
+        "threshold": 0.94,
+        "match_mode": "yellow_text",
+        "source": "release_catalog",
+        "crop_native": [
+          332,
+          374,
+          393,
+          396
+        ],
+        "control_box": [
+          332,
+          409,
+          393,
+          431
+        ],
+        "fixed_point": [
+          365,
+          422
+        ],
+        "glyph_threshold": 0.94
+      },
+      "maint_repair_not_needed": {
+        "path": "assets/templates/maintenance_ui/repair_not_needed.png",
+        "sha256": "dda03a3d734e26796d4cf323050ee68af61f41340e7f1030458d9b985d8ddede",
+        "bytes": 9185,
+        "box": [
+          299,
+          661,
+          479,
+          689
+        ],
+        "search": [
+          270,
+          640,
+          520,
+          710
+        ],
+        "threshold": 0.94,
+        "match_mode": "light_text",
+        "source": "release_catalog",
+        "source_window_to_client_crop": [
+          1,
+          31,
+          1281,
+          991
+        ],
+        "source_crop": [
+          300,
+          692,
+          480,
+          720
+        ],
+        "crop_native": [
+          299,
+          661,
+          479,
+          689
+        ]
+      },
+      "maint_repair_menu_disabled": {
+        "path": "assets/templates/maintenance_ui/repair_menu_disabled.png",
+        "sha256": "a3232158aaf72a44f9941f989ada43bb91c59a9d12c64bc45dc0b7a0b20b9fc3",
+        "bytes": 2053,
+        "box": [
+          285,
+          717,
+          335,
+          751
+        ],
+        "search": [
+          280,
+          712,
+          340,
+          756
+        ],
+        "threshold": 0.94,
+        "match_mode": "light_text",
+        "light_threshold": 160,
+        "source": "release_catalog",
+        "crop_native": [
+          285,
+          717,
+          335,
+          751
+        ],
+        "control_box": [
+          280,
+          717,
+          490,
+          751
+        ],
+        "fixed_point": [
+          400,
+          734
+        ]
+      },
+      "maint_dismount": {
+        "path": "assets/templates/maintenance_ui/maint_dismount.png",
+        "bytes": 1840,
+        "sha256": "49ec67937ce4a212030abe66c005bf90830bcff79e9046a0c3e3754c2e4091b3",
+        "source": "release_catalog",
+        "source_sha256": "7cb45311759c47afa561e2f0f67540e50838a87131d6a3762de3a0b1969d5bb5",
+        "crop_native": [
+          1102,
+          783,
+          1137,
+          816
+        ],
+        "scale": [
+          1,
+          1
+        ],
+        "coordinates_for_input": false,
+        "box": [
+          1102,
+          783,
+          1137,
+          816
+        ],
+        "search": [
+          1098,
+          779,
+          1141,
+          820
+        ],
+        "match_mode": "red_glyph",
+        "threshold": 0.94,
+        "glyph_threshold": 0.97,
+        "light_threshold": 200,
+        "control_box": [
+          1093,
+          773,
+          1147,
+          827
+        ]
+      },
+      "maint_ferghus_chat_name": {
+        "path": "assets/templates/maintenance_ui/maint_ferghus_chat_name.png",
+        "bytes": 2153,
+        "sha256": "ec4740e9faca758e2ee1866e1bbc93c072f15b8dbd4289e78f89b04536232e99",
+        "source": "release_catalog",
+        "source_sha256": "7cb45311759c47afa561e2f0f67540e50838a87131d6a3762de3a0b1969d5bb5",
+        "crop_native": [
+          42,
+          830,
+          116,
+          851
+        ],
+        "scale": [
+          1,
+          1
+        ],
+        "coordinates_for_input": false,
+        "box": [
+          42,
+          830,
+          116,
+          851
+        ],
+        "search": [
+          38,
+          826,
+          120,
+          855
+        ],
+        "match_mode": "bright_text",
+        "threshold": 0.94,
+        "glyph_threshold": 0.94,
+        "light_threshold": 200
+      },
+      "maint_hud_gold_coin": {
+        "path": "assets/templates/maintenance_ui/hud_gold_coin.png",
+        "sha256": "9b41e3beef5150b00f8bd8e4c18d65467ca951892b2759d1c82fee92357fc91f",
+        "bytes": 1086,
+        "box": [
+          984,
+          28,
+          1004,
+          49
+        ],
+        "search": [
+          900,
+          20,
+          1260,
+          54
+        ],
+        "threshold": 0.95,
+        "match_mode": "grayscale",
+        "source": "release_catalog",
+        "source_sha256": "2863dcca66daee0c2c0f17620915a8185e74ea20fdf0f36d472ad69660c8459e",
+        "crop_native": [
+          984,
+          28,
+          1004,
+          49
+        ]
+      },
+      "goto_processing_live_nav55": {
+        "path": "assets/templates/maintenance_ui/stable_glyphs/goto_processing_live_nav55.png",
+        "sha256": "d3460504474717381cdf57a2950c550f88970f0759a345d8e30c7eb6bdf666d8",
+        "bytes": 1757,
+        "box": [
+          953,
+          894,
+          1049,
+          914
+        ],
+        "search": [
+          934,
+          874,
+          1068,
+          933
+        ],
+        "threshold": 0.97,
+        "source": "release_catalog",
+        "source_sha256": "6924e5cbd95544a89b54313a706de48be39a6ce95a29cc3aae500e550edda426",
+        "source_size": [
+          1280,
+          960
+        ],
+        "crop_native": [
+          953,
+          894,
+          1049,
+          914
+        ],
+        "output_size": [
+          102,
+          27
+        ],
+        "scale": [
+          1,
+          1
+        ],
+        "coordinates_for_input": false,
+        "variant_for": "goto_processing",
+        "match_mode": "light_text",
+        "relative_contrast": true,
+        "glyph_threshold": 0.97,
+        "matching_notes": "Inner stable text glyph crop; local contrast rejects animated/transparent button background. Existing fixed/control point retained. Old asset retained with audit hash."
+      },
+      "maint_tools_no_repair": {
+        "path": "assets/templates/maintenance_ui/repair_tools_disabled.png",
+        "sha256": "f2d7778835691e6f9b85939b04d830c8d9206bfcf4e6f296ab4fc2f708186a0b",
+        "bytes": 2825,
+        "box": [
+          327,
+          842,
+          416,
+          867
+        ],
+        "search": [
+          320,
+          835,
+          425,
+          875
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "relative_contrast": true,
+        "glyph_threshold": 0.97
+      },
+      "maint_tools_enabled": {
+        "path": "assets/templates/maintenance_ui/repair_tools_enabled.png",
+        "sha256": "7e11b769e6c6467b93cfa6509705b430410031f8ef4d25c944f2be47d4e46a70",
+        "bytes": 2082,
+        "box": [
+          327,
+          842,
+          416,
+          867
+        ],
+        "search": [
+          320,
+          835,
+          425,
+          875
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "relative_contrast": true,
+        "glyph_threshold": 0.97,
+        "source": "tests/fixtures/screen_ui/repair-controls-enabled.png",
+        "crop_native": [
+          327,
+          842,
+          416,
+          867
+        ],
+        "source_origin_native": [
+          280,
+          824
+        ],
+        "matching_notes": "Enabled tools label only; brightness is separately checked to distinguish no-repair state."
+      },
+      "currency_title": {
+        "path": "assets/templates/screen_ui/currency_title.png",
+        "sha256": "309d32390de3452daa4c3646213aee3a7fbdf4303b9dc4174fda95c554576675",
+        "bytes": 9229,
+        "box": [
+          22,
+          24,
+          164,
+          55
+        ],
+        "search": [
+          22,
+          24,
+          164,
+          55
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "light_threshold": 160,
+        "source": "tests/fixtures/production/currency-current.jpg",
+        "crop_native": [
+          22,
+          24,
+          164,
+          55
+        ]
+      }
+    },
+    "pages": {
+      "bag": {
+        "targets": {
+          "bag.tidy_open": "maint_tidy_open",
+          "bag.auto_equip": "maint_auto_equip"
+        },
+        "coordinate_targets": {
+          "bag.tools": [
+            838,
+            858,
+            892,
+            936
+          ]
+        }
+      },
+      "tidy": {
+        "anchors": [
+          "maint_tidy_title",
+          "maint_tidy_weight_label"
+        ],
+        "targets": {
+          "tidy.bold": "maint_bold_label",
+          "tidy.materials": "maint_materials_label",
+          "tidy.prepare": "maint_tidy_prepare",
+          "tidy.cancel": "maint_tidy_cancel"
+        }
+      },
+      "tidy_confirm": {
+        "anchors": [
+          "maint_tidy_confirm_title",
+          "maint_tidy_confirm_action"
+        ],
+        "targets": {
+          "tidy.confirm": "maint_tidy_confirm_action",
+          "tidy.back": "maint_tidy_confirm_back"
+        }
+      },
+      "tidy_result": {
+        "anchors": [
+          "maint_tidy_done"
+        ],
+        "coordinate_targets": {
+          "completion.confirm": [
+            600,
+            880,
+            680,
+            925
+          ]
+        }
+      },
+      "scene": {
+        "fixed_targets": {
+          "scene.open_bag": [
+            1063,
+            883,
+            1103,
+            917
+          ],
+          "scene.open_skills": [
+            960,
+            880,
+            1000,
+            914
+          ],
+          "character.open": [
+            12,
+            18,
+            31,
+            39
+          ],
+          "scene.open_map": [
+            1244,
+            129,
+            1261,
+            146
+          ]
+        },
+        "targets": {
+          "scene.open_map": "maint_scene_map",
+          "repair.talk": "maint_ferghus_scene_name",
+          "repair.interact": "maint_npc_interact_smile",
+          "scene.dismount": "maint_dismount",
+          "repair.nearby": "maint_ferghus_chat_name"
+        }
+      },
+      "region_map": {
+        "anchors": [
+          "maint_map_close",
+          "maint_region_world"
+        ],
+        "targets": {
+          "map.recenter": "maint_map_recenter",
+          "map.current_is_tir": "maint_tir_region_header",
+          "map.tir_town": "maint_tir_town",
+          "map.blacksmith": "maint_map_blacksmith",
+          "map.repair_npc": "maint_ferghus_portrait",
+          "map.general_store": "purchase.map_store_label",
+          "map.shop_npc": "purchase.map_portrait"
+        },
+        "surfaces": {
+          "map.canvas": [
+            200,
+            150,
+            1050,
+            780
+          ]
+        },
+        "coordinate_targets": {
+          "map.current_region": [
+            200,
+            25,
+            290,
+            54
+          ],
+          "map.world": [
+            40,
+            25,
+            135,
+            54
+          ],
+          "map.close": [
+            1220,
+            20,
+            1260,
+            58
+          ]
+        }
+      },
+      "repair_travel": {
+        "anchors": [
+          "maint_ferghus_name",
+          "maint_map_close"
+        ],
+        "targets": {},
+        "coordinate_targets": {
+          "repair.travel": [
+            900,
+            870,
+            1100,
+            930
+          ],
+          "map.close": [
+            1220,
+            20,
+            1260,
+            58
+          ]
+        },
+        "covers_pages": [
+          "region_map"
+        ]
+      },
+      "repair_dialog": {
+        "anchors": [
+          "maint_dialog_end",
+          "maint_dialog_shop",
+          "maint_repair_menu"
+        ],
+        "targets": {
+          "repair.open": "maint_repair_menu",
+          "dialog.end": "maint_dialog_end",
+          "repair.not_needed": "maint_repair_not_needed"
+        }
+      },
+      "repair_equipment": {
+        "anchors": [
+          "maint_repair_title",
+          "maint_repair_items"
+        ],
+        "targets": {
+          "repair.tools_status": "maint_tools_no_repair"
+        },
+        "coordinate_targets": {
+          "repair.prepare": [
+            485,
+            900,
+            565,
+            925
+          ],
+          "repair.close": [
+            1222,
+            20,
+            1264,
+            65
+          ]
+        }
+      },
+      "repair_quote": {
+        "anchors": [
+          "maint_repair_quote_title",
+          "maint_repair_confirm"
+        ],
+        "targets": {
+          "repair.confirm": "maint_repair_confirm",
+          "repair.gold": "maint_repair_gold",
+          "repair.back": "maint_repair_back"
+        }
+      },
+      "repair_tools": {
+        "anchors": [
+          "maint_tools_selected",
+          "maint_auto_equip"
+        ],
+        "covers_pages": [
+          "bag"
+        ],
+        "targets": {
+          "bag.auto_equip": "maint_auto_equip",
+          "bag.close": "bag_close",
+          "bag.open_items": "gathering_bag_items_tab"
+        }
+      },
+      "repair_shop_travel": {
+        "anchors": [
+          "maint_repair_shop_destination",
+          "maint_npc_goto"
+        ],
+        "targets": {
+          "repair.shop_travel": "maint_npc_goto"
+        },
+        "coordinate_targets": {
+          "map.close": [
+            1228,
+            22,
+            1262,
+            56
+          ]
+        },
+        "covers_pages": [
+          "region_map"
+        ]
+      },
+      "npc_dialogue": {
+        "anchors": [
+          "maint_repair_skip"
+        ],
+        "targets": {
+          "dialog.skip": "maint_repair_skip",
+          "dialog.advance": "maint_repair_skip"
+        }
+      },
+      "currency": {
+        "anchors": [
+          "currency_title"
+        ],
+        "coordinate_targets": {
+          "page.close": [
+            1222,
+            16,
+            1264,
+            61
+          ]
+        }
+      }
+    },
+    "priority_pages": [
+      "repair_shop_travel",
+      "repair_travel",
+      "region_map",
+      "repair_tools"
+    ],
+    "anchor_variants": {
+      "purchase.dialog_name": [
+        "purchase.dialog_name_native"
+      ],
+      "purchase.map_portrait": [
+        "purchase.map_portrait_player_lowerface"
+      ],
+      "maint_tir_region_header": [
+        "maint_tir_world_header"
+      ],
+      "purchase.map_store_label": [
+        "purchase.map_store_label_min"
+      ],
+      "maint_ferghus_portrait": [
+        "maint_ferghus_portrait_subpixel"
+      ],
+      "maint_ferghus_face_core": [
+        "maint_ferghus_portrait_subpixel"
+      ],
+      "maint_repair_menu": [
+        "maint_repair_menu_done",
+        "maint_repair_menu_disabled"
+      ],
+      "maint_tir_town": [
+        "maint_tir_town_min"
+      ],
+      "maint_map_blacksmith": [
+        "maint_map_blacksmith_min"
+      ],
+      "maint_region_world": [
+        "maint_region_world_icon_hover"
+      ],
+      "maint_ferghus_scene_name": [
+        "maint_ferghus_scene_name_selected"
+      ],
+      "maint_tools_no_repair": [
+        "maint_tools_enabled"
+      ]
+    }
+  },
+  "maintenance": {
+    "enabled": true,
+    "weight": {
+      "item_id": 1,
+      "scope": "backpack_weight_hundredths",
+      "region": [
+        1027,
+        801,
+        1138,
+        832
+      ],
+      "format": "fixed_ratio",
+      "scale": 100,
+      "min_confidence": 0.75,
+      "thresholds": [
+        100,
+        130
+      ],
+      "reading_mode": "original_color"
+    },
+    "gold": {
+      "item_id": 1,
+      "scope": "gold",
+      "region": [
+        950,
+        20,
+        1098,
+        50
+      ],
+      "format": "grouped_integer",
+      "min_confidence": 0.75,
+      "after_anchor": "maint_hud_gold_coin"
+    },
+    "tidy": {
+      "bold_region": [
+        418,
+        432,
+        463,
+        458
+      ],
+      "materials_region": [
+        645,
+        480,
+        859,
+        598
+      ],
+      "count": {
+        "region": [
+          680,
+          850,
+          781,
+          880
+        ],
+        "min_confidence": 0.75,
+        "prefix": "整理",
+        "suffix": "個"
+      }
+    },
+    "navigation": {
+      "repair_quote": {
+        "scene": {
+          "start": "locate",
+          "stages": {
+            "locate": {
+              "choices": [
+                {
+                  "target": "scene.dismount",
+                  "requires": [
+                    "repair.nearby"
+                  ],
+                  "settle_s": 3
+                },
+                {
+                  "target": "scene.dismount",
+                  "requires": [
+                    "repair.talk"
+                  ],
+                  "settle_s": 3
+                },
+                {
+                  "target": "repair.talk",
+                  "next": "interact",
+                  "settle_s": 2
+                },
+                {
+                  "target": "scene.open_map"
+                }
+              ]
+            },
+            "interact": {
+              "choices": [
+                {
+                  "target": "repair.interact",
+                  "wait_for_pages": [
+                    "repair_dialog",
+                    "npc_dialogue",
+                    "repair_equipment",
+                    "repair_quote"
+                  ],
+                  "timeout_s": 30
+                }
+              ]
+            }
+          }
+        },
+        "repair_travel": {
+          "target": "repair.travel",
+          "wait_for_pages": [
+            "repair_dialog",
+            "npc_dialogue",
+            "repair_equipment",
+            "repair_quote"
+          ],
+          "timeout_s": 120
+        },
+        "repair_dialog": {
+          "target": "repair.open"
+        },
+        "repair_equipment": {
+          "target": "repair.prepare"
+        },
+        "repair_shop_travel": {
+          "target": "map.close"
+        },
+        "repair_quote": {
+          "target": "repair.back",
+          "wait_for_pages": [
+            "repair_equipment"
+          ]
+        },
+        "npc_dialogue": {
+          "target": "dialog.advance"
+        }
+      },
+      "backpack_tidy": {
+        "scene": {
+          "target": "scene.open_bag"
+        },
+        "repair_tools": {
+          "target": "bag.open_items"
+        },
+        "bag": {
+          "target": "bag.tidy_open"
+        },
+        "tidy_confirm": {
+          "target": "tidy.back"
+        }
+      },
+      "backpack_weight": {
+        "tidy": {
+          "target": "tidy.cancel"
+        },
+        "tidy_confirm": {
+          "target": "tidy.back"
+        },
+        "scene": {
+          "target": "scene.open_bag"
+        },
+        "tidy_result": {
+          "target": "completion.confirm"
+        },
+        "repair_result": {
+          "target": "dialog.skip"
+        },
+        "repair_dialog": {
+          "target": "dialog.end"
+        },
+        "repair_tools": {
+          "target": "bag.open_items"
+        },
+        "npc_dialogue": {
+          "target": "dialog.advance"
+        }
+      },
+      "repair_tools": {
+        "repair_result": {
+          "target": "dialog.skip"
+        },
+        "repair_dialog": {
+          "target": "dialog.end"
+        },
+        "scene": {
+          "target": "scene.open_bag"
+        },
+        "bag": {
+          "target": "bag.tools"
+        },
+        "repair_equipment": {
+          "target": "repair.close",
+          "wait_for_pages": [
+            "repair_dialog",
+            "npc_dialogue",
+            "scene"
+          ]
+        },
+        "npc_dialogue": {
+          "target": "dialog.advance"
+        }
+      }
+    },
+    "capabilities": {
+      "backpack": true,
+      "repair": true
+    },
+    "repair": {
+      "preview_quote": {
+        "item_id": 1,
+        "scope": "repair_preview_gold",
+        "region": [
+          454,
+          900,
+          518,
+          925
+        ],
+        "format": "grouped_integer",
+        "min_confidence": 0.9,
+        "thresholds": [
+          165,
+          185
+        ]
+      },
+      "quote": {
+        "item_id": 1,
+        "scope": "repair_quote_gold",
+        "between_anchors": [
+          "maint_repair_gold",
+          "maint_repair_confirm"
+        ],
+        "thresholds": [
+          165,
+          185
+        ],
+        "region": [
+          613,
+          889,
+          641,
+          918
+        ],
+        "format": "grouped_integer",
+        "min_confidence": 0.75
+      },
+      "equipped_tool_slots": [
+        [
+          85,
+          245,
+          139,
+          299
+        ],
+        [
+          155,
+          245,
+          209,
+          299
+        ],
+        [
+          85,
+          315,
+          139,
+          369
+        ],
+        [
+          155,
+          315,
+          209,
+          369
+        ],
+        [
+          85,
+          385,
+          139,
+          439
+        ],
+        [
+          155,
+          385,
+          209,
+          439
+        ],
+        [
+          85,
+          455,
+          139,
+          509
+        ],
+        [
+          155,
+          455,
+          209,
+          509
+        ]
+      ],
+      "minimum_equipped_tools": 1,
+      "tools_label_region": [
+        327,
+        842,
+        416,
+        867
+      ]
+    },
+    "gold_by_page": {
+      "repair_quote": {
+        "item_id": 1,
+        "scope": "gold",
+        "region": [
+          1080,
+          21,
+          1247,
+          52
+        ],
+        "format": "grouped_integer",
+        "min_confidence": 0.75,
+        "thresholds": [
+          150,
+          180
+        ],
+        "after_anchor": "maint_hud_gold_coin"
+      },
+      "repair_equipment": {
+        "item_id": 1,
+        "scope": "gold",
+        "region": [
+          1080,
+          21,
+          1198,
+          52
+        ],
+        "format": "grouped_integer",
+        "min_confidence": 0.75,
+        "after_anchor": "maint_hud_gold_coin"
+      }
+    },
+    "exit_navigation": {
+      "bag": {
+        "target": "bag.close",
+        "expected_page": "scene"
+      },
+      "bag_search": {
+        "target": "bag.close",
+        "expected_page": "bag"
+      },
+      "region_map": {
+        "target": "map.close",
+        "expected_page": "scene"
+      },
+      "repair_travel": {
+        "target": "map.close",
+        "expected_page": "scene"
+      },
+      "repair_quote": {
+        "target": "repair.back",
+        "expected_page": "repair_equipment"
+      },
+      "repair_equipment": {
+        "target": "repair.close",
+        "expected_page": "repair_dialog"
+      },
+      "repair_dialog": {
+        "target": "dialog.end",
+        "expected_page": "npc_dialogue"
+      },
+      "repair_result": {
+        "target": "dialog.skip",
+        "expected_page": "repair_dialog"
+      },
+      "tidy": {
+        "target": "tidy.cancel",
+        "expected_page": "bag"
+      },
+      "tidy_confirm": {
+        "target": "tidy.back",
+        "expected_page": "tidy"
+      },
+      "tidy_result": {
+        "target": "completion.confirm",
+        "expected_page": "bag"
+      },
+      "repair_tools": {
+        "target": "bag.close",
+        "expected_page": "scene"
+      },
+      "npc_dialogue": {
+        "target": "dialog.advance"
+      },
+      "currency": {
+        "target": "page.close",
+        "settle_s": 0.8
+      }
+    },
+    "map_navigation": {
+      "start": "locate",
+      "stages": {
+        "locate": {
+          "choices": [
+            {
+              "target": "$shop",
+              "kind": "drag",
+              "destination": [
+                625,
+                450
+              ],
+              "next": "zoom",
+              "settle_s": 0.35
+            },
+            {
+              "target": "map.tir_town",
+              "next": "local"
+            },
+            {
+              "target": "map.world",
+              "next": "world",
+              "search_only": true
+            }
+          ],
+          "search": [
+            {
+              "target": "map.canvas",
+              "kind": "scroll",
+              "steps": -12,
+              "settle_s": 0.35,
+              "next": "world"
+            }
+          ]
+        },
+        "world": {
+          "choices": [
+            {
+              "target": "map.current_region",
+              "requires": [
+                "map.current_is_tir"
+              ],
+              "search_only": true,
+              "next": "local"
+            },
+            {
+              "target": "map.tir_town",
+              "next": "local"
+            }
+          ],
+          "search": [
+            {
+              "target": "map.canvas",
+              "kind": "scroll",
+              "steps": -12,
+              "settle_s": 0.35,
+              "search_only": true
+            },
+            {
+              "target": "map.canvas",
+              "kind": "drag",
+              "destination": [
+                180,
+                150
+              ],
+              "settle_s": 0.35,
+              "search_only": true
+            },
+            {
+              "target": "map.canvas",
+              "kind": "drag",
+              "destination": [
+                180,
+                150
+              ],
+              "settle_s": 0.35,
+              "search_only": true
+            },
+            {
+              "target": "map.canvas",
+              "kind": "drag",
+              "destination": [
+                180,
+                150
+              ],
+              "settle_s": 0.35,
+              "search_only": true
+            }
+          ]
+        },
+        "local": {
+          "choices": [
+            {
+              "target": "$shop",
+              "kind": "drag",
+              "destination": [
+                625,
+                450
+              ],
+              "next": "zoom",
+              "settle_s": 0.35
+            },
+            {
+              "target": "map.recenter",
+              "next": "local_wide",
+              "search_only": true
+            }
+          ],
+          "search": [
+            {
+              "target": "map.canvas",
+              "kind": "scroll",
+              "steps": -12,
+              "settle_s": 0.4,
+              "next": "local_wide",
+              "search_only": true
+            }
+          ]
+        },
+        "zoom": {
+          "search": [
+            {
+              "target": "map.canvas",
+              "kind": "zoom_max",
+              "next": "portrait",
+              "settle_s": 0.4
+            }
+          ]
+        },
+        "portrait": {
+          "choices": [
+            {
+              "target": "$npc",
+              "kind": "right",
+              "wait_for_pages": [
+                "$travel"
+              ],
+              "timeout_s": 8
+            }
+          ]
+        },
+        "local_wide": {
+          "choices": [
+            {
+              "target": "$shop",
+              "kind": "drag",
+              "destination": [
+                625,
+                450
+              ],
+              "next": "zoom",
+              "settle_s": 0.35
+            }
+          ],
+          "search": [
+            {
+              "target": "map.canvas",
+              "kind": "scroll",
+              "steps": -12,
+              "settle_s": 0.4,
+              "search_only": true
+            },
+            {
+              "target": "map.canvas",
+              "kind": "zoom_max",
+              "next": "portrait",
+              "settle_s": 0.4
+            }
+          ]
+        }
+      }
+    }
+  }
+}

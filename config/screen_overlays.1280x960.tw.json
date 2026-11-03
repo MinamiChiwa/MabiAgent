@@ -1,0 +1,106 @@
+{
+  "client_size": [
+    1280,
+    960
+  ],
+  "dpi": 96,
+  "templates": {
+    "production_complete": {
+      "path": "assets/templates/screen_ui/1280x960/production_complete.png",
+      "box": [
+        540,
+        180,
+        740,
+        235
+      ],
+      "search": [
+        532,
+        172,
+        748,
+        243
+      ],
+      "match_mode": "light_text",
+      "threshold": 0.97,
+      "sha256": "4bc9f741e002c353cb15ecc0da006ab2ccd0b7ee913b81ad01a42ca805479f61",
+      "source": "release_catalog",
+      "source_sha256": "8723bcde13fdcec480e14bd494f38056d8e859fd57144bf01e9d98055ec8ca1f",
+      "crop_native": [
+        540,
+        180,
+        740,
+        235
+      ],
+      "scale": [
+        1,
+        1
+      ],
+      "coordinates_for_input": false,
+      "relative_contrast": true
+    },
+    "confirm": {
+      "path": "assets/templates/screen_ui/1280x960/confirm.png",
+      "box": [
+        600,
+        880,
+        680,
+        925
+      ],
+      "search": [
+        592,
+        872,
+        688,
+        933
+      ],
+      "match_mode": "light_text",
+      "threshold": 0.97,
+      "sha256": "efb681ef5fa53d41bd85a6f1dcffbe7a9826edd428cf9242e5a2184c12a6eb6a",
+      "source": "release_catalog",
+      "source_sha256": "8723bcde13fdcec480e14bd494f38056d8e859fd57144bf01e9d98055ec8ca1f",
+      "crop_native": [
+        600,
+        880,
+        680,
+        925
+      ],
+      "scale": [
+        1,
+        1
+      ],
+      "coordinates_for_input": false
+    },
+    "backpack_full_toast": {
+      "path": "assets/templates/screen_ui/runtime_hud/backpack_full_toast.png",
+      "box": [
+        540,
+        50,
+        790,
+        82
+      ],
+      "search": [
+        480,
+        20,
+        850,
+        110
+      ],
+      "threshold": 0.97,
+      "glyph_threshold": 0.97,
+      "match_mode": "light_text",
+      "relative_contrast": true,
+      "bytes": 4556,
+      "sha256": "fb89344f9190e4840282aeda202741ab17f8b4a8694b06f43daf824778f39e3c",
+      "source": "release_catalog",
+      "source_sha256": "74dac23fd439e6529b0490b8ee92331b85b85029ff181d4736a89522220cc4d4",
+      "crop_native": [
+        540,
+        50,
+        790,
+        82
+      ],
+      "scale": [
+        1,
+        1
+      ],
+      "coordinates_for_input": false
+    }
+  }
+}
