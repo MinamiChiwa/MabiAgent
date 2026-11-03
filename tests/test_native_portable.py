@@ -70,6 +70,7 @@ class NativePortableTests(unittest.TestCase):
         (self.root/'dotnet').mkdir()
         for name in ('global.json','Directory.Build.props'):
             (self.root/'dotnet'/name).write_text('{}',encoding='utf-8')
+        (self.root/'dotnet/Directory.Build.props').write_text('<Project><PropertyGroup><Version>0.5.1</Version></PropertyGroup></Project>',encoding='utf-8')
         for project in NATIVE.PROJECTS:
             folder=self.root/'dotnet'/project
             folder.mkdir()
@@ -297,6 +298,7 @@ class NativePortableTests(unittest.TestCase):
         self.assertIn('--no-restore',publish)
         self.assertEqual('true',publish[publish.index('--self-contained')+1])
         self.assertEqual('win-x64',publish[publish.index('-r')+1])
+        self.assertIn('MabiAgent 0.5.1',(destination/'使用说明.txt').read_text(encoding='utf-8-sig'))
         self.assertFalse((destination/'data').exists())
         self.assertFalse((self.root/'dist/current-release.txt').exists())
         self.assertEqual(b'keep',(self.root/'data/user.json').read_bytes())

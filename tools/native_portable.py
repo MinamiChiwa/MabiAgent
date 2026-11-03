@@ -476,7 +476,8 @@ def finish_native(root, destination, plan):
             shutil.copy2(source,target)
     docs=destination/'docs';docs.mkdir(exist_ok=True)
     (destination/'Start-MabiAgent.cmd').write_text(package_launcher(), encoding='utf-8')
-    (destination/'使用说明.txt').write_text('MabiAgent 0.5.0（原生 Windows x64）\n\n本工具仅用于技术研究和功能测试，与游戏官方无关。使用自动化工具可能导致账号被处罚，风险由使用者自行承担。禁止任何商业用途，许可见 docs/LICENSE.txt。\n\n双击 MabiAgent.exe（也可用 Start-MabiAgent.cmd）；无需 Python、Node、WebView2 或另外安装 .NET。\n安装文件与 data 分开；更新时使用明确的 --state-dir 指向已有用户目录，不能同时运行两版。\n启动不会操作游戏。选择游戏窗口后显式开始；默认后台触控及中心偏移，可在全局设置切换前台鼠标。前台鼠标失焦暂停；最小化暂停，手动暂停须显式继续。切换后请重新开始。\nNpcap 是独立系统依赖，本包不安装或分发驱动；缺少抓包不把未知库存当零。\napp 为运行依赖，config/assets/models 为资源，docs 为用户指南/开发指南/许可/自检，data 为用户数据。\n当前功能与限制见 docs/用户指南.md。离线自检不代表游戏实机验收。\n',encoding='utf-8-sig')
+    version=ET.parse(root/'dotnet/Directory.Build.props').findtext('.//Version') or '0.0.0'
+    (destination/'使用说明.txt').write_text(f'MabiAgent {version}（原生 Windows x64）\n\n本工具仅用于技术研究和功能测试，与游戏官方无关。使用自动化工具可能导致账号被处罚，风险由使用者自行承担。禁止任何商业用途，许可见 docs/LICENSE.txt。\n\n双击 MabiAgent.exe（也可用 Start-MabiAgent.cmd）；无需 Python、Node、WebView2 或另外安装 .NET。\n安装文件与 data 分开；更新时使用明确的 --state-dir 指向已有用户目录，不能同时运行两版。\n启动不会操作游戏。选择游戏窗口后显式开始；默认后台触控及中心偏移，可在全局设置切换前台鼠标。前台鼠标失焦暂停；最小化暂停，手动暂停须显式继续。切换后请重新开始。\nNpcap 是独立系统依赖，本包不安装或分发驱动；缺少抓包不把未知库存当零。\napp 为运行依赖，config/assets/models 为资源，docs 为用户指南/开发指南/许可/自检，data 为用户数据。\n当前功能与限制见 docs/用户指南.md。离线自检不代表游戏实机验收。\n',encoding='utf-8-sig')
     (docs/'THIRD-PARTY-NOTICES.json').write_text(json.dumps(dict(packages=plan['packages'], npcap='Npcap 系统驱动单独安装，不随包分发；安装和使用须遵守其许可。', model='见 licenses/ocr-model.LICENSE；仅包含识别模型。'), ensure_ascii=False, indent=2), encoding='utf-8')
     # Isolated UI-only check: never starts capture, game input, or player data.
     with tempfile.TemporaryDirectory(prefix='mabi-native-check-') as state:

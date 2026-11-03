@@ -1,4 +1,4 @@
-<u:UrsaWindow xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:u="https://irihi.tech/ursa" xmlns:local="clr-namespace:MabiAgent.Desktop" xmlns:accounts="clr-namespace:MabiAgent.Desktop.Accounts" xmlns:ui="clr-namespace:MabiAgent.Desktop.Controls" x:Class="MabiAgent.Desktop.MainWindow" Title="MabiAgent 0.5.0" Width="1340" Height="920" MinWidth="860" MinHeight="560" ExtendClientAreaToDecorationsHint="True" KeyDown="HandleKeys">
+<u:UrsaWindow xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:u="https://irihi.tech/ursa" xmlns:local="clr-namespace:MabiAgent.Desktop" xmlns:accounts="clr-namespace:MabiAgent.Desktop.Accounts" xmlns:ui="clr-namespace:MabiAgent.Desktop.Controls" x:Class="MabiAgent.Desktop.MainWindow" Title="{x:Static local:ProductInfo.Title}" Width="1340" Height="920" MinWidth="860" MinHeight="560" ExtendClientAreaToDecorationsHint="True" KeyDown="HandleKeys">
  <u:UrsaWindow.Resources>
   <DataTemplate x:Key="CaptureFactTemplate"><Grid ColumnDefinitions="104,*" Margin="0,3"><TextBlock Text="{Binding Label}" Classes="caption" VerticalAlignment="Top" Margin="0,1,0,0"/><TextBlock Grid.Column="1" Text="{Binding Value}" TextWrapping="Wrap" Classes.status-success="{Binding Good}" Classes.status-warning="{Binding Warning}"/></Grid></DataTemplate>
  </u:UrsaWindow.Resources>
@@ -8,7 +8,7 @@
    <DockPanel>
     <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="10" Margin="6,2,0,24" Background="Transparent" WindowDecorationProperties.ElementRole="TitleBar">
      <Border x:Name="BrandMark" Classes="brand-mark"><ui:Icon Kind="logo" Width="18" Height="18"/></Border>
-     <TextBlock x:Name="AppName" Text="MabiAgent 0.5.0" FontSize="15" FontWeight="SemiBold"/>
+     <TextBlock x:Name="AppName" Text="{x:Static local:ProductInfo.Title}" FontSize="15" FontWeight="SemiBold"/>
     </StackPanel>
     <StackPanel DockPanel.Dock="Bottom" Spacing="4" Margin="0,16,0,0">
      <Button Classes="side" Content="GitHub 仓库" ui:UiIcon.Kind="github" Click="OpenRepository" ToolTip.Tip="在浏览器打开项目主页"/>

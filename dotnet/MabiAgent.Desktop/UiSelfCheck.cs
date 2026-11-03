@@ -54,6 +54,7 @@ internal static class UiSelfCheck
         {
             await vm.RefreshAsync();Check(vm.Error is null,"读取空状态不落盘");
             Check(!Directory.Exists(directory),"读取不创建用户文件");
+            passed.AddRange(await StartupNoticeSelfCheck.Run());
             var refreshWorkspace=new Workspace(root,Path.Combine(directory,"refresh-pause-check"));
             await using(var refreshService=new AutomationService(refreshWorkspace,new GameWindowSelection(()=>[])))
             {
@@ -189,8 +190,8 @@ internal static class UiSelfCheck
             w.EditQueue(q=>q.Add("auto-material:self-check","gathering",gathering.ItemId,10,gathering.Id,[]));await vm.RefreshLiveQueueAsync();
             vm.Search="";vm.SelectedPage=0;previewWindow.Show();await Task.Delay(80);previewWindow.UpdateLayout();
             passed.AddRange(await CheckSearchablePickers(previewWindow,vm));
-            Check(previewWindow.Title=="MabiAgent 0.5.0","标题包含产品名及版本");
-            Check(previewWindow.FindControl<TextBlock>("AppName")!.Text=="MabiAgent 0.5.0","侧栏响应式布局保持产品名及版本");
+            Check(previewWindow.Title=="MabiAgent 0.5.1","标题包含产品名及版本");
+            Check(previewWindow.FindControl<TextBlock>("AppName")!.Text=="MabiAgent 0.5.1","侧栏响应式布局保持产品名及版本");
             var newVip=previewWindow.FindControl<ToggleSwitch>("NewTaskVip")!;
             var settingsVip=previewWindow.FindControl<SettingsPanel>("SettingsPage")!.FindControl<ToggleSwitch>("MaintenanceVip")!;
             Check(!vm.LifeVip,"生活VIP默认关闭");

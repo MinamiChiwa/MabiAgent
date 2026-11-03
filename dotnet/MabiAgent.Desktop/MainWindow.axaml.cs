@@ -28,7 +28,7 @@ public partial class MainWindow:UrsaWindow
         ShellLayout.ColumnDefinitions[0].Width=new GridLength(compact?148:212);
         Sidebar.Padding=new Thickness(compact?10:14,compact?16:20);
         BrandMark.IsVisible=!compact;
-        AppName.Text="MabiAgent 0.5.0";
+        AppName.Text=ProductInfo.Title;
         AppName.FontSize=compact?14:15;
         ContentLayout.Margin=new Thickness(compact?16:24,0,compact?16:24,12);
         AddGoalCard.MaxHeight=Math.Max(180,size.Height-80);

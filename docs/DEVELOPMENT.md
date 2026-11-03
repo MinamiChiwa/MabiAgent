@@ -133,7 +133,7 @@ python -B tools/build_portable.py --export-clean dist/MabiAgent-clean.zip
 
 打包脚本会复制运行资源和许可文件、执行离线自检、生成带 SHA256 的 `release-manifest.json`。发布包里不能带调试队列、账号记录或未处理的消费记录。
 
-版本号只在 `dotnet/Directory.Build.props` 里改，窗口标题和打包说明会跟着同步。0.5.0 之后按补丁位递增（0.5.1、0.5.2……）。发布前至少完成：编译、上面列出的测试、UI 自检、清单校验和空数据目录启动检查。
+程序版本源为 `dotnet/Directory.Build.props`；窗口从程序集读取版本，打包说明读取同一版本字段，README 中的当前版本需同步更新。0.5.0 之后按补丁位递增（0.5.1、0.5.2……）。发布前至少完成：编译、上面列出的测试、UI 自检、清单校验和空数据目录启动检查。
 
 ## 磁盘占用
 
@@ -156,3 +156,5 @@ python -B tools/build_portable.py --export-clean dist/MabiAgent-clean.zip
 - 不要提交个人数据、日志、现场截图、抓包文件、发布产物和本地工具配置。`.gitignore` 已经排除了常见的情况，提交前仍请自己检查一遍。
 - `.gitignore` 不能清除已经进入历史的文件。一旦误提交了个人数据，需要重写历史，而不是再提交一次删除。
 - 第三方依赖按各自许可使用，不要把依赖的许可当成本项目的许可。OCR 模型的来源和哈希记录在 `models/ocr-model.source.json`。
+
+首次须知复用 NpcapPacketSource 的原生库加载与网卡枚举做只读依赖探测，不打开抓包句柄、不请求提权。仅不可用时创建安装说明及官网下载按钮，浏览器只在点击时打开。须知确认记录仍兼容已有 version=1；确认后不重复探测或弹窗。
