@@ -18,8 +18,8 @@
         <Button Content="删除所选" Command="{Binding DeleteSelectedCommand}" ui:UiIcon.Kind="trash" Classes="danger"/>
       </WrapPanel>
     </Border>
-    <Border x:Name="ManualCard" Grid.Row="2" Classes="card flush section-queue" MinHeight="200" MaxHeight="520">
-      <Grid>
+    <Border x:Name="ManualCard" Grid.Row="2" Classes="card flush section-queue" VerticalAlignment="Top" MaxHeight="520">
+      <Grid RowDefinitions="Auto,Auto">
         <DataGrid x:Name="ManualGrid" ItemsSource="{Binding QueueView}" SelectionChanged="SelectQueueRow" ClipboardCopyMode="IncludeHeader" AutomationProperties.Name="用户任务队列" AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Extended">
           <DataGrid.Columns>
             <DataGridTemplateColumn Header="顺序" SortMemberPath="Order" Width="Auto"><DataGridTemplateColumn.CellTemplate><DataTemplate><StackPanel Classes="queue-drag-handle" Orientation="Horizontal" Spacing="6" Background="Transparent" Margin="8,0" VerticalAlignment="Stretch" Cursor="SizeAll" ToolTip.Tip="按住拖动调整顺序"><ui:Icon Kind="grip" Width="12" Height="12" Opacity="0.55"/><TextBlock Classes="caption" Text="{Binding Order}" VerticalAlignment="Center"/></StackPanel></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
@@ -38,11 +38,12 @@
             </DataGridTemplateColumn>
           </DataGrid.Columns>
         </DataGrid>
-        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8" Margin="24,48,24,24" IsHitTestVisible="False" IsVisible="{Binding QueueView.IsEmpty}">
-          <Border Classes="icon-tile" HorizontalAlignment="Center"><ui:Icon Kind="inbox" Width="18" Height="18"/></Border>
-          <TextBlock Text="暂无任务" Classes="heading" HorizontalAlignment="Center"/>
-          <TextBlock Text="点击“新增目标”添加生产、采集或钓鱼任务" Classes="muted" TextAlignment="Center" HorizontalAlignment="Center"/>
-        </StackPanel>
+        <!-- Empty queue: one compact row with the direct action instead of a tall blank panel -->
+        <Grid x:Name="QueueEmpty" Grid.Row="1" ColumnDefinitions="Auto,*,Auto" Margin="16,14" IsVisible="{Binding QueueView.IsEmpty}">
+          <Border Classes="icon-tile"><ui:Icon Kind="inbox" Width="18" Height="18"/></Border>
+          <StackPanel Grid.Column="1" Spacing="2" Margin="12,0" VerticalAlignment="Center"><TextBlock Text="暂无任务" FontWeight="SemiBold"/><TextBlock Text="添加生产、采集或钓鱼任务后即可开始。" Classes="caption" TextWrapping="Wrap"/></StackPanel>
+          <Button Grid.Column="2" Content="新增目标" ui:UiIcon.Kind="add" Command="{Binding OpenAddCommand}"/>
+        </Grid>
       </Grid>
     </Border>
     <Expander Grid.Row="3" IsExpanded="False" Margin="0,12,0,0" IsVisible="{Binding HasAutomaticTasks}">

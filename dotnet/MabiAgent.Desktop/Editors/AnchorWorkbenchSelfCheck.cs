@@ -60,6 +60,22 @@ internal static class AnchorWorkbenchSelfCheck
         }
         window.Width=1060;window.Height=700;await Task.Delay(50);window.UpdateLayout();
         Check(surface.Bounds.Width>0&&surface.Bounds.Width<=1060,"工作台最小窗口可布局");
+        vm.BeginEdit();vm.SelectedChain!.Name+="布局检查";vm.EndEdit();
+        foreach(var width in new[]{760,960,1060,1180,1400})
+        {
+            window.Width=width;await Task.Delay(60);window.UpdateLayout();
+            var search=window.FindControl<TextBox>("WorkbenchSearch")!;var actions=window.FindControl<StackPanel>("WorkbenchHeaderActions")!;
+            Check(search.Bounds.Width>=220&&search.PlaceholderText=="搜索当前分类","工作台搜索占位可完整显示 "+width);
+            var at=actions.TranslatePoint(default,window)!.Value;
+            Check(at.X>=0&&at.X+actions.Bounds.Width<=window.Bounds.Width,"工作台未保存提示及操作栏不越界 "+width);
+            var title=window.FindControl<StackPanel>("WorkbenchTitleGroup")!;
+            Check(width>=1280||actions.TranslatePoint(default,window)!.Value.Y>=title.TranslatePoint(default,window)!.Value.Y+title.Bounds.Height,"窄工作台搜索与标题分行 "+width);
+            if(Environment.GetEnvironmentVariable("MABI_WORKBENCH_PREVIEW_DIR") is{} directory&&width is 760 or 1060)
+            {
+                using var shot=new RenderTargetBitmap(new PixelSize((int)window.Bounds.Width,(int)window.Bounds.Height));shot.Render(window);shot.Save(Path.Combine(directory,"workbench-narrow-"+width+".png"),PngBitmapEncoderOptions.Default);
+            }
+        }
+        vm.ReloadNow();window.Width=1060;await Task.Delay(40);window.UpdateLayout();
         vm.Category=0;var chain=vm.SelectedChain!;var count=chain.Cards.Count;
         vm.SelectedCard=chain.Cards.First();vm.SelectedCards.Add(vm.SelectedCard);vm.CopyCardsCommand.Execute(null);vm.PasteCardsCommand.Execute(null);
         Check(chain.Cards.Count==count+1&&chain.Cards.Select(c=>c.Id).Distinct().Count()==chain.Cards.Count,"卡片复制粘贴生成独立身份");

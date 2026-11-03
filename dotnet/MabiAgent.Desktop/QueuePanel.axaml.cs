@@ -48,9 +48,8 @@ public partial class QueuePanel:UserControl
     {
         if (Bounds.Height <= 0) return;
         var available = Bounds.Height - 56 - (model?.AutomaticCount > 0 ? 48 : 0) - (model?.HasQueueSelection == true ? 56 : 0);
-        // Fill the page so the list reads as the page body, but never collapse below a usable viewport.
+        // The list grows with its rows up to the page height; a short queue leaves no blank panel below it.
         ManualCard.MaxHeight = Math.Clamp(available, 200, 900);
-        ManualCard.MinHeight = Math.Clamp(available, 200, 360);
     }
     private void ModelChanged(object? sender,PropertyChangedEventArgs e)
     {

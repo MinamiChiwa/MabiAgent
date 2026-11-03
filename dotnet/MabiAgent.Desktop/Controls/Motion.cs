@@ -7,6 +7,15 @@ namespace MabiAgent.Desktop.Controls;
 // so a stalled render clock, offscreen capture or layout check always sees the final state.
 internal static class Motion
 {
+    public static void Rotate(Visual target)
+    {
+        if(ElementComposition.GetElementVisual(target) is not {} visual)return;
+        visual.CenterPoint=new Vector3D(target.Bounds.Width/2,target.Bounds.Height/2,0);
+        var rotation=visual.Compositor.CreateScalarKeyFrameAnimation();
+        rotation.InsertKeyFrame(0f,0f);rotation.InsertKeyFrame(1f,(float)(Math.PI*2),new CubicEaseOut());
+        rotation.Duration=TimeSpan.FromMilliseconds(420);
+        visual.StartAnimation("RotationAngle",rotation);
+    }
     static readonly TimeSpan FadeTime=TimeSpan.FromMilliseconds(160);
     static readonly TimeSpan PopTime=TimeSpan.FromMilliseconds(200);
     public static void FadeIn(Visual target)

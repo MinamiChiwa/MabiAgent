@@ -49,6 +49,7 @@ internal static class UiSelfCheck
         var directory=Path.Combine(Path.GetTempPath(),"mabi-ui-check-"+Guid.NewGuid().ToString("N"));
         var w=new Workspace(root,directory);var vm=new MainViewModel(w,new GameWindowSelection(()=>[]));
         var passed=new List<string>();
+
         void Check(bool condition,string label){if(!condition)throw new InvalidOperationException(label);passed.Add(label);}
         try
         {
@@ -190,8 +191,8 @@ internal static class UiSelfCheck
             w.EditQueue(q=>q.Add("auto-material:self-check","gathering",gathering.ItemId,10,gathering.Id,[]));await vm.RefreshLiveQueueAsync();
             vm.Search="";vm.SelectedPage=0;previewWindow.Show();await Task.Delay(80);previewWindow.UpdateLayout();
             passed.AddRange(await CheckSearchablePickers(previewWindow,vm));
-            Check(previewWindow.Title=="MabiAgent 0.5.1","标题包含产品名及版本");
-            Check(previewWindow.FindControl<TextBlock>("AppName")!.Text=="MabiAgent 0.5.1","侧栏响应式布局保持产品名及版本");
+            Check(previewWindow.Title=="MabiAgent 0.5.2","标题包含产品名及版本");
+            Check(previewWindow.FindControl<TextBlock>("AppName")!.Text=="MabiAgent 0.5.2","顶栏响应式布局保持产品名及版本");
             var newVip=previewWindow.FindControl<ToggleSwitch>("NewTaskVip")!;
             var settingsVip=previewWindow.FindControl<SettingsPanel>("SettingsPage")!.FindControl<ToggleSwitch>("MaintenanceVip")!;
             Check(!vm.LifeVip,"生活VIP默认关闭");
@@ -292,6 +293,13 @@ internal static class UiSelfCheck
             }
             
             passed.AddRange(await PresentationSelfCheck.Run(previewWindow,vm));
+            var originalTheme=vm.ThemeKey;vm.ThemeKey="dark";vm.SaveSettings();await Task.Delay(40);
+            var themeButton=previewWindow.FindControl<Button>("ThemeToggle")!;
+            themeButton.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));await Task.Delay(80);
+            Check(vm.ThemeKey=="light"&&DesktopPreferences.FromJson(w.ReadSettings()).Theme=="light","主界面一键亮色主题同步维护设置并保存");
+            themeButton.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));await Task.Delay(500);
+            Check(vm.ThemeKey=="dark"&&DesktopPreferences.FromJson(w.ReadSettings()).Theme=="dark","主界面一键暗色主题支持连续切换并完成旋转");
+            vm.ThemeKey=originalTheme;vm.SaveSettings();
             vm.RuntimeIssues="铁锭：任务异常，等待显式继续\n维护：报价待核实";previewWindow.UpdateLayout();
             var problem=previewWindow.GetVisualDescendants().OfType<Expander>().FirstOrDefault(e=>e.Header?.ToString()=="待处理问题");
             Check(problem is{IsVisible:true},"隔离问题在运行状态中可展开查看");problem!.IsExpanded=true;previewWindow.UpdateLayout();

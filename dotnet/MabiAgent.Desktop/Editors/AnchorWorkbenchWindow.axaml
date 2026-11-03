@@ -9,6 +9,9 @@
   </DataTemplate>
  </u:UrsaWindow.Resources>
  <u:UrsaWindow.Styles>
+  <Style Selector="SplitButton /template/ Button"><Setter Property="Height" Value="36"/><Setter Property="MinHeight" Value="36"/><Setter Property="Padding" Value="10,0"/><Setter Property="VerticalAlignment" Value="Stretch"/></Style>
+  <Style Selector="Button:not(.help):not(.toolbar-icon)"><Setter Property="Height" Value="36"/><Setter Property="Padding" Value="12,0"/></Style>
+  <Style Selector="SplitButton"><Setter Property="Height" Value="36"/><Setter Property="Padding" Value="10,0"/><Setter Property="VerticalAlignment" Value="Center"/></Style>
   <Style Selector="ListBox.steps"><Setter Property="Background" Value="Transparent"/><Setter Property="BorderThickness" Value="0"/></Style>
   <Style Selector="ListBox.steps > ListBoxItem"><Setter Property="Padding" Value="0"/><Setter Property="Margin" Value="0,0,0,8"/><Setter Property="CornerRadius" Value="12"/><Setter Property="HorizontalContentAlignment" Value="Stretch"/></Style>
   <Style Selector="ListBox.steps > ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="Transparent"/></Style>
@@ -60,13 +63,13 @@
   <Border x:Name="WorkbenchTitleStrip" Grid.Column="1" Background="Transparent" WindowDecorationProperties.ElementRole="TitleBar"/>
   <Grid x:Name="WorkbenchBody" Grid.Column="1" Grid.Row="1" RowDefinitions="Auto,*,Auto" Margin="24,0,24,14">
    <!-- Header: category purpose, search, undo/redo/save -->
-   <Grid ColumnDefinitions="Auto,*,Auto" Margin="0,0,0,14">
-    <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+   <Grid x:Name="WorkbenchHeader" ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" Margin="0,0,0,14">
+    <StackPanel x:Name="WorkbenchTitleGroup" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
      <ComboBox x:Name="CompactCategory" IsVisible="False" Width="128" SelectedIndex="{Binding Category}" AutomationProperties.Name="工作台分类"><ComboBoxItem Content="任务链"/><ComboBoxItem Content="页面识别"/><ComboBoxItem Content="锚点库"/><ComboBoxItem Content="公共卡片"/><ComboBoxItem Content="调度参数"/><ComboBoxItem Content="测试记录"/></ComboBox>
      <StackPanel x:Name="WorkbenchHeading" Spacing="2" VerticalAlignment="Center"><TextBlock x:Name="CategoryTitle" Text="任务链" Classes="title"/><TextBlock x:Name="CategoryPurpose" Classes="caption" TextTrimming="CharacterEllipsis"/></StackPanel>
     </StackPanel>
-    <StackPanel x:Name="WorkbenchHeaderActions" Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-     <TextBox x:Name="WorkbenchSearch" Width="240" Text="{Binding Search,UpdateSourceTrigger=PropertyChanged}" PlaceholderText="搜索当前分类（Ctrl+F）"><TextBox.InnerLeftContent><ui:Icon Classes="prefix" Kind="search"/></TextBox.InnerLeftContent></TextBox>
+    <StackPanel x:Name="WorkbenchHeaderActions" Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+     <TextBox x:Name="WorkbenchSearch" Width="240" MinWidth="220" Text="{Binding Search,UpdateSourceTrigger=PropertyChanged}" PlaceholderText="搜索当前分类" ToolTip.Tip="搜索当前分类（Ctrl+F）"><TextBox.InnerLeftContent><ui:Icon Classes="prefix" Kind="search"/></TextBox.InnerLeftContent></TextBox>
      <Border Classes="pill warning" IsVisible="{Binding HasUnsavedChanges}"><TextBlock Text="未保存"/></Border>
      <Button Content="撤销" ui:UiIcon.Kind="undo" Command="{Binding UndoCommand}" ToolTip.Tip="Ctrl+Z"/>
      <Button Content="重做" ui:UiIcon.Kind="redo" Command="{Binding RedoCommand}" ToolTip.Tip="Ctrl+Y"/>

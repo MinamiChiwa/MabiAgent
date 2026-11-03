@@ -5,44 +5,70 @@
 <FontFamily x:Key="DefaultFontFamily">avares://MabiAgent.Desktop/Assets/Fonts#Noto Sans SC, Microsoft YaHei UI, Microsoft JhengHei UI, Segoe UI</FontFamily>
 <ResourceDictionary.ThemeDictionaries>
 <ResourceDictionary x:Key="Dark">
-<SolidColorBrush x:Key="WorkspacePage" Color="#0D0E12"/><SolidColorBrush x:Key="WorkspaceSidebar" Color="#121318"/><SolidColorBrush x:Key="WorkspaceSurface" Color="#181A20"/><SolidColorBrush x:Key="WorkspaceInput" Color="#21232B"/><SolidColorBrush x:Key="WorkspaceBorder" Color="#2A2D36"/><SolidColorBrush x:Key="WorkspaceMuted" Color="#A1A5B3"/><SolidColorBrush x:Key="WorkspaceDanger" Color="#FF8F8A"/>
-<SolidColorBrush x:Key="WorkspaceSuccess" Color="#6DD3A5"/><SolidColorBrush x:Key="WorkspaceWarning" Color="#F0C36C"/><SolidColorBrush x:Key="WorkspaceInfo" Color="#A2A6FF"/>
-<SolidColorBrush x:Key="WorkspaceSuccessSoft" Color="#1A2E26"/><SolidColorBrush x:Key="WorkspaceWarningSoft" Color="#33291A"/><SolidColorBrush x:Key="WorkspaceInfoSoft" Color="#23244A"/><SolidColorBrush x:Key="WorkspaceNeutralSoft" Color="#23252D"/>
-<SolidColorBrush x:Key="WorkspaceOverlay" Color="#B3060709"/>
-<SolidColorBrush x:Key="WorkspaceRuntimeSurface" Color="#181B23"/><SolidColorBrush x:Key="WorkspaceRuntimeAccent" Color="#A2A6FF"/>
-<SolidColorBrush x:Key="WorkspaceQueueSurface" Color="#181A22"/><SolidColorBrush x:Key="WorkspaceQueueAccent" Color="#A2A6FF"/>
-<SolidColorBrush x:Key="WorkspaceCatalogSurface" Color="#171C1F"/><SolidColorBrush x:Key="WorkspaceCatalogAccent" Color="#7FD3BE"/>
-<SolidColorBrush x:Key="WorkspaceAccountsSurface" Color="#1B1A24"/><SolidColorBrush x:Key="WorkspaceAccountsAccent" Color="#C6B3F5"/>
-<SolidColorBrush x:Key="WorkspaceSettingsSurface" Color="#1C1B1F"/><SolidColorBrush x:Key="WorkspaceSettingsAccent" Color="#E8C48F"/>
-<SolidColorBrush x:Key="WorkspaceWorkflowSurface" Color="#1A1B25"/><SolidColorBrush x:Key="WorkspaceWorkflowAccent" Color="#B4B7FA"/>
-<SolidColorBrush x:Key="WorkspaceAnchorSurface" Color="#161E21"/><SolidColorBrush x:Key="WorkspaceAnchorAccent" Color="#86D3DC"/>
-<SolidColorBrush x:Key="WorkspaceLibrarySurface" Color="#1D1A21"/><SolidColorBrush x:Key="WorkspaceLibraryAccent" Color="#DDB1DA"/>
-<SolidColorBrush x:Key="SemiColorPrimary" Color="#767AFC"/><SolidColorBrush x:Key="SemiColorPrimaryPointerover" Color="#898DFF"/><SolidColorBrush x:Key="SemiColorPrimaryActive" Color="#9DA0FF"/><SolidColorBrush x:Key="SemiColorPrimaryDisabled" Color="#3B3E7A"/>
-<SolidColorBrush x:Key="SemiColorPrimaryLight" Color="#23244A"/><SolidColorBrush x:Key="SemiColorPrimaryLightPointerover" Color="#2B2D5A"/><SolidColorBrush x:Key="SemiColorPrimaryLightActive" Color="#34376B"/>
-<SolidColorBrush x:Key="ToggleSwitchContainerCheckedDefaultBackground" Color="#767AFC"/><SolidColorBrush x:Key="ToggleSwitchContainerCheckedPointeroverBackground" Color="#898DFF"/><SolidColorBrush x:Key="ToggleSwitchContainerCheckedPressedBackground" Color="#9DA0FF"/>
-<SolidColorBrush x:Key="SelectionListIndicatorBackground" Color="#767AFC"/>
-<SolidColorBrush x:Key="ButtonDefaultPrimaryForeground" Color="#767AFC"/><SolidColorBrush x:Key="ButtonSolidPrimaryBackground" Color="#767AFC"/><SolidColorBrush x:Key="ButtonSolidPrimaryBorderBrush" Color="#767AFC"/><SolidColorBrush x:Key="ButtonSolidPrimaryPointeroverBackground" Color="#898DFF"/><SolidColorBrush x:Key="ButtonSolidPrimaryPointeroverBorderBrush" Color="#898DFF"/><SolidColorBrush x:Key="ButtonSolidPrimaryPressedBackground" Color="#9DA0FF"/><SolidColorBrush x:Key="ButtonSolidPrimaryPressedBorderBrush" Color="#9DA0FF"/>
-<SolidColorBrush x:Key="ProgressBarPrimaryForeground" Color="#767AFC"/><SolidColorBrush x:Key="SemiColorFocusBorder" Color="#767AFC"/><SolidColorBrush x:Key="SemiColorLink" Color="#767AFC"/><SolidColorBrush x:Key="SemiColorLinkPointerover" Color="#898DFF"/><SolidColorBrush x:Key="SemiColorLinkActive" Color="#9DA0FF"/>
+<!-- Dusk: painted sky over hills; panels are dark glass so the scene shows through at the edges -->
+<SolidColorBrush x:Key="WorkspacePage" Color="#101820"/><SolidColorBrush x:Key="WorkspaceSidebar" Color="#E6141C26"/><SolidColorBrush x:Key="WorkspaceSurface" Color="#E81A2130"/><SolidColorBrush x:Key="WorkspaceInput" Color="#121826"/><SolidColorBrush x:Key="WorkspaceBorder" Color="#1FFFFFFF"/><SolidColorBrush x:Key="WorkspaceMuted" Color="#B7C0CE"/><SolidColorBrush x:Key="WorkspaceDanger" Color="#FF8A7A"/>
+<SolidColorBrush x:Key="WorkspaceSuccess" Color="#6DE0A8"/><SolidColorBrush x:Key="WorkspaceSuccessText" Color="#FFFFFF"/><SolidColorBrush x:Key="WorkspaceSelectedText" Color="#FFFFFF"/><SolidColorBrush x:Key="WorkspaceWarning" Color="#FFD24A"/><SolidColorBrush x:Key="WorkspaceInfo" Color="#FFFFFF"/>
+<SolidColorBrush x:Key="WorkspaceSuccessSoft" Color="#1A3A2E"/><SolidColorBrush x:Key="WorkspaceWarningSoft" Color="#3B3218"/><SolidColorBrush x:Key="WorkspaceInfoSoft" Color="#173B3E"/><SolidColorBrush x:Key="WorkspaceNeutralSoft" Color="#26303F"/>
+<SolidColorBrush x:Key="WorkspaceOverlay" Color="#B3060A0E"/>
+<SolidColorBrush x:Key="WorkspaceTabSelected" Color="#FFFFFF"/><SolidColorBrush x:Key="WorkspaceTabSelectedText" Color="#161A24"/><SolidColorBrush x:Key="WorkspaceTabText" Color="#E8EEF6"/>
+<SolidColorBrush x:Key="WorkspaceRuntimeSurface" Color="#E81A2232"/><SolidColorBrush x:Key="WorkspaceRuntimeAccent" Color="#7FF0D2"/>
+<SolidColorBrush x:Key="WorkspaceQueueSurface" Color="#E81A2130"/><SolidColorBrush x:Key="WorkspaceQueueAccent" Color="#7FF0D2"/>
+<SolidColorBrush x:Key="WorkspaceCatalogSurface" Color="#E819222A"/><SolidColorBrush x:Key="WorkspaceCatalogAccent" Color="#7FD3BE"/>
+<SolidColorBrush x:Key="WorkspaceAccountsSurface" Color="#E81D1F31"/><SolidColorBrush x:Key="WorkspaceAccountsAccent" Color="#C6B3F5"/>
+<SolidColorBrush x:Key="WorkspaceSettingsSurface" Color="#E81F2129"/><SolidColorBrush x:Key="WorkspaceSettingsAccent" Color="#FFD24A"/>
+<SolidColorBrush x:Key="WorkspaceWorkflowSurface" Color="#E81C2033"/><SolidColorBrush x:Key="WorkspaceWorkflowAccent" Color="#B4B7FA"/>
+<SolidColorBrush x:Key="WorkspaceAnchorSurface" Color="#E818232C"/><SolidColorBrush x:Key="WorkspaceAnchorAccent" Color="#86D3DC"/>
+<SolidColorBrush x:Key="WorkspaceLibrarySurface" Color="#E81F1E2E"/><SolidColorBrush x:Key="WorkspaceLibraryAccent" Color="#DDB1DA"/>
+<LinearGradientBrush x:Key="WorkspaceSceneSky" StartPoint="50%,0%" EndPoint="50%,100%"><GradientStop Color="#1B3A4E" Offset="0"/><GradientStop Color="#2E5A5E" Offset="0.45"/><GradientStop Color="#29473A" Offset="0.62"/><GradientStop Color="#0F1E19" Offset="1"/></LinearGradientBrush>
+<RadialGradientBrush x:Key="WorkspaceSceneSun" Center="85%,22%" GradientOrigin="85%,22%" RadiusX="45%" RadiusY="40%"><GradientStop Color="#66F2B880" Offset="0"/><GradientStop Color="#00F2B880" Offset="1"/></RadialGradientBrush>
+<RadialGradientBrush x:Key="WorkspaceSceneHillA" Center="20%,82%" GradientOrigin="20%,82%" RadiusX="40%" RadiusY="22%"><GradientStop Color="#8A3E7A48" Offset="0"/><GradientStop Color="#003E7A48" Offset="1"/></RadialGradientBrush>
+<RadialGradientBrush x:Key="WorkspaceSceneHillB" Center="72%,92%" GradientOrigin="72%,92%" RadiusX="50%" RadiusY="24%"><GradientStop Color="#8A2F6436" Offset="0"/><GradientStop Color="#002F6436" Offset="1"/></RadialGradientBrush>
+<RadialGradientBrush x:Key="WorkspaceSceneShade" Center="45%,40%" GradientOrigin="45%,40%" RadiusX="80%" RadiusY="80%"><GradientStop Color="#33060A0E" Offset="0.4"/><GradientStop Color="#B3060A0E" Offset="1"/></RadialGradientBrush>
+<SolidColorBrush x:Key="SemiColorPrimary" Color="#2FD6E8"/><SolidColorBrush x:Key="SemiColorPrimaryPointerover" Color="#5BEBEA"/><SolidColorBrush x:Key="SemiColorPrimaryActive" Color="#17B98A"/><SolidColorBrush x:Key="SemiColorPrimaryDisabled" Color="#2B4E56"/>
+<SolidColorBrush x:Key="SemiColorPrimaryLight" Color="#173B3E"/><SolidColorBrush x:Key="SemiColorPrimaryLightPointerover" Color="#1E4A4E"/><SolidColorBrush x:Key="SemiColorPrimaryLightActive" Color="#25585D"/>
+<SolidColorBrush x:Key="ToggleSwitchContainerCheckedDefaultBackground" Color="#17B98A"/><SolidColorBrush x:Key="ToggleSwitchContainerCheckedPointeroverBackground" Color="#2BD3A0"/><SolidColorBrush x:Key="ToggleSwitchContainerCheckedPressedBackground" Color="#12A07A"/>
+<SolidColorBrush x:Key="SelectionListIndicatorBackground" Color="#2FD6E8"/>
+<SolidColorBrush x:Key="ButtonDefaultPrimaryForeground" Color="#FFFFFF"/>
+<SolidColorBrush x:Key="ButtonDefaultBackground" Color="#1FFFFFFF"/><SolidColorBrush x:Key="ButtonDefaultPointeroverBackground" Color="#2EFFFFFF"/><SolidColorBrush x:Key="ButtonDefaultPressedBackground" Color="#40FFFFFF"/>
+<LinearGradientBrush x:Key="ButtonSolidPrimaryBackground" StartPoint="0%,50%" EndPoint="100%,50%"><GradientStop Color="#17B98A" Offset="0"/><GradientStop Color="#2FD6E8" Offset="0.7"/><GradientStop Color="#5BEBEA" Offset="1"/></LinearGradientBrush>
+<LinearGradientBrush x:Key="ButtonSolidPrimaryPointeroverBackground" StartPoint="0%,50%" EndPoint="100%,50%"><GradientStop Color="#2BD3A0" Offset="0"/><GradientStop Color="#5BEBEA" Offset="1"/></LinearGradientBrush>
+<LinearGradientBrush x:Key="ButtonSolidPrimaryPressedBackground" StartPoint="0%,50%" EndPoint="100%,50%"><GradientStop Color="#12A07A" Offset="0"/><GradientStop Color="#22B8C8" Offset="1"/></LinearGradientBrush>
+<SolidColorBrush x:Key="ButtonSolidPrimaryBorderBrush" Color="Transparent"/><SolidColorBrush x:Key="ButtonSolidPrimaryPointeroverBorderBrush" Color="Transparent"/><SolidColorBrush x:Key="ButtonSolidPrimaryPressedBorderBrush" Color="Transparent"/>
+<SolidColorBrush x:Key="ButtonSolidForeground" Color="#0E2A2A"/><SolidColorBrush x:Key="ButtonSolidPrimaryPressedForeground" Color="#0E2A2A"/>
+<SolidColorBrush x:Key="ProgressBarPrimaryForeground" Color="#2FD6E8"/><SolidColorBrush x:Key="SemiColorFocusBorder" Color="#2FD6E8"/><SolidColorBrush x:Key="SemiColorLink" Color="#FFFFFF"/><SolidColorBrush x:Key="SemiColorLinkPointerover" Color="#FFFFFF"/><SolidColorBrush x:Key="SemiColorLinkActive" Color="#FFFFFF"/>
 </ResourceDictionary>
 <ResourceDictionary x:Key="Light">
-<SolidColorBrush x:Key="WorkspacePage" Color="#F4F5F8"/><SolidColorBrush x:Key="WorkspaceSidebar" Color="#FAFAFC"/><SolidColorBrush x:Key="WorkspaceSurface" Color="#FFFFFF"/><SolidColorBrush x:Key="WorkspaceInput" Color="#F0F1F5"/><SolidColorBrush x:Key="WorkspaceBorder" Color="#E3E5EB"/><SolidColorBrush x:Key="WorkspaceMuted" Color="#5D6271"/><SolidColorBrush x:Key="WorkspaceDanger" Color="#B42318"/>
-<SolidColorBrush x:Key="WorkspaceSuccess" Color="#12704A"/><SolidColorBrush x:Key="WorkspaceWarning" Color="#8A5208"/><SolidColorBrush x:Key="WorkspaceInfo" Color="#4045C4"/>
-<SolidColorBrush x:Key="WorkspaceSuccessSoft" Color="#E5F4ED"/><SolidColorBrush x:Key="WorkspaceWarningSoft" Color="#FBF0DC"/><SolidColorBrush x:Key="WorkspaceInfoSoft" Color="#EEEFFD"/><SolidColorBrush x:Key="WorkspaceNeutralSoft" Color="#EDEEF2"/>
+<!-- Daylight: brighter sky and hills; panels are light frosted glass -->
+<SolidColorBrush x:Key="WorkspacePage" Color="#DCE8EC"/><SolidColorBrush x:Key="WorkspaceSidebar" Color="#E6F7FAFC"/><SolidColorBrush x:Key="WorkspaceSurface" Color="#F2FFFFFF"/><SolidColorBrush x:Key="WorkspaceInput" Color="#EEF2F6"/><SolidColorBrush x:Key="WorkspaceBorder" Color="#1F0F1B33"/><SolidColorBrush x:Key="WorkspaceMuted" Color="#4E5A6B"/><SolidColorBrush x:Key="WorkspaceDanger" Color="#B42318"/>
+<SolidColorBrush x:Key="WorkspaceSuccess" Color="#12704A"/><SolidColorBrush x:Key="WorkspaceSuccessText" Color="#12704A"/><SolidColorBrush x:Key="WorkspaceSelectedText" Color="#0B6E78"/><SolidColorBrush x:Key="WorkspaceWarning" Color="#8A5208"/><SolidColorBrush x:Key="WorkspaceInfo" Color="#0B6E78"/>
+<SolidColorBrush x:Key="WorkspaceSuccessSoft" Color="#E3F5EC"/><SolidColorBrush x:Key="WorkspaceWarningSoft" Color="#FBF0DC"/><SolidColorBrush x:Key="WorkspaceInfoSoft" Color="#DDF4F4"/><SolidColorBrush x:Key="WorkspaceNeutralSoft" Color="#E9EEF3"/>
 <SolidColorBrush x:Key="WorkspaceOverlay" Color="#59141626"/>
-<SolidColorBrush x:Key="WorkspaceRuntimeSurface" Color="#FDFDFF"/><SolidColorBrush x:Key="WorkspaceRuntimeAccent" Color="#4045C4"/>
-<SolidColorBrush x:Key="WorkspaceQueueSurface" Color="#FCFCFF"/><SolidColorBrush x:Key="WorkspaceQueueAccent" Color="#4045C4"/>
-<SolidColorBrush x:Key="WorkspaceCatalogSurface" Color="#FBFEFD"/><SolidColorBrush x:Key="WorkspaceCatalogAccent" Color="#21705A"/>
-<SolidColorBrush x:Key="WorkspaceAccountsSurface" Color="#FDFBFF"/><SolidColorBrush x:Key="WorkspaceAccountsAccent" Color="#7350A6"/>
-<SolidColorBrush x:Key="WorkspaceSettingsSurface" Color="#FEFDFC"/><SolidColorBrush x:Key="WorkspaceSettingsAccent" Color="#8C6228"/>
-<SolidColorBrush x:Key="WorkspaceWorkflowSurface" Color="#FBFBFF"/><SolidColorBrush x:Key="WorkspaceWorkflowAccent" Color="#5B55B5"/>
-<SolidColorBrush x:Key="WorkspaceAnchorSurface" Color="#FAFEFE"/><SolidColorBrush x:Key="WorkspaceAnchorAccent" Color="#1F6E7E"/>
-<SolidColorBrush x:Key="WorkspaceLibrarySurface" Color="#FFFBFE"/><SolidColorBrush x:Key="WorkspaceLibraryAccent" Color="#8F5286"/>
-<SolidColorBrush x:Key="SemiColorPrimary" Color="#4F52E0"/><SolidColorBrush x:Key="SemiColorPrimaryPointerover" Color="#4346C8"/><SolidColorBrush x:Key="SemiColorPrimaryActive" Color="#383BAE"/><SolidColorBrush x:Key="SemiColorPrimaryDisabled" Color="#A9ABF1"/>
-<SolidColorBrush x:Key="SemiColorPrimaryLight" Color="#EEEFFD"/><SolidColorBrush x:Key="SemiColorPrimaryLightPointerover" Color="#E1E2FB"/><SolidColorBrush x:Key="SemiColorPrimaryLightActive" Color="#D2D3F8"/>
-<SolidColorBrush x:Key="ToggleSwitchContainerCheckedDefaultBackground" Color="#4F52E0"/><SolidColorBrush x:Key="ToggleSwitchContainerCheckedPointeroverBackground" Color="#4346C8"/><SolidColorBrush x:Key="ToggleSwitchContainerCheckedPressedBackground" Color="#383BAE"/>
-<SolidColorBrush x:Key="SelectionListIndicatorBackground" Color="#4F52E0"/>
-<SolidColorBrush x:Key="ButtonDefaultPrimaryForeground" Color="#4F52E0"/><SolidColorBrush x:Key="ButtonSolidPrimaryBackground" Color="#4F52E0"/><SolidColorBrush x:Key="ButtonSolidPrimaryBorderBrush" Color="#4F52E0"/><SolidColorBrush x:Key="ButtonSolidPrimaryPointeroverBackground" Color="#4346C8"/><SolidColorBrush x:Key="ButtonSolidPrimaryPointeroverBorderBrush" Color="#4346C8"/><SolidColorBrush x:Key="ButtonSolidPrimaryPressedBackground" Color="#383BAE"/><SolidColorBrush x:Key="ButtonSolidPrimaryPressedBorderBrush" Color="#383BAE"/>
-<SolidColorBrush x:Key="ProgressBarPrimaryForeground" Color="#4F52E0"/><SolidColorBrush x:Key="SemiColorFocusBorder" Color="#4F52E0"/><SolidColorBrush x:Key="SemiColorLink" Color="#4F52E0"/><SolidColorBrush x:Key="SemiColorLinkPointerover" Color="#4346C8"/><SolidColorBrush x:Key="SemiColorLinkActive" Color="#383BAE"/>
+<SolidColorBrush x:Key="WorkspaceTabSelected" Color="#161A24"/><SolidColorBrush x:Key="WorkspaceTabSelectedText" Color="#FFFFFF"/><SolidColorBrush x:Key="WorkspaceTabText" Color="#26303F"/>
+<SolidColorBrush x:Key="WorkspaceRuntimeSurface" Color="#F2FDFEFF"/><SolidColorBrush x:Key="WorkspaceRuntimeAccent" Color="#0B6E78"/>
+<SolidColorBrush x:Key="WorkspaceQueueSurface" Color="#F2FCFDFF"/><SolidColorBrush x:Key="WorkspaceQueueAccent" Color="#0B6E78"/>
+<SolidColorBrush x:Key="WorkspaceCatalogSurface" Color="#F2FBFEFD"/><SolidColorBrush x:Key="WorkspaceCatalogAccent" Color="#21705A"/>
+<SolidColorBrush x:Key="WorkspaceAccountsSurface" Color="#F2FDFBFF"/><SolidColorBrush x:Key="WorkspaceAccountsAccent" Color="#7350A6"/>
+<SolidColorBrush x:Key="WorkspaceSettingsSurface" Color="#F2FEFDFA"/><SolidColorBrush x:Key="WorkspaceSettingsAccent" Color="#8C6228"/>
+<SolidColorBrush x:Key="WorkspaceWorkflowSurface" Color="#F2FBFBFF"/><SolidColorBrush x:Key="WorkspaceWorkflowAccent" Color="#5B55B5"/>
+<SolidColorBrush x:Key="WorkspaceAnchorSurface" Color="#F2FAFEFE"/><SolidColorBrush x:Key="WorkspaceAnchorAccent" Color="#1F6E7E"/>
+<SolidColorBrush x:Key="WorkspaceLibrarySurface" Color="#F2FFFBFE"/><SolidColorBrush x:Key="WorkspaceLibraryAccent" Color="#8F5286"/>
+<LinearGradientBrush x:Key="WorkspaceSceneSky" StartPoint="50%,0%" EndPoint="50%,100%"><GradientStop Color="#8FC3D3" Offset="0"/><GradientStop Color="#C6DFD2" Offset="0.46"/><GradientStop Color="#8DB67E" Offset="0.62"/><GradientStop Color="#4F7A52" Offset="1"/></LinearGradientBrush>
+<RadialGradientBrush x:Key="WorkspaceSceneSun" Center="85%,24%" GradientOrigin="85%,24%" RadiusX="45%" RadiusY="40%"><GradientStop Color="#99FFE6B8" Offset="0"/><GradientStop Color="#00FFE6B8" Offset="1"/></RadialGradientBrush>
+<RadialGradientBrush x:Key="WorkspaceSceneHillA" Center="20%,82%" GradientOrigin="20%,82%" RadiusX="40%" RadiusY="22%"><GradientStop Color="#995E9F5A" Offset="0"/><GradientStop Color="#005E9F5A" Offset="1"/></RadialGradientBrush>
+<RadialGradientBrush x:Key="WorkspaceSceneHillB" Center="72%,92%" GradientOrigin="72%,92%" RadiusX="50%" RadiusY="24%"><GradientStop Color="#994E8F4A" Offset="0"/><GradientStop Color="#004E8F4A" Offset="1"/></RadialGradientBrush>
+<RadialGradientBrush x:Key="WorkspaceSceneShade" Center="45%,40%" GradientOrigin="45%,40%" RadiusX="80%" RadiusY="80%"><GradientStop Color="#00FFFFFF" Offset="0.5"/><GradientStop Color="#40203040" Offset="1"/></RadialGradientBrush>
+<SolidColorBrush x:Key="SemiColorPrimary" Color="#0B7F8A"/><SolidColorBrush x:Key="SemiColorPrimaryPointerover" Color="#096C76"/><SolidColorBrush x:Key="SemiColorPrimaryActive" Color="#075A62"/><SolidColorBrush x:Key="SemiColorPrimaryDisabled" Color="#9FD8DE"/>
+<SolidColorBrush x:Key="SemiColorPrimaryLight" Color="#DDF4F4"/><SolidColorBrush x:Key="SemiColorPrimaryLightPointerover" Color="#CDEEEF"/><SolidColorBrush x:Key="SemiColorPrimaryLightActive" Color="#BCE6E8"/>
+<SolidColorBrush x:Key="ToggleSwitchContainerCheckedDefaultBackground" Color="#17B98A"/><SolidColorBrush x:Key="ToggleSwitchContainerCheckedPointeroverBackground" Color="#12A07A"/><SolidColorBrush x:Key="ToggleSwitchContainerCheckedPressedBackground" Color="#0E8A68"/>
+<SolidColorBrush x:Key="SelectionListIndicatorBackground" Color="#0B7F8A"/>
+<SolidColorBrush x:Key="ButtonDefaultPrimaryForeground" Color="#0B6E78"/>
+<SolidColorBrush x:Key="ButtonDefaultBackground" Color="#14102030"/><SolidColorBrush x:Key="ButtonDefaultPointeroverBackground" Color="#24102030"/><SolidColorBrush x:Key="ButtonDefaultPressedBackground" Color="#33102030"/>
+<LinearGradientBrush x:Key="ButtonSolidPrimaryBackground" StartPoint="0%,50%" EndPoint="100%,50%"><GradientStop Color="#17B98A" Offset="0"/><GradientStop Color="#2FD6E8" Offset="0.7"/><GradientStop Color="#5BEBEA" Offset="1"/></LinearGradientBrush>
+<LinearGradientBrush x:Key="ButtonSolidPrimaryPointeroverBackground" StartPoint="0%,50%" EndPoint="100%,50%"><GradientStop Color="#2BD3A0" Offset="0"/><GradientStop Color="#5BEBEA" Offset="1"/></LinearGradientBrush>
+<LinearGradientBrush x:Key="ButtonSolidPrimaryPressedBackground" StartPoint="0%,50%" EndPoint="100%,50%"><GradientStop Color="#12A07A" Offset="0"/><GradientStop Color="#22B8C8" Offset="1"/></LinearGradientBrush>
+<SolidColorBrush x:Key="ButtonSolidPrimaryBorderBrush" Color="Transparent"/><SolidColorBrush x:Key="ButtonSolidPrimaryPointeroverBorderBrush" Color="Transparent"/><SolidColorBrush x:Key="ButtonSolidPrimaryPressedBorderBrush" Color="Transparent"/>
+<SolidColorBrush x:Key="ButtonSolidForeground" Color="#0E2A2A"/><SolidColorBrush x:Key="ButtonSolidPrimaryPressedForeground" Color="#0E2A2A"/>
+<SolidColorBrush x:Key="ProgressBarPrimaryForeground" Color="#17B98A"/><SolidColorBrush x:Key="SemiColorFocusBorder" Color="#0B7F8A"/><SolidColorBrush x:Key="SemiColorLink" Color="#0B6E78"/><SolidColorBrush x:Key="SemiColorLinkPointerover" Color="#096C76"/><SolidColorBrush x:Key="SemiColorLinkActive" Color="#075A62"/>
 </ResourceDictionary>
 </ResourceDictionary.ThemeDictionaries></ResourceDictionary></Styles.Resources>
 
@@ -58,14 +84,15 @@
   <Style Selector="TextBlock.field"><Setter Property="FontSize" Value="13"/><Setter Property="Foreground" Value="{DynamicResource WorkspaceMuted}"/></Style>
   <Style Selector="TextBlock.setting-title"><Setter Property="FontWeight" Value="Medium"/></Style>
   <Style Selector="TextBlock.status-info"><Setter Property="Foreground" Value="{DynamicResource WorkspaceInfo}"/></Style>
-  <Style Selector="TextBlock.status-success"><Setter Property="Foreground" Value="{DynamicResource WorkspaceSuccess}"/></Style>
+  <Style Selector="TextBlock.status-success"><Setter Property="Foreground" Value="{DynamicResource WorkspaceSuccessText}"/></Style>
   <Style Selector="TextBlock.status-warning"><Setter Property="Foreground" Value="{DynamicResource WorkspaceWarning}"/></Style>
   <Style Selector="TextBlock.status-error"><Setter Property="Foreground" Value="{DynamicResource WorkspaceDanger}"/></Style>
   <Style Selector="StackPanel[Orientation=Horizontal] > TextBlock"><Setter Property="VerticalAlignment" Value="Center"/></Style>
 
   <!-- Surfaces: neutral bordered cards; module colors only tint the background -->
-  <Style Selector="Border.card"><Setter Property="Theme" Value="{StaticResource CardBorder}"/><Setter Property="Margin" Value="0"/><Setter Property="CornerRadius" Value="12"/><Setter Property="Background" Value="{DynamicResource WorkspaceSurface}"/><Setter Property="BorderBrush" Value="{DynamicResource WorkspaceBorder}"/><Setter Property="BorderThickness" Value="1"/><Setter Property="Padding" Value="16"/></Style>
+  <Style Selector="Border.card"><Setter Property="Theme" Value="{StaticResource CardBorder}"/><Setter Property="Margin" Value="0"/><Setter Property="CornerRadius" Value="20"/><Setter Property="BoxShadow" Value="0 10 30 0 #2E000000"/><Setter Property="Background" Value="{DynamicResource WorkspaceSurface}"/><Setter Property="BorderBrush" Value="{DynamicResource WorkspaceBorder}"/><Setter Property="BorderThickness" Value="1"/><Setter Property="Padding" Value="16"/></Style>
   <Style Selector="Border.card.flush"><Setter Property="Padding" Value="0"/><Setter Property="ClipToBounds" Value="True"/></Style>
+  <Style Selector="Border.card.inset"><Setter Property="Background" Value="{DynamicResource WorkspaceInput}"/><Setter Property="BoxShadow" Value="none"/><Setter Property="CornerRadius" Value="14"/></Style>
   <Style Selector="Border.card.section-runtime"><Setter Property="Background" Value="{DynamicResource WorkspaceRuntimeSurface}"/></Style>
   <Style Selector="Border.card.section-queue"><Setter Property="Background" Value="{DynamicResource WorkspaceQueueSurface}"/></Style>
   <Style Selector="Border.card.section-catalog"><Setter Property="Background" Value="{DynamicResource WorkspaceCatalogSurface}"/></Style>
@@ -77,8 +104,8 @@
   <Style Selector="Border.sidebar"><Setter Property="Background" Value="{DynamicResource WorkspaceSidebar}"/><Setter Property="BorderBrush" Value="{DynamicResource WorkspaceBorder}"/></Style>
   <Style Selector="Border.icon-tile"><Setter Property="Width" Value="36"/><Setter Property="Height" Value="36"/><Setter Property="CornerRadius" Value="10"/><Setter Property="VerticalAlignment" Value="Center"/><Setter Property="Background" Value="{DynamicResource SemiColorPrimaryLight}"/></Style>
   <Style Selector="Border.icon-tile > PathIcon"><Setter Property="Foreground" Value="{DynamicResource SemiColorPrimary}"/><Setter Property="HorizontalAlignment" Value="Center"/><Setter Property="VerticalAlignment" Value="Center"/></Style>
-  <Style Selector="Border.brand-mark"><Setter Property="Width" Value="32"/><Setter Property="Height" Value="32"/><Setter Property="CornerRadius" Value="9"/><Setter Property="Background" Value="{DynamicResource SemiColorPrimary}"/></Style>
-  <Style Selector="Border.brand-mark > PathIcon"><Setter Property="Foreground" Value="White"/><Setter Property="HorizontalAlignment" Value="Center"/><Setter Property="VerticalAlignment" Value="Center"/></Style>
+  <Style Selector="Border.brand-mark"><Setter Property="Width" Value="28"/><Setter Property="Height" Value="28"/><Setter Property="CornerRadius" Value="10"/><Setter Property="Background" Value="{DynamicResource ButtonSolidPrimaryBackground}"/></Style>
+  <Style Selector="Border.brand-mark > PathIcon"><Setter Property="Foreground" Value="{DynamicResource ButtonSolidForeground}"/><Setter Property="HorizontalAlignment" Value="Center"/><Setter Property="VerticalAlignment" Value="Center"/></Style>
   <Style Selector="Border.selection-bar"><Setter Property="Background" Value="{DynamicResource WorkspaceInfoSoft}"/><Setter Property="CornerRadius" Value="10"/><Setter Property="Padding" Value="12,4"/><Setter Property="Margin" Value="0,0,0,12"/></Style>
   <Style Selector="Border.card DataGrid"><Setter Property="BorderThickness" Value="0"/></Style>
 
@@ -88,7 +115,7 @@
   <Style Selector="Border.pill Ellipse.dot"><Setter Property="Width" Value="8"/><Setter Property="Height" Value="8"/><Setter Property="Fill" Value="{DynamicResource WorkspaceMuted}"/></Style>
   <Style Selector="Border.pill.success"><Setter Property="Background" Value="{DynamicResource WorkspaceSuccessSoft}"/></Style>
   <Style Selector="Border.pill.success Ellipse.dot"><Setter Property="Fill" Value="{DynamicResource WorkspaceSuccess}"/></Style>
-  <Style Selector="Border.pill.success TextBlock"><Setter Property="Foreground" Value="{DynamicResource WorkspaceSuccess}"/></Style>
+  <Style Selector="Border.pill.success TextBlock"><Setter Property="Foreground" Value="{DynamicResource WorkspaceSuccessText}"/></Style>
   <Style Selector="Border.pill.warning"><Setter Property="Background" Value="{DynamicResource WorkspaceWarningSoft}"/></Style>
   <Style Selector="Border.pill.warning Ellipse.dot"><Setter Property="Fill" Value="{DynamicResource WorkspaceWarning}"/></Style>
   <Style Selector="Border.pill.warning TextBlock"><Setter Property="Foreground" Value="{DynamicResource WorkspaceWarning}"/></Style>
@@ -121,12 +148,36 @@
   <Style Selector="ToolTip"><Setter Property="MaxWidth" Value="360"/><Setter Property="Padding" Value="12,10"/></Style>
   <Style Selector="ToolTip TextBlock"><Setter Property="TextWrapping" Value="Wrap"/><Setter Property="LineHeight" Value="21"/></Style>
 
-  <!-- Navigation -->
+  <!-- Painted scene behind the glass panels (original gradients, no game art) -->
+  <Style Selector="Border.scene-sky"><Setter Property="Background" Value="{DynamicResource WorkspaceSceneSky}"/><Setter Property="IsHitTestVisible" Value="False"/></Style>
+  <Style Selector="Border.scene-sun"><Setter Property="Background" Value="{DynamicResource WorkspaceSceneSun}"/><Setter Property="IsHitTestVisible" Value="False"/></Style>
+  <Style Selector="Border.scene-hill-a"><Setter Property="Background" Value="{DynamicResource WorkspaceSceneHillA}"/><Setter Property="IsHitTestVisible" Value="False"/></Style>
+  <Style Selector="Border.scene-hill-b"><Setter Property="Background" Value="{DynamicResource WorkspaceSceneHillB}"/><Setter Property="IsHitTestVisible" Value="False"/></Style>
+  <Style Selector="Border.scene-shade"><Setter Property="Background" Value="{DynamicResource WorkspaceSceneShade}"/><Setter Property="IsHitTestVisible" Value="False"/></Style>
+  <Style Selector="Border.glass-bar"><Setter Property="Background" Value="{DynamicResource WorkspaceSidebar}"/><Setter Property="BorderBrush" Value="{DynamicResource WorkspaceBorder}"/><Setter Property="BorderThickness" Value="1"/><Setter Property="CornerRadius" Value="28"/><Setter Property="BoxShadow" Value="0 12 36 0 #40000000"/></Style>
+  <Style Selector="Button.chrome-link"><Setter Property="Height" Value="32"/><Setter Property="MinHeight" Value="32"/><Setter Property="CornerRadius" Value="16"/><Setter Property="Padding" Value="12,0"/><Setter Property="FontSize" Value="12"/></Style>
+
+  <!-- Navigation: floating bottom tab bar; selected tab is a solid capsule -->
+  <Style Selector="ListBox.tabs"><Setter Property="Background" Value="Transparent"/><Setter Property="BorderThickness" Value="0"/><Setter Property="Padding" Value="0"/></Style>
+  <Style Selector="ListBox.tabs > ListBoxItem"><Setter Property="Padding" Value="14,6"/><Setter Property="Margin" Value="2,0"/><Setter Property="CornerRadius" Value="20"/><Setter Property="MinHeight" Value="52"/><Setter Property="MinWidth" Value="76"/><Setter Property="HorizontalContentAlignment" Value="Center"/><Setter Property="VerticalContentAlignment" Value="Center"/><Setter Property="Foreground" Value="{DynamicResource WorkspaceTabText}"/></Style>
+  <Style Selector="ListBox.tabs > ListBoxItem:selected"><Setter Property="FontWeight" Value="Bold"/></Style>
+  <Style Selector="ListBox.tabs > ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{DynamicResource WorkspaceTabSelected}"/><Setter Property="Foreground" Value="{DynamicResource WorkspaceTabSelectedText}"/></Style>
+  <Style Selector="ListBox.tabs > ListBoxItem:pointerover /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{DynamicResource WorkspaceNeutralSoft}"/></Style>
+  <Style Selector="ListBox.tabs > ListBoxItem:selected:pointerover /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{DynamicResource WorkspaceTabSelected}"/></Style>
+  <Style Selector="ListBox.tabs TextBlock"><Setter Property="FontSize" Value="12"/></Style>
+
+  <!-- Summary tiles (chain/anchor pages): compact text cells that wrap to the panel width -->
+  <Style Selector="ListBox.summary"><Setter Property="Background" Value="Transparent"/><Setter Property="BorderThickness" Value="0"/><Setter Property="Padding" Value="0"/></Style>
+  <Style Selector="ListBox.summary > ListBoxItem"><Setter Property="Padding" Value="12,8"/><Setter Property="Margin" Value="4"/><Setter Property="CornerRadius" Value="14"/><Setter Property="Background" Value="{DynamicResource WorkspaceInput}"/><Setter Property="Cursor" Value="Hand"/></Style>
+  <Style Selector="ListBox.summary > ListBoxItem:pointerover /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{DynamicResource WorkspaceNeutralSoft}"/></Style>
+  <Style Selector="ListBox.summary > ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{DynamicResource SemiColorPrimaryLight}"/></Style>
+
+  <!-- Legacy vertical navigation (workbench sidebar) -->
   <Style Selector="ListBox.nav"><Setter Property="Background" Value="Transparent"/><Setter Property="BorderThickness" Value="0"/></Style>
   <Style Selector="ListBox.nav > ListBoxItem"><Setter Property="Padding" Value="12,10"/><Setter Property="Margin" Value="0,2"/><Setter Property="CornerRadius" Value="10"/><Setter Property="HorizontalContentAlignment" Value="Stretch"/></Style>
   <Style Selector="ListBox.nav > ListBoxItem.group-start"><Setter Property="Margin" Value="0,18,0,2"/></Style>
   <Style Selector="ListBox.nav > ListBoxItem:selected"><Setter Property="FontWeight" Value="SemiBold"/></Style>
-  <Style Selector="ListBox.nav > ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{DynamicResource SemiColorPrimaryLight}"/><Setter Property="Foreground" Value="{DynamicResource SemiColorPrimary}"/></Style>
+  <Style Selector="ListBox.nav > ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{DynamicResource SemiColorPrimaryLight}"/><Setter Property="Foreground" Value="{DynamicResource WorkspaceSelectedText}"/></Style>
   <Style Selector="ListBox.nav > ListBoxItem PathIcon.trailing"><Setter Property="Width" Value="12"/><Setter Property="Height" Value="12"/><Setter Property="Opacity" Value="0.55"/></Style>
 
   <!-- Setting rows -->
@@ -138,7 +189,7 @@
   <Style Selector="Border.segmented u|SelectionListItem"><Setter Property="HorizontalContentAlignment" Value="Center"/><Setter Property="VerticalContentAlignment" Value="Center"/><Setter Property="MinHeight" Value="34"/></Style>
 
   <!-- Compact window: one card, 28px icon buttons, thin progress bars -->
-  <Style Selector="Border.mini-shell"><Setter Property="Background" Value="{DynamicResource WorkspaceSurface}"/><Setter Property="BorderBrush" Value="{DynamicResource WorkspaceBorder}"/><Setter Property="BorderThickness" Value="1"/><Setter Property="CornerRadius" Value="14"/><Setter Property="ClipToBounds" Value="True"/></Style>
+  <Style Selector="Border.mini-shell"><Setter Property="Background" Value="{DynamicResource WorkspaceSceneSky}"/><Setter Property="BorderBrush" Value="{DynamicResource WorkspaceBorder}"/><Setter Property="BorderThickness" Value="1"/><Setter Property="CornerRadius" Value="20"/><Setter Property="ClipToBounds" Value="True"/></Style>
   <Style Selector="Ellipse.status-dot"><Setter Property="Width" Value="10"/><Setter Property="Height" Value="10"/><Setter Property="VerticalAlignment" Value="Center"/><Setter Property="Fill" Value="{DynamicResource WorkspaceMuted}"/></Style>
   <Style Selector="Ellipse.status-dot.success"><Setter Property="Fill" Value="{DynamicResource WorkspaceSuccess}"/></Style>
   <Style Selector="Ellipse.status-dot.warning"><Setter Property="Fill" Value="{DynamicResource WorkspaceWarning}"/></Style>
@@ -147,12 +198,14 @@
   <Style Selector="ToggleButton.mini-icon:checked /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{DynamicResource SemiColorPrimaryLight}"/><Setter Property="Foreground" Value="{DynamicResource SemiColorPrimary}"/></Style>
   <Style Selector="Button.mini-icon.warning"><Setter Property="Foreground" Value="{DynamicResource WorkspaceWarning}"/></Style>
   <Style Selector="Button.mini-round"><Setter Property="Width" Value="36"/><Setter Property="Padding" Value="0"/></Style>
-  <Style Selector="Button.mini-expand"><Setter Property="HorizontalAlignment" Value="Stretch"/><Setter Property="MinHeight" Value="32"/><Setter Property="Height" Value="32"/><Setter Property="CornerRadius" Value="0"/><Setter Property="Background" Value="{DynamicResource WorkspaceNeutralSoft}"/><Setter Property="Foreground" Value="{DynamicResource WorkspaceMuted}"/><Setter Property="BorderThickness" Value="0"/></Style>
-  <Style Selector="Border.mini-job"><Setter Property="Padding" Value="10,7"/><Setter Property="Margin" Value="0,0,0,6"/><Setter Property="CornerRadius" Value="8"/><Setter Property="Background" Value="{DynamicResource WorkspaceInput}"/></Style>
+  <Style Selector="Button.mini-expand"><Setter Property="HorizontalAlignment" Value="Stretch"/><Setter Property="MinHeight" Value="30"/><Setter Property="Height" Value="30"/><Setter Property="CornerRadius" Value="15"/><Setter Property="Margin" Value="10,0,10,8"/><Setter Property="Background" Value="{DynamicResource WorkspaceSidebar}"/><Setter Property="Foreground" Value="{DynamicResource WorkspaceMuted}"/><Setter Property="BorderThickness" Value="0"/></Style>
+  <Style Selector="Border.mini-job"><Setter Property="Padding" Value="12,7"/><Setter Property="Margin" Value="0,0,0,6"/><Setter Property="CornerRadius" Value="12"/><Setter Property="Background" Value="{DynamicResource WorkspaceInput}"/></Style>
   <Style Selector="Border.mini-job.active"><Setter Property="Background" Value="{DynamicResource WorkspaceInfoSoft}"/></Style>
+  <Style Selector="Border.mini-panel"><Setter Property="Background" Value="{DynamicResource WorkspaceRuntimeSurface}"/><Setter Property="BorderBrush" Value="{DynamicResource WorkspaceBorder}"/><Setter Property="BorderThickness" Value="1"/><Setter Property="CornerRadius" Value="16"/><Setter Property="Margin" Value="8,0,8,8"/></Style>
   <Style Selector="ProgressBar.mini-progress"><Setter Property="MinHeight" Value="6"/><Setter Property="Height" Value="6"/><Setter Property="MinWidth" Value="0"/><Setter Property="CornerRadius" Value="3"/></Style>
   <Style Selector="ProgressBar.mini-progress.thin"><Setter Property="MinHeight" Value="4"/><Setter Property="Height" Value="4"/><Setter Property="CornerRadius" Value="2"/></Style>
 
+  <Style Selector="Button.toolbar-icon"><Setter Property="Width" Value="36"/><Setter Property="Height" Value="36"/><Setter Property="MinWidth" Value="36"/><Setter Property="MinHeight" Value="36"/><Setter Property="Padding" Value="0"/></Style>
   <!-- Motion: short transitions on interactive surfaces; content fades without moving layout -->
   <Style Selector="Button"><Setter Property="Transitions"><Transitions><BrushTransition Property="Background" Duration="0:0:0.14"/><BrushTransition Property="Foreground" Duration="0:0:0.14"/><BrushTransition Property="BorderBrush" Duration="0:0:0.14"/><DoubleTransition Property="Opacity" Duration="0:0:0.10"/></Transitions></Setter></Style>
   <Style Selector="TextBox"><Setter Property="Transitions"><Transitions><BrushTransition Property="BorderBrush" Duration="0:0:0.14"/><BrushTransition Property="Background" Duration="0:0:0.14"/></Transitions></Setter></Style>

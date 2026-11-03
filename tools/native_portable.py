@@ -249,6 +249,13 @@ def update_native(root, output=None, reviewed_receipt=None, **options):
             try:
                 built = build_native(root, staging, **options)
                 return install_native_update(root, destination, built, reviewed_receipt=reviewed_receipt)
+            except Exception:
+                report=staging/'MabiAgent/docs/self-check.json'
+                if report.is_file():
+                    diagnostic=Path(root)/'build/package-self-check-latest.json'
+                    diagnostic.parent.mkdir(parents=True,exist_ok=True)
+                    shutil.copy2(report,diagnostic)
+                raise
             finally:
                 # A failed rollback is the only reason to retain this bounded staging directory.
                 if not (staging/'rollback').exists():

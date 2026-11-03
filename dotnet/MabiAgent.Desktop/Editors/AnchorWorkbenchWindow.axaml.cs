@@ -59,7 +59,13 @@ public partial class AnchorWorkbenchWindow:UrsaWindow
         WorkbenchShell.ColumnDefinitions[0].Width=new GridLength(compact?0:200);
         WorkbenchSidebar.IsVisible=!compact;CompactCategory.IsVisible=compact;
         WorkbenchHeading.IsVisible=!compact||size.Width>=960;
-        WorkbenchSearch.Width=compact?168:240;
+        var stackedHeader=size.Width<1280;
+        Grid.SetRow(WorkbenchHeaderActions,stackedHeader?1:0);
+        Grid.SetColumn(WorkbenchHeaderActions,stackedHeader?0:1);
+        Grid.SetColumnSpan(WorkbenchHeaderActions,stackedHeader?2:1);
+        WorkbenchHeaderActions.Margin=new Thickness(0,stackedHeader?12:0,0,0);
+        WorkbenchHeading.MaxWidth=stackedHeader?Math.Max(200,size.Width-210):300;
+        WorkbenchSearch.Width=stackedHeader?Math.Clamp(size.Width-420,220,360):240;
         WorkbenchBody.Margin=compact?new Thickness(16,0,16,12):new Thickness(24,0,24,14);
         ChainLayout.ColumnDefinitions[0].Width=new GridLength(compact?0:232);
         ChainLayout.ColumnDefinitions[1].Width=new GridLength(compact?0:16);

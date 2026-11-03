@@ -26,7 +26,7 @@ internal static class CompactUiSelfCheck
             Check(ReferenceEquals(start.Command,model.StartCommand)&&ReferenceEquals(pause.Command,model.PauseCommand),"开始与暂停连接到主窗口同一命令");
             Check(ReferenceEquals(stop.ConfirmCommand,model.StopAllCommand),"停止全部需要二次确认后才执行");
             model.RuntimeIssues="维修任务等待报价核实\n采购任务等待核账确认";mini.UpdateLayout();
-            Check(model.IssueCount==2&&model.IssueBadge=="2",$"待处理问题计数为 2（实际 {model.IssueCount}）");var badge=mini.FindControl<Badge>("IssueBadge");Check(badge?.IsEffectivelyVisible==true&&Equals(badge.Header,"2"),$"待处理问题数量显示在角标上（visible={badge?.IsVisible} header={badge?.Header}）");
+            Check(model.IssueCount==2&&model.IssueBadge=="2",$"待处理问题计数为 2（实际 {model.IssueCount}）");var badge=mini.FindControl<Border>("IssueBadge");Check(badge?.IsEffectivelyVisible==true&&badge.GetVisualDescendants().OfType<TextBlock>().Any(t=>t.Text=="2"),$"待处理问题数量显示在角标上（visible={badge?.IsVisible} count={model.IssueBadge}）");
             foreach(var variant in new[]{ThemeVariant.Dark,ThemeVariant.Light})
             foreach(var expanded in new[]{false,true})
             {
@@ -34,6 +34,14 @@ internal static class CompactUiSelfCheck
                 var label=$"迷你窗口 {variant} {(expanded?"展开":"收起")}";
                 Check(Math.Abs(mini.Bounds.Width-340)<1&&mini.Bounds.Height<(expanded?560:200),label+$" 尺寸紧凑（{mini.Bounds.Width:0}×{mini.Bounds.Height:0}）");
                 UiLayoutRegression.AssertScene(mini,label,passed);
+                foreach(var count in new[]{1,12,123})
+                {
+                    model.RuntimeIssues=string.Join("\n",Enumerable.Range(1,count).Select(i=>"待处理问题 "+i));await Settle(mini);
+                    var number=badge!.GetVisualDescendants().OfType<TextBlock>().First(t=>t.Text==count.ToString());
+                    var origin=number.TranslatePoint(default,mini)!.Value;
+                    Check(origin.X>=0&&origin.Y>=0&&origin.X+number.Bounds.Width<=mini.Bounds.Width&&origin.Y+number.Bounds.Height<=mini.Bounds.Height,label+" 消息角标完整显示 "+count);
+                }
+                model.RuntimeIssues="维修待确认\n采购待确认";await Settle(mini);
                 var buttons=mini.GetVisualDescendants().OfType<Button>().Where(b=>b.IsEffectivelyVisible&&!b.Classes.Contains("mini-expand")&&!b.GetVisualAncestors().OfType<ComboBox>().Any()).ToArray();
                 Check(buttons.All(b=>b.Bounds.Height>=28&&b.Bounds.Width>=28&&b.CornerRadius.TopLeft>=b.Bounds.Height/2-.5),label+" 操作尺寸与圆角一致");
                 if(previewDirectory is not null)

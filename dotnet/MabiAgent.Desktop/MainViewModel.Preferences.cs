@@ -50,6 +50,12 @@ public partial class MainViewModel
     {if(SelectedReserve is not {} row)return;MaterialReserves.Remove(row);SelectedReserve=null;ScheduleSettings();}
     partial void OnThemeKeyChanged(string value){ApplyTheme();ScheduleSettings();}
     partial void OnRecognitionLowCpuChanged(bool value)=>ScheduleSettings();
+    [RelayCommand] public void ToggleTheme()
+    {
+        var dark=ThemeKey=="dark"||(ThemeKey=="system"&&Application.Current?.ActualThemeVariant==ThemeVariant.Dark);
+        ThemeKey=dark?"light":"dark";
+        SaveSettings();
+    }
     void ApplyTheme()
     {if(Application.Current is {} app)app.RequestedThemeVariant=ThemeKey switch{"light"=>ThemeVariant.Light,"dark"=>ThemeVariant.Dark,_=>ThemeVariant.Default};}
     void LoadExtraSettings(DesktopPreferences p)

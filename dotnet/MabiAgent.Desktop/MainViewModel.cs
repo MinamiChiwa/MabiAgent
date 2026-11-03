@@ -96,7 +96,7 @@ public partial class MainViewModel:ObservableObject
     public string PageTitle=>SelectedPage switch{1=>"材料与配方",2=>"维护与设置",3=>"账户道具",4=>"自定义任务链",5=>"锚点调试",_=>"任务队列"};
     public string PageDescription=>SelectedPage switch{1=>"查看设备、产量与耗时，选择配方后创建任务。",2=>"设置自动维护、材料留存、外观与数据监听。",3=>"按账户查看角色与仓库数量，确认道具名称关联。",4=>"从预设创建草稿，编辑流程与锚点后发布。",5=>"管理识别模板、搜索区域和显示状态。",_=>"安排目标顺序，查看进度、自动补料与待核账状态。"};
     public bool ShowGlobalSearch=>SelectedPage is 0 or 1;
-    public string SearchHint=>SelectedPage==1?"搜索材料、配方或设备（Ctrl+F）":"搜索目标名称或状态（Ctrl+F）";
+    public string SearchHint=>SelectedPage==1?"搜索材料、配方或设备":"搜索目标名称或状态";
     public bool CanStart=>automation is not null&&SelectedWindow is not null&&!IsBusy&&!IsRunning&&!closing;
     public bool CanPause=>automation?.IsRunning==true&&!closing;
     [RelayCommand] private async Task StopAllAsync()

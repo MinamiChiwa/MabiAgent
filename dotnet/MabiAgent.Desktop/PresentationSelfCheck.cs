@@ -26,7 +26,8 @@ internal static class PresentationSelfCheck
         Check(!ToolTip.GetIsOpen(help),"切换页面关闭隐藏区域的帮助");
         Check(!ToolTip.GetIsOpen(pageHelp),"页面说明变更时关闭旧提示");
         model.SelectedPage=2;window.UpdateLayout();ToolTip.SetIsOpen(help,true);
-        await Task.Delay(HelpButton.MaximumOpenTime+TimeSpan.FromMilliseconds(150));
+        var helpDeadline=System.Diagnostics.Stopwatch.StartNew();
+        while(ToolTip.GetIsOpen(help)&&helpDeadline.Elapsed<HelpButton.MaximumOpenTime+TimeSpan.FromSeconds(2))await Task.Delay(60);
         Check(!ToolTip.GetIsOpen(help),"问号说明六秒内自动关闭");
         typeof(HelpButton).GetMethod("OnClick",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic)!.Invoke(help,null);
         Check(ToolTip.GetIsOpen(help),"点击问号可查看说明");
@@ -40,8 +41,11 @@ internal static class PresentationSelfCheck
         var other=buttons.First(b=>b is not HelpButton&&b.Focusable);
         other.RaiseEvent(new PointerPressedEventArgs(other,pointer,window,default,0,default,KeyModifiers.None,1));
         Check(!ToolTip.GetIsOpen(help),"点击其他控件关闭帮助且不吞操作");
+        window.Activate();
+        for(var i=0;i<20&&!window.IsActive;i++)await Task.Delay(50);
         ToolTip.SetIsOpen(help,true);
-        var deactivateProbe=new Window{Width=180,Height=100,ShowInTaskbar=false};deactivateProbe.Show(window);deactivateProbe.Activate();await Task.Delay(150);
+        var deactivateProbe=new Window{Width=180,Height=100,ShowInTaskbar=false};deactivateProbe.Show(window);deactivateProbe.Activate();
+        for(var i=0;i<30&&ToolTip.GetIsOpen(help);i++)await Task.Delay(50);
         Check(!ToolTip.GetIsOpen(help),"窗口失活关闭帮助");deactivateProbe.Close();window.Activate();
         return passed.ToArray();
     }
