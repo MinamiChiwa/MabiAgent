@@ -66,7 +66,7 @@ MabiAgent 可為《新瑪奇 Mobile》繁體中文伺服器安排製作、採集
 
 ## 介面與迷你視窗
 
-底部頁籤用於切換「佇列／倉庫／設定」。「佇列」用於新增目標、查看進度和待處理問題；「倉庫」依帳號顯示角色與庫存，並提供「更新物品關聯」；「設定」包含修理、整理、生活 VIP、資料同步、版本更新和「設定工作台」。配方和採集點從「新增目標」選擇，任務鏈與錨點從「設定 → 設定工作台」編輯。頂欄提供简体中文／繁體中文切換、「使用指南」、亮暗主題、資料目錄、GitHub、贊助和版本更新入口；切換介面語言後，「使用指南」會開啟目前語言的說明。按住頂部空白處可拖曳視窗，雙擊可最大化或還原。
+底部頁籤用於切換「佇列／倉庫／設定」。「佇列」用於新增目標、查看進度和待處理問題；「倉庫」依帳號顯示角色與庫存，並提供「更新物品關聯」；「設定」包含修理、整理、生活 VIP、資料同步、版本更新和「設定工作台」。配方和採集點從「新增目標」選擇，任務鏈與錨點從「設定 → 設定工作台」編輯。頂欄提供简体中文／繁體中文切換、「使用指南」、亮暗主題、資料目錄、GitHub、贊助和版本更新入口；「使用指南」以內建視窗呈現 Markdown，支援標題、清單、表格、程式碼與連結，可在視窗內切換簡體／繁體並保留閱讀位置。頂欄更新按鈕僅在發現新版本時顯示，手動檢查請前往「設定 → 版本更新」。按住頂部空白處可拖曳視窗，雙擊可最大化或還原。
 
 點選執行列的「迷你視窗」，主介面會收成一張小卡片，保留目前任務、進度和執行按鈕。訊息按鈕旁的數字表示待處理問題數，點選可查看詳細資料。「展開詳細資料」可查看後續任務和遊戲視窗選擇。圖釘控制置頂，右側返回按鈕開啟主視窗。
 
@@ -114,7 +114,7 @@ MabiAgent 可為《新瑪奇 Mobile》繁體中文伺服器安排製作、採集
 
 建置、測試和修改方式見 [開發指南](docs/DEVELOPMENT.md)。完整專案授權見 [LICENSE](LICENSE)。遊戲名稱和畫面屬於各相關權利人。
 
-第三方授權收錄於發行包 licenses 資料夾：Avalonia、Semi.Avalonia、Ursa.Avalonia、CommunityToolkit.Mvvm 和 ONNX Runtime 採用 MIT；OpenCvSharp、PP-OCRv5 模型及 Material Design Icons 採用 Apache-2.0；Noto Sans SC 字型採用 SIL OFL 1.1。Npcap 需另行安裝，適用其自身授權。
+第三方授權收錄於發行包 licenses 資料夾：Avalonia、Semi.Avalonia、Ursa.Avalonia、CommunityToolkit.Mvvm、MarkView.Avalonia、Markdig 與 ONNX Runtime 採用 MIT；OpenCvSharp、PP-OCRv5 模型及 Material Design Icons 採用 Apache-2.0；Noto Sans SC 字型採用 SIL OFL 1.1。Npcap 需另行安裝，適用其自身授權。
 
 ## 贊助
 

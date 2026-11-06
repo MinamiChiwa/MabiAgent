@@ -194,3 +194,5 @@ MAA 核心采用 AGPL-3.0-only，MaaFramework 采用 LGPL v3。项目只借鉴�
 提交前运行与改动相关的构建和测试，并检查文档、配置和发布清单中的引用一致。
 
 第三方许可见项目根目录及各组件的许可文件。OCR 模型的来源和校验值在 models/ocr-model.source.json。首次启动说明由 StartupNotice 生成，NpcapAvailability 使用现有接口加载 Npcap 并枚举网卡；依赖异常时向用户提供官网下载入口。
+
+内置使用指南使用 MarkView.Avalonia（Markdown 渲染）与 Markdig（解析），文档直接嵌入根目录双语 README，开发指南和许可的相对链接在窗口内打开。窗口沿用 Ursa/Semi 组件与主题，简繁切换沿用持久偏好并恢复阅读比例。顶栏语言图标引用 SemiIconLanguage；更新入口仅在 HasUpdateNotification 为真时显示，设置页保留手动检查。聚焦界面验收可运行 `--self-check --guide-check --guide-preview <目录> --report <文件>`，覆盖 Markdown、语言、滚动、主题、更新显隐与窗口释放。

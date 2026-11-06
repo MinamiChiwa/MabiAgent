@@ -66,7 +66,7 @@ MabiAgent 可以为《洛奇 Mobile》繁体中文服安排生产、采集和钓
 
 ## 界面与迷你窗口
 
-底部页签用于切换“队列／仓库／设置”。“队列”用于新增目标、查看进度和待处理问题；“仓库”按账户显示角色与库存，并提供“更新物品关联”；“设置”包含修理、整理、生活 VIP、数据同步、版本更新和“配置工作台”。配方和采集点从“新增目标”选择，任务链与锚点从“设置 → 配置工作台”编辑。顶栏提供简体中文／繁體中文切换、“使用指南”、亮暗主题、数据目录、GitHub、赞助和版本更新入口；切换界面语言后，“使用指南”会打开当前语言的说明。按住顶部空白处可拖动窗口，双击可最大化或还原。
+底部页签用于切换“队列／仓库／设置”。“队列”用于新增目标、查看进度和待处理问题；“仓库”按账户显示角色与库存，并提供“更新物品关联”；“设置”包含修理、整理、生活 VIP、数据同步、版本更新和“配置工作台”。配方和采集点从“新增目标”选择，任务链与锚点从“设置 → 配置工作台”编辑。顶栏提供简体中文／繁體中文切换、“使用指南”、亮暗主题、数据目录、GitHub、赞助和版本更新入口；“使用指南”在内置窗口渲染 Markdown，支持标题、列表、表格、代码和链接，可在窗口内切换简体／繁體并保留阅读位置。顶栏更新按钮仅在发现新版本时显示，手动检查请前往“设置 → 版本更新”。按住顶部空白处可拖动窗口，双击可最大化或还原。
 
 点击运行栏的“迷你窗口”，主界面会收成一张小卡片，保留当前任务、进度和运行按钮。消息按钮旁的数字表示待处理问题数，点击可查看详情。“展开详情”可查看后续任务和游戏窗口选择。图钉控制置顶，右侧返回按钮打开主窗口。
 
@@ -114,7 +114,7 @@ MabiAgent 可以为《洛奇 Mobile》繁体中文服安排生产、采集和钓
 
 构建、测试和修改方法见 [开发指南](docs/DEVELOPMENT.md)。完整项目许可见 [LICENSE](LICENSE)。游戏名称和画面属于相应权利人。
 
-第三方许可收在发布包 licenses 文件夹中：Avalonia、Semi.Avalonia、Ursa.Avalonia、CommunityToolkit.Mvvm 和 ONNX Runtime 采用 MIT；OpenCvSharp、PP-OCRv5 模型及 Material Design Icons 采用 Apache-2.0；Noto Sans SC 字体采用 SIL OFL 1.1。Npcap 单独安装，适用其自身许可。
+第三方许可收在发布包 licenses 文件夹中：Avalonia、Semi.Avalonia、Ursa.Avalonia、CommunityToolkit.Mvvm、MarkView.Avalonia、Markdig 和 ONNX Runtime 采用 MIT；OpenCvSharp、PP-OCRv5 模型及 Material Design Icons 采用 Apache-2.0；Noto Sans SC 字体采用 SIL OFL 1.1。Npcap 单独安装，适用其自身许可。
 
 ## 赞助
 
