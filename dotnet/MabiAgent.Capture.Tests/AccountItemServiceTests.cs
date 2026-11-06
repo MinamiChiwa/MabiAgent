@@ -78,5 +78,78 @@ public sealed class AccountItemServiceTests : IDisposable
         Assert.Throws<ArgumentException>(() => service.Record(Snapshot("one", 9, 1) with { Identity = new("other", "one", "wrong") }));
         Assert.Equal(before, File.ReadAllBytes(path));
     }
+    [Fact] public async Task ConcurrentUpdateNamesWithSameBaselineAllowsOnlyOneWriter()
+    {
+        var service=new AccountItemService(directory);service.Record(Snapshot("one",3,20));
+        var path=service.Files("account").Associations;
+        var expected=Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(path)));
+        var first=new AccountItemService(directory);var second=new AccountItemService(directory);using var barrier=new Barrier(2);
+        Task<IOException?> Save(AccountItemService writer,string name)=>Task.Run(()=>
+        {
+            barrier.SignalAndWait();try{writer.UpdateNames("account",[new(123,name)],NameEditOperation.Confirm,expected);return null;}catch(IOException error){return error;}
+        });
+        var results=await Task.WhenAll(Save(first,"第一"),Save(second,"第二"));
+        Assert.Single(results,result=>result is null);Assert.Single(results,result=>result is not null);
+        var saved=service.ReadNames("account").Snapshot().Single(row=>row.ItemId==123).Name;
+        Assert.True(saved is "第一" or "第二");
+    }
+    [Theory][InlineData(4,3,20)][InlineData(9,2,21)][InlineData(5,3,19)]
+    public void OlderSessionGenerationsCannotOverwriteNewerHistory(long revision,long full,double verified)
+    {
+        var service=new AccountItemService(directory);var at=DateTimeOffset.UtcNow.AddMinutes(-1);
+        var current=Snapshot("one",3,20) with{Revision=5,FullSyncRevision=3,VerifiedThrough=20,ObservedAt=at,FrameSha256="new"};
+        service.Record(current);var path=service.Files("account").Inventory;var before=File.ReadAllBytes(path);
+        service.Record(Snapshot("one",99,1) with{Revision=revision,FullSyncRevision=full,VerifiedThrough=verified,ObservedAt=at.AddSeconds(1),FrameSha256="old"});
+        Assert.Equal(before,File.ReadAllBytes(path));Assert.Equal(3,service.View("account").Items.Single(row=>row.ItemId==123).Characters["one"].Backpack);
+    }
+    [Fact] public void DifferentSessionsRequireNewerObservationAndSharedStorageKeepsAccountOwnership()
+    {
+        var service=new AccountItemService(directory);var at=DateTimeOffset.UtcNow.AddMinutes(-1);
+        service.Record(Snapshot("one",3,20) with{ObservedAt=at});
+        service.Record(Snapshot("one",99,1) with{Scope=new("account","one","older-session"),Revision=99,FullSyncRevision=99,VerifiedThrough=99,ObservedAt=at.AddSeconds(-1)});
+        Assert.Equal(3,service.View("account").Items.Single(row=>row.ItemId==123).Characters["one"].Backpack);
+        service.Record(Snapshot("one",98,2) with{Scope=new("account","one","equal-time-session"),ObservedAt=at});
+        Assert.Equal(3,service.View("account").Items.Single(row=>row.ItemId==123).Characters["one"].Backpack);
+        service.Record(Snapshot("two",7,99) with{ObservedAt=at.AddSeconds(-1)});
+        var row=service.View("account").Items.Single(item=>item.ItemId==123);
+        Assert.Equal(20,row.SharedStorage);Assert.Equal(7,row.Characters["two"].Backpack);
+        service.Record(Snapshot("one",9,30) with{Scope=new("account","one","newer-session"),Revision=1,FullSyncRevision=1,VerifiedThrough=1,ObservedAt=at.AddSeconds(1)});
+        row=service.View("account").Items.Single(item=>item.ItemId==123);Assert.Equal(9,row.Characters["one"].Backpack);Assert.Equal(30,row.SharedStorage);
+    }
+    [Fact] public void OldSessionHealthAdvanceCannotOverwriteNewFullSync()
+    {
+        static StreamingInventory Sync(string capture,long quantity,string hash)
+        {
+            var stream=new StreamingInventory(_=>InventoryTests.Login(quantity:quantity) with{BodySha256=hash},capture);
+            stream.Accept(new(0,GameProtocol.LoginOpcode,0,[1]),"connection",1);
+            stream.Accept(new(0,GameProtocol.ProfileOpcode,0,InventoryTests.Profile(9007199254740993)),"connection",2);
+            return stream;
+        }
+        var service=new AccountItemService(directory);var old=Sync("old",7,"old-full");var oldFull=old.Snapshot();service.Record(oldFull);
+        while(DateTimeOffset.UtcNow<=oldFull.FullSyncObservedAt!.Value)Thread.Sleep(1);
+        var current=Sync("new",19,"new-full");var currentFull=current.Snapshot();service.Record(currentFull);
+        Assert.Equal(19,service.View(currentFull.Identity!.AccountId).Items.Single(row=>row.ItemId==123).Characters[currentFull.Identity.CharacterId].Backpack);
+        while(DateTimeOffset.UtcNow<=currentFull.ObservedAt!.Value)Thread.Sleep(1);
+        old.Accept(new(0,GameProtocol.InventoryOpcode,0,ProtocolTests.Record(quantity:99)),"connection",3);old.Advance(100,true);
+        var delayed=old.Snapshot();
+        Assert.True(delayed.Revision>currentFull.Revision);Assert.True(delayed.ObservedAt!.Value>currentFull.ObservedAt.Value);
+        Assert.True(delayed.FullSyncObservedAt!.Value<currentFull.FullSyncObservedAt!.Value);
+        service.Record(delayed);
+        var account=currentFull.Identity.AccountId;var row=service.View(account).Items.Single(item=>item.ItemId==123);
+        Assert.Equal(19,row.Characters[currentFull.Identity.CharacterId].Backpack);
+        var csv=File.ReadAllText(service.Files(account).Inventory);Assert.Contains("new-full",csv);Assert.DoesNotContain("old-full",csv);
+    }
+    [Fact] public void FullSyncHashAndObservationTimeReachInventoryCsv()
+    {
+        var stream=new StreamingInventory(_=>InventoryTests.Login(),"capture");
+        stream.Accept(new(0,GameProtocol.LoginOpcode,0,[1]),"connection",1);
+        stream.Accept(new(0,GameProtocol.ProfileOpcode,0,InventoryTests.Profile(9007199254740993)),"connection",2);
+        var snapshot=stream.Snapshot();Assert.Equal("digest",snapshot.FrameSha256);Assert.NotNull(snapshot.ObservedAt);
+        var service=new AccountItemService(directory);service.Record(snapshot);
+        var lines=File.ReadAllLines(service.Files(snapshot.Identity!.AccountId).Inventory).Select(line=>line.Split(',')).ToArray();
+        var headers=lines[0];var hash=Array.IndexOf(headers,"frame_sha256");var observed=Array.IndexOf(headers,"observed_at");
+        Assert.True(hash>=0&&observed>=0);Assert.All(lines.Skip(1),row=>Assert.Equal("digest",row[hash]));
+        Assert.All(lines.Skip(1),row=>Assert.Equal(snapshot.ObservedAt.Value,DateTimeOffset.Parse(row[observed])));
+    }
     public void Dispose() { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
 }

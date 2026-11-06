@@ -11,12 +11,15 @@ public sealed partial class AutomationService
     public async Task RunLiveQueueAcceptanceAsync(string reportPath,bool storageAcceptance=false,bool startPaused=false)
     {
         var began=DateTimeOffset.Now;var report=new JsonObject{["began"]=began.ToString("O"),["shared_service"]=true,["trace"]=new JsonArray()};
-        Directory.CreateDirectory(Path.GetDirectoryName(reportPath)!);string? prior=null;var lastSaved=DateTimeOffset.MinValue;
+        Directory.CreateDirectory(Path.GetDirectoryName(reportPath)!);string? prior=null,lastSupplyRequest=null;var lastSaved=DateTimeOffset.MinValue;
         var before=selection.Selected?.State??throw new InvalidOperationException("游戏窗口不唯一");
         try
         {
             if(storageAcceptance&&workspace.Read().Jobs.Any())throw new InvalidOperationException("单份取料验收只允许空隔离队列");
-            StartCapture();await Task.Delay(2000,lifetime.Token);
+            StartCapture();
+            var captureDeadline=DateTimeOffset.UtcNow+TimeSpan.FromSeconds(12);
+            var listening=await LiveAcceptanceStartup.WaitForAsync(()=>CaptureStatus.State==MabiAgent.Capture.CaptureState.Listening,captureDeadline,milliseconds=>Task.Delay(milliseconds,lifetime.Token),token:lifetime.Token);
+            if(!listening)throw new InvalidOperationException("验收库存监听未在12秒内就绪："+CaptureStatus.Message);
             if(startPaused)
             {Status=Status with{Running=false,Message="验收已暂停，请显式继续",PauseReason="manual"};NotifyChanged();}
             else
@@ -25,17 +28,16 @@ public sealed partial class AutomationService
             // through the same service refresh before resuming qualified storage plans.
             if(CaptureStatus.Inventory?.VerifiedThrough is null)
             {
-                var restoredNativeBatch=Directory.EnumerateFiles(Path.Combine(workspace.DataPath,"windows"),"gathering.json",SearchOption.AllDirectories).Any(path=>JsonNode.Parse(File.ReadAllText(path)) is{} state&&state["phase"]?.GetValue<string>()=="gathering"&&state["pending"] is null);
-                var restoredCollection=Directory.EnumerateFiles(Path.Combine(workspace.DataPath,"windows"),"production.json",SearchOption.AllDirectories).Any(path=>JsonNode.Parse(File.ReadAllText(path))?["pending"]?["kind"]?.GetValue<string>()=="collect");
-                if(!restoredNativeBatch&&!restoredCollection)await RefreshInventoryAsync();var bootstrap=DateTimeOffset.Now;
+                var restored=LiveAcceptanceStartup.HasRestoredPendingWork(workspace.DataPath);
+                if(!restored)await RefreshInventoryAsync();var bootstrap=DateTimeOffset.Now;
                 while((refreshingInventory||recovering)&&DateTimeOffset.Now-bootstrap<TimeSpan.FromMinutes(6))
                 {if(File.Exists(Path.ChangeExtension(reportPath,"stop"))){report["stopped"]="requested_during_bootstrap";return;}Save();await Task.Delay(1000,lifetime.Token);}
-                if(!restoredNativeBatch&&!restoredCollection&&CaptureStatus.Inventory?.VerifiedThrough is null&&Status.PauseReason!="manual")throw new InvalidOperationException("验收启动刷新未取得当前抓包，保留原意图");
+                if(!restored&&CaptureStatus.Inventory?.VerifiedThrough is null&&Status.PauseReason!="manual")throw new InvalidOperationException("验收启动刷新未取得当前抓包，保留原意图");
             }
             if(Status.PauseReason!="manual")await StartAsync();
             if(storageAcceptance&&IsRunning&&!File.Exists(Path.Combine(workspace.DataPath,"storage-supply.json")))
             {
-                await gate.WaitAsync(lifetime.Token);try{BeginPrivateTheaterRefresh(true);}finally{gate.Release();wake.Signal();}
+                await gate.WaitAsync(lifetime.Token);try{BeginQuickReentry(true);}finally{gate.Release();wake.Signal();}
                 var bootstrap=DateTimeOffset.Now;
                 while(refreshingInventory&&DateTimeOffset.Now-bootstrap<TimeSpan.FromSeconds(120)){Save();await Task.Delay(1000,lifetime.Token);}
                 await gate.WaitAsync(lifetime.Token);
@@ -72,6 +74,17 @@ public sealed partial class AutomationService
                 if(!isRunning||state.PauseReason is not null)
                 {report["paused"]=state.PauseReason??state.Fault??state.Message;Save();continue;}
                 report.Remove("paused");
+                var supplyRequestPath=Path.Combine(workspace.DataPath,"live-supply-acceptance-request.json");
+                var supplyRequest=File.Exists(supplyRequestPath)?File.ReadAllText(supplyRequestPath):null;
+                if(supplyRequest is not null&&supplyRequest!=lastSupplyRequest)
+                {
+                    var supplied=await RunLiveSupplyAcceptanceHookAsync(lifetime.Token);
+                    if(supplied is not null)
+                    {
+                        lastSupplyRequest=supplyRequest;report["supply_acceptance"]??=new JsonObject();
+                        report["supply_acceptance"]![supplied["request_id"]?.GetValue<string>()??"invalid"]=supplied.DeepClone();Save();
+                    }
+                }
                 var queue=workspace.Read();if(queue.Jobs.Any()&&queue.Jobs.All(j=>j.Completed>=j.Target)){report["queue_complete"]=true;break;}
                 if(storageAcceptance)
                 {

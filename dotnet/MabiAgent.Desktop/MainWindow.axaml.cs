@@ -15,17 +15,23 @@ public partial class MainWindow:UrsaWindow
     public MainWindow(MainViewModel model)
     {
         InitializeComponent();DataContext=model;Controls.SearchablePicker.OpenOnFocus<GatheringChoice>(GatheringPicker,g=>g.Name);
-        SizeChanged+=(_,_)=>UpdateResponsiveLayout();
+        SizeChanged+=(_,_)=>{UpdateResponsiveLayout();Avalonia.Threading.Dispatcher.UIThread.Post(UpdateTabIndicator,Avalonia.Threading.DispatcherPriority.Loaded);};
         Opened+=(_,_)=>{Controls.WindowSizing.FitToWorkingArea(this);UpdateResponsiveLayout();UpdateTabIndicator();};
-        Navigation.LayoutUpdated+=(_,_)=>UpdateTabIndicator();
         model.PropertyChanged+=(_,e)=>{if(e.PropertyName==nameof(model.IsMiniMode))ApplyMiniMode(model);if(e.PropertyName==nameof(model.SelectedPage))UpdatePage();if(e.PropertyName==nameof(model.AddDialogOpen))Avalonia.Threading.Dispatcher.UIThread.Post(()=>{if(model.AddDialogOpen){Controls.Motion.FadeIn(AddOverlay);Controls.Motion.PopIn(AddGoalCard);TaskKindPicker.Focus();}else Navigation.Focus();});
             if(e.PropertyName==nameof(model.CaptureSettingsOpen)&&model.CaptureSettingsOpen)Avalonia.Threading.Dispatcher.UIThread.Post(()=>{Controls.Motion.FadeIn(CaptureOverlay);Controls.Motion.SlideIn(CaptureDrawer,48);CaptureDrawer.Focus();},Avalonia.Threading.DispatcherPriority.Loaded);};UpdatePage();
-        Closed+=(_,_)=>{miniWindow?.CloseWithOwner();workbenchWindow?.CloseWithOwner();model.PrepareClose();};
+        SettingsPage.OpenWorkbenchRequested+=HandleOpenWorkbenchRequested;
+        SettingsPage.PageShown+=HandleSettingsPageShown;
+        model.UpdateSectionRequested=RequestUpdateSection;
+        Closed+=(_,_)=>{SettingsPage.OpenWorkbenchRequested-=HandleOpenWorkbenchRequested;SettingsPage.PageShown-=HandleSettingsPageShown;model.UpdateSectionRequested=null;guideWindow?.Close();miniWindow?.CloseWithOwner();workbenchWindow?.CloseWithOwner();model.PrepareClose();model.ReleaseUpdates();};
+        model.LoadUpdatePreferences();
+        model.ShutdownRequested??=()=>Avalonia.Threading.Dispatcher.UIThread.Post(()=>_=CloseRequest?.Invoke()??Task.FromResult(false));
+        if(model.AutoCheckUpdates)Avalonia.Threading.Dispatcher.UIThread.Post(async()=>await model.CheckUpdateAsync(),Avalonia.Threading.DispatcherPriority.Background);
     }
     internal void UpdateResponsiveLayout(Size? viewport=null)
     {
         var size=viewport??Bounds.Size;
         var compact=size.Width<1120;
+        GitHubButton.IsVisible=!compact;SponsorButton.IsVisible=!compact;
         AppName.Text=ProductInfo.Title;
         ContentLayout.Margin=new Thickness(compact?16:24,4,compact?16:24,0);
         BottomBar.Margin=new Thickness(compact?16:24,compact?8:10,compact?16:24,compact?8:12);
@@ -64,68 +70,43 @@ public partial class MainWindow:UrsaWindow
             miniWindow?.HideToOwner();
         }
     }
+    Control? visiblePage;
     private void UpdatePage()
     {
         if(DataContext is not MainViewModel vm)return;
-        Control[] pages=[QueuePage,RecipePage,SettingsPage,AccountsPanel,DebugLauncher];
-        var shown=vm.SelectedPage<0?null:pages[Math.Min(vm.SelectedPage,pages.Length-1)];
-        foreach(var page in pages)page.IsVisible=ReferenceEquals(page,shown);
-        if(ReferenceEquals(shown,DebugLauncher))UpdateWorkbenchSummary(vm);
-    }
-    sealed record SummaryRow(string Name,string Detail,object Item);
-    readonly Dictionary<int,SummaryRow[]> summaryRows=[];
-    readonly Dictionary<int,Avalonia.Vector> summaryOffsets=[];
-    int summaryPage=-1;
-    // Chain and anchor pages list what the workbench holds; editing stays in the workbench window.
-    private void UpdateWorkbenchSummary(MainViewModel vm)
-    {
-        var document=vm.Workbench?.Document;var chains=vm.SelectedPage==4;
-        WorkbenchSummaryIcon.Kind=chains?"chain":"anchor";
-        WorkbenchSummaryTitle.Text=chains?"任务链":"锚点";
-        var filter=WorkbenchSummaryFilter.Text?.Trim()??"";
-        SummaryRow[] all=document is null?[]:chains
-            ?document.Chains.Select(c=>new SummaryRow(c.Name,c.KindLabel+" · "+c.Cards.Count+" 步",c)).ToArray()
-            :document.Anchors.Select(a=>new SummaryRow(a.Name,(a.PageId.Length>0?Editors.WorkbenchLabels.Page(a.PageId)+" · ":"")+a.States.Count+" 个状态",a)).ToArray();
-        var matched=filter.Length==0?all:all.Where(r=>r.Name.Contains(filter,StringComparison.OrdinalIgnoreCase)||r.Detail.Contains(filter,StringComparison.OrdinalIgnoreCase)).ToArray();
-        if(summaryPage!=vm.SelectedPage)
+        Control[] pages=[QueuePage,AccountsPanel,SettingsPage];
+        Control? shown=vm.SelectedPage switch{0=>QueuePage,1=>AccountsPanel,2=>SettingsPage,_=>null};
+        if(!ReferenceEquals(visiblePage,shown))
         {
-            if(summaryPage>=0&&WorkbenchSummaryList.Scroll is {} previous)summaryOffsets[summaryPage]=previous.Offset;
-            summaryPage=vm.SelectedPage;
+            if(visiblePage is not null)visiblePage.IsVisible=false;
+            else foreach(var page in pages)if(!ReferenceEquals(page,shown))page.IsVisible=false;
+            if(shown is not null)shown.IsVisible=true;
+            visiblePage=shown;
         }
-        if(!summaryRows.TryGetValue(summaryPage,out var cached)||!cached.SequenceEqual(matched))summaryRows[summaryPage]=matched;
-        var source=summaryRows[summaryPage];
-        if(!ReferenceEquals(WorkbenchSummaryList.ItemsSource,source))
-        {
-            WorkbenchSummaryList.ItemsSource=source;
-            var page=summaryPage;
-            Avalonia.Threading.Dispatcher.UIThread.Post(()=>{if(summaryPage==page&&WorkbenchSummaryList.Scroll is {} scroll)scroll.Offset=summaryOffsets.GetValueOrDefault(page);},Avalonia.Threading.DispatcherPriority.Loaded);
-        }
-        WorkbenchSummaryList.IsVisible=matched.Length>0;
-        WorkbenchSummaryFilter.IsVisible=all.Length>0;
-        WorkbenchSummaryCaption.Text=document is null?"工作台未就绪。":all.Length==0
-            ?(chains?"还没有任务链，打开工作台从模板新建。":"还没有锚点，打开工作台截图创建。")
-            :matched.Length==0?"没有匹配的项目。"
-            :(filter.Length>0?$"匹配 {matched.Length} / {all.Length} 项":$"共 {all.Length} 项")+" · 点击任一项在工作台中打开";
     }
-    private void FilterSummary(object? sender,TextChangedEventArgs e)
-    {if(DataContext is MainViewModel vm&&DebugLauncher.IsVisible)UpdateWorkbenchSummary(vm);}
-    private void OpenSummaryItem(object? sender,Avalonia.Input.TappedEventArgs e)
-    {if((e.Source as Control)?.DataContext is SummaryRow row)OpenSummaryRow(row);}
-    private void SummaryKeyDown(object? sender,KeyEventArgs e)
-    {if(e.Key==Key.Enter&&WorkbenchSummaryList.SelectedItem is SummaryRow row){OpenSummaryRow(row);e.Handled=true;}}
-    private void OpenSummaryRow(SummaryRow row)
+    private void HandleOpenWorkbenchRequested(object? sender,EventArgs e)=>ShowWorkbench();
+    bool updateSectionPending;
+    private void RequestUpdateSection()
     {
-        if(DataContext is not MainViewModel{Workbench:{} workbench})return;
-        ShowWorkbench();
-        if(row.Item is Editors.WorkbenchChain chain)workbench.SelectedChain=chain;else if(row.Item is Editors.WorkbenchAnchor anchor)workbench.SelectedAnchor=anchor;
+        if(DataContext is not MainViewModel model)return;
+        updateSectionPending=true;
+        model.SelectedPage=2;UpdatePage();
+        Avalonia.Threading.Dispatcher.UIThread.Post(RevealRequestedUpdateSection,Avalonia.Threading.DispatcherPriority.Loaded);
     }
-    private void OpenWorkbench(object? sender,RoutedEventArgs e)=>ShowWorkbench();
+    private void HandleSettingsPageShown(object? sender,EventArgs e)
+    {
+        if(updateSectionPending)Avalonia.Threading.Dispatcher.UIThread.Post(RevealRequestedUpdateSection,Avalonia.Threading.DispatcherPriority.Loaded);
+    }
+    private void RevealRequestedUpdateSection()
+    {
+        if(!updateSectionPending||DataContext is not MainViewModel{SelectedPage:2}||!SettingsPage.IsVisible)return;
+        updateSectionPending=false;SettingsPage.ShowUpdateSection();
+    }
     public void ShowWorkbench()
     {
         if(DataContext is not MainViewModel model||model.Workbench is null)return;
         try
         {
-            model.Workbench.Category=model.SelectedPage==4?0:2;
             if(workbenchWindow is null){workbenchWindow=new(model.Workbench);workbenchWindow.Closed+=(_,_)=>workbenchWindow=null;workbenchWindow.Show(this);}else{workbenchWindow.Show();workbenchWindow.Activate();}
         }
         catch(Exception error){model.Error="工作台打开失败："+error.Message;}
@@ -143,6 +124,20 @@ public partial class MainWindow:UrsaWindow
         model.ToggleThemeCommand.Execute(null);
         Controls.Motion.Rotate(ThemeToggleIcon);
     }
+    UserGuideWindow? guideWindow;
+    internal UserGuideWindow? Guide => guideWindow;
+    private void OpenUserGuide(object? sender,RoutedEventArgs e) => ShowUserGuide();
+    internal void ShowUserGuide()
+    {
+        if(DataContext is not MainViewModel model)return;
+        if(guideWindow is null)
+        {
+            guideWindow=new UserGuideWindow(model);
+            guideWindow.Closed+=(_,_)=>guideWindow=null;
+            guideWindow.Show(this);
+        }
+        else { guideWindow.Show(); guideWindow.Activate(); }
+    }
     private void OpenRepository(object? sender,RoutedEventArgs e)
     {try{System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("https://github.com/MinamiChiwa/MabiAgent"){UseShellExecute=true});}catch(Exception error){if(DataContext is MainViewModel model)model.Error="无法打开仓库："+error.Message;}}
     private void OpenDataDirectory(object? sender,RoutedEventArgs e)
@@ -151,5 +146,5 @@ public partial class MainWindow:UrsaWindow
     private void CaptureOverlayPressed(object? sender,PointerPressedEventArgs e)
     {if(ReferenceEquals(e.Source,CaptureOverlay)&&DataContext is MainViewModel model){model.CloseCaptureSettingsCommand.Execute(null);e.Handled=true;}}
     private void HandleKeys(object? sender,KeyEventArgs e)
-    {if(DataContext is not MainViewModel model)return;var control=e.KeyModifiers.HasFlag(KeyModifiers.Control);var overlay=model.AddDialogOpen||model.CaptureSettingsOpen;if(e.Key==Key.M&&control&&!model.AddDialogOpen){model.IsMiniMode=true;e.Handled=true;return;}if(control&&!overlay&&e.Key==Key.N){model.SelectedPage=0;model.OpenAddCommand.Execute(null);e.Handled=true;return;}var tab=e.Key is>=Key.D1 and<=Key.D6?e.Key-Key.D1:e.Key is>=Key.NumPad1 and<=Key.NumPad6?e.Key-Key.NumPad1:-1;if(control&&!overlay&&tab>=0){model.SelectedPage=tab;Navigation.Focus();e.Handled=true;return;}if(e.Key==Key.Escape&&model.CaptureSettingsOpen){model.CloseCaptureSettingsCommand.Execute(null);e.Handled=true;return;}if(e.Key==Key.Escape&&model.AddDialogOpen){model.CloseAddCommand.Execute(null);e.Handled=true;}else if(e.Key==Key.F&&e.KeyModifiers.HasFlag(KeyModifiers.Control)&&!model.AddDialogOpen&&!model.CaptureSettingsOpen){if(model.SelectedPage==3){AccountsPanel.FocusSearch();e.Handled=true;return;}if(model.SelectedPage>=4){ShowWorkbench();workbenchWindow?.FocusSearch();e.Handled=true;return;}if(model.SelectedPage>=2)return;SearchBox.Focus();SearchBox.SelectAll();e.Handled=true;}}
+    {if(DataContext is not MainViewModel model)return;var control=e.KeyModifiers.HasFlag(KeyModifiers.Control);var overlay=model.AddDialogOpen||model.CaptureSettingsOpen;if(e.Key==Key.M&&control&&!model.AddDialogOpen){model.IsMiniMode=true;e.Handled=true;return;}if(control&&!overlay&&e.Key==Key.N){model.SelectedPage=0;model.OpenAddCommand.Execute(null);e.Handled=true;return;}var tab=e.Key is>=Key.D1 and<=Key.D3?e.Key-Key.D1:e.Key is>=Key.NumPad1 and<=Key.NumPad3?e.Key-Key.NumPad1:-1;if(control&&!overlay&&tab>=0){model.SelectedPage=tab;Navigation.Focus();e.Handled=true;return;}if(e.Key==Key.Escape&&model.CaptureSettingsOpen){model.CloseCaptureSettingsCommand.Execute(null);e.Handled=true;return;}if(e.Key==Key.Escape&&model.AddDialogOpen){model.CloseAddCommand.Execute(null);e.Handled=true;}else if(e.Key==Key.F&&e.KeyModifiers.HasFlag(KeyModifiers.Control)&&!model.AddDialogOpen&&!model.CaptureSettingsOpen){if(model.SelectedPage==1){AccountsPanel.FocusSearch();e.Handled=true;return;}if(model.SelectedPage!=0)return;SearchBox.Focus();SearchBox.SelectAll();e.Handled=true;}}
 }

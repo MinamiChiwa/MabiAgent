@@ -40,13 +40,14 @@ public sealed partial class QueueDocument
         reviews.Add(new JsonObject{["pending"]=pending,["outcome"]="user_confirmed_navigation_misclick",["evidence"]=evidence,["at"]=now.ToUnixTimeMilliseconds()/1000d});
         row["pending"]=null;
     });
-    public void ResolveFishingNoEffect(string id,string action,string evidence,DateTimeOffset now)=>Mutate(()=>
+    public void ResolveFishingNoEffect(string id,string action,string evidence,DateTimeOffset now,string reviewer="user")=>Mutate(()=>
     {
         var row=Row(id);if(row["kind"]!.GetValue<string>()!="idle_fishing")throw new InvalidOperationException("目标不是钓鱼");
         if(string.IsNullOrWhiteSpace(evidence))throw new ArgumentException("需要人工核实依据",nameof(evidence));
         var pending=Pending(id,action).DeepClone();var reviews=row["reviewed_actions"] as JsonArray;
         if(reviews is null){reviews=new();row["reviewed_actions"]=reviews;}
-        reviews.Add(new JsonObject{["pending"]=pending,["outcome"]="user_confirmed_no_input_effect",["evidence"]=evidence,["at"]=now.ToUnixTimeMilliseconds()/1000d});
+        if(string.IsNullOrWhiteSpace(reviewer))throw new ArgumentException("需要明确核实者",nameof(reviewer));
+        reviews.Add(new JsonObject{["pending"]=pending,["outcome"]=reviewer=="user"?"user_confirmed_no_input_effect":"operator_confirmed_no_input_effect",["reviewer"]=reviewer,["evidence"]=evidence,["at"]=now.ToUnixTimeMilliseconds()/1000d});
         row["pending"]=null;
     });
     public int PruneCancelled()

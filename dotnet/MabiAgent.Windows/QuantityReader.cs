@@ -76,6 +76,27 @@ public sealed class ScreenQuantityReader(IOcrEngine engine)
         }
         catch(Exception e)when(e is IOException or InvalidOperationException or ArgumentException or TimeoutException){return false;}
     }
+    public PixelBox? FindExactColorLine(RgbImage image,PixelBox surface,string expected,double minimum=.95)
+    {
+        if(!surface.IsInside(image.Width,image.Height)||surface.Width<16||surface.Height<12||string.IsNullOrWhiteSpace(expected))return null;
+        var support=new int[surface.Height];var pixels=image.Pixels;
+        static bool IsInk(int r,int g,int b){var max=Math.Max(r,Math.Max(g,b));var min=Math.Min(r,Math.Min(g,b));return min>=105&&max-min<48;}
+        for(var y=surface.Top;y<surface.Bottom;y++)for(var x=surface.Left;x<surface.Right;x++)
+        {var i=(y*image.Width+x)*3;if(IsInk(pixels[i],pixels[i+1],pixels[i+2]))support[y-surface.Top]++;}
+        var groups=new List<(int Top,int Bottom)>();
+        for(var y=0;y<support.Length;y++)if(support[y]>=3)
+        {if(groups.Count==0||y-groups[^1].Bottom>2)groups.Add((y,y));else groups[^1]=(groups[^1].Top,y);}
+        foreach(var group in groups.Where(g=>g.Bottom-g.Top is >=7 and <=28).Take(16))
+        {
+            var left=surface.Right;var right=surface.Left;
+            for(var x=surface.Left;x<surface.Right;x++)for(var y=surface.Top+group.Top;y<=surface.Top+group.Bottom;y++)
+            {var i=(y*image.Width+x)*3;if(IsInk(pixels[i],pixels[i+1],pixels[i+2])){left=Math.Min(left,x);right=Math.Max(right,x);break;}}
+            if(left>right)continue;
+            var box=new PixelBox(Math.Max(surface.Left,left-5),Math.Max(surface.Top,surface.Top+group.Top-4),Math.Min(surface.Right,right+6),Math.Min(surface.Bottom,surface.Top+group.Bottom+5));
+            if(ExactColor(image,box,expected,minimum))return box;
+        }
+        return null;
+    }
     public PixelBox? FindGridLabel(RgbImage image,PixelBox surface,int columns,string expected,double minimum=.75)
     {
         if(columns is <1 or >8||!surface.IsInside(image.Width,image.Height)||surface.Width/columns<16)throw new ArgumentException("物品列表区域无效");

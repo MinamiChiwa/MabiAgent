@@ -1,6 +1,8 @@
 using System.Diagnostics;
 namespace MabiAgent.Windows;
 
+public sealed record TouchDiagnosticWriteFailure(string GestureId,string Stage,string Error);
+internal interface IKeyboardPointerPreparation{void PreparePointerInput();}
 /// <summary>Shared background pointer gestures and window-message keyboard. No foreground fallback.</summary>
 public sealed class TouchInputOps:INativeWindowsOps,ICurrentClientFrameSource,IGuardedWindowTransport,IGuardedPointerGestures,IDisposable
 {
@@ -13,7 +15,10 @@ public sealed class TouchInputOps:INativeWindowsOps,ICurrentClientFrameSource,IG
     public bool RequiresForeground=>false;
     internal bool SupportsPreparedReview=>runner.SupportsPreparedReview;
     public bool? PhysicalPointerDown=>runner.PhysicalPointerDown;
-    public TouchInputOps(NativeWindowState target):this(target,new NativeWindowsOps(),new WindowMessageInputOps(target,notifyActivation:true),new NativeTouchGestureRunner()){}
+    /// <summary>Raised after a diagnostic write fails; subscribers must report on their own UI/main-thread path.</summary>
+    public event Action<TouchDiagnosticWriteFailure>? DiagnosticWriteFailed;
+    public TouchInputOps(NativeWindowState target,MabiAgent.Core.RuntimeDiagnostics? diagnostics=null):this(target,new NativeWindowsOps(),new WindowMessageInputOps(target,notifyActivation:true),new ForwardedTouchGestureRunner(diagnostics:diagnostics))
+    {if(this.runner is ForwardedTouchGestureRunner native)native.DiagnosticWriteFailed+=failure=>DiagnosticWriteFailed?.Invoke(failure);}
     internal TouchInputOps(NativeWindowState target,INativeWindowsOps passive,INativeWindowsOps keyboard,ITouchGestureRunner runner)
     {this.target=target;this.passive=passive;this.keyboard=keyboard;this.runner=runner;}
     private ForegroundInputGuard Guard=>guard??throw new InputBlockedException("触控输入必须经共享守卫");
@@ -37,7 +42,7 @@ public sealed class TouchInputOps:INativeWindowsOps,ICurrentClientFrameSource,IG
     }
     private void Execute(TouchGesturePlan client,int holdMilliseconds=0)
     {
-        ObjectDisposedException.ThrowIf(disposed,this);Guard.AuthorizeNativeTransport();if(keyboard is WindowMessageInputOps messages)messages.PreparePointerInput();var before=VerifyIdentity();
+        ObjectDisposedException.ThrowIf(disposed,this);Guard.AuthorizeNativeTransport();if(keyboard is IKeyboardPointerPreparation preparation)preparation.PreparePointerInput();var before=VerifyIdentity();
         foreach(var point in client.Points.SelectMany(p=>p))if(!new PixelBox(0,0,before.Geometry.Width,before.Geometry.Height).Contains(point))throw new InputBlockedException("触控轨迹超出客户区");
         void Check(){Guard.AuthorizeNativeTransport();if(VerifyIdentity().Geometry!=before.Geometry)throw new InputBlockedException("触控期间窗口位置、尺寸或DPI变化");}
         runner.Execute(client.Screen(before.Geometry),target.WindowId,holdMilliseconds,Check,()=>Guard.AuthorizeMouseRelease(holdMilliseconds==2000?Windows.MouseButton.Right:Windows.MouseButton.Left),VerifyIdentity);
@@ -45,7 +50,15 @@ public sealed class TouchInputOps:INativeWindowsOps,ICurrentClientFrameSource,IG
     public void Click(PixelPoint point,MouseButton button)
     {if(button is not(Windows.MouseButton.Left or Windows.MouseButton.Right))throw new ArgumentOutOfRangeException(nameof(button));Execute(new("click",[[point]]),button==Windows.MouseButton.Right?2000:40);}
     public void Drag(PixelPoint from,PixelPoint to,int steps)
-    {var count=Math.Clamp(steps,2,12);Execute(new("drag",Enumerable.Range(0,count+1).Select(i=>new[]{new PixelPoint(from.X+(to.X-from.X)*i/count,from.Y+(to.Y-from.Y)*i/count)}).ToArray()));}
+    {
+        var count=Math.Clamp(steps*2,4,24);
+        // 地图定位需要停在建筑上；末段减速并停留，避免松手惯性把建筑甩出缩放中心。
+        Execute(new("drag",Enumerable.Range(0,count+1).Select(i=>
+        {
+            var progress=1-Math.Pow(1-i/(double)count,3);
+            return new[]{new PixelPoint(from.X+(int)Math.Round((to.X-from.X)*progress),from.Y+(int)Math.Round((to.Y-from.Y)*progress))};
+        }).ToArray(),ReleaseDelayMilliseconds:160));
+    }
     public void Scroll(PixelPoint point,PixelBox surface,int steps,bool zoom)
     {
         if(!surface.Contains(point)||surface.Width<8||surface.Height<8)throw new InputBlockedException("触控滚动区域过小或目标越界");
@@ -86,9 +99,13 @@ internal interface ITouchGestureRunner:IDisposable
     void Release(Func<NativeWindowState> verifyIdentity);
 }
 
-internal sealed class NativeTouchGestureRunner(bool nativeRouting=false):ITouchGestureRunner
+internal sealed class ForwardedTouchGestureRunner(MabiAgent.Core.RuntimeDiagnostics? diagnostics=null):ITouchGestureRunner
 {
     private TouchMouseMonitor? activeMonitor;private Action? beforeDelivery;
+    private string gestureId="",stage="start";private int forwardAttempts;
+    private const int MaxPendingTraces=256;
+    private readonly List<(string GestureId,string Stage,System.Text.Json.Nodes.JsonObject Details,DateTimeOffset At)> pendingTraces=[];
+    internal event Action<TouchDiagnosticWriteFailure>? DiagnosticWriteFailed;
     public bool SupportsPreparedReview=>true;
     public void SetBeforeDelivery(Action check)=>beforeDelivery=check;
     public bool? PhysicalPointerDown=>activeMonitor is{} monitor?monitor.PhysicalDowns>0:null;
@@ -100,37 +117,23 @@ internal sealed class NativeTouchGestureRunner(bool nativeRouting=false):ITouchG
     {
         if(messages is not null)throw new InputBlockedException("前次触控尚未释放");this.target=target;
         var desktop=PhysicalDesktop.Bounds;if(screen.Points.SelectMany(frame=>frame).Any(point=>!desktop.Contains(point)))throw new InputBlockedException("目标触点位于屏幕之外");
-        if(!nativeRouting&&verifyIdentity().ForegroundId==target)
-        {ExecuteForeground(screen,target,holdMilliseconds,authorize,authorizeRelease,verifyIdentity);return;}
-        if(nativeRouting)
+        gestureId=Guid.NewGuid().ToString("N");forwardAttempts=0;releaseIndex=0;stage="prepare";
+        var initial=verifyIdentity();
+        Trace("started",new(){["kind"]=screen.Kind,["target"]=(long)target,["process_id"]=initial.ProcessId,["geometry"]=new System.Text.Json.Nodes.JsonArray(initial.Geometry.X,initial.Geometry.Y,initial.Geometry.Width,initial.Geometry.Height,initial.Geometry.Dpi),["planned_messages"]=screen.MessageCount,["contacts"]=screen.ContactCount});FlushTraces();
+        Exception? tracedFailure=null;
+        try
         {
-            var foreground=verifyIdentity().ForegroundId;
-            void Check(){authorize();if(foreground!=target&&verifyIdentity().ForegroundId==target)throw new InputBlockedException("直接触控激活了游戏窗口");}
-            if(screen.Points[0].Any(p=>TouchNative.At(p)!=target))throw new InputBlockedException("直接触控目标被遮挡");
-            using var directMonitor=new TouchMouseMonitor();var directCursor=TouchCursorPresentation.Read();
-            using var directAnchor=new TouchInputWindow(AnchorAwayFrom(screen.Bounds,directCursor.Position),inputSurface:true);
-            using var directDevice=new SyntheticTouchDevice(directAnchor.Point,directAnchor.Hwnd);
-            try
-            {
-                activeMonitor=directMonitor;Check();if(TouchNative.At(directAnchor.Point)!=directAnchor.Hwnd)throw new InputBlockedException("触控锚定窗口未就绪");directDevice.Begin();Check();if(screen.Points[0].Any(p=>TouchNative.At(p)!=target))throw new InputBlockedException("发送触控前目标被遮挡");beforeDelivery?.Invoke();directDevice.Down(screen.Points[0],target);
-                if(screen.Steps==0)Hold(holdMilliseconds,()=>directDevice.Move(screen.Points[0]),Check);
-                else foreach(var frame in screen.Points.Skip(1)){Wait(20,Check);directDevice.Move(frame);}
-                Wait(screen.ReleaseDelayMilliseconds,Check);authorizeRelease();verifyIdentity();directDevice.Up();
-            }
-            finally
-            {
-                try{authorizeRelease();verifyIdentity();directDevice.Dispose();}finally{activeMonitor=null;}
-                if(TouchCursorPresentation.Read().Suppressed&&directMonitor.PhysicalMoves+directMonitor.PhysicalDowns+directMonitor.PhysicalUps==0)
-                    TouchCursorPresentation.Restore(true,()=>{verifyIdentity();authorizeRelease();},"absolute_same_pixel");
-            }
-            return;
-        }
         using var monitor=new TouchMouseMonitor();
         var cursor=TouchCursorPresentation.Read();
         using var anchor=new TouchInputWindow(AnchorAwayFrom(screen.Bounds,cursor.Position),inputSurface:true);
         using var cover=new TouchInputWindow(screen.Bounds,legacyTouch:true,retainTouchHandles:true,inputSurface:true);
         cover.LimitContactRegion(screen.Points[0]);
-        if(!SpinWait.SpinUntil(()=>TouchNative.At(anchor.Point)==anchor.Hwnd&&screen.Points[0].All(point=>TouchNative.At(point)==cover.Hwnd),150))throw new MabiAgent.Workflows.InputRejectedBeforeDispatchException($"触控辅助窗口未覆盖起始触点，未发送输入；锚定 {anchor.Hwnd}/{TouchNative.At(anchor.Point)}，覆盖 {cover.Hwnd}/{TouchNative.At(screen.Points[0][0])}，前台 {TouchNative.Foreground}");
+        if(!SpinWait.SpinUntil(()=>TouchNative.At(anchor.Point)==anchor.Hwnd&&screen.Points[0].All(point=>TouchNative.At(point)==cover.Hwnd),150))
+        {
+            var message=$"触控辅助窗口未覆盖起始触点，未发送输入；锚定 {anchor.Hwnd}/{TouchNative.At(anchor.Point)}，覆盖 {cover.Hwnd}/{TouchNative.At(screen.Points[0][0])}，前台 {TouchNative.Foreground}";
+            throw new MabiAgent.Workflows.InputRejectedBeforeDispatchException(message);
+        }
+        Trace("prepared",new(){["anchor"]=(long)anchor.Hwnd,["cover"]=(long)cover.Hwnd,["foreground"]=(long)TouchNative.Foreground});FlushTraces();
         using var device=new SyntheticTouchDevice(anchor.Point,anchor.Hwnd);
         System.Text.Json.Nodes.JsonObject? restoreTrace=null;
         void RestoreCursor()
@@ -155,52 +158,48 @@ internal sealed class NativeTouchGestureRunner(bool nativeRouting=false):ITouchG
         }
         try
         {
-            activeMonitor=monitor;
-            authorize();screen.Generate(device,target,authorize);
+            activeMonitor=monitor;stage="generate";
+            authorize();screen.Generate(device,cover.Hwnd,authorize);
+            stage="collect";
             try{messages=screen.Collect(cover);}
-            catch(InputBlockedException error){throw new InputBlockedException(error.Message+"，锚定窗消息 "+new System.Text.Json.Nodes.JsonArray(anchor.Received.Take(10).Select(row=>(System.Text.Json.Nodes.JsonNode)row.DeepClone()).ToArray()).ToJsonString());}
-            releaseIndex=messages.Count-screen.ContactCount;
+            // Collection only reads our helper windows. No envelope has been
+            // forwarded to the game yet, so a missing local frame is unsent.
+            catch(InputBlockedException error){throw new MabiAgent.Workflows.InputRejectedBeforeDispatchException(error.Message+"，覆盖窗消息 "+new System.Text.Json.Nodes.JsonArray(cover.Received.TakeLast(16).Select(row=>(System.Text.Json.Nodes.JsonNode)row.DeepClone()).ToArray()).ToJsonString()+"，锚定窗消息 "+new System.Text.Json.Nodes.JsonArray(anchor.Received.Take(10).Select(row=>(System.Text.Json.Nodes.JsonNode)row.DeepClone()).ToArray()).ToJsonString());}
+            Trace("collected",new(){["messages"]=messages.Count,["expected_max"]=screen.MessageCount});
+            releaseIndex=messages.Count-screen.ContactCount;stage="forward";
             // Restore cursor presentation after releasing local touch resources.
-            beforeDelivery?.Invoke();
             for(var i=0;i<releaseIndex;i++)
-            {authorize();verifyIdentity();messages[i].Forward(target);down=true;if(i>=screen.ContactCount-1)Wait(i==0&&screen.Steps==0?holdMilliseconds:16,authorize);}
-            Wait(screen.ReleaseDelayMilliseconds,()=>{authorize();verifyIdentity();});authorizeRelease();Release(verifyIdentity);
+            {authorize();verifyIdentity();if(i==0)beforeDelivery?.Invoke();Forward(messages[i]);down=true;if(i>=screen.ContactCount-1)Wait(i==0&&screen.Steps==0?holdMilliseconds:16,authorize);}
+            stage="release";Wait(screen.ReleaseDelayMilliseconds,()=>{authorize();verifyIdentity();});authorizeRelease();Release(verifyIdentity);
+        }
+        catch(Exception error){TraceFailure(error,stage);tracedFailure=error;throw;}
+        finally
+        {
+            stage="cleanup";
+            try
+            {
+                try{if(down){authorizeRelease();Release(verifyIdentity);}}
+                finally{try{device.Dispose();if(messages is not null){foreach(var message in messages)message.Dispose();messages=null;}cover.Dispose();anchor.Dispose();RestoreCursor();}finally{activeMonitor=null;}}
+            }
+            catch(Exception error){TraceFailure(error,"cleanup");tracedFailure=error;throw;}
+            finally{Trace("resources",new(){["messages_open"]=messages is not null,["down"]=down,["forward_attempts"]=forwardAttempts,["cursor_restore"]=restoreTrace});}
+        }
+        }
+        catch(Exception error)
+        {
+            if(!ReferenceEquals(tracedFailure,error))TraceFailure(error,stage);
+            if(error is InputBlockedException&&forwardAttempts==0)
+                throw new MabiAgent.Workflows.InputRejectedBeforeDispatchException(error.Message+"；本次触控未向游戏转交");
+            throw;
         }
         finally
         {
-            try{if(down){authorizeRelease();Release(verifyIdentity);}}
-            finally{try{device.Dispose();if(messages is not null){foreach(var message in messages)message.Dispose();messages=null;}cover.Dispose();anchor.Dispose();RestoreCursor();}finally{activeMonitor=null;}}
-        }
-    }
-    private void ExecuteForeground(TouchGesturePlan screen,nint target,int holdMilliseconds,Action authorize,Action authorizeRelease,Func<NativeWindowState> verifyIdentity)
-    {
-        // Unity uses native pointer input while foreground. Select this route before
-        // issuing input; never switch routes to replay an unconfirmed gesture.
-        void Check(){authorize();if(verifyIdentity().ForegroundId!=target)throw new InputBlockedException("前台触控期间窗口失焦");}
-        Check();if(screen.Points[0].Any(p=>TouchNative.At(p)!=target))throw new InputBlockedException("前台触控目标被其他窗口遮挡");
-        using var monitor=new TouchMouseMonitor();var cursor=TouchCursorPresentation.Read();
-        using var device=new SyntheticTouchDevice(default,0,anchored:false);
-        try
-        {
-            activeMonitor=monitor;
-            Check();beforeDelivery?.Invoke();device.Down(screen.Points[0],target);
-            if(screen.Steps==0)Hold(holdMilliseconds,()=>device.Move(screen.Points[0]),Check);
-            else foreach(var frame in screen.Points.Skip(1)){Wait(20,Check);device.Move(frame);}
-            Wait(screen.ReleaseDelayMilliseconds,Check);authorizeRelease();verifyIdentity();device.Up();
-        }
-        finally
-        {
-            activeMonitor=null;
-            device.Dispose();
-            var activity=monitor.PhysicalMoves+monitor.PhysicalDowns+monitor.PhysicalUps;
-            if(TouchCursorPresentation.Read().Suppressed&&!new PhysicalInputReader().Read().ButtonsDown)
-                TouchCursorPresentation.Restore(true,()=>{verifyIdentity();authorizeRelease();if(monitor.PhysicalMoves+monitor.PhysicalDowns+monitor.PhysicalUps!=activity||new PhysicalInputReader().Read().ButtonsDown)throw new InputBlockedException("光标呈现前检测到用户活动");},"absolute_same_pixel");
+            if(pendingTraces.All(row=>row.Stage!="resources"))Trace("resources",new(){["messages_open"]=messages is not null,["down"]=down,["forward_attempts"]=forwardAttempts});
+            FlushTraces();
         }
     }
     private static void Wait(int milliseconds,Action check)
     {var timer=Stopwatch.StartNew();while(timer.ElapsedMilliseconds<milliseconds){check();Thread.Sleep(Math.Min(10,Math.Max(1,milliseconds-(int)timer.ElapsedMilliseconds)));}check();}
-    private static void Hold(int milliseconds,Action refresh,Action check)
-    {var timer=Stopwatch.StartNew();while(timer.ElapsedMilliseconds<milliseconds){Wait(Math.Min(40,Math.Max(1,milliseconds-(int)timer.ElapsedMilliseconds)),check);check();refresh();}}
     private static PixelBox AnchorAwayFrom(PixelBox bounds,PixelPoint cursor)
     {
         var desktop=PhysicalDesktop.Bounds;
@@ -208,10 +207,38 @@ internal sealed class NativeTouchGestureRunner(bool nativeRouting=false):ITouchG
         {var box=new PixelBox(p.X-12,p.Y-12,p.X+12,p.Y+12);if(!bounds.Contains(p)&&!box.Contains(cursor))return box;}
         throw new InputBlockedException("没有可用的本地触控锚定区域");
     }
+    // Keep frame traces in memory; never insert diagnostic file I/O between touch delivery and cleanup.
+    private void Trace(string name,System.Text.Json.Nodes.JsonObject? details=null)
+    {
+        if(pendingTraces.Count>=MaxPendingTraces)pendingTraces.RemoveAt(0);
+        pendingTraces.Add((gestureId,name,details is null?new():(System.Text.Json.Nodes.JsonObject)details.DeepClone(),DateTimeOffset.UtcNow));
+    }
+    private void FlushTraces()
+    {
+        var written=0;
+        while(written<pendingTraces.Count)
+        {
+            var (id,name,details,at)=pendingTraces[written];
+            if(TouchDiagnostics.Write(diagnostics,id,name,details,at)){written++;continue;}
+            try{DiagnosticWriteFailed?.Invoke(new(id,name,diagnostics?.WriteError??"触控诊断写入失败"));}catch{/* Reporting diagnostics must not alter input. */}
+            break;
+        }
+        if(written>0)pendingTraces.RemoveRange(0,written);
+    }
+    private void TraceFailure(Exception error,string failedStage)
+    {
+        var details=new System.Text.Json.Nodes.JsonObject{["failed_stage"]=failedStage,["exception"]=error.GetType().FullName,["message"]=error.Message,["forward_attempts"]=forwardAttempts,["release_index"]=releaseIndex,["down"]=down};
+        Trace("failed",details);
+    }
+    private void Forward(TouchEnvelope message)
+    {
+        forwardAttempts++;message.Forward(target,row=>Trace("forwarded",row));
+    }
     public void Release(Func<NativeWindowState> verifyIdentity)
     {
         if(!down||messages is null)return;verifyIdentity();
-        for(var i=releaseIndex;i<messages.Count;i++){var message=messages[i];releaseIndex=i+1;message.Forward(target);}down=false;
+        for(var i=releaseIndex;i<messages.Count;i++){var message=messages[i];releaseIndex=i+1;Forward(message);}down=false;
+        Trace("released",new(){["messages"]=messages.Count,["release_index"]=releaseIndex,["forward_attempts"]=forwardAttempts});
     }
     public void Dispose(){if(messages is not null){foreach(var message in messages)message.Dispose();messages=null;}}
 }

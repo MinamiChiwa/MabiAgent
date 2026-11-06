@@ -16,6 +16,35 @@ public sealed class WorkbenchPresentationTests
         Assert.Equal("ui_profile:bag_open",model.Id);
     }
 
+    [Theory]
+    [InlineData("production","鐵錠（鐵礦石）","生产 · 鐵錠（鐵礦石）")]
+    [InlineData("gathering","鐵礦石","采集 · 鐵礦石")]
+    [InlineData("maintenance","维护 · 打开背包","维护 · 打开背包")]
+    public void BuiltInTaskChainsShowCategoryAndTargetWithoutChangingStoredName(string kind,string name,string expected)
+    {
+        var data=new JsonObject{["id"]="installed:test",["name"]=name,["kind"]=kind,["runtime_key"]="stable_key",["source"]=new JsonObject{["name"]=name}};
+        var chain=new WorkbenchChain(data);var before=chain.ToJson().ToJsonString();
+        Assert.Equal(expected,chain.DisplayName);
+        chain.DisplayName=chain.DisplayName;
+        Assert.Equal(before,chain.ToJson().ToJsonString());
+        Assert.Equal("stable_key",chain.RuntimeKey);
+    }
+
+    [Fact]
+    public void RouteAndUserTaskChainNamesKeepStableIdentifiersAndCustomNames()
+    {
+        var routePath=new JsonArray("maintenance","navigation","backpack_tidy","scene");
+        var route=new WorkbenchChain(new JsonObject{["id"]="route:test",["name"]=WorkbenchLabels.RouteChainName("maintenance","scene"),["kind"]="maintenance",["runtime_key"]="maintenance/navigation/backpack_tidy/scene",["source_path"]=routePath.DeepClone()});
+        Assert.Equal("维护 · 游戏主界面",route.DisplayName);
+        route.Name="我的背包路线";
+        Assert.Equal("我的背包路线",route.DisplayName);
+        Assert.Equal("maintenance/navigation/backpack_tidy/scene",route.RuntimeKey);
+        Assert.True(JsonNode.DeepEquals(routePath,route.Data["source_path"]));
+
+        var custom=new WorkbenchChain(new JsonObject{["id"]="chain:test",["name"]="我的加工",["kind"]="production",["runtime_key"]="custom",["source"]=new JsonObject{["name"]="我的加工"}});
+        Assert.Equal("我的加工",custom.DisplayName);
+    }
+
     [Fact] public void UnknownParametersKeepDistinctKeysAndUserChineseNamesStayUnchanged()
     {
         Assert.Contains("customalpha",WorkbenchLabels.Parameter("customalpha"));

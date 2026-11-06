@@ -8,7 +8,7 @@ public partial class MainViewModel
     public int QueueSelectionCount=>SelectedJobIds.Count;
     public bool HasQueueSelection=>QueueSelectionCount>0;
     public bool CanBatchEdit=>SelectedRows.Length>0&&SelectedRows.All(j=>j.CanEditTarget)&&SelectedRows.Select(j=>j.IsFishing).Distinct().Count()==1&&!IsBusy;
-    public string BatchTargetHint=>SelectedRows.Select(j=>j.IsFishing).Distinct().Count()>1?"选同类任务批改计划":SelectedRows.FirstOrDefault()?.IsFishing==true?"统一时长（时:分:秒）":SelectedRows.Select(j=>j.QuantityUnit).Distinct().Count()>1?"统一计划（生产件／采集轮）":SelectedRows.FirstOrDefault()?.Kind=="采集"?"统一轮数（1轮＝10次）":"统一产物件数";
+    public string BatchTargetHint=>SelectedRows.Select(j=>j.IsFishing).Distinct().Count()>1?"选同类任务批改计划":SelectedRows.FirstOrDefault()?.IsFishing==true?"统一时长（时:分:秒）":SelectedRows.Select(j=>j.QuantityUnit).Distinct().Count()>1?"统一计划（生产件／采集轮）":SelectedRows.FirstOrDefault()?.IsGathering==true?"统一轮数（1轮＝10次）":"统一产物件数";
     [ObservableProperty] private string batchTarget="";
     private JobRow[] SelectedRows=>Jobs.Where(j=>SelectedJobIds.Contains(j.Id)).ToArray();
     public void SetQueueSelection(IEnumerable<JobRow> rows)

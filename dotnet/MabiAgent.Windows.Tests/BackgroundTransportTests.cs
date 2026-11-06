@@ -47,11 +47,9 @@ public sealed class BackgroundTransportTests
         Assert.Throws<InputBlockedException>(()=>guard.PressKey(guard.ObserveTarget("scene.open_bag"),87,TimeSpan.FromMilliseconds(50)));
         Assert.Equal(["k:87:True","k:87:False"],ops.Events);
     }
-    [Fact] public void MessageEncodingPreservesSignedCoordinatesAndExtendedKeyRelease()
+    [Fact] public void MessageEncodingPreservesExtendedKeyRelease()
     {
-        Assert.Equal(unchecked((nint)(int)0xfffeffff),WindowMessageInputOps.EncodePoint(new(-1,-2)));
         Assert.Equal(unchecked((nint)(int)0xc11d0001),WindowMessageInputOps.EncodeKey(0xe01d,true));
-        Assert.Throws<ArgumentOutOfRangeException>(()=>WindowMessageInputOps.EncodePoint(new(32768,0)));
     }
     [Theory]
     [InlineData(false)]

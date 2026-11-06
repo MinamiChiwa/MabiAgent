@@ -26,9 +26,7 @@ public sealed class OnnxTextRecognizer:IColorOcrEngine,IDisposable
     }
     private static SessionOptions Options(bool lowCpu)
     {
-        // OCR crops have variable widths. The CPU arena retains the widest request's
-        // high-water allocation; use ORT's direct allocator for this small, intermittent model.
-        var options=new SessionOptions{IntraOpNumThreads=2,InterOpNumThreads=1,ExecutionMode=ExecutionMode.ORT_SEQUENTIAL,EnableCpuMemArena=false,EnableMemoryPattern=false};
+        var options=new SessionOptions{IntraOpNumThreads=2,InterOpNumThreads=1,ExecutionMode=ExecutionMode.ORT_SEQUENTIAL};
         if(lowCpu){options.AddSessionConfigEntry("session.intra_op.allow_spinning","0");options.AddSessionConfigEntry("session.inter_op.allow_spinning","0");}
         return options;
     }

@@ -3,6 +3,21 @@ using Xunit;
 namespace MabiAgent.Windows.Tests;
 public class RecognitionTests
 {
+    [Theory][InlineData("tir-inn-map-current.png","map.inn")][InlineData("tir-inn-wide-current.png","map.inn")][InlineData("tir-inn-player-covered-current.png","map.inn")][InlineData("tir-inn-zoom-current.png","map.storage_box")][InlineData("tir-inn-box-unselected-current.png","map.storage_box")][InlineData("tir-inn-box-shifted-current.png","map.storage_box")][InlineData("tir-storage-travel-current.png","storage.travel")]
+    public void InnMapUsesBuildingAndStorageBoxTargets(string fixture,string target)
+    {
+        var routes=ScreenRoutes.Load(Root());using var bgr=OpenCvSharp.Cv2.ImRead(Path.Combine(Root(),"tests/fixtures/production",fixture));
+        using var rgb=new OpenCvSharp.Mat();OpenCvSharp.Cv2.CvtColor(bgr,rgb,OpenCvSharp.ColorConversionCodes.BGR2RGB);
+        var pixels=new byte[rgb.Width*rgb.Height*3];System.Runtime.InteropServices.Marshal.Copy(rgb.Data,pixels,0,pixels.Length);
+        using var recognizer=new ScreenPageRecognizer(routes.Profile);var view=recognizer.Recognize(new RgbImage(rgb.Width,rgb.Height,pixels));
+        Assert.Equal(target=="storage.travel"?"storage_travel":"region_map",view.Page);Assert.Contains(target,view.Targets.Keys);
+    }
+    internal static MabiAgent.Capture.ClientCaptureLayout CurrentClientLayout()
+    {
+        var game=Assert.Single(GameWindowDiscovery.List());
+        return new MabiAgent.Capture.GameClientLayoutResolver(NativeWindowsOps.ReadProcessIdentity).Resolve(new(game.State.ProcessId,new DateTime(game.State.ProcessStartUtcTicks,DateTimeKind.Utc)),default);
+    }
+
     [Fact] public void LongItemDescriptionKeepsFunctionalDetailAnchorAndSaleTarget()
     {
         var routes=ScreenRoutes.Load(Root());using var bgr=OpenCvSharp.Cv2.ImRead(Path.Combine(Root(),"tests/fixtures/production/high-log-plus-detail-current.jpg"));
@@ -34,10 +49,11 @@ public class RecognitionTests
         Assert.True(view.Page=="storage_detail","page="+view.Page+"; "+string.Join("; ",new[]{"storage_take_button","storage_detail_weight_header","storage_close_live","storage_character_dim"}.Select(n=>n+"="+matcher.Anchor(frame,n)?.Score)));
         Assert.Contains("storage.prepare",view.Targets.Keys);
     }
-    [Fact] public void BankStorageMenuOverridesOrdinaryNpcDialogue()
+    [Theory][InlineData("storage-bank-menu-current.jpg")][InlineData("storage-bank-three-options.png")]
+    public void BankStorageMenuOverridesOrdinaryNpcDialogue(string fixture)
     {
         var profile=ScreenRoutes.Load(Root()).Profile;
-        using var bgr=OpenCvSharp.Cv2.ImRead(Path.Combine(Root(),"tests/fixtures/production/storage-bank-menu-current.jpg"));
+        using var bgr=OpenCvSharp.Cv2.ImRead(Path.Combine(Root(),"tests/fixtures/production",fixture));
         using var rgb=new OpenCvSharp.Mat();OpenCvSharp.Cv2.CvtColor(bgr,rgb,OpenCvSharp.ColorConversionCodes.BGR2RGB);
         var pixels=new byte[rgb.Width*rgb.Height*3];System.Runtime.InteropServices.Marshal.Copy(rgb.Data,pixels,0,pixels.Length);
         using var recognizer=new ScreenPageRecognizer(profile);var view=recognizer.Recognize(new RgbImage(rgb.Width,rgb.Height,pixels));
@@ -52,7 +68,7 @@ public class RecognitionTests
         using var recognizer=new ScreenPageRecognizer(profile);var view=recognizer.Recognize(new RgbImage(rgb.Width,rgb.Height,pixels));
         Assert.Equal("npc_dialogue",view.Page);Assert.Contains("dialog.advance",view.Targets.Keys);
     }
-    [Theory][InlineData("storage-exit-current.jpg")][InlineData("storage-exit-dunbarton.jpg")]
+    [Theory][InlineData("storage-exit-current.jpg")][InlineData("storage-exit-dunbarton.jpg")][InlineData("storage-exit-my-home.png")]
     public void CurrentInnExitRecognizesStableConfirmationWithoutDialogue(string fixture)
     {
         var profile=ScreenRoutes.Load(Root()).Profile;
@@ -71,6 +87,16 @@ public class RecognitionTests
         using var recognizer=new ScreenPageRecognizer(profile);var view=recognizer.Recognize(new RgbImage(rgb.Width,rgb.Height,pixels));
         Assert.Equal("storage_dialog",view.Page);Assert.Contains("storage.open",view.Targets.Keys);
     }
+    [Fact] public void CurrentArrivedFabricPanelUsesStableTitleAndEquipmentText()
+    {
+        var profile=ScreenRoutes.Load(Root()).Profile;
+        using var bgr=OpenCvSharp.Cv2.ImRead(Path.Combine(Root(),"tests/fixtures/production/fabric-arrived-current.png"));
+        using var rgb=new OpenCvSharp.Mat();OpenCvSharp.Cv2.CvtColor(bgr,rgb,OpenCvSharp.ColorConversionCodes.BGR2RGB);
+        var pixels=new byte[rgb.Width*rgb.Height*3];System.Runtime.InteropServices.Marshal.Copy(rgb.Data,pixels,0,pixels.Length);
+        var frame=new RgbImage(rgb.Width,rgb.Height,pixels);using var matcher=new TemplateMatcher(profile);using var recognizer=new ScreenPageRecognizer(profile,matcher);
+        Assert.NotNull(matcher.Anchor(frame,"preset_fabric_title"));Assert.NotNull(matcher.Anchor(frame,"preset_fabric_equipment"));
+        var view=recognizer.Recognize(frame);Assert.Equal("fabric_panel",view.Page);Assert.Contains("fabric.open_fabric_first",view.Targets.Keys);
+    }
     [Fact] public void CurrentArrivedWoodPanelUsesStableTitleAndEquipmentText()
     {
         var profile=ScreenRoutes.Load(Root()).Profile;
@@ -80,6 +106,7 @@ public class RecognitionTests
         var frame=new RgbImage(rgb.Width,rgb.Height,pixels);using var matcher=new TemplateMatcher(profile);using var recognizer=new ScreenPageRecognizer(profile,matcher);
         Assert.NotNull(matcher.Anchor(frame,"preset_wood_title"));Assert.NotNull(matcher.Anchor(frame,"preset_wood_equipment"));
         var view=recognizer.Recognize(frame);Assert.Equal("wood_panel",view.Page);Assert.Contains("wood.open_catalog_wood_03",view.Targets.Keys);
+        Assert.Null(matcher.Anchor(frame,"preset_fabric_title"));
     }
     [Fact] public void CurrentTidyResultUsesItsOwnStableCompletionTitle()
     {
@@ -107,6 +134,7 @@ public class RecognitionTests
         var frame=new RgbImage(rgb.Width,rgb.Height,pixels);using var matcher=new TemplateMatcher(profile);
         using var recognizer=new ScreenPageRecognizer(profile,matcher);var view=recognizer.Recognize(frame);
         Assert.Equal("metal_panel",view.Page);Assert.NotNull(matcher.Anchor(frame,"arrived_title"));
+        Assert.Null(matcher.Anchor(frame,"preset_fabric_title"));
         Assert.Contains("metal.open_iron_ingot_from_iron_ore",view.Targets.Keys);
     }
     [Fact] public void SixProcessingCategoriesOverrideSharedSkillsSidebar()

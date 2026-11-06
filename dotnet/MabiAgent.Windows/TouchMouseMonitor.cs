@@ -9,7 +9,7 @@ namespace MabiAgent.Windows;
 // Read-only, bounded diagnostics: always passes input to the next hook, never blocks hardware input.
 internal sealed class TouchMouseMonitor:IDisposable
 {
-    private readonly Thread thread;private readonly HookProc callback;private readonly TaskCompletionSource ready=new(TaskCreationOptions.RunContinuationsAsynchronously);private uint threadId;private nint hook;private int disposed;
+    private readonly Thread thread;private readonly HookProc callback;private readonly TaskCompletionSource ready=new(TaskCreationOptions.RunContinuationsAsynchronously);private uint threadId;private nint hook;private int cleanupComplete;
     internal ConcurrentQueue<MouseEvent> Events{get;}=new();
     private int physicalMoves,physicalDowns,physicalUps,physicalDragMoves,injected;private bool leftHeld;
     internal int PhysicalDragMoves=>Volatile.Read(ref physicalDragMoves);
@@ -36,7 +36,11 @@ internal sealed class TouchMouseMonitor:IDisposable
         }catch{/* Observation failure must never consume hardware input. */}
         return CallNextHookEx(hook,code,message,data);
     }
-    public void Dispose(){if(Interlocked.Exchange(ref disposed,1)!=0)return;PostThreadMessage(threadId,0x12,0,0);if(!thread.Join(3000))throw new TimeoutException("鼠标只读观察线程未退出");GC.KeepAlive(callback);}
+    public void Dispose()
+    {
+        if(Volatile.Read(ref cleanupComplete)!=0)return;
+        TouchThreadCleanup.Run(thread,()=>PostThreadMessage(threadId,0x12,0,0),()=>{GC.KeepAlive(callback);Volatile.Write(ref cleanupComplete,1);},"鼠标只读观察线程未退出");
+    }
     private delegate nint HookProc(int code,nuint message,nint data);
     [StructLayout(LayoutKind.Sequential)]private struct MouseHook{public TouchNative.Point Point;public uint Data,Flags,Time;public nuint Extra;}
     [StructLayout(LayoutKind.Sequential)]private struct Message{public nint Hwnd;public uint Id;public nuint W;public nint L;public uint Time;public TouchNative.Point Point;public uint Private;}

@@ -26,6 +26,7 @@ public sealed class NavigationProfile
         {
             var spec=node!.AsObject();var relative=spec["path"]!.GetValue<string>();var path=ResolveTemplatePath(root,relative,userAssetRoot);
 
+            if(new FileInfo(path).Length>8*1024*1024)throw new InvalidDataException("模板超过大小上限："+name);
             var bytes=File.ReadAllBytes(path);var sha=spec["sha256"]!.GetValue<string>();
             if(bytes.Length>8*1024*1024||spec["bytes"] is {} declaredBytes&&bytes.LongLength!=declaredBytes.GetValue<long>()||Convert.ToHexStringLower(SHA256.HashData(bytes))!=sha)throw new InvalidDataException("模板摘要或长度不符："+name);
             var box=ReadBox(spec["box"]!);var search=ReadBox(spec["search"]??spec["box"]!);var threshold=spec["threshold"]?.GetFiniteDouble()??.97;
@@ -165,7 +166,7 @@ public sealed class ScreenRoutes
                 if(node is JsonValue value&&value.TryGetValue<string>(out var name))return JsonValue.Create(name switch{"$shop"=>shop,"$npc"=>npc,"$travel"=>travelPage,_=>name})!;
                 return node.DeepClone();
             }
-            foreach(var (destination,shop,npc,travel) in new[]{("repair_quote","map.blacksmith","map.repair_npc","repair_travel"),("purchase_shop","map.general_store","map.shop_npc","shop_travel")})
+            foreach(var (destination,shop,npc,travel) in new[]{("repair_quote","map.blacksmith","map.repair_npc","repair_travel"),("purchase_shop","map.general_store","map.shop_npc","shop_travel"),("storage","map.inn","map.storage_box","storage_travel")})
                 if(config["maintenance"]?["navigation"]?[destination]?["region_map"]?["workbench_override"]?.GetValue<bool>()!=true)config["maintenance"]!["navigation"]![destination]!["region_map"]=Bind(mapRoute,shop,npc,travel);
         }
         var result=NavigationProfile.FromDefinition(root,profile,userAssetRoot);var devices=new Dictionary<string,DeviceRoute>();

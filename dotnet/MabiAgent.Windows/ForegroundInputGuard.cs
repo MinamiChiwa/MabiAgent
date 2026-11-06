@@ -41,6 +41,7 @@ public sealed class ForegroundInputGuard:IDisposable
     private ClientGeometry? capturedGeometry,issuedGeometry,dispatchGeometry;
     private readonly Func<string> resourceRevision;private long captureSequence,geometryGeneration;private ClientFrameEvidence? lastSourceFrame;private string transportRevision="";
     private Func<ClientCapture,bool>? pointerCheck;
+    private Action? consumptionAuthorization,nativeActionStarted;
     private bool fixedDispatch;
     private ClientGeometry? scriptGeometry;
     private UiObservation? lastReview;private ClientCapture? lastReviewedCapture;
@@ -67,7 +68,8 @@ public sealed class ForegroundInputGuard:IDisposable
             var source=ops is ICurrentClientFrameSource current?current.CaptureCurrentClientFrame(before):
                 new CurrentClientFrame(ops.CaptureClient(before),new("client-capture",1,++captureSequence,began));
             var after=ops.ReadWindow(expected.WindowId);CheckNative(after,true);var completed=clock();
-            if(!double.IsFinite(began)||!double.IsFinite(completed)||began<0||completed<began||completed-began>maxAge)throw new InputBlockedException("截图耗时超出画面有效期");
+            if(!double.IsFinite(began)||!double.IsFinite(completed)||began<0||completed<began)throw new InputBlockedException("截图时钟无效");
+            if(completed-began>maxAge)throw new InputBlockedException("截图耗时超出画面有效期"){CaptureTimedOut=true};
             if(before.Geometry!=after.Geometry||before.WindowRect!=after.WindowRect)throw new InputBlockedException("截图期间窗口变化");
             if(source.Image.Width!=after.Geometry.Width||source.Image.Height!=after.Geometry.Height)throw new InputBlockedException("截图必须为原生客户区");
             var frame=source.Evidence;
@@ -166,7 +168,7 @@ public sealed class ForegroundInputGuard:IDisposable
             finally{try{ReleaseOwned();}finally{fixedDispatch=false;dispatching=0;dispatchGeometry=null;lastReview=null;lastDispatchView=null;}}
         }
     }
-    public void Consume(TargetProof target,string intentId,IConsumptionAuthorization authority,MouseButton button=MouseButton.Left,Func<ClientCapture,bool>? beforeDelivery=null,ushort? key=null)
+    public void Consume(TargetProof target,string intentId,IConsumptionAuthorization authority,MouseButton button=MouseButton.Left,Func<ClientCapture,bool>? beforeDelivery=null,ushort? key=null,ushort? movementKey=null)
     {
         lock(gate)
         {
@@ -175,11 +177,17 @@ public sealed class ForegroundInputGuard:IDisposable
         {
             if(beforeDelivery is not null&&ops is IGuardedPointerGestures&&ops is not TouchInputOps{SupportsPreparedReview:true})throw new MabiAgent.Workflows.InputRejectedBeforeDispatchException("当前通道不支持转交前复核，未发送");
             if(string.IsNullOrWhiteSpace(intentId)||!scope.HasIdentity && !(authority is IProcessScopedConsumptionAuthorization process && process.AllowsProcessScope(scope)))throw new InputBlockedException("消费需要当前会话与落盘意图");
+            if(dispatchedIntents.Contains(intentId))throw new InputBlockedException("消费意图不可重放或未落盘");
             if(key is not null&&key!=32)throw new InputBlockedException("消费快捷键未审核");
-            Dispatch(target,()=>{enteredNativeAction=true;if(key is{} code){KeyDown(code,false);try{WaitForInputSample(80);}finally{KeyUp(code,false);}}else ClickNative(ClickPoint(target),button);},review=>{if(dispatchedIntents.Contains(intentId)||!authority.VerifyPersistedIntent(intentId,target,review))throw new InputBlockedException("消费意图不可重放或未落盘");dispatchedIntents.Add(intentId);},preparedReview:beforeDelivery is not null&&ops is TouchInputOps);
+            if(movementKey is not null&&(target.Name!="fishing.start"||movementKey is not(87 or 83)||key!=32))throw new InputBlockedException("抛竿移动仅支持轻按 W/S 后空格");
+            consumptionAuthorization=()=>{var review=lastReview??throw new MabiAgent.Workflows.InputRejectedBeforeDispatchException("消费观察已失效");if(dispatchedIntents.Contains(intentId)||!authority.VerifyPersistedIntent(intentId,target,review))throw new MabiAgent.Workflows.InputRejectedBeforeDispatchException("消费意图不可重放或未落盘");dispatchedIntents.Add(intentId);};
+            nativeActionStarted=()=>enteredNativeAction=true;
+            Dispatch(target,()=>{if(key is{} code){if(movementKey is{} move)RunFishingMovement(move);KeyDown(code,false);try{WaitForInputSample(80);}finally{KeyUp(code,false);}}else ClickNative(ClickPoint(target),button);},preparedReview:beforeDelivery is not null&&ops is TouchInputOps);
         }
         catch(InputBlockedException e) when(!enteredNativeAction){throw new MabiAgent.Workflows.InputRejectedBeforeDispatchException(e.Message);}
-        finally{pointerCheck=null;}
+        catch(InputBlockedException e) when(movementKey is not null&&enteredNativeAction)
+        {paused=true;PauseReason??="input_outcome_unknown";throw new InputOutcomeUnknownException("抛竿移动已尝试发送，后续输入结果未确认："+e.Message);}
+        finally{pointerCheck=null;consumptionAuthorization=null;nativeActionStarted=null;}
         }
     }
     internal void ClickReviewedNavigation(TargetProof target,string from,MouseButton button=MouseButton.Left,Func<UiObservation,bool>? validate=null)
@@ -191,7 +199,7 @@ public sealed class ForegroundInputGuard:IDisposable
     public void Scroll(TargetProof target,int steps,bool zoom=false)
     {
         if(steps==0||Math.Abs((long)steps)>12)throw new ArgumentOutOfRangeException(nameof(steps));
-        Dispatch(target,()=>{CheckTransport();if(ops is IGuardedPointerGestures pointer){var surface=CurrentSurface(target);RunPointer(MouseButton.Left,()=>pointer.Scroll(target.Point,surface,steps,zoom||target.Page is "region_map" or "world_map"));return;}ops.MoveClient(expected.WindowId,target.Point);for(var i=0;i<Math.Abs(steps);i++){CheckTransport();ops.Wheel(Math.Sign(steps)*120);WaitForInputSample(40);}});
+        Dispatch(target,()=>{CheckTransport();if(ops is IGuardedPointerGestures pointer){var surface=CurrentSurface(target);RunPointer(MouseButton.Left,()=>pointer.Scroll(target.Point,surface,steps,zoom||target.Page is "region_map" or "world_map"));return;}ops.MoveClient(expected.WindowId,target.Point);for(var i=0;i<Math.Abs(steps);i++){CheckTransport();ops.Wheel(Math.Sign(steps)*120);WaitForInputSample(40);}},fixedSequence:true);
     }
     public void Drag(TargetProof from,PixelPoint to,int steps=12,Func<UiObservation,bool>? validate=null)
     {
@@ -217,14 +225,21 @@ public sealed class ForegroundInputGuard:IDisposable
     public void EditQuantity(TargetProof field,string text)
     {
         if(field.Name is not("storage.quantity" or "bag.sale_quantity" or "bag.decompose_quantity")||text.Length is <1 or >16||text.Any(c=>c<'0'||c>'9'))throw new ArgumentException("数量键盘路径只接受已校准数量框及数字");
-        Dispatch(field,()=>{KeyPair(13,false);WaitForInputSample(250);for(var i=0;i<16;i++)KeyPair(8,false);foreach(var c in text)KeyPair(c,true);KeyPair(13,false);});
+        Dispatch(field,()=>
+        {
+            void SampleKey(ushort key,int milliseconds){KeyDown(key,false);try{WaitForInputSample(milliseconds);}finally{KeyUp(key,false);}WaitForInputSample(30);}
+            SampleKey(13,80);WaitForInputSample(250);
+            for(var i=0;i<16;i++)SampleKey(8,25);
+            foreach(var c in text)KeyPair(c,true);
+            WaitForInputSample(80);SampleKey(13,80);
+        });
     }
     public void PressKey(TargetProof context,ushort key,TimeSpan duration)
     {
         if(!InputKeyPolicy.IsShortcut(key)||duration<=TimeSpan.Zero||duration>TimeSpan.FromSeconds(2))throw new ArgumentException("只允许有界 WASD、I、K、空格、X 及 ESC");
         Dispatch(context,()=>{KeyDown(key,false);var timer=Stopwatch.StartNew();while(timer.Elapsed<duration){Thread.Sleep(10);CheckTransport();}KeyUp(key,false);});
     }
-    private void Dispatch(TargetProof target,Action action,Action<UiObservation>? authorize=null,bool preparedReview=false)
+    private void Dispatch(TargetProof target,Action action,Action<UiObservation>? authorize=null,bool preparedReview=false,bool fixedSequence=false)
     {
         lock(gate)
         {
@@ -241,12 +256,16 @@ public sealed class ForegroundInputGuard:IDisposable
             if(capturedGeometry is not {} current||issuedGeometry is not {} issued||current.Width!=issued.Width||current.Height!=issued.Height||current.Dpi!=issued.Dpi)throw new InputBlockedException("客户区尺寸或 DPI 已变化，请重新识别目标");
             if(target.ClickRegion is {} region&&(!region.IsInside(current.Width,current.Height)||(review.View.TargetShapes?.GetValueOrDefault(target.Name)??ClickRegionShape.Rectangle)!=target.ClickShape))throw new InputBlockedException("点击区域已变化");
             authorize?.Invoke(review);lastDispatchView=review.View;issuedProof=null;transportAt=review.CapturedAt;transportRevision=review.ResourceRevision;dispatchGeometry=current;dispatching=Environment.CurrentManagedThreadId;
+            // A bounded scroll validates its source once, then completes the
+            // fixed gesture with system boundaries. Its own duration must not
+            // expire the source frame between pinch contacts.
+            fixedDispatch=fixedSequence;
             try{CheckTransport();action();}
             catch(InputBlockedException) when(heldButtons.Count==0&&heldKeys.Count==0&&!pauseRequested){throw;}
             catch(InputBlockedException) when(heldButtons.Count==0&&heldKeys.Count==0&&pauseRequested){paused=true;PauseReason??="pause_requested";throw;}
             catch(MabiAgent.Core.InputNotDispatchedException){throw;}
             catch{paused=true;PauseReason??="input_outcome_unknown";throw;}
-            finally{try{ReleaseOwned();}finally{dispatching=0;dispatchGeometry=null;lastDispatchView=null;}}
+            finally{try{ReleaseOwned();}finally{dispatching=0;dispatchGeometry=null;lastDispatchView=null;fixedDispatch=false;}}
         }
     }
     private UiObservation Review(bool requireStable=true)
@@ -279,12 +298,24 @@ public sealed class ForegroundInputGuard:IDisposable
     {
         lock(gate)
         {
-            CheckTransport();if(pointerCheck is null)return;
-            var current=Capture();
-            if(!pointerCheck(current)||clock()-current.CapturedAt>.2)
-                throw new MabiAgent.Workflows.InputRejectedBeforeDispatchException("触控转交前目标已变化或复核超过200毫秒，未发送");
-            transportAt=current.CapturedAt;CheckTransport();
+            CheckTransport();
+            if(pointerCheck is not null)
+            {
+                var current=Capture();
+                if(!pointerCheck(current)||clock()-current.CapturedAt>.2)
+                    throw new MabiAgent.Workflows.InputRejectedBeforeDispatchException("触控转交前目标已变化或复核超过200毫秒，未发送");
+                transportAt=current.CapturedAt;CheckTransport();
+            }
+            if(ops is TouchInputOps){CommitConsumption();nativeActionStarted?.Invoke();}
         }
+    }
+    private void CommitConsumption(){var commit=consumptionAuthorization;if(commit is null)return;consumptionAuthorization=null;commit();}
+    private void RunFishingMovement(ushort code)
+    {
+        // Persist before movement, then use the game's displayed Space action
+        // through the existing background keyboard without touch preparation.
+        KeyDown(code,false);try{WaitForInputSample(60);}finally{KeyUp(code,false);}
+        WaitForInputSample(300);
     }
     internal void AuthorizeNativeTransport(){lock(gate)CheckTransport();}
     internal void AuthorizeMouseRelease(MouseButton button){lock(gate){if(!heldButtons.Contains(button))throw new InputBlockedException("只能释放本守卫尝试按下的按钮");}}
@@ -302,7 +333,7 @@ public sealed class ForegroundInputGuard:IDisposable
         return globalTouch?region.CenterOffsetPoint(Math.Max(1,(int)Math.Round(3d*(dispatchGeometry?.Width??1280)/1280)),proof.ClickShape):region.RandomPoint(shape:proof.ClickShape);
     }
     private void RunPointer(MouseButton button,Action action)
-    {CheckTransport();heldButtons.Add(button);try{action();}finally{Up(button);}}
+    {CheckTransport();if(ops is not TouchInputOps){CommitConsumption();nativeActionStarted?.Invoke();}heldButtons.Add(button);try{action();}finally{Up(button);}}
 
     private void ClickNative(PixelPoint point,MouseButton button)
     {
@@ -310,12 +341,12 @@ public sealed class ForegroundInputGuard:IDisposable
         CheckTransport();var moveDelay=ops is IGuardedWindowTransport transport?transport.MoveSampleMilliseconds:16;var clickDelay=ops is IGuardedWindowTransport clickTransport?clickTransport.ClickSampleMilliseconds:32;var minimum=ops is IGuardedWindowTransport{AllowsZeroClickDelay:true}?0:1;
         if(moveDelay<minimum||moveDelay>250||clickDelay<minimum||clickDelay>250)throw new InputBlockedException("输入采样间隔无效");
         IDisposable? lease=null;
-        try{lease=(ops as IGuardedClickLifetime)?.BeginClick(expected.WindowId,point);ops.MoveForClick(expected.WindowId,point,button);WaitForInputSample(moveDelay);ReviewPreparedPointer();Down(button);WaitForInputSample(clickDelay);}
+        try{lease=(ops as IGuardedClickLifetime)?.BeginClick(expected.WindowId,point);nativeActionStarted?.Invoke();ops.MoveForClick(expected.WindowId,point,button);WaitForInputSample(moveDelay);ReviewPreparedPointer();Down(button);WaitForInputSample(clickDelay);}
         finally{try{Up(button);}finally{lease?.Dispose();}}
     }
-    private void Down(MouseButton button){CheckTransport();heldButtons.Add(button);ops.MouseButton(button,true);}
+    private void Down(MouseButton button){CheckTransport();CommitConsumption();heldButtons.Add(button);nativeActionStarted?.Invoke();ops.MouseButton(button,true);}
     private void Up(MouseButton button){if(heldButtons.Contains(button)){ops.MouseButton(button,false);heldButtons.Remove(button);}}
-    private void KeyDown(ushort code,bool unicode){CheckTransport();heldKeys.Add((code,unicode));ops.Key(code,true,unicode);}
+    private void KeyDown(ushort code,bool unicode){CheckTransport();CommitConsumption();heldKeys.Add((code,unicode));nativeActionStarted?.Invoke();ops.Key(code,true,unicode);}
     private void KeyUp(ushort code,bool unicode){if(heldKeys.Contains((code,unicode))){ops.Key(code,false,unicode);heldKeys.Remove((code,unicode));}}
     private void KeyPair(ushort code,bool unicode){KeyDown(code,unicode);KeyUp(code,unicode);}
     private void ReleaseOwned(){Exception? error=null;foreach(var button in heldButtons.ToArray())try{Up(button);}catch(Exception e){error??=e;}foreach(var key in heldKeys.ToArray())try{KeyUp(key.Code,key.Unicode);}catch(Exception e){error??=e;}if(error is not null)throw new InputOutcomeUnknownException("输入释放未确认："+error.Message);}

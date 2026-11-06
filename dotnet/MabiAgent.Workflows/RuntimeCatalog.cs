@@ -1,4 +1,4 @@
-using System.Text.Json.Nodes;
+﻿using System.Text.Json.Nodes;
 using System.Text.Json;
 using MabiAgent.Core;
 namespace MabiAgent.Workflows;
@@ -48,14 +48,14 @@ public interface IAutomationPorts:IDisposable
     void Pause(string reason);
     InventorySnapshot Inventory();
     bool PreferBulkInventorySync=>false;
-    // Prefer the shared theater script; confirmed missing item uses existing same-character relogin. Never scan bag quantities.
+    // Active refresh uses the shared quick-re-entry script. Never scan bag quantities.
     void RequestInventorySync(){}
     void CancelInventorySync(){}
     void ResumeAfterInventorySync()=>Continue();
-    bool PrivateTheaterRefreshAvailable=>PreferBulkInventorySync;
-    PrivateTheaterRefreshStatus PrivateTheaterRefreshStatus=>PrivateTheaterRefreshStatus.Idle;
-    bool TickPrivateTheaterRefresh(DateTimeOffset now)=>false;
-    void BeginPrivateTheaterRefresh(DateTimeOffset now){}
+    bool QuickReentryAvailable=>PreferBulkInventorySync;
+    QuickReentryStatus QuickReentryStatus=>QuickReentryStatus.Idle;
+    bool TickQuickReentry(DateTimeOffset now)=>false;
+    void BeginQuickReentry(DateTimeOffset now){}
     IProductionPort Production(string recipeKey,string batchId,IWorkflowStore store);
     IGatheringPort Gathering(string routeKey,string batchId,IWorkflowStore store);
     IStorageSupplyPort Storage(WithdrawalPlan plan,string batchId,IWorkflowStore store);

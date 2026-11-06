@@ -8,7 +8,7 @@ namespace MabiAgent.Windows;
 public sealed class ScreenPurchasePort:ScreenWorkflowPort,IPurchasePort
 {
     private readonly JsonNode? config;private readonly long itemId;private readonly string itemName;private readonly Func<PurchaseState?> purchase;private readonly Func<MaintenancePreferences> preferences;
-    private bool identity;private long? selected,price,bottles,gold;private readonly ScreenQuantityStepper stepper=new();private readonly ScreenMaintenancePort navigator;
+    private bool identity,shopNavigationActive;private long? selected,price,bottles,gold;private readonly ScreenQuantityStepper stepper=new();private readonly ScreenMaintenancePort navigator;
     private readonly Func<InventorySnapshot>? packetInventory;
     private sealed class PurchaseStore(Func<PurchaseState?> read):IWorkflowStore
     {
@@ -31,7 +31,13 @@ public sealed class ScreenPurchasePort:ScreenWorkflowPort,IPurchasePort
     {
         var o=Read();selected=price=bottles=gold=null;if(config is not null&&o.Stable&&Session.InputAvailable&&identity)
         {
-            if(o.View.Page==S(config,"payment_page")){selected=Session.ConfirmedQuantity("purchase.quantity",config["quantity"],itemId,"shop_quantity")?.Quantity;price=Session.ConfirmedQuantity("purchase.price",config["total_price"],1,"shop_price")?.Quantity;}
+            if(o.View.Page==S(config,"payment_page"))
+            {
+                // Reaching the selected item completes entry navigation. The
+                // paid exit must not inherit its old selection wait.
+                if(shopNavigationActive){navigator.ResetNavigation();shopNavigationActive=false;}
+                selected=Session.ConfirmedQuantity("purchase.quantity",config["quantity"],itemId,"shop_quantity")?.Quantity;price=Session.ConfirmedQuantity("purchase.price",config["total_price"],1,"shop_price")?.Quantity;
+            }
             var packet=packetInventory?.Invoke().Query(itemId);bottles=packet is{Confirmed:true}?packet.Quantity:null;
             gold=Session.ReadGold(()=>Session.ConfirmedQuantity("purchase.gold:"+o.View.Page,config["gold"],1,"gold")?.Quantity);
         }
@@ -40,6 +46,7 @@ public sealed class ScreenPurchasePort:ScreenWorkflowPort,IPurchasePort
     public void NavigateToShop()
     {
         Calibrated();var o=Read();if(!o.Stable||!Session.InputAvailable)return;
+        shopNavigationActive=true;
         if(o.View.Page=="shop_materials")
         {
             var target=config?["select_target"]?.GetValue<string>()??"purchase.select_bottle";

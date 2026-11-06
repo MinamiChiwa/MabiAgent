@@ -9,7 +9,8 @@ public sealed class RuntimeLimitRecognition:IDisposable
     {
         foreach(var (name,file,hash,x,y) in new[]{("message","session_expired_message.png","0a5e72b346857e692b3ad0ec9a7fdb2ae5e97ee8cb60d0ff3c1cef8faf14d064",137,-90),("end","session_expired_end.png","7527142839436951605a494329a61c73cbbbe365e8ab15668b1e56153c49d8a1",204,12)})
         {
-            var bytes=File.ReadAllBytes(Path.Combine(root,"assets/templates/session_interruptions",file));if(bytes.Length>65536||Convert.ToHexStringLower(SHA256.HashData(bytes))!=hash)throw new InvalidDataException("运行时限模板变化");
+            var path=Path.Combine(root,"assets/templates/session_interruptions",file);if(new FileInfo(path).Length>65536)throw new InvalidDataException("运行时限模板超过大小上限");
+            var bytes=File.ReadAllBytes(path);if(bytes.Length>65536||Convert.ToHexStringLower(SHA256.HashData(bytes))!=hash)throw new InvalidDataException("运行时限模板变化");
             var image=Cv2.ImDecode(bytes,ImreadModes.Grayscale);if(image.Empty())throw new InvalidDataException("运行时限模板损坏");templates.Add((name,image,x,y,hash));
         }
     }

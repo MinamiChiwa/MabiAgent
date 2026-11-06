@@ -4,6 +4,8 @@ namespace MabiAgent.Windows;
 /// <summary>Reads only an explicitly calibrated horizontal fill track, never scene colours.</summary>
 internal static class FishingGauge
 {
+    internal readonly record struct Located(PixelBox Box,double Value);
+
     internal static double? Read(RgbImage image,PixelBox box,JsonNode? calibration)
     {
         if(calibration?["calibrated"]?.GetValue<bool>()!=true||!box.IsInside(image.Width,image.Height)||box.Width<2)return null;
@@ -47,6 +49,51 @@ internal static class FishingGauge
             else return null;
         }
         return filled/(double)box.Width;
+    }
+    internal static Located? Find(RgbImage image,PixelBox search,JsonNode? calibration,int expectedWidth)
+    {
+        if(calibration?["calibrated"]?.GetValue<bool>()!=true||!search.IsInside(image.Width,image.Height)||expectedWidth<8)return null;
+        if(calibration["fill_rgb"] is not JsonArray{Count:3} fill||calibration["empty_rgb"] is not JsonArray{Count:3} empty)return null;
+        var a=fill.Select(v=>v!.GetValue<int>()).ToArray();var b=empty.Select(v=>v!.GetValue<int>()).ToArray();
+        var tolerance=calibration["tolerance"]?.GetValue<int>()??20;
+        if(tolerance is <0 or >100||a.Concat(b).Any(v=>v is <0 or >255)||a.Zip(b).All(p=>Math.Abs(p.First-p.Second)<=2*tolerance))return null;
+        var minimum=Math.Max(8,(int)Math.Floor(expectedWidth*.75));var maximum=(int)Math.Ceiling(expectedWidth*1.3);
+        var minimumSegment=Math.Max(3,(int)Math.Ceiling(expectedWidth*.05));
+        var rows=new List<(int Y,int Left,int Right,double Value)>();var pixels=image.Pixels;
+        for(var y=search.Top;y<search.Bottom;y++)
+        {
+            var x=search.Left;
+            while(x<search.Right)
+            {
+                while(x<search.Right&&!Match(pixels,(y*image.Width+x)*3,a,tolerance))x++;
+                var left=x;while(x<search.Right&&Match(pixels,(y*image.Width+x)*3,a,tolerance))x++;
+                var filled=x-left;var emptyStart=x;
+                while(x<search.Right&&Match(pixels,(y*image.Width+x)*3,b,15))x++;
+                var emptyCount=x-emptyStart;var width=x-left;
+                if(filled>=minimumSegment&&emptyCount>=minimumSegment&&width>=minimum&&width<=maximum)
+                    rows.Add((y,left,x,filled/(double)width));
+                if(x==left)x++;
+            }
+        }
+        // The bar has several adjacent interior rows with almost identical bounds.
+        // Requiring that shape rejects isolated scene colours without scanning the page.
+        var group=rows.GroupBy(r=>((r.Left+2)/4,(r.Right+2)/4)).Select(g=>g.OrderBy(r=>r.Y).ToArray())
+            .Where(g=>ConsecutiveRows(g)>=5)
+            .OrderByDescending(g=>g.Length).ThenBy(g=>Math.Abs(g.Select(r=>r.Right-r.Left).Average()-expectedWidth)).FirstOrDefault();
+        if(group is null)return null;
+        var ordered=group.OrderBy(r=>r.Value).ToArray();var middle=ordered[ordered.Length/2];
+        var leftBound=(int)Math.Round(group.Average(r=>r.Left));var rightBound=(int)Math.Round(group.Average(r=>r.Right));
+        return new(new(leftBound,group.Min(r=>r.Y),rightBound,group.Max(r=>r.Y)+1),middle.Value);
+    }
+    private static int ConsecutiveRows((int Y,int Left,int Right,double Value)[] rows)
+    {
+        var longest=0;var current=0;int? previous=null;
+        foreach(var row in rows)
+        {
+            current=previous is not null&&row.Y==previous+1?current+1:1;
+            longest=Math.Max(longest,current);previous=row.Y;
+        }
+        return longest;
     }
     private static bool Match(ReadOnlySpan<byte> pixels,int offset,int[] rgb,int tolerance)
         =>Math.Abs(pixels[offset]-rgb[0])<=tolerance&&Math.Abs(pixels[offset+1]-rgb[1])<=tolerance&&Math.Abs(pixels[offset+2]-rgb[2])<=tolerance;

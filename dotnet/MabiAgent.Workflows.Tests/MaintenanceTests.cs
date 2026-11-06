@@ -3,16 +3,72 @@ using Xunit;
 namespace MabiAgent.Workflows.Tests;
 public sealed class MaintenanceTests
 {
+    [Theory][InlineData(true)][InlineData(false)]
+    public void LegacyBlockedBackpackPreservesOnlyObservedCapacityRestriction(bool overweight)
+    {
+        var store=new MemoryStore();var port=new MaintenancePort();var time=new ManualTime();
+        var original=new MaintenanceRunner(port,store,new(RepairEnabled:false),time);
+        var saved=original.Snapshot();saved["backpack"]!["status"]="blocked";
+        saved["backpack"]!["phase"]="prepare";saved["backpack"]!.AsObject().Remove("capacity_blocked");
+        saved["backpack"]!["weight"]=overweight?95:20;saved["backpack"]!["capacity"]=100;
+        store.Value=saved;
+        var restored=new MaintenanceRunner(port,store,new(RepairEnabled:false),time);
+        Assert.Equal(overweight,restored.Blocked("gathering"));Assert.False(restored.Blocked("production"));
+    }
+    [Theory][InlineData(false)][InlineData(true)]
+    public void FailedBackpackInspectionReleasesCleanupEvenWhenPageStaysUnknown(bool stable)
+    {
+        var time=new ManualTime();var port=new MaintenancePort{Frame=new("scene","scene")};
+        var runner=new MaintenanceRunner(port,new MemoryStore(),new(RepairEnabled:false,BackpackCheckIntervalSeconds:1),time);
+        time.Seconds+=1;runner.Tick();port.Frame=new("missing","unknown",Stable:stable);runner.Tick();
+        time.Seconds+=121;runner.Tick();Assert.Equal("backpack_progress_timeout",runner.Snapshot()["reason"]!.GetValue<string>());
+        runner.Tick();time.Seconds+=16;runner.Tick();
+        Assert.False(runner.StatusSnapshot()["navigation_reserved"]!.GetValue<bool>());
+        Assert.False(runner.Snapshot()["global_pause_required"]!.GetValue<bool>());
+        Assert.False(runner.Blocked("gathering"));Assert.False(runner.Blocked("production"));
+        Assert.Null(runner.Snapshot()["pending"]);Assert.Empty(port.Actions);
+    }
     private sealed class WaitingSurplus:ISurplusMaintenancePort
     {
-        public string Begin()=>"running";public string Tick()=>"running";public string Reconcile()=>"running";
+        public int Begins,Ticks;public string Result="running";
+        public string Begin(){Begins++;return "running";}public string Tick(){Ticks++;return Result;}public string Reconcile()=>"running";
         public System.Text.Json.Nodes.JsonObject Snapshot()=>new(){["status"]="running"};
+    }
+    [Fact] public void TidyPrecedesProductionAndSaleAndIsNotRepeatedAfterRelief()
+    {
+        var time=new ManualTime();var port=new MaintenancePort{Frame=new("1","backpack",Weight:95,Capacity:100)};
+        var sale=new WaitingSurplus{Result="complete"};var runner=new MaintenanceRunner(port,new MemoryStore(),new(RepairEnabled:false,ProductionFirst:true),time,surplus:sale);
+        runner.Tick();Assert.Equal("prepare",runner.Snapshot()["backpack"]!["phase"]!.GetValue<string>());Assert.Equal(0,sale.Begins);Assert.Equal(1,port.Navigations);
+        port.Frame=new("2","tidy",BoldSelected:false,MaterialsSelected:false,TidyCount:3);runner.Tick();
+        port.Frame=new("3","tidy_confirm",ConfirmAvailable:true);runner.Tick();Assert.Equal(0,sale.Begins);
+        port.Frame=new("4","backpack",Weight:95,Capacity:100,TidyComplete:true);runner.Tick();
+        Assert.Equal("production_relief",runner.Snapshot()["backpack"]!["status"]!.GetValue<string>());Assert.Null(runner.Snapshot()["pending"]);
+        runner.ProductionReliefExhausted();port.Frame=new("5","backpack",Weight:95,Capacity:100);runner.Tick();Assert.Equal(1,sale.Begins);
+        port.Frame=port.Frame with{CaptureId="6"};runner.Tick();port.Frame=port.Frame with{CaptureId="7"};runner.Tick();
+        Assert.Equal("backpack_relief_exhausted",runner.Snapshot()["reason"]!.GetValue<string>());
+        Assert.Single(port.Actions,a=>a=="confirm_tidy");Assert.Equal(1,sale.Begins);
+    }
+    [Fact] public void EmptyProtectedTidyIsCheckedBeforeMaterialSale()
+    {
+        var port=new MaintenancePort{Frame=new("1","backpack",Weight:95,Capacity:100)};var sale=new WaitingSurplus();
+        var runner=new MaintenanceRunner(port,new MemoryStore(),new(RepairEnabled:false),new ManualTime(),surplus:sale);
+        runner.Tick();Assert.Equal(0,sale.Begins);
+        port.Frame=new("2","tidy",BoldSelected:false,MaterialsSelected:false,TidyCount:0);runner.Tick();Assert.Equal(0,sale.Begins);
+        runner.ProductionReliefExhausted();port.Frame=new("3","backpack",Weight:95,Capacity:100);runner.Tick();Assert.Equal(1,sale.Begins);Assert.Empty(port.Actions);
+    }
+    [Fact] public void LegacyUnsentSurplusReturnsToTidyBeforeResumingSale()
+    {
+        var store=new MemoryStore();var port=new MaintenancePort{Frame=new("1","backpack",Weight:95,Capacity:100)};var sale=new WaitingSurplus();
+        var policy=new MaintenancePolicy(RepairEnabled:false);var time=new ManualTime();var seed=new MaintenanceRunner(port,store,policy,time).Snapshot();
+        seed["active"]="backpack";seed["backpack"]!["phase"]="surplus";seed["backpack"]!["status"]="running";store.Flush(seed);
+        var runner=new MaintenanceRunner(port,store,policy,time,surplus:sale);runner.Resume(true);runner.Tick();
+        Assert.Equal("prepare",runner.Snapshot()["backpack"]!["phase"]!.GetValue<string>());Assert.Equal(0,sale.Begins);Assert.Equal(0,sale.Ticks);Assert.Equal(1,port.Navigations);
     }
     [Fact] public void SurplusSearchOutlivesOrdinaryPageWaitButRemainsBounded()
     {
         var time=new ManualTime();var store=new MemoryStore();var port=new MaintenancePort{Frame=new("1","backpack",Weight:95,Capacity:100)};
         var policy=new MaintenancePolicy(RepairEnabled:false);var seed=new MaintenanceRunner(port,store,policy,time).Snapshot();
-        seed["active"]="backpack";seed["backpack"]!["phase"]="surplus";seed["backpack"]!["status"]="running";store.Flush(seed);
+        seed["active"]="backpack";seed["backpack"]!["phase"]="surplus";seed["backpack"]!["status"]="running";seed["backpack"]!["tidy_checked"]=true;store.Flush(seed);
         var runner=new MaintenanceRunner(port,store,policy,time,surplus:new WaitingSurplus());runner.Resume(true);runner.Tick();
         time.Seconds+=121;runner.Tick();Assert.Equal("running",runner.Snapshot()["backpack"]!["status"]!.GetValue<string>());
         time.Seconds+=210;runner.Tick();Assert.Equal("backpack_progress_timeout",runner.Snapshot()["reason"]!.GetValue<string>());Assert.Null(runner.Snapshot()["pending"]);

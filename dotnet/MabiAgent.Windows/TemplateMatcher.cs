@@ -30,17 +30,25 @@ public sealed class TemplateMatcher(NavigationProfile configuration):IDisposable
     private TemplateHit? MatchCore(RgbImage image,TemplateDefinition spec,PixelBox roi,ReviewedLayout layout,double minimum,bool unique,double? thresholdOverride)
     {
         var transform=new TransformKey(spec.Mode,spec.LightThreshold,spec.RelativeContrast,spec.RelativeContrastThreshold);var size=layout.TemplateSize(spec.Image.Width,spec.Image.Height);
+        // List names share a left-aligned column. Include the adjacent blank
+        // space so a short name cannot match the prefix of a longer name.
+        var labelInset=spec.Mode=="list_label"?layout.TemplateSize(12,1).Width:0;
+        if(labelInset>0){roi=new(roi.Left-labelInset,roi.Top,roi.Right+labelInset,roi.Bottom);if(!roi.IsInside(image.Width,image.Height))return null;}
         using var referenceLease=references.Get(new ReferenceKey(spec.Image.Sha256,size.Width,size.Height,transform),()=>
         {
-            using var original=spec.Image.ToMat();using var resized=new Mat();Cv2.Resize(original,resized,size,0,0,size.Width<original.Width?InterpolationFlags.Area:InterpolationFlags.Cubic);return new Prepared(Transform(resized,spec));
+            using var original=spec.Image.ToMat();using var resized=new Mat();Cv2.Resize(original,resized,size,0,0,size.Width<original.Width?InterpolationFlags.Area:InterpolationFlags.Cubic);
+            var transformed=Transform(resized,spec);if(labelInset==0)return new Prepared(transformed);
+            using(transformed){var padded=new Mat();Cv2.CopyMakeBorder(transformed,padded,0,0,labelInset,labelInset,BorderTypes.Constant,Scalar.All(0));return new Prepared(padded);}
         });
         var reference=referenceLease.Value.Image;if(roi.Width<reference.Width||roi.Height<reference.Height||referenceLease.Value.Std<2)return null;
         using var regionLease=regions.Get(new RegionKey(roi,transform),()=>{using var source=image.ToMat(roi);return new Prepared(Transform(source,spec));});var gray=regionLease.Value.Image;if(regionLease.Value.Std<2)return null;nativeMatches++;
         using var scores=new Mat();Cv2.MatchTemplate(gray,reference,scores,TemplateMatchModes.CCoeffNormed);Cv2.MinMaxLoc(scores,out _,out var score,out _,out var peak);using var selected=new Mat(gray,new Rect(peak.X,peak.Y,reference.Width,reference.Height));
-        var ratio=Cv2.Mean(selected).Val0/Math.Max(1,referenceLease.Value.Mean);var threshold=thresholdOverride??Math.Max(minimum,spec.Threshold);if(spec.Mode is "light_text" or "bright_text" or "color_glyph" or "yellow_text" or "red_glyph")threshold=spec.GlyphThreshold??Math.Min(threshold,.93);
+        var ratio=Cv2.Mean(selected).Val0/Math.Max(1,referenceLease.Value.Mean);var threshold=thresholdOverride??Math.Max(minimum,spec.Threshold);
+        if(spec.Mode=="list_label")threshold=spec.GlyphThreshold??threshold;
+        else if(spec.Mode is "light_text" or "bright_text" or "blue_text" or "color_glyph" or "yellow_text" or "red_glyph")threshold=spec.GlyphThreshold??Math.Min(threshold,.93);
         if(!double.IsFinite(score)||score<threshold||ratio is <.65 or >1.5)return null;
         if(unique){int l=Math.Max(0,peak.X-reference.Width/2),t=Math.Max(0,peak.Y-reference.Height/2),r=Math.Min(scores.Width,peak.X+reference.Width/2+1),b=Math.Min(scores.Height,peak.Y+reference.Height/2+1);using(var exclusion=new Mat(scores,new Rect(l,t,r-l,b-t)))exclusion.SetTo(-1);Cv2.MinMaxLoc(scores,out double _,out double runnerUp);if(runnerUp>=threshold)return null;}
-        var box=new PixelBox(roi.Left+peak.X,roi.Top+peak.Y,roi.Left+peak.X+reference.Width,roi.Top+peak.Y+reference.Height);return new(spec.Name,score,box,spec.Sha256);
+        var box=new PixelBox(roi.Left+peak.X+labelInset,roi.Top+peak.Y,roi.Left+peak.X+reference.Width-labelInset,roi.Top+peak.Y+reference.Height);return new(spec.Name,score,box,spec.Sha256);
     }
     public TemplateHit? Anchor(RgbImage image,string name,double minimum=.97,bool unique=true,double? thresholdOverride=null)
     {
@@ -49,7 +57,7 @@ public sealed class TemplateMatcher(NavigationProfile configuration):IDisposable
     }
     private static unsafe Mat Transform(Mat rgb,TemplateDefinition spec)
     {
-        var gray=new Mat();if(spec.Mode is not ("light_text" or "bright_text" or "yellow_text" or "color_glyph" or "red_glyph"))
+        var gray=new Mat();if(spec.Mode is not ("list_label" or "light_text" or "bright_text" or "blue_text" or "yellow_text" or "color_glyph" or "red_glyph"))
         {
             Cv2.CvtColor(rgb,gray,ColorConversionCodes.RGB2GRAY);
             // Map portraits retain a fixed screen size while panning changes subpixel rasterization.
@@ -57,9 +65,23 @@ public sealed class TemplateMatcher(NavigationProfile configuration):IDisposable
             if(spec.Mode=="portrait_core")Cv2.GaussianBlur(gray,gray,new Size(5,5),1.2);
             return gray;
         }
-        var height=rgb.Height;var width=rgb.Width;gray.Create(height,width,MatType.CV_8UC1);for(var y=0;y<height;y++){var row=(byte*)rgb.Ptr(y);var dest=(byte*)gray.Ptr(y);for(var x=0;x<width;x++){int r=row[x*3],g=row[x*3+1],b=row[x*3+2];dest[x]=spec.Mode switch{"red_glyph"=>(byte)(r>130&&r-g>50&&r-b>40?255:0),"yellow_text"=>(byte)(r>130&&g>130&&g-b>40&&r*5>=g*4?255:0),"color_glyph"=>(byte)(Math.Max(r,Math.Max(g,b))-Math.Min(r,Math.Min(g,b))>80?255:0),"bright_text"=>(byte)Math.Max(r,Math.Max(g,b)),_=>(byte)Math.Min(r,Math.Min(g,b))};}}
-        if(spec.Mode is "light_text" or "bright_text"){if(spec.RelativeContrast){using var kernel=Cv2.GetStructuringElement(MorphShapes.Rect,new Size(15,15));Cv2.MorphologyEx(gray,gray,MorphTypes.TopHat,kernel);Cv2.MinMaxLoc(gray,out double _,out double max);if(max<16)gray.SetTo(0);else{Cv2.Normalize(gray,gray,0,255,NormTypes.MinMax);if(spec.RelativeContrastThreshold is {} t)Cv2.Threshold(gray,gray,t,255,ThresholdTypes.Binary);}}else Cv2.Threshold(gray,gray,spec.LightThreshold,255,ThresholdTypes.Binary);}
-        Cv2.GaussianBlur(gray,gray,new Size(5,5),1.2);return gray;
+        // Blue retains white map lettering beneath a green overlay. The overlay
+        // itself is never a reference or a navigation target.
+        var height=rgb.Height;var width=rgb.Width;gray.Create(height,width,MatType.CV_8UC1);for(var y=0;y<height;y++){var row=(byte*)rgb.Ptr(y);var dest=(byte*)gray.Ptr(y);for(var x=0;x<width;x++){int r=row[x*3],g=row[x*3+1],b=row[x*3+2];dest[x]=spec.Mode switch{"red_glyph"=>(byte)(r>130&&r-g>50&&r-b>40?255:0),"yellow_text"=>(byte)(r>130&&g>130&&g-b>40&&r*5>=g*4?255:0),"color_glyph"=>(byte)(Math.Max(r,Math.Max(g,b))-Math.Min(r,Math.Min(g,b))>80?255:0),"bright_text"=>(byte)Math.Max(r,Math.Max(g,b)),"blue_text"=>(byte)b,_=>(byte)Math.Min(r,Math.Min(g,b))};}}
+        if(spec.Mode is "list_label" or "light_text" or "bright_text" or "blue_text")
+        {
+            if(spec.RelativeContrast)
+            {
+                using var kernel=Cv2.GetStructuringElement(MorphShapes.Rect,new Size(15,15));Cv2.MorphologyEx(gray,gray,MorphTypes.TopHat,kernel);
+                // A different row's brightness must not change this row's glyph.
+                if(spec.Mode=="list_label")Cv2.Threshold(gray,gray,spec.RelativeContrastThreshold??40,255,ThresholdTypes.Binary);
+                else{Cv2.MinMaxLoc(gray,out double _,out double max);if(max<16)gray.SetTo(0);else{Cv2.Normalize(gray,gray,0,255,NormTypes.MinMax);if(spec.RelativeContrastThreshold is {} t)Cv2.Threshold(gray,gray,t,255,ThresholdTypes.Binary);}}
+            }
+            else Cv2.Threshold(gray,gray,spec.LightThreshold,255,ThresholdTypes.Binary);
+        }
+        // Smoothing makes different full names (e.g. iron/copper/silver veins)
+        // nearly identical. Preserve the calibrated binary strokes for lists.
+        if(spec.Mode!="list_label")Cv2.GaussianBlur(gray,gray,new Size(5,5),1.2);return gray;
     }
     private sealed class Prepared:IDisposable
     {

@@ -25,6 +25,16 @@ public sealed partial class CaptureSettingsViewModel(Func<AutomationService?> au
     [ObservableProperty] private string syncSummary="";
     [ObservableProperty] private string? actionMessage;
     [ObservableProperty] private bool working;
+    [ObservableProperty] private bool clientDirectoryRequired;
+    [ObservableProperty] private string clientDirectory="";
+    [ObservableProperty] private string clientLayoutStatus="";
+    [RelayCommand] private async Task RetryClientDirectoryAsync()
+    {
+        var service=automation();if(service is null)return;Working=true;
+        try{await service.RetryClientDirectoryAsync(ClientDirectory);ActionMessage="正在重新读取客户端并启动监听";}
+        catch(Exception error){report(error);ActionMessage="客户端目录未应用："+error.Message;}
+        finally{Working=false;}
+    }
     public bool HasActionMessage=>!string.IsNullOrWhiteSpace(ActionMessage);
     partial void OnActionMessageChanged(string? value)=>OnPropertyChanged(nameof(HasActionMessage));
     public bool DevicesDirty=>Devices.Count>0&&!SameSelection(automation()?.CaptureDeviceSetting??[]);
@@ -68,7 +78,7 @@ public sealed partial class CaptureSettingsViewModel(Func<AutomationService?> au
     [RelayCommand] private async Task RefreshInventoryAsync()
     {
         var service=automation();if(service is null)return;Working=true;
-        try{await service.RefreshInventoryAsync();ActionMessage="私人剧场刷新已开始，完成后接收新的完整库存";}
+        try{await service.RefreshInventoryAsync();ActionMessage="快速重进刷新已开始，完成后接收新的完整库存";}
         catch(Exception error){ActionMessage=error.Message;}
         finally{Working=false;}
     }
@@ -98,6 +108,7 @@ public sealed partial class CaptureSettingsViewModel(Func<AutomationService?> au
     void Fill(CaptureStatus? status,List<CaptureFact> Binding,List<CaptureFact> Coverage,List<CaptureFact> Diagnostics)
     {
         var service=automation();
+        ClientDirectoryRequired=service?.ClientDirectoryRequired??false;ClientLayoutStatus=service?.ClientLayoutStatus??"未连接运行服务";
         if(status is null){SyncSummary="抓包不可用";return;}
         var listening=status.State==CaptureState.Listening;
         Binding.Add(new("监听状态",status.Message,listening,status.State==CaptureState.Retry));

@@ -8,6 +8,9 @@
     <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5" PrivateAssets="all"/>
     <None Update="Fixtures/*.json" CopyToOutputDirectory="PreserveNewest"/>
     <Compile Include="../MabiAgent.Desktop/Workspace.cs" Link="Desktop/Workspace.cs"/>
+    <Compile Include="../MabiAgent.Desktop/UiLanguageService.cs" Link="Desktop/UiLanguageService.cs"/>
+    <Content Include="../MabiAgent.Desktop/Localization/*.json" Link="Localization/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest"/>
     <Compile Include="../MabiAgent.Desktop/RuntimeActivity.cs" Link="Desktop/RuntimeActivity.cs"/>
+    <Compile Include="../MabiAgent.Desktop/LiveAcceptanceStartup.cs" Link="Desktop/LiveAcceptanceStartup.cs"/>
   </ItemGroup>
 </Project>

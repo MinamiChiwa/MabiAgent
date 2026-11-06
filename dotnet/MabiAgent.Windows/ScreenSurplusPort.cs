@@ -116,9 +116,9 @@ public sealed class ScreenSurplusPort : ScreenWorkflowPort, ISurplusMaintenanceP
         {state["phase"]="select";Save();return "running";}
         if(phase=="select"&&observation.View.Page=="scene")
         {Session.NavigateTarget("scene.open_bag");return "running";}
-        if(phase=="select"&&observation.View.Page=="repair_tools")
+        if(phase=="select"&&(observation.View.Page is "bag" or "repair_tools")&&!observation.View.Targets.ContainsKey("bag.items_selected"))
         {
-            if(!itemsTabIssued){Session.Guard.PressKey(83,TimeSpan.FromMilliseconds(80));itemsTabIssued=true;itemsTabAt=Now;return "running";}
+            if(!itemsTabIssued){Session.NavigateTarget("bag.open_items");itemsTabIssued=true;itemsTabAt=Now;return "running";}
             if(Now-itemsTabAt>15)return Finish("complete","surplus_items_tab_not_observed");
             return "running";
         }

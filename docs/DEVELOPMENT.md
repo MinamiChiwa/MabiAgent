@@ -77,6 +77,10 @@ Noto Sans SC 字体放在 Desktop/Assets/Fonts，包含常规、中等和粗体�
 
 发布侧可用 `python tools/build_update_assets.py --package <安装目录> --version <版本> --output <资产目录>` 生成 `update-manifest.json` 与逐文件 `blob-<sha256>.bin`。文件列表只来自正式 `release-manifest.json`，`data/` 不入清单。客户端只从 `api.github.com` 读取元数据与官方清单，镜像只传输 blob 且失败回退官方；任一大小或哈希不符即放弃整个暂存目录。应用前先恢复未完成日志，恢复失败则拒绝覆盖；更新程序等待原程序退出，超时只报错退出，不终止原程序。
 
+0.6.0 使用完整包更新通道，发布 ZIP 与 SHA256SUMS.txt。需要逐文件发布时，清单引用的全部 blob 必须随同一 Release 上传；资源数量超过发布平台限制时，继续使用完整包通道。
+
+界面简繁词库位于 `MabiAgent.Desktop/Localization/`。运行时本地化覆盖表格列标题、行内文本、帮助提示和动态状态；工作台分别维护显示名称与原始配置值。任务数量单位由内部任务类型决定，队列中的拖动只调整列表位置。任务按材料、加工时间和当前状态自动安排。
+
 ## 修改任务流程
 
 所有配方通过共用的 ProductionRunner 执行，采集使用 GatheringRunner，钓鱼使用对应的钓鱼流程。PublishedCatalogCompiler 把用户发布的任务链加入运行配置。新增配方和地点时，应接入这些入口，通用修复才能同时覆盖现有任务和后续新增任务。

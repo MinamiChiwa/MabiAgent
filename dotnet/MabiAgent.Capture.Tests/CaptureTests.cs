@@ -5,6 +5,49 @@ using Xunit;
 namespace MabiAgent.Capture.Tests;
 public class CaptureTests
 {
+    [Fact] public async Task AckKeepAliveDoesNotInvalidateAnActiveInventoryStream()
+    {
+        var identity=LoginIdentity.Join(9007199254740993,InventoryTests.Profile(9007199254740993),LoginIdentity.AccountCodec);
+        var inventory=new StreamingInventory(_=>InventoryTests.Login(),"keepalive",[identity]);
+        var source=new PartialSource((packet,gap)=>
+        {
+            var endpoint=new TcpEndpoint("127.0.0.1",1111,"127.0.0.1",5678);
+            var login=ProtocolTests.Frame(GameProtocol.LoginOpcode,[42]);
+            packet(new(endpoint,100,login,false,false,false,1){Acknowledgement=true});
+            var next=100u+(uint)login.Length;
+            packet(new(endpoint,next-1,[0],false,false,false,2){Acknowledgement=true});
+            Assert.Equal(1,inventory.Snapshot().FullSyncRevision);
+            Assert.NotNull(inventory.Snapshot().VerifiedThrough);
+            packet(new(endpoint,next,ProtocolTests.Frame(GameProtocol.InventoryOpcode,ProtocolTests.Record(quantity:10)),false,false,false,3){Acknowledgement=true});
+            Assert.Equal(10,inventory.Snapshot().Quantity(InventoryContainer.Backpack,123));
+            Assert.Equal(3,inventory.Snapshot().VerifiedThrough);
+        });
+        using var service=new PassiveCaptureService(inventory,()=>source,_=>true);
+        await service.RunAsync();
+        Assert.Null(service.LastException);
+        Assert.Equal(0,service.MetricsSnapshot().Invalidations);
+        Assert.Equal(2,service.MetricsSnapshot().DecodedFrames);
+    }
+    [Theory][InlineData(false)][InlineData(true)]
+    public async Task ConflictPacketCanSupplyFreshValidatedMapSync(bool fragmented)
+    {
+        var character=9007199254740993L;var identity=new CharacterIdentity((character/0x100000).ToString(),character.ToString(),"known");
+        var inventory=new StreamingInventory(_=>InventoryTests.Login(),"recovery",[identity]);
+        var source=new PartialSource((packet,gap)=>
+        {
+            var endpoint=new TcpEndpoint("127.0.0.1",1111,"127.0.0.1",5678);var login=ProtocolTests.Frame(GameProtocol.LoginOpcode,[1]);
+            packet(new(endpoint,100,login,false,false,false,1));Assert.Equal(1,inventory.Snapshot().FullSyncRevision);
+            var next=100u+(uint)login.Length;
+            packet(new(endpoint,next+5,new byte[20],false,false,false,2));
+            var fresh=ProtocolTests.Frame(GameProtocol.LoginOpcode,[2]);
+            packet(new(endpoint,next+5,fragmented?fresh[..9]:fresh,false,false,false,3));
+            if(fragmented){Assert.Null(inventory.Snapshot().VerifiedThrough);packet(new(endpoint,next+14,fresh[9..],false,false,false,4));}
+            Assert.Equal(2,inventory.Snapshot().FullSyncRevision);Assert.NotNull(inventory.Snapshot().VerifiedThrough);
+            Assert.Equal(7,inventory.Snapshot().Quantity(InventoryContainer.Backpack,123));
+        });
+        using var service=new PassiveCaptureService(inventory,()=>source,_=>true);await service.RunAsync();
+        Assert.Equal("Conflicting TCP reorder",service.LastError);
+    }
     [Fact] public async Task FrameObserverReceivesDecodedInventoryEventWithConnectionAndReceiveTime()
     {
         var inventory=new StreamingInventory(_=>InventoryTests.Login(),"test");var seen=new List<(GameFrame Frame,string Connection,double At)>();
@@ -90,7 +133,7 @@ public class CaptureTests
         BinaryPrimitives.WriteUInt16BigEndian(frame.AsSpan(34), 1111); BinaryPrimitives.WriteUInt16BigEndian(frame.AsSpan(36), 5678);
         BinaryPrimitives.WriteUInt32BigEndian(frame.AsSpan(38), 0x12345678); frame[46] = 0x50; frame[47] = 0x18; frame[54] = 42;
         var packet = TcpPacketDecoder.Decode(1, frame, 1);
-        Assert.NotNull(packet); Assert.Equal(0x12345678u, packet.Sequence); Assert.Equal(1111, packet.Endpoint.SourcePort); Assert.Equal(3, packet.Payload.Length);
+        Assert.NotNull(packet); Assert.Equal(0x12345678u, packet.Sequence); Assert.Equal(1111, packet.Endpoint.SourcePort); Assert.Equal(3, packet.Payload.Length); Assert.True(packet.Acknowledgement);
         Assert.Null(TcpPacketDecoder.Decode(1, frame[..^1], 1));
         frame[20] = 0x20; Assert.Null(TcpPacketDecoder.Decode(1, frame, 1));
     }

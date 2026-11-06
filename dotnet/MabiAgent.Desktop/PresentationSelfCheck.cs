@@ -13,6 +13,8 @@ internal static class PresentationSelfCheck
         var passed=new List<string>();
         void Check(bool ok,string text){if(!ok)throw new InvalidOperationException(text);passed.Add(text);}
         model.SelectedPage=2;window.Show();await Task.Delay(100);window.UpdateLayout();
+        var initialSettings=window.FindControl<SettingsPanel>("SettingsPage")!;var operationSection=initialSettings.FindControl<DeferredSettingsSection>("OperationSettingsSection")!;
+        for(var attempt=0;attempt<50&&!operationSection.IsBuilt;attempt++){operationSection.BringIntoView();window.UpdateLayout();await Task.Delay(20);}
         var buttons=window.GetVisualDescendants().OfType<Button>().Where(b=>b.IsEffectivelyVisible&&b.Bounds.Width>0&&b.Focusable).ToArray();
         var help=window.GetVisualDescendants().OfType<HelpButton>().First(b=>b.IsEffectivelyVisible&&b.GetVisualAncestors().OfType<SettingsPanel>().Any());
         Check(!string.IsNullOrWhiteSpace(help.Message)&&Equals(ToolTip.GetTip(help),help.Message),"问号与帮助文案关联");
@@ -54,6 +56,8 @@ internal static class PresentationSelfCheck
         var passed=new List<string>();
         void Check(bool ok,string text){if(!ok)throw new InvalidOperationException(text);passed.Add(text);}
         model.SelectedPage=2;window.Show();await Task.Delay(100);window.UpdateLayout();
+        var initialSettings=window.FindControl<SettingsPanel>("SettingsPage")!;var operationSection=initialSettings.FindControl<DeferredSettingsSection>("OperationSettingsSection")!;
+        for(var attempt=0;attempt<50&&!operationSection.IsBuilt;attempt++){operationSection.BringIntoView();window.UpdateLayout();await Task.Delay(20);}
         var buttons=window.GetVisualDescendants().OfType<Button>().Where(x=>x.IsEffectivelyVisible&&x.Bounds.Width>0&&(x.GetType()==typeof(Button)||x is HelpButton)&&!x.GetVisualAncestors().OfType<ComboBox>().Any()).ToArray();
         Check(buttons.Length>8&&buttons.All(b=>b.CornerRadius.TopLeft>=b.Bounds.Height/2),"所有可见操作按钮使用半高圆角"+string.Join("; ",buttons.Where(b=>b.CornerRadius.TopLeft<b.Bounds.Height/2).Select(b=>$"{b.GetType().Name}/{b.Name}/{b.Content} {b.Bounds} r={b.CornerRadius}")));
         // Sidebar links (Button.side) align left with the navigation items; every other button centers its content.
@@ -79,7 +83,7 @@ internal static class PresentationSelfCheck
                 $"{theme} 主题颜色在1秒内收敛：实际页面={page}、功能区={surface}；预期页面={targetPage}、{resource}={targetSurface}");
             static double Luma(IBrush? brush)=>brush is ISolidColorBrush b?.2126*b.Color.R+.7152*b.Color.G+.0722*b.Color.B:0;
             Check(page is IBrush&&surface is IBrush&&Luma(surface)>Luma(page),$"{theme} 功能区比页面略浅：页面={page}、功能区={surface}");
-            foreach(var selected in Enumerable.Range(0,6))
+            foreach(var selected in Enumerable.Range(0,3))
             {
                 window.Width=1000;window.Height=700;model.SelectedPage=selected;window.UpdateLayout();
                 var visibleButtons=window.GetVisualDescendants().OfType<Button>().Where(b=>b.IsEffectivelyVisible&&b.Bounds.Width>0&&(b.GetType()==typeof(Button)||b is HelpButton)&&!b.GetVisualAncestors().OfType<ComboBox>().Any()).ToArray();
@@ -90,13 +94,13 @@ internal static class PresentationSelfCheck
         }
         passed.AddRange(await UiLayoutRegression.RunMain(window,model));
         passed.AddRange(await CompactUiSelfCheck.Run(window,model,Environment.GetEnvironmentVariable("MABI_MINI_PREVIEW")));
-        model.SelectedPage=4;
+        model.SelectedPage=2;
         foreach(var expander in window.GetVisualDescendants().OfType<Expander>().ToArray())expander.IsExpanded=true;
         window.UpdateLayout();
         foreach(var viewer in window.GetVisualDescendants().OfType<ScrollViewer>().ToArray())viewer.ScrollToEnd();
         window.UpdateLayout();
         var advanced=window.GetVisualDescendants().OfType<Button>().Where(b=>b.IsEffectivelyVisible&&b.GetType()==typeof(Button)&&!b.GetVisualAncestors().OfType<ComboBox>().Any()).ToArray();
-        Check(advanced.All(b=>b.Bounds.Width>=28&&b.Bounds.Height>=28&&b.CornerRadius.TopLeft>=b.Bounds.Height/2),"高级编辑操作可滚动访问且圆角一致");
+        Check(advanced.All(b=>b.Bounds.Width>=28&&b.Bounds.Height>=28&&b.CornerRadius.TopLeft>=b.Bounds.Height/2),"设置长内容操作可滚动访问且圆角一致");
         var sponsor=new SponsorWindow();sponsor.Show(window);sponsor.UpdateLayout();
         UiLayoutRegression.AssertScene(sponsor,"赞助窗口",passed);
         var sponsorButtons=sponsor.GetVisualDescendants().OfType<Button>().Where(b=>b.GetType()==typeof(Button)&&b.IsEffectivelyVisible).ToArray();

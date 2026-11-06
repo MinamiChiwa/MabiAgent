@@ -41,24 +41,61 @@ public sealed class RuntimeIntegrationTests
         }
         finally{if(Directory.Exists(dir))Directory.Delete(dir,true);}
     }
-    [Fact] public void CompletedFishingSupplyWaitsForPacketChangeBeforeAnotherTimedBatch()
+    [Fact] public void CompletedFishingSupplyRejectsVersionAndInstanceChangeWithoutBatchEndCoverage()
     {
         var dir=Path.Combine(Path.GetTempPath(),"mabi-fishing-packet-"+Guid.NewGuid().ToString("N"));
         try
         {
             var config=Catalog().Configuration;config["gathering_routes"]!["east_wall"]=JsonNode.Parse("""{"target_item_id":9,"skill":"fishing","node":"east","attempts_per_batch":10}""");
             config["material_sources"]=JsonNode.Parse("""{"2":{"kind":"fishing","point_key":"east_wall"}}""");
-            var queue=new RuntimeQueue(dir);queue.Edit(q=>q.Add("wood","production",4,1,"wood",[]));var ports=new RuntimePorts();
-            ports.Stock.Set(new(2,0,ports.Scope,"packet_capture","v1",true));
-            using(var host=new AutomationCoordinator(new(config),queue,ports,()=>new(RepairEnabled:false,BackpackEnabled:false),new ManualTime())){host.Start();host.Tick();}
+            var queue=new RuntimeQueue(dir);queue.Edit(q=>q.Add("wood","production",4,1,"wood",[]));var ports=new RuntimePorts();var time=new ManualTime();
+            ports.Stock.Set(new(2,0,ports.Scope,"packet_capture","v1",true){VerifiedThrough=99});
+            using(var host=new AutomationCoordinator(new(config),queue,ports,()=>new(RepairEnabled:false,BackpackEnabled:false),time)){host.Start();host.Tick();}
             var job=Assert.Single(queue.Read().Jobs,j=>j.Kind=="idle_fishing");
             var claimed=queue.Read().ToJson()["jobs"]!.AsArray().First(j=>j!["job_id"]!.GetValue<string>()==job.Id)!;
-            var batch=new JsonWorkflowStore(Path.Combine(queue.BatchDirectory(ports.Scope,job.Id,claimed["pending"]!["action_id"]!.GetValue<string>()),"batch.json")).Read()!;
-            queue.Finish(batch,60,"confirmed_elapsed_time");
-            using(var host=new AutomationCoordinator(new(config),queue,ports,()=>new(RepairEnabled:false,BackpackEnabled:false),new ManualTime())){host.Start();for(var i=0;i<4;i++)host.Tick();}
+            var folder=queue.BatchDirectory(ports.Scope,job.Id,claimed["pending"]!["action_id"]!.GetValue<string>());
+            var stateStore=new JsonWorkflowStore(Path.Combine(folder,"idle-fishing.json"));var ended=stateStore.Read()!;
+            ended["status"]="complete";ended["phase"]="complete";ended["submitted"]=1;ended["elapsed_s"]=60d;stateStore.Flush(ended);
+            using(var host=new AutomationCoordinator(new(config),queue,ports,()=>new(RepairEnabled:false,BackpackEnabled:false),time))
+            {
+                host.Start();host.Tick();host.Tick();Assert.Null(host.Status.Fault);Assert.DoesNotContain(host.Status.Issues.Values,v=>v.Contains("恢复失败"));
+                Assert.False(queue.Read().Jobs.Single(j=>j.Id==job.Id).Pending,host.Status.Message+" "+string.Join(";",host.Status.Issues.Values));
+            }
+            Assert.Equal(99d,new JsonWorkflowStore(Path.Combine(folder,"batch.json")).Read()!["batch_end_through"]!.GetFiniteDouble());
+            using(var host=new AutomationCoordinator(new(config),queue,ports,()=>new(RepairEnabled:false,BackpackEnabled:false),time)){host.Start();for(var i=0;i<4;i++)host.Tick();}
             Assert.Equal(60,queue.Read().Jobs.Single(j=>j.Id==job.Id).Target);Assert.Equal(0,ports.Stock.Query(2).Quantity);
-            ports.Stock.Set(new(2,1,ports.Scope,"packet_capture","v2",true));
-            using(var host=new AutomationCoordinator(new(config),queue,ports,()=>new(RepairEnabled:false,BackpackEnabled:false),new ManualTime())){host.Start();host.Tick();}
+            ports.Stock.Set(new(2,1,ports.Scope,"packet_capture","rebuilt-instance:v2",true){VerifiedThrough=99});
+            using(var host=new AutomationCoordinator(new(config),queue,ports,()=>new(RepairEnabled:false,BackpackEnabled:false),time)){host.Start();host.Tick();}
+            Assert.Equal(60,queue.Read().Jobs.Single(j=>j.Id==job.Id).Target);
+        }
+        finally{if(Directory.Exists(dir))Directory.Delete(dir,true);}
+    }
+    [Fact] public void CompletedFishingSupplyExtendsOnlyAfterContinuousCoverageWithSameVersionAndQuantity()
+    {
+        var dir=Path.Combine(Path.GetTempPath(),"mabi-fishing-continuous-"+Guid.NewGuid().ToString("N"));
+        try
+        {
+            var config=Catalog().Configuration;config["gathering_routes"]!["east_wall"]=JsonNode.Parse("""{"target_item_id":9,"skill":"fishing","node":"east","attempts_per_batch":10}""");
+            config["material_sources"]=JsonNode.Parse("""{"2":{"kind":"fishing","point_key":"east_wall"}}""");
+            var queue=new RuntimeQueue(dir);queue.Edit(q=>q.Add("wood","production",4,1,"wood",[]));var ports=new RuntimePorts();var time=new ManualTime();
+            ports.Stock.Set(new(2,0,ports.Scope,"packet_capture","v1",true){VerifiedThrough=99});
+            using(var host=new AutomationCoordinator(new(config),queue,ports,()=>new(RepairEnabled:false,BackpackEnabled:false),time)){host.Start();host.Tick();}
+            var job=Assert.Single(queue.Read().Jobs,j=>j.Kind=="idle_fishing");
+            var claimed=queue.Read().ToJson()["jobs"]!.AsArray().First(j=>j!["job_id"]!.GetValue<string>()==job.Id)!;
+            var folder=queue.BatchDirectory(ports.Scope,job.Id,claimed["pending"]!["action_id"]!.GetValue<string>());
+            var stateStore=new JsonWorkflowStore(Path.Combine(folder,"idle-fishing.json"));var ended=stateStore.Read()!;
+            ended["status"]="complete";ended["phase"]="complete";ended["submitted"]=1;ended["elapsed_s"]=60d;stateStore.Flush(ended);
+            using(var host=new AutomationCoordinator(new(config),queue,ports,()=>new(RepairEnabled:false,BackpackEnabled:false),time))
+            {
+                host.Start();host.Tick();host.Tick();Assert.Null(host.Status.Fault);Assert.DoesNotContain(host.Status.Issues.Values,v=>v.Contains("恢复失败"));
+                Assert.False(queue.Read().Jobs.Single(j=>j.Id==job.Id).Pending,host.Status.Message+" "+string.Join(";",host.Status.Issues.Values));
+            }
+            Assert.Equal(99d,new JsonWorkflowStore(Path.Combine(folder,"batch.json")).Read()!["batch_end_through"]!.GetFiniteDouble());
+            using var continued=new AutomationCoordinator(new(config),queue,ports,()=>new(RepairEnabled:false,BackpackEnabled:false),time);continued.Start();for(var i=0;i<4;i++)continued.Tick();
+            Assert.Equal(60,queue.Read().Jobs.Single(j=>j.Id==job.Id).Target);
+            ports.Stock.Set(ports.Stock.Query(2) with{VerifiedThrough=99.5});continued.Tick();
+            Assert.Equal(60,queue.Read().Jobs.Single(j=>j.Id==job.Id).Target);
+            time.Seconds=101;ports.Stock.Set(ports.Stock.Query(2) with{VerifiedThrough=101});continued.Tick();
             Assert.Equal(120,queue.Read().Jobs.Single(j=>j.Id==job.Id).Target);
         }
         finally{if(Directory.Exists(dir))Directory.Delete(dir,true);}
@@ -136,8 +173,10 @@ public sealed class RuntimeIntegrationTests
             host.Start();host.Tick();host.Tick();ports.Fish.Frame=new(1,"2",NavigationActive:true);host.Tick();ports.Fish.Frame=new(2,"3",NavigationActive:false);host.Tick();
             ports.Fish.Frame=new(3,"4","fishing",FishingButton:true);host.Tick();ports.Fish.Frame=new(4,"5","fishing",RoundActive:true,LeisureMode:false);host.Tick();
             time.Seconds+=11;ports.Fish.Frame=new(8,"6","fishing",RoundActive:true,LeisureMode:false);host.Tick();
+            Assert.True(host.Status.Jobs["fish"].Confirmed>0);Assert.Equal(host.Status.ActiveConfirmed,host.Status.Jobs["fish"].Confirmed);
             Assert.Empty(ports.Maintain.Actions);Assert.Equal(0,ports.Maintain.Navigations);Assert.DoesNotContain(ports.Fish.Actions,a=>a.Kind=="leave");
             ports.Fish.Frame=new(9,"7",Compass:true);host.Tick();Assert.Equal("leave",ports.Fish.Actions.Last().Kind);
+            ports.Fish.CanResumeAtPoint=false; // Maintenance navigation invalidates the prior fishing-point proof.
             ports.Maintain.Frame=new("quote","repair_quote",Gold:100000,Quote:1000,Currency:"gold",ConfirmAvailable:true);host.Tick();
             Assert.Equal(new[]{"confirm_repair"},ports.Maintain.Actions);
             ports.Maintain.Frame=new("paid","repair_tools",Gold:99000,RepairComplete:true);host.Tick();host.Tick();
@@ -436,8 +475,8 @@ public sealed class RuntimeIntegrationTests
 internal sealed class RuntimePorts:IAutomationPorts
 {
     public string Scope=>"character";public string? CurrentDevice=>null;public InventorySnapshot Stock=new("character");public int RefreshRequests;
-    public bool PreferBulkInventorySync=>true;public void RequestInventorySync(){RefreshRequests++;BeginPrivateTheaterRefresh(DateTimeOffset.UtcNow);}
-    public void BeginPrivateTheaterRefresh(DateTimeOffset now){}
+    public bool PreferBulkInventorySync=>true;public void RequestInventorySync(){RefreshRequests++;BeginQuickReentry(DateTimeOffset.UtcNow);}
+    public void BeginQuickReentry(DateTimeOffset now){}
     public void Start(){}public void Continue(){}public void Pause(string reason){}public void Dispose(){}
     public InventorySnapshot Inventory()=>Stock;
     public IProductionPort Production(string recipe,string batch,IWorkflowStore store)=>new ProductionPort{Frame=new("scene")};

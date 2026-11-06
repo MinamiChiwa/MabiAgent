@@ -110,8 +110,11 @@ public sealed class AssociationIdentityTests : IDisposable
         Assert.NotNull(root);
         using var json = JsonDocument.Parse(File.ReadAllText(Path.Combine(root.FullName, "config/items.verified.tw.json")));
         var registry = new ItemNameRegistry(); registry.LoadVerifiedCatalog(json.RootElement);
-          Assert.Equal(235, registry.Snapshot().Count);
-          Assert.Equal(639212127u,registry.ResolveVerified("厚實羊毛"));
+        Assert.Equal(244, registry.Snapshot().Count);
+        Assert.Equal(639212127u,registry.ResolveVerified("厚實羊毛"));
+        var publishedIds=new uint[]{1389865893,1027664724,2132862008,621689079,560083959,641524026,775835485,760205896,1326565408};
+        Assert.Equal(publishedIds.Order(),registry.Snapshot().Where(r=>r.Source=="user_confirmed_catalog").Select(r=>r.ItemId).Order());
+        Assert.All(registry.Snapshot().Where(r=>publishedIds.Contains(r.ItemId)),row=>Assert.Equal(NameAssociation.UserConfirmed,row.Association));
         Assert.Equal(228, registry.Snapshot().Count(r => r.Association == NameAssociation.UserConfirmed && r.Source.StartsWith("user_confirmed:2026-10-31:", StringComparison.Ordinal)));
         Assert.Equal(612255730u, registry.ResolveVerified("高級原木+"));
         var log = registry.Snapshot().Single(r => r.ItemId == 612255730u);

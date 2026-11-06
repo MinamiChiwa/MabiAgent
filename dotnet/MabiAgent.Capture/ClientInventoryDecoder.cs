@@ -10,11 +10,14 @@ public sealed class ClientInventoryDecoder
 {
     public const string RootType = "Shared.Protocols.Replications.GroupReplicatedDatas.CharacterPersonalReplicatedData";
     private readonly JsonElement types;
-    public ClientInventoryDecoder(JsonElement schema)
+    private const string KeyType = "Shared.GameLogic.ChannelObjects.Characters.Items.ConsumableStackKey";
+    private const string StackType = "Shared.Protocols.ProtocolDatas.ReplicatedDatas.ConsumableStackReplicatedData";
+    public ClientInventoryDecoder(JsonElement schema, bool requireClientLayout = false)
     {
         if (!schema.TryGetProperty("types", out var source) || source.ValueKind != JsonValueKind.Object || source.EnumerateObject().Count() > 4096)
             throw new InvalidDataException("Invalid client schema type budget");
         types = source.Clone();
+        if(requireClientLayout && (!types.TryGetProperty(KeyType,out _) || !types.TryGetProperty(StackType,out _))) throw new InvalidDataException("客户端缺少物品字段结构");
     }
     public static ClientInventoryDecoder Load(string path)
     {
@@ -22,8 +25,10 @@ public sealed class ClientInventoryDecoder
         if (input.Length > 16 * 1024 * 1024) throw new InvalidDataException("Schema byte limit exceeded");
         using var json = JsonDocument.Parse(input); return new(json.RootElement);
     }
+    public string? WalletDiagnostic { get; private set; }
     public LoginInventory Decode(byte[] body)
     {
+        WalletDiagnostic=null;
         if (body.Length < 8 || body.Length > GameProtocol.MaxBody) throw new InvalidDataException("Invalid login body size");
         try
         {
@@ -51,9 +56,9 @@ public sealed class ClientInventoryDecoder
                     var count = reader.Count(); var records = new List<ConsumableStack>(count); var seen = new HashSet<string>(StringComparer.Ordinal);
                     for (var i = 0; i < count; i++)
                     {
-                        var row = ConsumableCodec.ParseRecord(body, reader.Offset);
+                        var row = ReadRecord(body, reader);
                         if (!seen.Add(row.StackKeyHex)) throw new InvalidDataException("Duplicate container stack key");
-                        records.Add(row); reader.Read(row.ByteLength);
+                        records.Add(row);
                     }
                     containers.Add(container.Value, records.AsReadOnly());
                 }
@@ -84,13 +89,60 @@ public sealed class ClientInventoryDecoder
                         break;
                     }
                 }
-                catch(Exception error)when(error is InvalidDataException or KeyNotFoundException or InvalidOperationException or ArgumentException or OverflowException){gold=null;}
+                catch(Exception error)when(error is InvalidDataException or KeyNotFoundException or InvalidOperationException or ArgumentException or OverflowException){gold=null;WalletDiagnostic=error.Message;}
                 return new(character, Convert.ToHexStringLower(SHA256.HashData(body)), containers,gold);
             }
             throw new InvalidDataException("Consumable inventory field missing");
         }
         catch (Exception ex) when (ex is KeyNotFoundException or InvalidOperationException or ArgumentException or OverflowException)
         { throw new InvalidDataException("Unsupported or malformed login schema/body", ex); }
+    }
+    public IReadOnlyList<ConsumableStack> DecodeUpdates(byte[] body)
+    {
+        if(body.Length == 0 || body.Length > GameProtocol.MaxBody) throw new InvalidDataException("Inventory update body limit");
+        var reader = new Reader(body,types); var rows = new List<ConsumableStack>(); var seen = new HashSet<string>(StringComparer.Ordinal);
+        while(reader.Offset < body.Length)
+        {
+            if(rows.Count >= 10000) throw new InvalidDataException("Inventory record limit");
+            var row = ReadRecord(body,reader);
+            if(!seen.Add(row.StackKeyHex)) throw new InvalidDataException("Duplicate inventory key");
+            rows.Add(row);
+        }
+        return rows.AsReadOnly();
+    }
+    private ConsumableStack ReadRecord(byte[] body, Reader reader)
+    {
+        // Small historical test schemas predate metadata-derived stack layouts.
+        if(!types.TryGetProperty(KeyType,out _) || !types.TryGetProperty(StackType,out _))
+        {var old = ConsumableCodec.ParseRecord(body,reader.Offset); reader.Read(old.ByteLength); return old;}
+        var start = reader.Offset;
+        Dictionary<string,(int At,int Size)> Fields(string type)
+        {
+            var record = types.GetProperty(type); reader.Value(record.GetProperty("parent").GetString());
+            var result = new Dictionary<string,(int,int)>(StringComparer.Ordinal);
+            foreach(var field in record.GetProperty("fields").EnumerateArray())
+            {
+                var offset = reader.Offset; reader.Value(field.GetProperty("type").GetString());
+                if(!result.TryAdd(field.GetProperty("name").GetString()!, (offset,reader.Offset-offset))) throw new InvalidDataException("Duplicate consumable schema field");
+            }
+            return result;
+        }
+        var keyFields = Fields(KeyType); var keyEnd = reader.Offset; var values = Fields(StackType);
+        ReadOnlySpan<byte> Field(Dictionary<string,(int At,int Size)> fields,string name,int size = -1)
+        {
+            if(!fields.TryGetValue(name,out var field) || size >= 0 && field.Size != size) throw new InvalidDataException("Unsupported consumable field: " + name);
+            return body.AsSpan(field.At,field.Size);
+        }
+        var key = body.AsSpan(start,keyEnd-start); var copy = Field(values,"Key");
+        var item = BinaryPrimitives.ReadUInt32LittleEndian(Field(keyFields,"SheetId",4));
+        if(item == 0 || !key.SequenceEqual(copy)) throw new InvalidDataException("Consumable key invalid or copies disagree");
+        var amount = BinaryPrimitives.ReadInt64LittleEndian(Field(values,"Amount",8));
+        if(amount < 0) throw new InvalidDataException("Negative consumable quantity");
+        var text = Field(keyFields,"Color0Hex");
+        if(text.Length < 4 || BinaryPrimitives.ReadInt32LittleEndian(text) != text.Length-4) throw new InvalidDataException("Invalid descriptor text length");
+        return new(item,Convert.ToHexStringLower(key),BinaryPrimitives.ReadInt64LittleEndian(Field(values,"StackableId",8)),amount,
+            BinaryPrimitives.ReadInt64LittleEndian(Field(values,"AcquiredTime",8)),BinaryPrimitives.ReadInt64LittleEndian(Field(values,"LastAmountChangedTime",8)),
+            Field(values,"IsJunked",1)[0] == 1,Field(values,"IsLocked",1)[0] == 1,ConsumableCodec.StrictUtf16.GetString(text[4..]),start,reader.Offset-start);
     }
     private sealed class Reader(byte[] data, JsonElement schema)
     {
@@ -112,7 +164,7 @@ public sealed class ClientInventoryDecoder
             if (depth > 48) throw new InvalidDataException("Schema recursion budget exceeded");
             var size = name switch { "int8" or "uint8" => 1, "int16" or "uint16" or "char" => 2, "int32" or "uint32" or "float32" => 4, "int64" or "uint64" or "float64" => 8, "System.Decimal" => 16, _ => 0 };
             if (size > 0) { Read(size); return; }
-            if (name == "bool") { if (Read(1)[0] > 1) throw new InvalidDataException("Invalid schema boolean"); return; }
+            if (name == "bool") { if (Read(1)[0] > 1) throw new InvalidDataException("Invalid schema boolean at " + (Offset-1)); return; }
             if (name == "string")
             {
                 var count = BinaryPrimitives.ReadInt32LittleEndian(Read(4));
@@ -124,7 +176,7 @@ public sealed class ClientInventoryDecoder
             if (name is null or "object" or "System.Object" or "System.ValueType" or "System.Enum") return;
             var arguments = GenericArguments(name); var prefix = name.Split('<')[0];
             var dictionary = (prefix.EndsWith("Dictionary`2", StringComparison.Ordinal) || prefix.EndsWith("SortedDictionary`2", StringComparison.Ordinal)) && arguments.Count == 2;
-            var sequence = arguments.Count == 1 && (prefix.EndsWith("List`1", StringComparison.Ordinal) || prefix.EndsWith("MMList`1", StringComparison.Ordinal) || prefix.EndsWith("HashSet`1", StringComparison.Ordinal));
+            var sequence = arguments.Count == 1 && (prefix.EndsWith("List`1", StringComparison.Ordinal) || prefix.EndsWith("MMList`1", StringComparison.Ordinal) || prefix.EndsWith("HashSet`1", StringComparison.Ordinal) || prefix == "System.ArraySegment`1");
             if (name.EndsWith("[]", StringComparison.Ordinal)) { arguments = [name[..^2]]; sequence = true; }
             if (dictionary || sequence)
             {
@@ -149,7 +201,11 @@ public sealed class ClientInventoryDecoder
             if (parent == "System.Enum")
             { Value(fields.EnumerateArray().Single(f => f.GetProperty("name").GetString() == "value__").GetProperty("type").GetString(), depth + 1); return; }
             Value(parent, depth + 1);
-            foreach (var field in fields.EnumerateArray()) Value(field.GetProperty("type").GetString(), depth + 1);
+            foreach (var field in fields.EnumerateArray())
+            {
+                try{Value(field.GetProperty("type").GetString(),depth+1);}
+                catch(InvalidDataException error){throw new InvalidDataException(name+"."+field.GetProperty("name").GetString()+": "+error.Message,error);}
+            }
         }
         private static List<string> GenericArguments(string name)
         {

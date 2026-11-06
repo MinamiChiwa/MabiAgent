@@ -52,13 +52,12 @@ public sealed class SelectedGameCaptureService(GameWindowSelection selection,INa
 }
 // Existing native OCR is single-line. This reports only a recognized line; it
 // does not claim full-image text detection or successful removal of every Lv.
-public sealed class OnnxLineAnchorTextDetector(Func<IOcrEngine> getEngine):IAnchorTextDetector
+public sealed class OnnxLineAnchorTextDetector(IOcrEngine engine):IAnchorTextDetector
 {
-    public OnnxLineAnchorTextDetector(IOcrEngine engine):this(()=>engine){}
     public IReadOnlyList<AnchorText> Detect(Bitmap image)
     {
         if(image.PixelSize.Width<=0||image.PixelSize.Height<=0||(long)image.PixelSize.Width*image.PixelSize.Height>1_048_576||image.PixelSize.Height>160)return [];
-        var pixels=ImagePixels.Gray(image);var result=getEngine().Recognize(image.PixelSize.Width,image.PixelSize.Height,pixels);
+        var pixels=ImagePixels.Gray(image);var result=engine.Recognize(image.PixelSize.Width,image.PixelSize.Height,pixels);
         return result is null||result.Confidence<.6?[]:[new(result.Text,new PixelRect(0,0,image.PixelSize.Width,image.PixelSize.Height))];
     }
 }

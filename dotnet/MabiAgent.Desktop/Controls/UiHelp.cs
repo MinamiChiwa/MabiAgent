@@ -15,6 +15,7 @@ public sealed class HelpButton:Button
     private readonly DispatcherTimer closeTimer=new(){Interval=MaximumOpenTime};
     private TopLevel? owner;
     private Visual[] ancestors=[];
+    private bool watchingOpenState;
     public static readonly StyledProperty<string?> MessageProperty=AvaloniaProperty.Register<HelpButton,string?>(nameof(Message));
     public string? Message{get=>GetValue(MessageProperty);set=>SetValue(MessageProperty,value);}
     protected override Type StyleKeyOverride=>typeof(Button);
@@ -28,27 +29,38 @@ public sealed class HelpButton:Button
     }
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
+        StopWatchingOpenState();
         base.OnAttachedToVisualTree(e);owner=TopLevel.GetTopLevel(this);
-        ancestors=this.GetVisualAncestors().ToArray();
-        foreach(var ancestor in ancestors)ancestor.PropertyChanged+=AncestorPropertyChanged;
-        owner?.AddHandler(PointerPressedEvent,OwnerPointerPressed,RoutingStrategies.Tunnel);
-        owner?.AddHandler(KeyDownEvent,OwnerKeyDown,RoutingStrategies.Tunnel);
-        if(owner is Window window)window.Deactivated+=OwnerDeactivated;
+        if(ToolTip.GetIsOpen(this))StartWatchingOpenState();
     }
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
-        CloseHelp();
-        foreach(var ancestor in ancestors)ancestor.PropertyChanged-=AncestorPropertyChanged;
-        ancestors=[];
-        owner?.RemoveHandler(PointerPressedEvent,OwnerPointerPressed);
-        owner?.RemoveHandler(KeyDownEvent,OwnerKeyDown);
-        if(owner is Window window)window.Deactivated-=OwnerDeactivated;
+        CloseHelp();StopWatchingOpenState();
         owner=null;base.OnDetachedFromVisualTree(e);
     }
     private void OwnerPointerPressed(object? sender,PointerPressedEventArgs e)
     {if(e.Source is not Visual source||(!ReferenceEquals(source,this)&&!source.GetVisualAncestors().Contains(this)))CloseHelp();}
     private void OwnerKeyDown(object? sender,KeyEventArgs e){if(e.Key==Key.Escape)CloseHelp();}
     private void OwnerDeactivated(object? sender,EventArgs e)=>CloseHelp();
+    private void StartWatchingOpenState()
+    {
+        if(watchingOpenState||owner is null)return;
+        watchingOpenState=true;
+        ancestors=this.GetVisualAncestors().ToArray();
+        foreach(var ancestor in ancestors)ancestor.PropertyChanged+=AncestorPropertyChanged;
+        owner.AddHandler(PointerPressedEvent,OwnerPointerPressed,RoutingStrategies.Tunnel);
+        owner.AddHandler(KeyDownEvent,OwnerKeyDown,RoutingStrategies.Tunnel);
+        if(owner is Window window)window.Deactivated+=OwnerDeactivated;
+    }
+    private void StopWatchingOpenState()
+    {
+        if(!watchingOpenState)return;watchingOpenState=false;
+        foreach(var ancestor in ancestors)ancestor.PropertyChanged-=AncestorPropertyChanged;
+        ancestors=[];
+        owner?.RemoveHandler(PointerPressedEvent,OwnerPointerPressed);
+        owner?.RemoveHandler(KeyDownEvent,OwnerKeyDown);
+        if(owner is Window window)window.Deactivated-=OwnerDeactivated;
+    }
     private void AncestorPropertyChanged(object? sender,AvaloniaPropertyChangedEventArgs e)
     {if(e.Property==IsVisibleProperty&&Equals(e.NewValue,false))CloseHelp();}
     private void OpenHelp(){if(IsEffectivelyVisible&&!string.IsNullOrWhiteSpace(Message))ToolTip.SetIsOpen(this,true);}
@@ -57,7 +69,7 @@ public sealed class HelpButton:Button
     {
         base.OnPropertyChanged(change);
         if(change.Property==MessageProperty){CloseHelp();ToolTip.SetTip(this,Message);AutomationProperties.SetHelpText(this,Message);}
-        if(change.Property==ToolTip.IsOpenProperty){closeTimer.Stop();if(ToolTip.GetIsOpen(this))closeTimer.Start();}
+        if(change.Property==ToolTip.IsOpenProperty){closeTimer.Stop();if(ToolTip.GetIsOpen(this)){StartWatchingOpenState();closeTimer.Start();}else StopWatchingOpenState();}
         if(change.Property==IsVisibleProperty&&!IsVisible)CloseHelp();
     }
     protected override void OnClick(){base.OnClick();if(ToolTip.GetIsOpen(this))CloseHelp();else OpenHelp();}

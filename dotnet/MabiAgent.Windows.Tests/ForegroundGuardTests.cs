@@ -3,6 +3,14 @@ using Xunit;
 namespace MabiAgent.Windows.Tests;
 public class ForegroundGuardTests
 {
+    [Theory][InlineData(1,true)][InlineData(double.NaN,false)][InlineData(-1,false)]
+    public void CaptureTimeoutIsDistinctFromInvalidClockAndSendsNoInput(double elapsed,bool timeout)
+    {
+        var ops=new FakeOps();var reads=0;var reviews=0;
+        using var guard=new ForegroundInputGuard(ops.State,new("capture",null,null),ops,_=>{reviews++;throw new InvalidOperationException();},()=>reads++==0?1:1+elapsed);
+        guard.Start();var error=Assert.Throws<InputBlockedException>(()=>guard.Capture());
+        Assert.Equal(timeout,error.CaptureTimedOut);Assert.Equal(0,reviews);Assert.Empty(ops.Events);Assert.False(guard.Paused);
+    }
     [Fact] public void ReviewedCraftKeyUsesSameDurableAuthorityAndCannotReplay()
     {
         var ops=new FakeOps();using var guard=Make(ops);guard.Start();
@@ -98,6 +106,22 @@ public class ForegroundGuardTests
         Assert.Throws<MabiAgent.Workflows.InputRejectedBeforeDispatchException>(()=>guard.Consume(proof with{Point=new(80,80)},"x",new Authority()));Assert.Empty(ops.Events);
         ops.AfterMove=()=>ops.State=ops.State with{Geometry=ops.State.Geometry with{X=200}};
         Assert.Throws<InputBlockedException>(()=>guard.Consume(guard.ObserveTarget("scene.open_bag"),"y",new Authority()));Assert.Equal(["move"],ops.Events);
+    }
+    [Fact] public void ConsumptionTransportFailureDoesNotPersistIntent()
+    {
+        var ops=new FakeOps();using var guard=Make(ops);guard.Start();var proof=guard.ObserveTarget("scene.open_bag");var authority=new Authority();
+        ops.State=ops.State with{ForegroundId=2};
+        Assert.Throws<MabiAgent.Workflows.InputRejectedBeforeDispatchException>(()=>guard.Consume(proof,"not-sent",authority));
+        Assert.Equal(0,authority.Calls);Assert.Empty(ops.Events);
+    }
+    [Fact] public void KnownFailureAfterNativeMoveDoesNotBurnConsumptionIntent()
+    {
+        var ops=new FakeOps();using var guard=Make(ops);guard.Start();var authority=new Authority();
+        ops.AfterMove=()=>ops.State=ops.State with{Geometry=ops.State.Geometry with{X=200}};
+        Assert.Throws<InputBlockedException>(()=>guard.Consume(guard.ObserveTarget("scene.open_bag"),"after-move",authority));
+        Assert.Equal(0,authority.Calls);Assert.Equal(["move"],ops.Events);
+        ops.AfterMove=null;guard.Resume();guard.Consume(guard.ObserveTarget("scene.open_bag"),"after-move",authority);
+        Assert.Equal(1,authority.Calls);Assert.Equal(4,ops.Events.Count);
     }
     [Fact] public void WindowCanMoveBeforeFreshReviewAndClientPointUsesNewOrigin()
     {

@@ -8,6 +8,26 @@ namespace MabiAgent.Capture.Tests;
 
 public class InventoryTests
 {
+    [Fact] public void IdenticalStackInBackpackAndWarehouseRemainsUnknownUntilFreshFullSync()
+    {
+        const uint item=332636885;const long stack=565995852121792512;
+        var row=ConsumableCodec.ParseRecord(ProtocolTests.Record(item:item,stackId:stack,quantity:7));
+        var login=Login() with{Containers=new Dictionary<InventoryContainer,IReadOnlyList<ConsumableStack>>{
+            [InventoryContainer.Backpack]=[row],[InventoryContainer.CharacterStorage]=[],[InventoryContainer.AccountStorage]=[row]}};
+        var inventory=new StreamingInventory(_=>login,"ambiguous");
+        inventory.Accept(new(0,GameProtocol.LoginOpcode,0,[1]),"c",1);
+        inventory.Accept(new(0,GameProtocol.ProfileOpcode,0,Profile(login.CharacterCode)),"c",2);
+        Assert.Throws<InvalidDataException>(()=>inventory.Accept(new(0,GameProtocol.InventoryOpcode,0,ProtocolTests.Record(item:item,stackId:stack,quantity:6)),"c",3));
+        Assert.Null(inventory.Snapshot().Quantity(InventoryContainer.Backpack,item));
+        Assert.Null(inventory.Snapshot().Quantity(InventoryContainer.AccountStorage,item));
+        Assert.Equal(7,inventory.Snapshot().Counts[InventoryContainer.Backpack][item]);
+        Assert.Equal(7,inventory.Snapshot().Counts[InventoryContainer.AccountStorage][item]);
+        login=login with{Containers=new Dictionary<InventoryContainer,IReadOnlyList<ConsumableStack>>{
+            [InventoryContainer.Backpack]=[row with{Quantity=6}],[InventoryContainer.CharacterStorage]=[],[InventoryContainer.AccountStorage]=[]}};
+        inventory.Accept(new(0,GameProtocol.LoginOpcode,0,[1]),"c",4);
+        Assert.Null(inventory.Snapshot().Error);Assert.Equal(6,inventory.Snapshot().Quantity(InventoryContainer.Backpack,item));
+        Assert.Equal(0,inventory.Snapshot().Quantity(InventoryContainer.AccountStorage,item));
+    }
     [Fact] public void NewBackpackStackWithSameDescriptorAsWarehouseDoesNotInvalidateAllInventory()
     {
         var baseLogin=Login();var containers=baseLogin.Containers.ToDictionary();

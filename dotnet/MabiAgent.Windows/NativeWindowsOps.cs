@@ -27,7 +27,7 @@ public sealed class NativeWindowsOps:INativeWindowsOps,ICurrentClientFrameSource
         return new(hwnd,checked((int)pid),identity.CreatedUtcTicks,identity.Executable,cls.ToString(),new(origin.X,origin.Y,width,height,(int)resolution),new(window.Left,window.Top,window.Right,window.Bottom),GetForegroundWindow(),IsWindowVisible(hwnd),IsIconic(hwnd),IsWindowEnabled(hwnd),new(cursor.X,cursor.Y),(GetAsyncKeyState(1)&0x8000)!=0,(GetAsyncKeyState(2)&0x8000)!=0);
     }
     // Query current metadata through one short-lived handle; never cache an identity or enumerate modules.
-    internal static (long CreatedUtcTicks,string Executable) ReadProcessIdentity(uint pid)
+    public static (long CreatedUtcTicks,string Executable) ReadProcessIdentity(uint pid)
     {
         EnsureWindows();if(pid==0)throw new InputBlockedException("窗口进程无效");
         using var process=OpenProcess(0x1000,false,pid); // PROCESS_QUERY_LIMITED_INFORMATION

@@ -70,7 +70,7 @@ public sealed class ScreenWorkflowSessionTests
     [Fact] public void SurplusMissingItemSearchIsBoundedAndNeverConfirmsSale()
     {
         var routes=ScreenRoutes.Load(RecognitionTests.Root());routes.Configuration["notifications"]=new JsonObject();routes.Configuration["maintenance"]!["surplus"]!["selection_scroll_delay_s"]=0;
-        routes.Profile.Definition.Remove("page_variants");routes.Profile.Definition["pages"]=JsonNode.Parse("""{"bag":{"anchors":["scene_bag"],"targets":{}}}""");
+        routes.Profile.Definition.Remove("page_variants");routes.Profile.Definition["pages"]=JsonNode.Parse("""{"bag":{"anchors":["scene_bag"],"targets":{"bag.items_selected":"scene_bag"}}}""");
         var clicks=new List<PixelPoint>();var native=new NoInputOps(Stamp(routes.Profile,"scene_bag"),clicks);using var session=new ScreenWorkflowSession(routes,Window(),native,new EmptyOcr(),new MemoryStore());session.Start();
         var store=new MemoryStore(new JsonObject{["status"]="running",["phase"]="select",["item_id"]=1L,["name"]="missing",["amount"]=1L});var port=session.CreateSurplusPort("bounded-find",store,_=>300);
         for(var i=0;i<25;i++)port.Tick();Assert.Equal("plan",port.Snapshot()["phase"]!.GetValue<string>());Assert.Null(port.Snapshot()["pending"]);Assert.Empty(clicks);Assert.Empty(native.Keys);Assert.Equal(288,native.WheelDeltas.Count);Assert.Equal(-120,native.WheelDeltas[0]);Assert.Equal(120,native.WheelDeltas[^1]);
@@ -95,7 +95,7 @@ public sealed class ScreenWorkflowSessionTests
         native=new NoInputOps(Stamp(routes.Profile,"preset_logging_title"),clicks);var journal=new MemoryStore();
         using var session=new ScreenWorkflowSession(routes,Window(),native,new EmptyOcr(),journal);session.Start();
         var route=new RuntimeCatalog(routes.Configuration).Gathering[key];var port=session.CreateGatheringPort(key,"fallback",new MemoryStore());
-        for(var i=0;i<12;i++){port.ObserveOnly(route,"fallback");port.Navigate(route);}
+        for(var i=0;i<ScreenWorkflowSession.ListSearchLimit;i++){port.ObserveOnly(route,"fallback");port.Navigate(route);}
         Assert.Null(journal.Read()?["ports"]?["gathering:fallback"]?["source_fallback_index"]);
         port.ObserveOnly(route,"fallback");port.Navigate(route);Assert.Equal(0,journal.Read()!["ports"]!["gathering:fallback"]!["source_fallback_index"]!.GetValue<int>());
         native.CurrentImage=Stamp(routes.Profile,"preset_logging_title","preset_catalog_point_logging_03_node");
@@ -128,14 +128,283 @@ public sealed class ScreenWorkflowSessionTests
         Assert.Equal(known?"complete":"unknown",port.Tick());Assert.Empty(native.Keys);
         Assert.Equal(!known,port.Snapshot()["pending"] is not null);
     }
-    [Fact] public void PrivateTheaterDoesNotTreatBagLabelBehindUnknownOverlayAsReady()
+    [Theory][InlineData(false)][InlineData(true)]
+    public void QuickReentryClosesNewsDuringLoadAndWhileWaitingForCapture(bool complete)
+    {
+        var routes=ScreenRoutes.Load(RecognitionTests.Root());
+        routes.Profile.Definition.Remove("page_variants");routes.Profile.Definition["pages"]=JsonNode.Parse("""{"scene":{"anchors":["scene_bag"]}}""");
+        routes.Configuration["quick_reentry"]!["steps"]=JsonNode.Parse("""[{"id":"loaded","kind":"wait","delay_ms":0,"timeout_s":120}]""");
+        var native=new NoInputOps(Stamp(routes.Profile,"scene_bag"));
+        using var session=new ScreenWorkflowSession(routes,Window(),native,new EmptyOcr(),new MemoryStore());session.Start();
+        var now=DateTimeOffset.UnixEpoch;var script=new ScreenQuickReentry(session,()=>now);script.Start(now);
+        if(complete){for(var i=0;i<3;i++)script.Tick(now);Assert.True(script.Status==QuickReentryStatus.Complete,$"{script.Status}/{script.CurrentStep}/{session.CurrentPage}/{session.StabilityReason}/{script.Failure}");}
+        native.CurrentImage=Stamp(routes.Profile,"notification.news_tabs","notification.news_close");script.Tick(now.AddSeconds(2));
+        Assert.Equal(new ushort[]{27},native.Keys);Assert.False(session.Guard.Paused);
+        script.Pause();session.Pause("manual");script.Tick(now.AddSeconds(3));Assert.Single(native.Keys);
+    }
+    [Fact] public void QuickReentryConfigContainsOnlyTheFastReentryChain()
+    {
+        var routes=ScreenRoutes.Load(RecognitionTests.Root());
+        var steps=routes.Configuration["quick_reentry"]!["steps"]!.AsArray().OfType<JsonObject>().ToArray();
+        Assert.Equal(["escape_menu","menu_ready","appearance","rebirth_ready","escape_back","dialog_kind","escape_if_confirm","cancel_ready","exit","loaded"],steps.Select(step=>step["id"]!.GetValue<string>()));
+        Assert.Equal(27,steps[0]["key"]!.GetValue<int>());
+        Assert.Equal("click_text",steps[2]["kind"]!.GetValue<string>());
+        Assert.Equal(27,steps[4]["key"]!.GetValue<int>());
+        Assert.Equal(32,steps[8]["key"]!.GetValue<int>());
+        Assert.DoesNotContain(steps,step=>step["point"] is not null);
+        Assert.DoesNotContain(steps,step=>step["anchors"] is not null);
+        Assert.Contains("變更外貌/重生",steps[2]["search"]!["labels"]!.AsArray().Select(label=>label!.GetValue<string>()));
+        Assert.Equal("storage.room_exit",routes.Configuration["quick_reentry"]!["field_exit"]!["exit_target"]!.GetValue<string>());
+        Assert.Equal("storage_room_exit",routes.Configuration["quick_reentry"]!["field_exit"]!["confirmation_page"]!.GetValue<string>());
+    }
+    [Theory][InlineData(false)][InlineData(true)]
+    public void QuickReentryDiscardsSlowLoadingFramesWithinTheOriginalDeadline(bool expires)
     {
         var routes=ScreenRoutes.Load(RecognitionTests.Root());routes.Configuration["notifications"]=new JsonObject();
-        routes.Profile.Definition.Remove("page_variants");routes.Profile.Definition["pages"]=new JsonObject();
-        var native=new NoInputOps(Stamp(routes.Profile,"bag_tools_label"));
+        routes.Profile.Definition.Remove("page_variants");routes.Profile.Definition["pages"]=JsonNode.Parse("""{"scene":{"anchors":["scene_bag"]}}""");
+        routes.Configuration["quick_reentry"]!["steps"]=JsonNode.Parse("""[{"id":"menu_ready","kind":"wait","timeout_s":2,"delay_ms":0}]""");
+        var native=new NoInputOps(Stamp(routes.Profile,"scene_bag","relogin.menu_exit"));
         using var session=new ScreenWorkflowSession(routes,Window(),native,new EmptyOcr(),new MemoryStore());session.Start();
-        var now=DateTimeOffset.UnixEpoch;var refresh=new ScreenPrivateTheaterRefresh(session,()=>now);refresh.Start(now);
-        Assert.False(refresh.Tick(now));Assert.Equal("open_bag",refresh.CurrentStep);Assert.Empty(native.Keys);
+        var now=DateTimeOffset.UnixEpoch;var refresh=new ScreenQuickReentry(session,()=>now);refresh.Start(now);
+        // 准备阶段复用新鲜场景，声明等待处注入加载慢帧。
+        native.CaptureFrame=number=>number==1?Stamp(routes.Profile,"scene_bag"):throw new InputBlockedException("slow capture"){CaptureTimedOut=true};
+        refresh.Tick(now);refresh.Tick(now.AddSeconds(1));
+        Assert.Equal(QuickReentryStatus.Running,refresh.Status);Assert.Empty(native.Keys);
+        if(expires)
+        {
+            refresh.Tick(now.AddSeconds(3));Assert.Equal(QuickReentryStatus.Failed,refresh.Status);Assert.Contains("步骤超时",refresh.Failure);
+        }
+        else
+        {
+            native.CaptureFrame=null;refresh.Tick(now.AddMilliseconds(1500));Assert.Equal(QuickReentryStatus.Complete,refresh.Status);
+        }
+        Assert.Empty(native.Keys);Assert.False(session.Guard.Paused);
+    }
+    [Fact] public void QuickReentryDoesNotRetryOtherCaptureGuardFailures()
+    {
+        var routes=ScreenRoutes.Load(RecognitionTests.Root());routes.Configuration["notifications"]=new JsonObject();
+        routes.Profile.Definition.Remove("page_variants");routes.Profile.Definition["pages"]=JsonNode.Parse("""{"scene":{"anchors":["scene_bag"]}}""");
+        routes.Configuration["quick_reentry"]!["steps"]=JsonNode.Parse("""[{"id":"rebirth_ready","kind":"wait","delay_ms":0}]""");
+        var native=new NoInputOps(Stamp(routes.Profile,"scene_bag"));
+        using var session=new ScreenWorkflowSession(routes,Window(),native,new EmptyOcr(),new MemoryStore());session.Start();
+        var now=DateTimeOffset.UnixEpoch;var refresh=new ScreenQuickReentry(session,()=>now);refresh.Start(now);
+        native.CaptureFrame=number=>number==1?Stamp(routes.Profile,"scene_bag"):throw new InputBlockedException("截图期间窗口变化");
+        refresh.Tick(now);Assert.Equal(QuickReentryStatus.Failed,refresh.Status);Assert.Equal("截图期间窗口变化",refresh.Failure);Assert.Empty(native.Keys);
+    }
+    [Fact] public void QuickReentryLeavesHuntingFieldBeforeSendingEscape()
+    {
+        var routes=ScreenRoutes.Load(RecognitionTests.Root());routes.Configuration["notifications"]=new JsonObject();
+        routes.Profile.Definition.Remove("page_variants");
+        routes.Profile.Definition["pages"]=JsonNode.Parse("""{"scene":{"anchors":["scene_bag","maint_scene_map"],"targets":{"storage.room_exit":"storage_room_exit_icon"}},"storage_room_exit":{"anchors":["storage_room_exit_title","storage_room_exit_cancel"],"targets":{"storage.exit_room":"storage_room_exit_button"}}}""");
+        var field=Stamp(routes.Profile,"scene_bag","maint_scene_map","storage_room_exit_icon");
+        var confirm=Stamp(routes.Profile,"storage_room_exit_title","storage_room_exit_cancel","storage_room_exit_button");
+        var town=Stamp(routes.Profile,"scene_bag","maint_scene_map");
+        var clicks=new List<PixelPoint>();var page=0;
+        var native=new NoInputOps(field,clicks){CaptureFrame=_=>page==0?field:page==1?confirm:town,OnPointerDown=()=>page++};
+        using var session=new ScreenWorkflowSession(routes,Window(),native,new EmptyOcr(),new MemoryStore());session.Start();
+        var now=DateTimeOffset.UnixEpoch;var refresh=new ScreenQuickReentry(session,()=>now);refresh.Start(now);
+        refresh.Tick(now);
+        Assert.Single(clicks);Assert.Empty(native.Keys);
+        Assert.InRange(clicks[0].X,1225,1265);Assert.InRange(clicks[0].Y,15,50);
+        Thread.Sleep(400);now=now.AddSeconds(1);refresh.Tick(now);
+        Assert.Equal(2,clicks.Count);Assert.Empty(native.Keys);
+        Assert.InRange(clicks[1].X,730,777);Assert.InRange(clicks[1].Y,850,878);
+        now=now.AddSeconds(1);refresh.Tick(now);
+        Assert.Equal(new ushort[]{27},native.Keys);
+        Assert.Equal(2,clicks.Count);
+    }
+    [Fact] public void QuickReentryWaitsThroughDirectLoadingBeforeEscape()
+    {
+        var routes=ScreenRoutes.Load(RecognitionTests.Root());routes.Configuration["notifications"]=new JsonObject();
+        routes.Profile.Definition.Remove("page_variants");
+        routes.Profile.Definition["pages"]=JsonNode.Parse("""{"scene":{"anchors":["scene_bag","maint_scene_map"],"targets":{"storage.room_exit":"storage_room_exit_icon"}},"storage_room_exit":{"anchors":["storage_room_exit_title","storage_room_exit_cancel"],"targets":{"storage.exit_room":"storage_room_exit_button"}}}""");
+        var field=Stamp(routes.Profile,"scene_bag","maint_scene_map","storage_room_exit_icon");
+        var town=Stamp(routes.Profile,"scene_bag","maint_scene_map");
+        var loading=new RgbImage(1280,960,new byte[1280*960*3]);
+        var clicks=new List<PixelPoint>();var state="field";
+        var native=new NoInputOps(field,clicks){CaptureFrame=_=>state=="field"?field:state=="loading"?loading:town,OnPointerDown=()=>{if(state=="field")state="loading";}};
+        using var session=new ScreenWorkflowSession(routes,Window(),native,new EmptyOcr(),new MemoryStore());session.Start();
+        var now=DateTimeOffset.UnixEpoch;var refresh=new ScreenQuickReentry(session,()=>now);refresh.Start(now);refresh.Tick(now);
+        Assert.Single(clicks);Assert.Empty(native.Keys);Assert.Equal(QuickReentryStatus.Running,refresh.Status);
+        for(var seconds=1;seconds<=16;seconds++)
+        {
+            now=now.AddSeconds(1);refresh.Tick(now);
+            Assert.Equal(QuickReentryStatus.Running,refresh.Status);Assert.Single(clicks);Assert.Empty(native.Keys);
+        }
+        state="town";
+        for(var attempt=0;attempt<5&&!native.Keys.Contains((ushort)27);attempt++){Thread.Sleep(400);now=now.AddSeconds(1);refresh.Tick(now);}
+        Assert.Contains((ushort)27,native.Keys);Assert.Single(clicks);
+    }
+    [Fact] public void QuickReentrySkipsMapExitWhenAlreadyInTown()
+    {
+        var routes=ScreenRoutes.Load(RecognitionTests.Root());routes.Configuration["notifications"]=new JsonObject();
+        routes.Profile.Definition.Remove("page_variants");
+        routes.Profile.Definition["pages"]=JsonNode.Parse("""{"scene":{"anchors":["scene_bag","maint_scene_map"],"targets":{"storage.room_exit":"storage_room_exit_icon"}},"storage_room_exit":{"anchors":["storage_room_exit_title","storage_room_exit_cancel"],"targets":{"storage.exit_room":"storage_room_exit_button"}}}""");
+        var town=Stamp(routes.Profile,"scene_bag","maint_scene_map");var clicks=new List<PixelPoint>();
+        var native=new NoInputOps(town,clicks);
+        using var session=new ScreenWorkflowSession(routes,Window(),native,new EmptyOcr(),new MemoryStore());session.Start();
+        var now=DateTimeOffset.UnixEpoch;var refresh=new ScreenQuickReentry(session,()=>now);refresh.Start(now);refresh.Tick(now);
+        Assert.Empty(clicks);Assert.Equal(new ushort[]{27},native.Keys);
+    }
+    [Fact] public void QuickReentryMapExitTimeoutNeverSendsEscapeOrRebirth()
+    {
+        var routes=ScreenRoutes.Load(RecognitionTests.Root());routes.Configuration["notifications"]=new JsonObject();
+        routes.Configuration["quick_reentry"]!["field_exit"]!["timeout_s"]=2;
+        routes.Profile.Definition.Remove("page_variants");
+        routes.Profile.Definition["pages"]=JsonNode.Parse("""{"scene":{"anchors":["scene_bag","maint_scene_map"],"targets":{"storage.room_exit":"storage_room_exit_icon"}},"storage_room_exit":{"anchors":["storage_room_exit_title","storage_room_exit_cancel"],"targets":{"storage.exit_room":"storage_room_exit_button"}}}""");
+        var field=Stamp(routes.Profile,"scene_bag","maint_scene_map","storage_room_exit_icon");var clicks=new List<PixelPoint>();
+        var loading=new RgbImage(1280,960,new byte[1280*960*3]);
+        var native=new NoInputOps(field,clicks){CaptureFrame=_=>clicks.Count==0?field:loading};
+        using var session=new ScreenWorkflowSession(routes,Window(),native,new EmptyOcr(),new MemoryStore());session.Start();
+        var now=DateTimeOffset.UnixEpoch;var refresh=new ScreenQuickReentry(session,()=>now);refresh.Start(now);refresh.Tick(now);
+        now=now.AddSeconds(3);refresh.Tick(now);
+        Assert.Equal(QuickReentryStatus.Failed,refresh.Status);Assert.Contains("地图出口超时",refresh.Failure);
+        Assert.Single(clicks);Assert.Empty(native.Keys);Assert.False(session.Guard.Paused);
+    }
+    [Fact] public void QuickReentryFieldExitPauseStopsInputWithoutPausingSession()
+    {
+        var routes=ScreenRoutes.Load(RecognitionTests.Root());routes.Configuration["notifications"]=new JsonObject();
+        routes.Profile.Definition.Remove("page_variants");
+        routes.Profile.Definition["pages"]=JsonNode.Parse("""{"scene":{"anchors":["scene_bag","maint_scene_map"],"targets":{"storage.room_exit":"storage_room_exit_icon"}},"storage_room_exit":{"anchors":["storage_room_exit_title","storage_room_exit_cancel"],"targets":{"storage.exit_room":"storage_room_exit_button"}}}""");
+        var field=Stamp(routes.Profile,"scene_bag","maint_scene_map","storage_room_exit_icon");var clicks=new List<PixelPoint>();
+        var native=new NoInputOps(field,clicks){CaptureFrame=_=>field};
+        using var session=new ScreenWorkflowSession(routes,Window(),native,new EmptyOcr(),new MemoryStore());session.Start();
+        var now=DateTimeOffset.UnixEpoch;var refresh=new ScreenQuickReentry(session,()=>now);refresh.Start(now);refresh.Tick(now);
+        refresh.Pause();now=now.AddSeconds(10);refresh.Tick(now);
+        Assert.Single(clicks);Assert.Empty(native.Keys);Assert.False(session.Guard.Paused);
+    }
+    [Fact] public void QuickReentryFindsRightHandRebirthIconWithoutOcr()
+    {
+        var routes=ScreenRoutes.Load(RecognitionTests.Root());routes.Configuration["notifications"]=new JsonObject();
+        routes.Profile.Definition.Remove("page_variants");routes.Profile.Definition["pages"]=JsonNode.Parse("""{"scene":{"anchors":["scene_bag"]}}""");
+        var clicks=new List<PixelPoint>();var native=new NoInputOps(Stamp(routes.Profile,"scene_bag","quick_reentry_rebirth_icon"),clicks);
+        using var session=new ScreenWorkflowSession(routes,Window(),native,new EmptyOcr(),new MemoryStore());session.Start();
+        var now=DateTimeOffset.UnixEpoch;var refresh=new ScreenQuickReentry(session,()=>now);refresh.Start(now);
+        for(var i=0;i<8&&clicks.Count==0;i++)refresh.Tick(now.AddSeconds(i));
+        var point=Assert.Single(clicks);Assert.InRange(point.X,874,902);Assert.InRange(point.Y,765,798);
+        Assert.Equal("rebirth_ready",refresh.CurrentStep);Assert.Equal(new ushort[]{27},native.Keys);
+    }
+    [Fact] public void QuickReentrySearchesAfterTheAppearanceClickStayInMeasuredBands()
+    {
+        // Measured on live frames (1280x960, 2026-11-04): the confirm button label sits at
+        // x598-682/y906-924, 下一步 at x609-671/y894-911, and 要取消重生嗎 at x554-722/y699-720.
+        // The three post-click searches must stay inside those bands; a wider region costs OCR
+        // calls per tick and was the reason the chain crawled.
+        var configuration=ScreenRoutes.Load(RecognitionTests.Root()).Configuration["quick_reentry"]!;
+        foreach(var (key,left,right,top,bottom) in new[]{("confirm_search",540,820,878,960),("rebirth_search",560,780,878,960),("cancel_search",500,800,660,780)})
+        {
+            var search=configuration[key]!.AsObject();
+            var region=search["region"]!.AsArray().Select(value=>value!.GetValue<int>()).ToArray();
+            var cropWidth=search["crop_width"]!.GetValue<int>();var stepX=search["step_x"]!.GetValue<int>();
+            Assert.Equal(left,region[0]);Assert.Equal(right,region[2]);Assert.Equal(top,region[1]);Assert.Equal(bottom,region[3]);
+            Assert.True(region[2]-region[0]>=cropWidth,$"{key} 区域宽度必须容纳裁剪宽度");
+            Assert.InRange((region[2]-region[0]-cropWidth)/stepX+1,1,4);
+        }
+    }
+    [Fact] public void QuickReentryReopensTheMenuWhenTheClickOnlyClosedIt()
+    {
+        // A tap that lands outside the entry closes the menu and leaves the HUD back on screen.
+        // That is a different miss than "menu never moved", so the chain reopens the menu, clicks
+        // once more, and then fails with its own message instead of timing out.
+        var routes=ScreenRoutes.Load(RecognitionTests.Root());routes.Configuration["notifications"]=new JsonObject();
+        routes.Profile.Definition.Remove("page_variants");
+        routes.Profile.Definition["pages"]=JsonNode.Parse("""{"scene":{"anchors":["scene_bag","scene_menu"]}}""");
+        var image=Stamp(routes.Profile,"scene_bag","scene_menu");var pixels=image.CopyPixels();
+        for(var y=806;y<830;y++)for(var x=868;x<980;x++){var i=(y*1280+x)*3;pixels[i]=255;pixels[i+1]=255;pixels[i+2]=255;}
+        var scene=new RgbImage(1280,960,pixels);
+        var clicks=new List<PixelPoint>();var native=new NoInputOps(scene,clicks);
+        using var session=new ScreenWorkflowSession(routes,Window(),native,new WideMenuOcr(),new MemoryStore());session.Start();
+        var now=DateTimeOffset.UnixEpoch;var refresh=new ScreenQuickReentry(session,()=>now);refresh.Start(now);
+        refresh.Tick(now);
+        var failureAt=TimeSpan.Zero;
+        for(var step=1;step<=100;step++)
+        {
+            var at=now.AddMilliseconds(step*250);refresh.Tick(at);
+            if(refresh.Status==QuickReentryStatus.Failed&&failureAt==TimeSpan.Zero)failureAt=at-now;
+        }
+        Assert.True(refresh.Status==QuickReentryStatus.Failed,$"step={refresh.CurrentStep}; status={refresh.Status}; clicks={clicks.Count}; esc={native.Keys.Count(key=>key==27)}; failure={refresh.Failure}; at={failureAt}");
+        Assert.Contains("菜单被关闭但未进入重生界面",refresh.Failure);
+        Assert.Equal(3,clicks.Count);
+        // One ESC opens the menu at the start, one per reopen before the retry click.
+        Assert.Equal(3,native.Keys.Count(key=>key==27));
+        Assert.True(failureAt<TimeSpan.FromSeconds(15),$"failure_at={failureAt}");
+    }
+    [Fact] public void QuickReentryRetriesTheAppearanceClickWhenTheMenuNeverMoves()
+    {
+        // Background touch reports success even when the game drops the click. The chain must
+        // re-click the same spot instead of sitting out the whole rebirth_confirm timeout, and
+        // must say so when the entry never leaves the menu.
+        var routes=ScreenRoutes.Load(RecognitionTests.Root());routes.Configuration["notifications"]=new JsonObject();
+        routes.Profile.Definition.Remove("page_variants");
+        routes.Profile.Definition["pages"]=JsonNode.Parse("""{"scene":{"anchors":["scene_bag"]}}""");
+        var image=Stamp(routes.Profile,"scene_bag");var pixels=image.CopyPixels();
+        for(var y=800;y<846;y++)for(var x=860;x<930;x++){var i=(y*1280+x)*3;pixels[i]=255;pixels[i+1]=255;pixels[i+2]=255;}
+        var menu=new RgbImage(1280,960,pixels);
+        var clicks=new List<PixelPoint>();var native=new NoInputOps(menu,clicks);
+        using var session=new ScreenWorkflowSession(routes,Window(),native,new MenuLabelOcr(),new MemoryStore());session.Start();
+        var now=DateTimeOffset.UnixEpoch;var refresh=new ScreenQuickReentry(session,()=>now);refresh.Start(now);
+        refresh.Tick(now);
+        var failureAt=TimeSpan.Zero;
+        for(var step=1;step<=80;step++)
+        {
+            var at=now.AddMilliseconds(step*250);refresh.Tick(at);
+            if(refresh.Status==QuickReentryStatus.Failed&&failureAt==TimeSpan.Zero)failureAt=at-now;
+        }
+        Assert.Equal(QuickReentryStatus.Failed,refresh.Status);
+        Assert.Equal("rebirth_ready",refresh.CurrentStep);
+        Assert.Contains("点击未生效",refresh.Failure);
+        Assert.Equal(3,clicks.Count);
+        Assert.True(failureAt<TimeSpan.FromSeconds(12),$"failure_at={failureAt}");
+    }
+    [Fact] public void QuickReentryRetriesWhenMenuChromeStaysButAppearanceTextFades()
+    {
+        // The ESC menu can stay on screen while its animated entry text briefly becomes
+        // unreadable. The structural menu buttons are enough to retry the same measured click.
+        var routes=ScreenRoutes.Load(RecognitionTests.Root());routes.Configuration["notifications"]=new JsonObject();
+        routes.Profile.Definition.Remove("page_variants");
+        routes.Profile.Definition["pages"]=JsonNode.Parse("""{"scene":{"anchors":["scene_bag"]}}""");
+        var clicks=new List<PixelPoint>();var ocr=new FadeMenuLabelOcr();
+        var native=new NoInputOps(Stamp(routes.Profile,"scene_bag","relogin.menu_exit"),clicks);native.OnPointerDown=()=>ocr.Enabled=false;
+        using var session=new ScreenWorkflowSession(routes,Window(),native,ocr,new MemoryStore());session.Start();
+        var now=DateTimeOffset.UnixEpoch;var refresh=new ScreenQuickReentry(session,()=>now);refresh.Start(now);refresh.Tick(now);
+        var failureAt=TimeSpan.Zero;
+        for(var step=1;step<=80;step++)
+        {
+            var at=now.AddMilliseconds(step*250);refresh.Tick(at);
+            if(refresh.Status==QuickReentryStatus.Failed&&failureAt==TimeSpan.Zero)failureAt=at-now;
+        }
+        Assert.Equal(QuickReentryStatus.Failed,refresh.Status);
+        Assert.Equal("rebirth_ready",refresh.CurrentStep);
+        Assert.Contains("点击未生效",refresh.Failure);
+        Assert.Equal(3,clicks.Count);
+        Assert.True(failureAt<TimeSpan.FromSeconds(12),$"failure_at={failureAt}");
+    }
+    [Fact] public void BackpackRecognitionDoesNotRequireEquipmentOnlyAutoWear()
+    {
+        var routes=ScreenRoutes.Load(RecognitionTests.Root());routes.Configuration["notifications"]=new JsonObject();
+        routes.Profile.Definition.Remove("page_variants");
+        var bag=routes.Profile.Definition["pages"]!["bag"]!.DeepClone();
+        routes.Profile.Definition["pages"]=new JsonObject{["bag"]=bag};
+        var image=Stamp(routes.Profile,"bag_tools_tab","bag_fashion_tab","bag_close");
+        using var session=new ScreenWorkflowSession(routes,Window(),new NoInputOps(image,[]),new EmptyOcr(),new MemoryStore());session.Start();
+        Assert.Equal("bag",session.Observe().View.Page);
+    }
+    [Fact] public void QuickReentrySendsOnlyEscapeWhenMenuTextIsUnreadable()
+    {
+        var routes=ScreenRoutes.Load(RecognitionTests.Root());routes.Configuration["notifications"]=new JsonObject();
+        routes.Profile.Definition.Remove("page_variants");
+        routes.Profile.Definition["pages"]=JsonNode.Parse("""{"scene":{"anchors":["scene_bag"]}}""");
+        var clicks=new List<PixelPoint>();var native=new NoInputOps(Stamp(routes.Profile,"scene_bag"),clicks);
+        using var session=new ScreenWorkflowSession(routes,Window(),native,new EmptyOcr(),new MemoryStore());session.Start();
+        var now=DateTimeOffset.UnixEpoch;var refresh=new ScreenQuickReentry(session,()=>now);refresh.Start(now);
+        refresh.Tick(now);
+        for(var step=1;step<=160;step++)refresh.Tick(now.AddMilliseconds(step*250));
+        Assert.True(refresh.CurrentStep=="menu_ready",$"step={refresh.CurrentStep}; status={refresh.Status}; page={session.CurrentPage}; failure={refresh.Failure}");
+        Assert.Equal(QuickReentryStatus.Failed,refresh.Status);
+        Assert.Contains("menu_ready",refresh.Failure);
+        Assert.Empty(clicks);
+        Assert.Contains((ushort)27,native.Keys);
+        Assert.All(native.Keys,key=>Assert.Equal((ushort)27,key));
     }
     [Theory][InlineData(false)][InlineData(true)]
     public void SurplusRestartResumesOnlyUnsentNavigation(bool pending)
@@ -166,27 +435,28 @@ public sealed class ScreenWorkflowSessionTests
         Assert.Equal(sale==0?"complete":"running",port.Tick());Assert.Null(port.Snapshot()["pending"]);
         if(sale>0){Assert.Equal("樹枝",port.Snapshot()["name"]!.GetValue<string>());Assert.Equal(sale,port.Snapshot()["amount"]!.GetValue<long>());Assert.Equal(300,port.Snapshot()["minimum_keep"]!.GetValue<long>());}
     }
-    [Fact] public void SurplusSelectionLeavesToolsBeforeWaitingForItemDetail()
+    [Theory][InlineData("repair_tools")][InlineData("bag")]
+    public void SurplusSelectionSelectsItemsBeforeSearchingAnyBackpackTab(string page)
     {
         var routes=ScreenRoutes.Load(RecognitionTests.Root());routes.Configuration["notifications"]=new JsonObject();
-        routes.Profile.Definition.Remove("page_variants");routes.Profile.Definition["pages"]=JsonNode.Parse("""{"repair_tools":{"anchors":["scene_bag"],"targets":{}}}""");
-        var native=new NoInputOps(Stamp(routes.Profile,"scene_bag"));
+        routes.Profile.Definition.Remove("page_variants");routes.Profile.Definition["pages"]=new JsonObject{[page]=JsonNode.Parse("""{"anchors":["scene_bag"],"targets":{"bag.open_items":"scene_bag"}}""")};
+        var clicks=new List<PixelPoint>();var native=new NoInputOps(Stamp(routes.Profile,"scene_bag"),clicks);
         var store=new MemoryStore(new JsonObject{["status"]="running",["phase"]="select",["item_id"]=1L,["name"]="ore",["amount"]=1L,["deadline"]=(DateTimeOffset.UtcNow-DateTimeOffset.UnixEpoch).TotalSeconds+60});
         using var session=new ScreenWorkflowSession(routes,Window(),native,new EmptyOcr(),new MemoryStore());session.Start();
-        var port=session.CreateSurplusPort("tools-sale",store,_=>1);Assert.Equal("running",port.Tick());Assert.Equal(new ushort[]{83},native.Keys);
-        port.Tick();Assert.Single(native.Keys);Assert.Null(store.Read()!["pending"]);
+        var port=session.CreateSurplusPort("tools-sale",store,_=>1);Assert.Equal("running",port.Tick());Assert.Single(clicks);Assert.Empty(native.Keys);
+        port.Tick();Assert.Single(clicks);Assert.Equal(0,native.Wheels);Assert.Null(store.Read()!["pending"]);
     }
     [Fact] public void RepeatedSurplusPassSwitchesToolsTabOncePerPass()
     {
         var routes=ScreenRoutes.Load(RecognitionTests.Root());routes.Configuration["notifications"]=new JsonObject();
-        routes.Profile.Definition.Remove("page_variants");routes.Profile.Definition["pages"]=JsonNode.Parse("""{"repair_tools":{"anchors":["scene_bag"],"targets":{}}}""");
-        var native=new NoInputOps(Stamp(routes.Profile,"scene_bag"));using var session=new ScreenWorkflowSession(routes,Window(),native,new EmptyOcr(),new MemoryStore());session.Start();
+        routes.Profile.Definition.Remove("page_variants");routes.Profile.Definition["pages"]=JsonNode.Parse("""{"repair_tools":{"anchors":["scene_bag"],"targets":{"bag.open_items":"scene_bag"}}}""");
+        var clicks=new List<PixelPoint>();var native=new NoInputOps(Stamp(routes.Profile,"scene_bag"),clicks);using var session=new ScreenWorkflowSession(routes,Window(),native,new EmptyOcr(),new MemoryStore());session.Start();
         var inventory=new MabiAgent.Core.InventorySnapshot(session.Scope.SessionId);inventory.Set(new(198875762,378,session.Scope.SessionId,"packet_capture","current",true));
         var store=new MemoryStore();var port=session.CreateSurplusPort("repeat-tools-sale",store,_=>300,()=>inventory);
         for(var pass=1;pass<=2;pass++)
         {
             Assert.Equal("running",port.Begin());port.Tick();port.Tick();port.Tick();
-            Assert.Equal(pass,native.Keys.Count);Assert.All(native.Keys,key=>Assert.Equal((ushort)83,key));
+            Assert.Equal(pass,clicks.Count);Assert.Empty(native.Keys);Assert.Equal(0,native.Wheels);
             Assert.Null(store.Read()!["pending"]);Assert.Equal(300,store.Read()!["minimum_keep"]!.GetValue<long>());
         }
     }
@@ -210,6 +480,46 @@ public sealed class ScreenWorkflowSessionTests
         var port=session.CreateMaintenancePort("currency-recovery",new MemoryStore());Assert.Equal("currency",port.Observe().Page);
         Assert.False(port.ReleaseNavigation());Assert.Single(clicks);Assert.True(clicks[0].X>1200);
     }
+    [Fact] public void CurrentOpaqueWhiteRemoteMetalBackUsesSharedBrightnessInvariantGlyph()
+    {
+        var root=RecognitionTests.Root();var routes=ScreenRoutes.Load(root);var back=routes.Profile.Templates["preset_metal_steel_detail_back"];
+        Assert.Equal("light_text",back.Mode);Assert.True(back.RelativeContrast);Assert.Equal(80,back.RelativeContrastThreshold!.Value);
+        Assert.Equal(0.97,back.Threshold,3);Assert.Equal(0.97,back.GlyphThreshold!.Value,3);
+
+        using var bgr=OpenCvSharp.Cv2.ImRead(Path.Combine(root,"tests/fixtures/production/metal-remote-back-current.jpg"));
+        using var rgb=new OpenCvSharp.Mat();OpenCvSharp.Cv2.CvtColor(bgr,rgb,OpenCvSharp.ColorConversionCodes.BGR2RGB);
+        var pixels=new byte[rgb.Width*rgb.Height*3];System.Runtime.InteropServices.Marshal.Copy(rgb.Data,pixels,0,pixels.Length);var frame=new RgbImage(rgb.Width,rgb.Height,pixels);
+        using(var currentMatcher=new TemplateMatcher(routes.Profile)){var hit=currentMatcher.Anchor(frame,"screen_overlay_back");Assert.NotNull(hit);Assert.True(hit!.Score>=.97);Assert.Equal("preset_metal_steel_detail_back",hit.Variant);}
+
+        var legacyDefinition=(System.Text.Json.Nodes.JsonObject)routes.Profile.Definition.DeepClone();var legacy=legacyDefinition["templates"]!["preset_metal_steel_detail_back"]!.AsObject();
+        legacy["match_mode"]="grayscale";legacy.Remove("glyph_threshold");legacy.Remove("relative_contrast");legacy.Remove("relative_contrast_threshold");
+        using(var legacyMatcher=new TemplateMatcher(NavigationProfile.FromDefinition(root,legacyDefinition)))Assert.Null(legacyMatcher.Anchor(frame,"screen_overlay_back"));
+
+        var clicks=new List<PixelPoint>();var native=new NoInputOps(frame,clicks);
+        using(var session=new ScreenWorkflowSession(routes,Window(),native,new EmptyOcr(),new MemoryStore()))
+        {
+            session.Start();var port=session.CreateMaintenancePort("remote-white-back",new MemoryStore());Assert.Equal("metal_panel",port.Observe().Page);
+            Assert.False(port.ReleaseNavigation());var click=Assert.Single(clicks);Assert.InRange(click.X,24,52);Assert.InRange(click.Y,23,57);
+        }
+
+    }
+    [Fact] public void FocusedProcessingWaitClearsSkillsThenUsesSharedCloseResolver()
+    {
+        var root=RecognitionTests.Root();var routes=ScreenRoutes.Load(root);routes.Profile.Definition.Remove("page_variants");routes.Configuration["notifications"]=new JsonObject();routes.Configuration.Remove("workbench_chains");
+        using var bgr=OpenCvSharp.Cv2.ImRead(Path.Combine(root,"tests/fixtures/production/metal-remote-back-current.jpg"));
+        using var rgb=new OpenCvSharp.Mat();OpenCvSharp.Cv2.CvtColor(bgr,rgb,OpenCvSharp.ColorConversionCodes.BGR2RGB);
+        var pixels=new byte[rgb.Width*rgb.Height*3];System.Runtime.InteropServices.Marshal.Copy(rgb.Data,pixels,0,pixels.Length);var remote=new RgbImage(rgb.Width,rgb.Height,pixels);
+        var recipe=routes.Recipes["iron_ingot_from_iron_ore"];var requested=new ProductionRecipe(recipe.Key,recipe.Device,recipe.DurationSeconds);var clicks=new List<PixelPoint>();
+        var native=new NoInputOps(Stamp(routes.Profile,"scene_bag","maint_scene_map"),clicks);
+        using var session=new ScreenWorkflowSession(routes,Window(),native,new EmptyOcr(),new MemoryStore());session.Start();
+        var port=session.CreateProductionPort(recipe.Key,"focused-remote-back",new MemoryStore());
+        var scene=port.Observe();Assert.Equal("scene",scene.Page);Assert.True(scene.Stable);Assert.True(session.InputAvailable);Assert.Null(routes.Configuration["workbench_chains"]);Assert.False(port.HasExtensionPending);Assert.Contains("scene.open_skills",session.LastObservation!.View.Targets.Keys);port.Navigate("recipe_preview",requested);Assert.Empty(clicks);Assert.Contains((ushort)75,native.Keys);
+        native.CurrentImage=Stamp(routes.Profile,NavigationProfile.Names(routes.Profile.Definition["pages"]!["skills"]!["anchors"]));
+        var skills=port.Observe();Assert.Equal("skills",skills.Page);Assert.True(skills.Stable);Assert.True(session.InputAvailable);port.Navigate("recipe_preview",requested);Assert.Single(clicks);
+        native.CurrentImage=remote;Assert.Equal("metal_panel",port.Observe().Page);
+        Assert.Equal("metal_panel",port.Observe().Page);Assert.Contains("page.close",session.LastObservation!.View.Targets.Keys);
+        port.Navigate("leave",requested);Assert.Equal(2,clicks.Count);Assert.InRange(clicks[^1].X,24,52);Assert.InRange(clicks[^1].Y,23,57);
+    }
     [Fact] public void ConfirmedDeviceArrivalDoesNotExpireWhileReadingItsCurrentRecipe()
     {
         var root=RecognitionTests.Root();var routes=ScreenRoutes.Load(root);
@@ -227,30 +537,20 @@ public sealed class ScreenWorkflowSessionTests
         typeof(ScreenProductionPort).GetField("queueEmpty",flags)!.SetValue(port,new[]{0,1,2,3,4});
         var frame=port.Observe();Assert.Equal("recipe_detail",frame.Page);Assert.Equal("catalog_fabric_04",frame.RecipeKey);Assert.True(frame.AtDevice);Assert.True(frame.CraftAvailable);
     }
-    [Fact] public void TheaterCreationWaitsForCurrentStableTitleBeforeReviewOrCreate()
+    [Fact] public void FullCatalogAllWaterWellAndCowEntrypointsReserveTenBottles()
     {
-        var routes=ScreenRoutes.Load(RecognitionTests.Root());var rows=routes.Configuration["private_theater_refresh"]!["steps"]!.AsArray();
-        routes.Configuration["notifications"]=new JsonObject();routes.Profile.Definition.Remove("page_variants");
-        routes.Profile.Definition["pages"]=JsonNode.Parse("""{"bag":{"anchors":["bag_tools_label"]}}""");
-        while(rows[0]!["id"]!.GetValue<string>()!="create_ready")rows.RemoveAt(0);
-        var clicks=new List<PixelPoint>();var native=new NoInputOps(Stamp(routes.Profile,"bag_tools_label","bag_close","maint_tools_selected"),clicks);
-        using var session=new ScreenWorkflowSession(routes,Window(),native,new EmptyOcr(),new MemoryStore());session.Start();
-        var now=DateTimeOffset.UnixEpoch;var refresh=new ScreenPrivateTheaterRefresh(session,()=>now);refresh.Start(now);
-        Assert.False(refresh.Tick(now));Assert.Empty(clicks);Assert.Empty(native.Keys);
-        now=now.AddSeconds(45);Assert.False(refresh.Tick(now));Assert.Empty(clicks);
-        native.CurrentImage=Stamp(routes.Profile,"private_theater_create_title");
-        Assert.True(refresh.Tick(now),$"{refresh.Status}: {refresh.CurrentStep}; {refresh.Failure}; page={session.CurrentPage}");Assert.Equal("leader_review",refresh.CurrentStep);Assert.Empty(clicks);
-        now=now.AddSeconds(1);Assert.True(refresh.Tick(now));Assert.Single(clicks);
-        Assert.Empty(native.Keys);
+        var catalog=new RuntimeCatalog(ScreenRoutes.Load(RecognitionTests.Root()).Configuration);var rules=GatheringConsumables.RulesFor(catalog);
+        foreach(var key in new[]{"point_daily_02","point_daily_03","point_daily_04","gathering_water_bottle","gathering_water_bottle_well","gathering_material_4706539586426517"})
+        {Assert.True(rules.ContainsKey(key),key);Assert.Equal(10,rules[key].RequiredAttempts);Assert.Equal(1202292919,rules[key].ItemId);}
     }
-    [Fact] public void CurrentTheaterCreationFrameCannotCountAsLoadedOrReturned()
+    [Fact] public void ExplicitMissingConsumablesUsesStableRefusalAndEscWithoutReadingQuantity()
     {
-        var root=RecognitionTests.Root();using var bgr=OpenCvSharp.Cv2.ImRead(Path.Combine(root,"tests/fixtures/private-theater/create-current.jpg"));
-        using var rgb=new OpenCvSharp.Mat();OpenCvSharp.Cv2.CvtColor(bgr,rgb,OpenCvSharp.ColorConversionCodes.BGR2RGB);
-        var pixels=new byte[rgb.Width*rgb.Height*3];System.Runtime.InteropServices.Marshal.Copy(rgb.Data,pixels,0,pixels.Length);
-        var frame=new RgbImage(rgb.Width,rgb.Height,pixels);using var matcher=new TemplateMatcher(ScreenRoutes.Load(root).Profile);
-        Assert.NotNull(matcher.Anchor(frame,"private_theater_create_title"));
-        Assert.Null(matcher.Anchor(frame,"private_theater_loaded_text"));Assert.Null(matcher.Anchor(frame,"scene_bag"));Assert.Null(matcher.Anchor(frame,"theater_returned_menu_glyph"));
+        var routes=ScreenRoutes.Load(RecognitionTests.Root());var native=new NoInputOps(Stamp(routes.Profile,"missing_consumables"));
+        using var session=new ScreenWorkflowSession(routes,Window(),native,new EmptyOcr(),new MemoryStore());session.Start();
+        session.SavePortState("gathering:missing",new JsonObject{["started"]=true,["action_id"]="a",["session"]=session.Scope.SessionId});
+        var route=new RuntimeCatalog(routes.Configuration).Gathering["point_daily_03"];var port=session.CreateGatheringPort(route.Key,"missing",new MemoryStore());
+        var frame=port.Observe(route,"a");Assert.True(frame.MissingConsumables);Assert.Null(frame.ActualQuantity);
+        Assert.True(port.DismissMissingConsumables());Assert.Equal(new ushort[]{27},native.Keys);Assert.Null(session.CurrentNavigationId);
     }
     [Theory][InlineData(true)][InlineData(false)]
     public void OnlyCurrentDispatchedStartCanBindSharedStableTaskTitle(bool currentStart)
@@ -264,6 +564,17 @@ public sealed class ScreenWorkflowSessionTests
         var frame=session.CreateGatheringPort(route.Key,"own-start",new MemoryStore()).ObserveOnly(route,"own-start");
         Assert.Equal(currentStart,frame.TaskStatus=="active");Assert.Empty(native.Keys);
         if(currentStart)Assert.Equal(0,ocr.Calls);
+    }
+    [Fact] public void RejectedGatheringStartDoesNotRetainStartedState()
+    {
+        var routes=ScreenRoutes.Load(RecognitionTests.Root());routes.Configuration["notifications"]=new JsonObject();
+        routes.Profile.Definition.Remove("page_variants");routes.Profile.Definition["pages"]=JsonNode.Parse("""{"iron_vein_detail":{"anchors":["detail_confirm_close"],"targets":{"gathering.start":"detail_confirm_close"}}}""");
+        var clicks=new List<PixelPoint>();var native=new NoInputOps(Stamp(routes.Profile,"detail_confirm_close"),clicks);var journal=new MemoryStore();
+        using var session=new ScreenWorkflowSession(routes,Window(),native,new EmptyOcr(),journal);session.Start();
+        var route=new RuntimeCatalog(routes.Configuration).Gathering["point_mining_01"];var store=new MemoryStore(new JsonObject{["pending"]=new JsonObject{["kind"]="gathering",["action_id"]="not-sent"}});
+        var port=session.CreateGatheringPort(route.Key,"not-sent",store);port.ObserveOnly(route,"not-sent");native.Minimized=true;
+        Assert.Throws<InputRejectedBeforeDispatchException>(()=>port.Start(route,"not-sent"));
+        Assert.Null(journal.Read()?["ports"]?["gathering:not-sent"]?["started"]);Assert.Equal(0,journal.Read()?["intents"]?.AsObject().Count??0);Assert.Empty(clicks);
     }
     [Fact] public void CurrentDailyGatheringListUsesItsStableTitle()
     {
@@ -358,60 +669,14 @@ public sealed class ScreenWorkflowSessionTests
             foreach(var step in node!["navigation"]!["steps"]!.AsArray())Assert.NotNull(pages[step!["page"]!.GetValue<string>()]);
         }
     }
-    [Fact] public void PrivateTheaterDoesNotAdvancePastUnselectedToolsTab()
+    [Fact] public void RecognizedToolsBagAllowsIndependentWorkflowHandoff()
     {
-        var routes=ScreenRoutes.Load(RecognitionTests.Root());
-        routes.Profile.Definition.Remove("page_variants");routes.Profile.Definition["pages"]=JsonNode.Parse("""{"bag":{"anchors":["bag_tools_label"]},"repair_tools":{"anchors":["maint_tools_selected"]}}""");
-        var steps=routes.Configuration["private_theater_refresh"]!["steps"]!.AsArray();
-        var selected=steps.OfType<JsonObject>().Single(step=>step["id"]!.GetValue<string>()=="tools_selected");
-        Assert.Equal("wait",selected["kind"]!.GetValue<string>());
-        Assert.Equal("maint_tools_selected",selected["anchors"]![0]!.GetValue<string>());
-        Assert.Contains("maint_tools_selected",routes.Profile.Templates.Keys);
-        var toolsStep=steps.OfType<JsonObject>().Single(step=>step["id"]!.GetValue<string>()=="tools_tab");
-        Assert.Equal("key",toolsStep["kind"]!.GetValue<string>());
-        Assert.Equal(83,toolsStep["key"]!.GetValue<int>());
-        var gameWait=steps.OfType<JsonObject>().Single(step=>step["id"]!.GetValue<string>()=="game_tab_selected");
-        Assert.Equal("wait",gameWait["kind"]!.GetValue<string>());
-        Assert.Equal("bag_game_selected",gameWait["anchors"]![0]!.GetValue<string>());
-        Assert.Contains("bag_game_selected",routes.Profile.Templates.Keys);
-        using(var matcher=new TemplateMatcher(routes.Profile))Assert.NotNull(matcher.Anchor(Stamp(routes.Profile,"maint_tools_selected"),"maint_tools_selected"));
-        var clicks=new List<PixelPoint>();var native=new NoInputOps(Stamp(routes.Profile,"bag_tools_label"),clicks);
+        var routes=ScreenRoutes.Load(RecognitionTests.Root());routes.Configuration["notifications"]=new JsonObject();
+        routes.Profile.Definition.Remove("page_variants");routes.Profile.Definition["pages"]=JsonNode.Parse("""{"repair_tools":{"anchors":["maint_tools_selected"]}}""");
+        var native=new NoInputOps(Stamp(routes.Profile,"maint_tools_selected"),[]);
         using var session=new ScreenWorkflowSession(routes,Window(),native,new EmptyOcr(),new MemoryStore());session.Start();
-        var start=DateTimeOffset.UnixEpoch;var refresh=new ScreenPrivateTheaterRefresh(session,()=>start);refresh.Start(start);
-        refresh.Tick(start);Assert.True(refresh.Tick(start.AddSeconds(2)),"page="+session.CurrentPage+"; step="+refresh.CurrentStep+"; failure="+refresh.Failure);
-        Assert.True(refresh.Tick(start.AddSeconds(4)));Assert.Equal("tools_selected",refresh.CurrentStep);
-        Assert.False(refresh.Tick(start.AddSeconds(6)));Assert.Empty(clicks);Assert.Contains((ushort)83,native.Keys);
-        Assert.False(refresh.Tick(start.AddSeconds(70)));Assert.Equal(PrivateTheaterRefreshStatus.Failed,refresh.Status);
-        Assert.Contains("tools_selected",refresh.Failure);Assert.Empty(clicks);
-    }
-    [Fact] public void PrivateTheaterGameCategoryAdvancesWhileToolsTabRemainsSelected()
-    {
-        var routes=ScreenRoutes.Load(RecognitionTests.Root());
-        routes.Profile.Definition.Remove("page_variants");routes.Profile.Definition["pages"]=JsonNode.Parse("""{"bag":{"anchors":["bag_tools_label"]},"repair_tools":{"anchors":["maint_tools_selected"]}}""");
-        var clicks=new List<PixelPoint>();var native=new NoInputOps(Stamp(routes.Profile,"bag_tools_label"),clicks);
-        using var session=new ScreenWorkflowSession(routes,Window(),native,new EmptyOcr(),new MemoryStore());session.Start();
-        var start=DateTimeOffset.UnixEpoch;var refresh=new ScreenPrivateTheaterRefresh(session,()=>start);refresh.Start(start);
-        refresh.Tick(start);Assert.True(refresh.Tick(start.AddSeconds(2)),"page="+session.CurrentPage+"; step="+refresh.CurrentStep+"; failure="+refresh.Failure);
-        native.CurrentImage=Stamp(routes.Profile,"maint_tools_selected");
-        Assert.True(refresh.Tick(start.AddSeconds(4)));Assert.True(refresh.Tick(start.AddSeconds(6)));
-        Assert.True(refresh.Tick(start.AddSeconds(7)));Assert.Equal("game_tab_selected",refresh.CurrentStep);
-        Assert.False(refresh.Tick(start.AddSeconds(11)));
-        native.CurrentImage=Stamp(routes.Profile,"maint_tools_selected","bag_game_selected");
-        Assert.True(refresh.Tick(start.AddSeconds(12)));Assert.Equal("private_theater_item",refresh.CurrentStep);
-        Assert.Single(clicks);
-    }
-    [Fact] public void PrivateTheaterSelectedGameAnchorDistinguishesLiveCategoryFrames()
-    {
-        var root=RecognitionTests.Root();using var matcher=new TemplateMatcher(ScreenRoutes.Load(root).Profile);
-        RgbImage Read(string file)
-        {
-            using var bgr=OpenCvSharp.Cv2.ImRead(Path.Combine(root,"tests/fixtures/private-theater",file));
-            using var rgb=new OpenCvSharp.Mat();OpenCvSharp.Cv2.CvtColor(bgr,rgb,OpenCvSharp.ColorConversionCodes.BGR2RGB);
-            var pixels=new byte[rgb.Width*rgb.Height*3];System.Runtime.InteropServices.Marshal.Copy(rgb.Data,pixels,0,pixels.Length);
-            return new(rgb.Width,rgb.Height,pixels);
-        }
-        Assert.NotNull(matcher.Anchor(Read("game-selected-20261102.jpg"),"bag_game_selected"));
-        Assert.Null(matcher.Anchor(Read("game-unselected-20261102.jpg"),"bag_game_selected"));
+        Assert.True(session.CanReleaseForeground());Assert.Empty(native.Keys);
+        session.Pause("manual");Assert.False(session.CanReleaseForeground());
     }
     [Theory][InlineData("metal","metal_title","metal_equipment")][InlineData("metal","arrived_title","arrived_equipment")][InlineData("wood","preset_wood_title","preset_wood_equipment")]
     [InlineData("leather","preset_leather_title","preset_leather_equipment")][InlineData("fabric","preset_fabric_title","preset_fabric_equipment")]
@@ -425,6 +690,25 @@ public sealed class ScreenWorkflowSessionTests
         var port=session.CreateProductionPort(recipe.Key,"close",new MemoryStore());Assert.Equal(device+"_panel",port.Observe().Page);
         Assert.False(session.LastObservation!.View.NeedsDeviceArrival);port.Navigate("leave",recipe);
         Assert.True(new PixelBox(1222,20,1264,65).Contains(Assert.Single(clicks)));
+    }
+    [Theory][InlineData("metal")][InlineData("wood")][InlineData("leather")][InlineData("fabric")][InlineData("chemical")][InlineData("food")]
+    public void UnchangedProcessingMenuRetriesOnlyOnKnownOriginalPageAndStopsAfterTwoRetries(string deviceKey)
+    {
+        var routes=ScreenRoutes.Load(RecognitionTests.Root());routes.Configuration["notifications"]=new JsonObject();
+        routes.Profile.Definition.Remove("page_variants");routes.Profile.Definition.Remove("coordinate_control_targets");
+        var device=routes.Devices[deviceKey];var route=routes.Recipes.Values.First(r=>r.Device==deviceKey);
+        routes.Profile.Definition["pages"]=new JsonObject{
+            ["category_page"]=new JsonObject{["anchors"]=new JsonArray("scene_bag"),["coordinate_targets"]=new JsonObject{[device.CategoryTarget]=new JsonArray(240,245,320,290)}},
+            [device.QueuePage]=new JsonObject{["anchors"]=new JsonArray("scene_skills")}};
+        var clicks=new List<PixelPoint>();var native=new NoInputOps(Stamp(routes.Profile,"scene_bag"),clicks);var time=new RecoveryTime();
+        using var session=new ScreenWorkflowSession(routes,Window(),native,new EmptyOcr(),new MemoryStore());session.Start();
+        var recipe=new ProductionRecipe(route.Key,deviceKey,60);var port=new ScreenProductionPort(session,route.Key,"menu-retry",new MemoryStore(),time);
+        port.Observe();port.Navigate("queue_preview",recipe);Assert.Single(clicks);
+        time.Seconds+=4;port.Observe();port.Navigate("queue_preview",recipe);Assert.Single(clicks);
+        time.Seconds+=2;native.CurrentImage=new RgbImage(1280,960,new byte[1280*960*3]);port.Observe();port.Navigate("queue_preview",recipe);Assert.Single(clicks);
+        native.CurrentImage=Stamp(routes.Profile,"scene_bag");port.Observe();port.Navigate("queue_preview",recipe);Assert.Equal(2,clicks.Count);
+        time.Seconds+=5;port.Observe();port.Navigate("queue_preview",recipe);Assert.Equal(3,clicks.Count);
+        time.Seconds+=5;port.Observe();Assert.Throws<InputBlockedException>(()=>port.Navigate("queue_preview",recipe));Assert.Equal(3,clicks.Count);
     }
     [Fact] public void DeviceExitRetriesAreBoundedAndSuccessfulCloseReleasesPage()
     {
@@ -588,12 +872,17 @@ public sealed class ScreenWorkflowSessionTests
     {
         var routes=ScreenRoutes.Load(RecognitionTests.Root());routes.Configuration["notifications"]=new JsonObject();routes.Profile.Definition.Remove("page_variants");
         routes.Profile.Definition["pages"]=JsonNode.Parse("""{"scene":{"anchors":["scene_bag"]}}""");
-        var clicks=new List<PixelPoint>();var native=new NoInputOps(Stamp(routes.Profile,"scene_bag","travel.wing_quote_icon"),clicks);var ocr=new WingsOcr();var store=new MemoryStore();
+        var clicks=new List<PixelPoint>();var native=new NoInputOps(Stamp(routes.Profile,"scene_bag","travel.wing_quote_icon"),clicks);var ocr=new WingsOcr();var store=new MemoryStore();var settingsReads=0;
         using var session=new ScreenWorkflowSession(routes,Window(),native,ocr,new MemoryStore());session.Start();session.BeginNavigation("trip");
-        session.ConfigureTravel(store,()=>new JsonObject{["travel"]=new JsonObject{["auto_use_wings"]=enabled,["wing_reserve_min"]=(long)reserve}});
+        session.ConfigureTravel(store,()=>{settingsReads++;return new JsonObject{["travel"]=new JsonObject{["auto_use_wings"]=enabled,["wing_reserve_min"]=(long)reserve}};});
         native.OnPointerDown=()=>Assert.Equal("use_wings",store.Read()!["pending"]!["kind"]!.GetValue<string>());
-        Assert.Equal(sent,session.TryTravel());Assert.Equal(sent?1:0,clicks.Count);
-        if(sent){Assert.Equal(1,native.Captures);Assert.Equal(1,ocr.Calls);Assert.False(session.TryTravel());session.BeginNavigation("other-trip");Assert.True(session.TryTravel());Assert.Equal(2,clicks.Count);Assert.NotNull(store.Read()!["unresolved"]!["trip"]);}
+        Assert.Equal(sent,session.TryTravel());Assert.Equal(1,settingsReads);Assert.Equal(sent?1:0,clicks.Count);
+        if(sent)
+        {
+            Assert.Equal(1,native.Captures);Assert.Equal(1,ocr.Calls);Assert.False(session.TryTravel());
+            session.BeginNavigation("trip");Assert.True(session.TryTravel());Assert.Equal(2,clicks.Count);
+            Assert.Contains(store.Read()!["unresolved"]!.AsObject(),pair=>pair.Value!["navigation_id"]!.GetValue<string>()=="trip");
+        }
     }
     private sealed class WingsOcr:IOcrEngine
     {public int Calls;public OcrLine? Recognize(int width,int height,byte[] grayPixels){Calls++;return new("1/20",.99);}}
@@ -609,7 +898,63 @@ public sealed class ScreenWorkflowSessionTests
         for(var i=0;i<3;i++)Assert.False(session.TryTravel());
         Assert.Equal(1,ocr.Calls);Assert.Equal(use,store.Read()!["decisions"]!["trip"]!["use"]!.GetValue<bool>());
         native.CurrentImage=Stamp(routes.Profile,"scene_bag","travel.wing_quote_icon");session.BeginNavigation("next");session.TryTravel();Assert.Equal(2,ocr.Calls);
-        if(use){Assert.NotNull(store.Read()!["unresolved"]!["trip"]);Assert.Equal("use_wings",store.Read()!["pending"]!["kind"]!.GetValue<string>());}
+        if(use)
+        {
+            Assert.Contains(store.Read()!["unresolved"]!.AsObject(),pair=>pair.Value!["navigation_id"]!.GetValue<string>()=="trip");
+            Assert.Equal("use_wings",store.Read()!["pending"]!["kind"]!.GetValue<string>());
+        }
+    }
+    [Fact] public void ReusedNavigationIdGetsAFreshFirstQuoteDecision()
+    {
+        var routes=ScreenRoutes.Load(RecognitionTests.Root());routes.Configuration["notifications"]=new JsonObject();routes.Profile.Definition.Remove("page_variants");
+        routes.Profile.Definition["pages"]=JsonNode.Parse("""{"scene":{"anchors":["scene_bag"]}}""");
+        var clicks=new List<PixelPoint>();var native=new NoInputOps(Stamp(routes.Profile,"scene_bag","travel.wing_quote_icon"),clicks);var ocr=new DecreasingWingsOcr("10/20");var store=new MemoryStore();
+        using var session=new ScreenWorkflowSession(routes,Window(),native,ocr,new MemoryStore());session.Start();session.BeginNavigation("maintenance:maintenance");
+        session.ConfigureTravel(store,()=>new JsonObject{["travel"]=new JsonObject{["auto_use_wings"]=true,["wing_reserve_min"]=15L}});
+        Assert.False(session.TryTravel());Assert.False(session.TryTravel());Assert.Equal(1,ocr.Calls);Assert.Empty(clicks);
+        native.CurrentImage=Stamp(routes.Profile,"scene_bag","travel.wing_quote_icon");session.BeginNavigation("maintenance:maintenance");var reused=session.TryTravel();Assert.True(reused,store.Read()?.ToJsonString()??"null");Assert.Equal(2,ocr.Calls);Assert.Single(clicks);
+        var decision=store.Read()!["decisions"]!["maintenance:maintenance"]!;
+        Assert.True(decision["use"]!.GetValue<bool>());Assert.Equal(1,decision["cost"]!.GetValue<long>());
+        Assert.Equal(session.Scope.SessionId+":maintenance:maintenance@2",decision["instance"]!.GetValue<string>());
+    }
+    [Fact] public void WingReserveAcceptsIntLongAndParsedJsonWithoutLoweringReserve()
+    {
+        var sources=new (string Name,Func<long,JsonNode> Create)[]
+        {
+            ("int",value=>JsonValue.Create((int)value)),
+            ("long",value=>JsonValue.Create(value)),
+            ("json",value=>JsonNode.Parse(value.ToString(System.Globalization.CultureInfo.InvariantCulture))!)
+        };
+        foreach(var source in sources)
+        foreach(var reserve in new long[]{0,20})
+        {
+            var routes=ScreenRoutes.Load(RecognitionTests.Root());routes.Configuration["notifications"]=new JsonObject();routes.Profile.Definition.Remove("page_variants");
+            routes.Profile.Definition["pages"]=JsonNode.Parse("""{"scene":{"anchors":["scene_bag"]}}""");
+            var clicks=new List<PixelPoint>();var native=new NoInputOps(Stamp(routes.Profile,"scene_bag","travel.wing_quote_icon"),clicks);var ocr=new WingsOcr();
+            using var session=new ScreenWorkflowSession(routes,Window(),native,ocr,new MemoryStore());session.Start();session.BeginNavigation("trip");
+            session.ConfigureTravel(new MemoryStore(),()=>new JsonObject{["travel"]=new JsonObject{["auto_use_wings"]=true,["wing_reserve_min"]=source.Create(reserve)}});
+            var use=reserve==0;
+            Assert.True(use==session.TryTravel(),$"{source.Name} reserve {reserve}");
+            Assert.Equal(use?1:0,clicks.Count);
+            Assert.Equal(1,ocr.Calls);
+        }
+    }
+    [Theory][InlineData("string")][InlineData("fraction")][InlineData("parsed_fraction")]
+    public void MalformedWingReserveFailsClosedWithoutInput(string kind)
+    {
+        var routes=ScreenRoutes.Load(RecognitionTests.Root());routes.Configuration["notifications"]=new JsonObject();routes.Profile.Definition.Remove("page_variants");
+        routes.Profile.Definition["pages"]=JsonNode.Parse("""{"scene":{"anchors":["scene_bag"]}}""");
+        var clicks=new List<PixelPoint>();var native=new NoInputOps(Stamp(routes.Profile,"scene_bag","travel.wing_quote_icon"),clicks);var ocr=new WingsOcr();var store=new MemoryStore();
+        using var session=new ScreenWorkflowSession(routes,Window(),native,ocr,new MemoryStore());session.Start();session.BeginNavigation("trip");
+        JsonNode malformed=kind switch
+        {
+            "string"=>JsonValue.Create("0")!,
+            "fraction"=>JsonValue.Create(0.5)!,
+            "parsed_fraction"=>JsonNode.Parse("0.5")!,
+            _=>throw new ArgumentOutOfRangeException(nameof(kind))
+        };
+        session.ConfigureTravel(store,()=>new JsonObject{["travel"]=new JsonObject{["auto_use_wings"]=true,["wing_reserve_min"]=malformed}});
+        Assert.False(session.TryTravel());Assert.Empty(clicks);Assert.Equal(0,ocr.Calls);Assert.Null(store.Read());
     }
     private sealed class DecreasingWingsOcr(string first):IOcrEngine
     {public int Calls;public OcrLine? Recognize(int w,int h,byte[] pixels)=>new(++Calls==1?first:"1/20",.99);}
@@ -629,7 +974,7 @@ public sealed class ScreenWorkflowSessionTests
             var wait=System.Diagnostics.Stopwatch.StartNew();Assert.True(port.ObserveOnly().Stable);wait.Stop();
             var waitCaptures=native.Captures;var waitCaptureMs=native.CaptureMilliseconds;var waitOcr=ocr.Calls;
             long submit=0,delivered=0;var captureAtSubmit=0;var ocrAtSubmit=0;double captureMsAtSubmit=0;
-            native.OnPointerDown=()=>delivered=System.Diagnostics.Stopwatch.GetTimestamp();
+            native.OnKeyDown=key=>{if(key==32){Assert.DoesNotContain((ushort)87,native.HeldKeys);delivered=System.Diagnostics.Stopwatch.GetTimestamp();}};
             var movement=System.Diagnostics.Stopwatch.StartNew();
             port.MoveWhileObserving(new("move",Direction:"w",DurationSeconds:.06),frame=>
             {
@@ -637,11 +982,11 @@ public sealed class ScreenWorkflowSessionTests
                 store.Flush(new JsonObject{["pending"]=new JsonObject{["kind"]="start"}});
                 submit=System.Diagnostics.Stopwatch.GetTimestamp();port.Perform(new("start"));return true;
             });
-            movement.Stop();Assert.NotEqual(0,delivered);Assert.Single(clicks);Assert.Equal(waitCaptures,native.Captures);
+            movement.Stop();Assert.NotEqual(0,delivered);Assert.Empty(clicks);Assert.Equal(new ushort[]{87,32},native.Keys);Assert.Equal(waitCaptures,native.Captures);
             Assert.Equal(captureAtSubmit,native.Captures);Assert.Equal(ocrAtSubmit,ocr.Calls);Assert.Equal(0,ocr.Calls);
-            samples.Add(new JsonObject{["sample"]=sample,["wait_observe_ms"]=wait.Elapsed.TotalMilliseconds,["wait_capture_calls"]=waitCaptures,["wait_fake_capture_ms"]=waitCaptureMs,["wait_recognition_and_guard_ms"]=Math.Max(0,wait.Elapsed.TotalMilliseconds-waitCaptureMs),["wait_ocr_calls"]=waitOcr,["movement_to_release_ms"]=movement.Elapsed.TotalMilliseconds,["movement_capture_calls"]=native.Captures-waitCaptures,["movement_fake_capture_ms"]=captureMsAtSubmit-waitCaptureMs,["fixed_submit_to_fake_down_ms"]=System.Diagnostics.Stopwatch.GetElapsedTime(submit,delivered).TotalMilliseconds,["fixed_extra_capture_calls"]=native.Captures-captureAtSubmit,["fixed_extra_ocr_calls"]=ocr.Calls-ocrAtSubmit,["fake_pointer_down_calls"]=clicks.Count});
+            samples.Add(new JsonObject{["sample"]=sample,["wait_observe_ms"]=wait.Elapsed.TotalMilliseconds,["wait_capture_calls"]=waitCaptures,["wait_fake_capture_ms"]=waitCaptureMs,["wait_recognition_and_guard_ms"]=Math.Max(0,wait.Elapsed.TotalMilliseconds-waitCaptureMs),["wait_ocr_calls"]=waitOcr,["movement_to_release_ms"]=movement.Elapsed.TotalMilliseconds,["movement_capture_calls"]=native.Captures-waitCaptures,["movement_fake_capture_ms"]=captureMsAtSubmit-waitCaptureMs,["fixed_submit_to_fake_space_ms"]=System.Diagnostics.Stopwatch.GetElapsedTime(submit,delivered).TotalMilliseconds,["fixed_extra_capture_calls"]=native.Captures-captureAtSubmit,["fixed_extra_ocr_calls"]=ocr.Calls-ocrAtSubmit,["fake_pointer_down_calls"]=clicks.Count});
         }
-        var output=new JsonObject{["status"]="measured_offline",["at"]=DateTimeOffset.UtcNow.ToString("O"),["evidence"]="Stamped fixture, actual ScreenFishingPort/session/shared guard, in-memory durable store and fake background transport. No game or native touch delivery.",["limits"]="Recognition-and-guard is a residual segment including hashing and bookkeeping; fake capture is an in-memory return. Submission timing includes durable authority and guard until fake pointer-down, not OS/game delivery. Setup excluded; first sample includes JIT. No planner runs inside this callback; scheduler contention is not measured. No old baseline threshold.",["samples"]=samples};
+        var output=new JsonObject{["status"]="measured_offline",["at"]=DateTimeOffset.UtcNow.ToString("O"),["evidence"]="Stamped fixture, actual ScreenFishingPort/session/shared guard, in-memory durable store and fake background transport. No game or native touch delivery.",["limits"]="Recognition-and-guard is a residual segment including hashing and bookkeeping; fake capture is an in-memory return. Submission timing includes durable authority, movement, response interval and guard until fake Space key-down, not OS/game delivery. Setup excluded; first sample includes JIT. No planner runs inside this callback; scheduler contention is not measured. No old baseline threshold.",["samples"]=samples};
         var path=Path.Combine(RecognitionTests.Root(),"build/script-hotpath-current.json");Directory.CreateDirectory(Path.GetDirectoryName(path)!);File.WriteAllText(path,output.ToJsonString(new(){WriteIndented=true}));
     }
     [Theory][InlineData("none",false)][InlineData("compass",false)][InlineData("nav",false)][InlineData("wings",false)][InlineData("wing_without_quote",false)][InlineData("quote_without_wing",false)][InlineData("unknown",false)]
@@ -659,7 +1004,7 @@ public sealed class ScreenWorkflowSessionTests
         port.ObserveOnly();Assert.Equal(allowed,port.ObserveOnly().FishingButton);
         if(allowed){port.Perform(new("start"));Assert.Single(clicks);}else{Assert.Throws<InputRejectedBeforeDispatchException>(()=>port.Perform(new("start")));Assert.Empty(clicks);}
     }
-    [Fact] public void FixedCastAfterLightTapReleasesKeyBeforeClickAndKeepsDurableDeduplication()
+    [Fact] public void FixedCastAfterLightTapReleasesKeyBeforeSpaceAndKeepsDurableDeduplication()
     {
         var routes=ScreenRoutes.Load(RecognitionTests.Root());routes.Configuration["notifications"]=new JsonObject();
         routes.Profile.Definition.Remove("page_variants");routes.Profile.Definition.Remove("coordinate_control_targets");
@@ -669,13 +1014,17 @@ public sealed class ScreenWorkflowSessionTests
         using var session=new ScreenWorkflowSession(routes,Window(),native,new EmptyOcr(),new MemoryStore());session.Start();
         var store=new MemoryStore();var port=session.CreateFishingPort("point_fishing_00","f",store);
         port.ObserveOnly();port.ObserveOnly();var captures=native.Captures;
-        native.OnPointerDown=()=>Assert.Empty(native.HeldKeys);
+        native.OnKeyDown=key=>{if(key==32)Assert.DoesNotContain((ushort)87,native.HeldKeys);};
         port.MoveWhileObserving(new("move",Direction:"w",DurationSeconds:.06),frame=>{Assert.True(frame.FishingButton);store.Flush(new JsonObject{["pending"]=new JsonObject{["kind"]="start"}});port.Perform(new("start"));return true;});
-        Assert.Single(clicks);Assert.Equal(new ushort[]{87},native.Keys);Assert.Equal(captures,native.Captures);
+        Assert.Empty(clicks);Assert.Equal(new ushort[]{87,32},native.Keys);Assert.Equal(captures,native.Captures);
         Assert.Empty(native.HeldKeys);
         Assert.Throws<InputBlockedException>(()=>port.MoveWhileObserving(new("move",Direction:"s",DurationSeconds:2),_=>true));
+        Assert.Equal(new ushort[]{87,32},native.Keys);Assert.Equal(captures,native.Captures);
         Assert.Throws<InputRejectedBeforeDispatchException>(()=>port.MoveWhileObserving(new("move",Direction:"s",DurationSeconds:.06),_=>{port.Perform(new("start"));return true;}));
-        Assert.Single(clicks);Assert.False(session.Guard.Paused);
+        Assert.Equal(new ushort[]{87,32},native.Keys);Assert.Empty(clicks);
+        session.Pause();
+        Assert.Throws<InputBlockedException>(()=>port.MoveWhileObserving(new("move",Direction:"s",DurationSeconds:.06),_=>true));
+        Assert.Equal(new ushort[]{87,32},native.Keys);Assert.Equal(captures,native.Captures);Assert.Empty(clicks);Assert.True(session.Guard.Paused);
     }
     [Fact] public void FullBackpackToastIsForwardedToMaintenanceOnlyFromStableCurrentFrame()
     {
@@ -729,7 +1078,7 @@ public sealed class ScreenWorkflowSessionTests
             Assert.True(frame.FishingButton);Assert.Equal(new PixelBox(1175,860,1235,915),session.LastObservation!.View.TargetRegions!["fishing.start"]);
             port.Perform(new("start"));return true;
         });
-        Assert.Single(clicks);Assert.Contains((ushort)87,native.Keys);
+        Assert.Empty(clicks);Assert.Equal(new ushort[]{87,32},native.Keys);
         var afterCast=port.ObserveOnly();Assert.False(afterCast.FishingButton);Assert.False(afterCast.RoundActive);Assert.Equal("scene",afterCast.Page);
         Assert.NotNull(store.Read()!["pending"]);
         native.CurrentImage=Stamp(routes.Profile,"scene_bag","maint_scene_map","fishing_hook");
@@ -737,7 +1086,8 @@ public sealed class ScreenWorkflowSessionTests
         native.CurrentImage=Stamp(routes.Profile,"scene_bag","maint_scene_map");Assert.True(port.ObserveOnly().RoundActive);
         time.Seconds=1.1;Assert.False(port.ObserveOnly().RoundActive);
     }
-    [Fact] public void MidGaugeHookMissCannotEndRoundOrSendAnotherCast()
+    [Theory][InlineData(true)][InlineData(false)]
+    public void MidGaugeHookMissCannotEndRoundOrSendAnotherCast(bool firstHookVisible)
     {
         var routes=ScreenRoutes.Load(RecognitionTests.Root());routes.Configuration["notifications"]=new JsonObject();
         routes.Profile.Definition.Remove("page_variants");routes.Profile.Definition.Remove("coordinate_control_targets");
@@ -752,17 +1102,20 @@ public sealed class ScreenWorkflowSessionTests
         }
         var clicks=new List<PixelPoint>();var native=new NoInputOps(Frame(false,null),clicks);var time=new RecoveryTime();
         using var session=new ScreenWorkflowSession(routes,Window(),native,new EmptyOcr(),new MemoryStore());session.Start();
-        var store=new MemoryStore();var port=new ScreenFishingPort(session,"point_fishing_00","f",store,time);
-        var runner=new IdleFishingRunner(new("point_fishing_00",60),port,store);var state=runner.Snapshot();state["phase"]="refresh";store.Flush(state);
-        runner=new(new("point_fishing_00",60),port,store);runner.Resume();runner.Tick();Assert.Single(clicks);
-        native.CurrentImage=Frame(true,65);runner.Tick();Assert.True(runner.Snapshot()["round_seen"]!.GetValue<bool>());
+        var store=new MemoryStore();var port=new ScreenFishingPort(session,FishingPlan.CurrentLocation,"f",store,time);
+        var runner=new IdleFishingRunner(new(FishingPlan.CurrentLocation,60),port,store);
+        runner.Tick();Assert.Empty(clicks);Assert.Single(native.Keys,k=>k==32);
+        native.CurrentImage=Frame(false,0);runner.Tick();
+        Assert.Null(port.LastFrame!.Gauge);Assert.False(port.LastFrame.RoundActive);
+        Assert.Equal(0,runner.Snapshot()["submitted"]!.GetValue<int>());Assert.NotNull(runner.Snapshot()["pending"]);Assert.Empty(clicks);Assert.Single(native.Keys,k=>k==32);
+        native.CurrentImage=Frame(firstHookVisible,65);runner.Tick();Assert.Equal(.65,port.LastFrame!.Gauge);Assert.True(runner.Snapshot()["round_seen"]!.GetValue<bool>());
         native.CurrentImage=Frame(false,50);time.Seconds=3;runner.Tick();
         Assert.Equal(.5,port.LastFrame!.Gauge);Assert.True(port.LastFrame.RoundActive);Assert.False(port.LastFrame.Compass);
-        Assert.Equal(0,runner.Snapshot()["completed"]!.GetValue<int>());Assert.Single(clicks);
+        Assert.Equal(0,runner.Snapshot()["completed"]!.GetValue<int>());Assert.Empty(clicks);Assert.Single(native.Keys,k=>k==32);
         native.CurrentImage=Frame(false,null);runner.Tick();Assert.True(port.LastFrame!.RoundActive);
         native.CurrentImage=new(1280,960,new byte[1280*960*3]);time.Seconds=4;runner.Tick();
         native.CurrentImage=Frame(false,null);time.Seconds=5;runner.Tick();Assert.True(port.LastFrame!.RoundActive);
-        time.Seconds=6.1;runner.Tick();Assert.Equal(1,runner.Snapshot()["completed"]!.GetValue<int>());Assert.Single(clicks);
+        time.Seconds=6.1;runner.Tick();Assert.Equal(1,runner.Snapshot()["completed"]!.GetValue<int>());Assert.Empty(clicks);Assert.Single(native.Keys,k=>k==32);
         Assert.Equal("refresh",runner.Snapshot()["phase"]!.GetValue<string>());Assert.Null(runner.Snapshot()["pending"]);
     }
     [Fact] public void DispatchedFishingTravelDoesNotReopenNavigationBeforeTaskIsObserved()
@@ -774,13 +1127,14 @@ public sealed class ScreenWorkflowSessionTests
         var clicks=new List<PixelPoint>();var native=new NoInputOps(Stamp(routes.Profile,"scene_bag"),clicks);
         var store=new MemoryStore(new JsonObject{["status"]="running"});
         using var session=new ScreenWorkflowSession(routes,Window(),native,new EmptyOcr(),new MemoryStore());session.Start();
-        var port=session.CreateFishingPort("point_fishing_00","f",store);port.Observe();port.Observe();port.Perform(new("navigate","point_fishing_00"));
+        var time=new RecoveryTime();var port=new ScreenFishingPort(session,"point_fishing_00","f",store,time);port.Observe();port.Observe();port.Perform(new("navigate","point_fishing_00"));
         Assert.Single(clicks);native.CurrentImage=Stamp(routes.Profile,"scene_skills");
         Assert.Null(port.Observe().NavigationActive);Assert.Null(port.Observe().NavigationActive);
         Assert.Single(clicks);Assert.NotNull(session.CurrentNavigationId);
-        native.CurrentImage=Stamp(routes.Profile,"scene_skills","fishing_navigation_task");Assert.True(port.Observe().NavigationActive);
-        native.CurrentImage=Stamp(routes.Profile,"scene_skills");Assert.False(port.Observe().NavigationActive);Assert.False(port.Observe().NavigationActive);
-        Assert.Single(clicks);Assert.Null(session.CurrentNavigationId);
+        native.CurrentImage=Stamp(routes.Profile,"scene_skills","fishing_navigation_task");time.Seconds=1;Assert.True(port.Observe().NavigationActive);
+        native.CurrentImage=Stamp(routes.Profile,"scene_skills");time.Seconds=2;Assert.Null(port.Observe().NavigationActive);time.Seconds=5;Assert.False(port.Observe().NavigationActive);
+        Assert.True(port.CanResumeAtPoint);Assert.Null(session.CurrentNavigationId);session.BeginNavigation("other");Assert.False(port.CanResumeAtPoint);
+        Assert.Single(clicks);
     }
     [Theory][InlineData(false)][InlineData(true)]
     public void FishingMenuWaitRetriesOnlyOriginalPageAndStopsAtBound(bool unexpectedPage)
@@ -815,8 +1169,10 @@ public sealed class ScreenWorkflowSessionTests
         port.Observe();Assert.Equal("character_life_skills",session.CurrentPage);var captures=native.Captures;
         port.Perform(new("navigate","point_fishing_00"));Assert.Equal(captures,native.Captures);Assert.Equal(3,native.WheelDeltas.Count);
         for(var i=0;i<11;i++)port.Observe();
-        Assert.Equal(36,native.WheelDeltas.Count);Assert.All(native.WheelDeltas,delta=>Assert.Equal(-120,delta));Assert.Throws<TimeoutException>(()=>port.Observe());
-        port.Observe();Assert.Equal(36,native.WheelDeltas.Count);Assert.False(session.Guard.Paused);
+        Assert.Equal(36,native.WheelDeltas.Count);Assert.All(native.WheelDeltas,delta=>Assert.Equal(-120,delta));
+        for(var i=12;i<ScreenWorkflowSession.ListSearchLimit;i++)port.Observe();
+        Assert.All(native.WheelDeltas.Skip(36),delta=>Assert.Equal(120,delta));Assert.Throws<TimeoutException>(()=>port.Observe());
+        port.Observe();Assert.Equal(ScreenWorkflowSession.ListSearchLimit*3,native.WheelDeltas.Count);Assert.False(session.Guard.Paused);
     }
     [Fact] public void FishingMenuAdvancesOnExpectedPageWithoutRetryingPreviousClick()
     {
@@ -1108,6 +1464,75 @@ public sealed class ScreenWorkflowSessionTests
     {
         var pixels=new byte[1280*960*3];foreach(var name in names){var t=profile.Templates[name];var source=t.Image.CopyPixels();for(var y=0;y<t.Image.Height;y++)Array.Copy(source,y*t.Image.Width*3,pixels,((t.Box.Top+y)*1280+t.Box.Left)*3,t.Image.Width*3);}return new(1280,960,pixels);
     }
+    private static RgbImage StampShifted(NavigationProfile profile,string name,int dx,int dy,params string[] names)
+    {
+        var pixels=new byte[1280*960*3];
+        void Paste(string n,int x,int y){var t=profile.Templates[n];var source=t.Image.CopyPixels();for(var row=0;row<t.Image.Height;row++)Array.Copy(source,row*t.Image.Width*3,pixels,((t.Box.Top+y+row)*1280+t.Box.Left+x)*3,t.Image.Width*3);}
+        Paste(name,dx,dy);foreach(var n in names)Paste(n,0,0);
+        return new(1280,960,pixels);
+    }
+    [Fact] public void WingsUseBoxFollowsShiftedHudIcon()
+    {
+        var routes=ScreenRoutes.Load(RecognitionTests.Root());routes.Configuration["notifications"]=new JsonObject();routes.Profile.Definition.Remove("page_variants");
+        routes.Profile.Definition["pages"]=JsonNode.Parse("""{"scene":{"anchors":["scene_bag"]}}""");
+        // The panel moves with its icon when the quote gains digits; a fixed screen
+        // box would land beside the button.
+        const int shiftX=18,shiftY=12;
+        var clicks=new List<PixelPoint>();var native=new NoInputOps(StampShifted(routes.Profile,"travel.wing_quote_icon",shiftX,shiftY,"scene_bag"),clicks);
+        using var session=new ScreenWorkflowSession(routes,Window(),native,new WingsOcr(),new MemoryStore());session.Start();session.BeginNavigation("trip");
+        session.ConfigureTravel(new MemoryStore(),()=>new JsonObject{["travel"]=new JsonObject{["auto_use_wings"]=true,["wing_reserve_min"]=0L}});
+        var use=NavigationProfile.ReadBox(routes.Configuration["travel_wings"]!["use_box"]!);
+        var expected=new PixelBox(use.Left+shiftX,use.Top+shiftY,use.Right+shiftX,use.Bottom+shiftY);
+        var observed=session.Observe();
+        Assert.Equal(expected,observed.View.TargetRegions!["travel.use_wings"]);
+        Assert.Equal(expected.Center,observed.View.Targets["travel.use_wings"]);
+        Assert.True(session.TryTravel());
+        var click=Assert.Single(clicks);
+        Assert.True(expected.Contains(click));
+        Assert.True(Math.Abs(click.X-expected.Center.X)<=Math.Max(1,(int)Math.Floor(expected.Width*.3)));
+        Assert.True(Math.Abs(click.Y-expected.Center.Y)<=Math.Max(1,(int)Math.Floor(expected.Height*.3)));
+    }
+    [Fact] public void WingsIconOutsideItsSearchWindowProducesNoClick()
+    {
+        var routes=ScreenRoutes.Load(RecognitionTests.Root());routes.Configuration["notifications"]=new JsonObject();routes.Profile.Definition.Remove("page_variants");
+        routes.Profile.Definition["pages"]=JsonNode.Parse("""{"scene":{"anchors":["scene_bag"]}}""");
+        // Far enough that the icon leaves its calibrated search window: no anchor,
+        // so no target and no guessed click.
+        var clicks=new List<PixelPoint>();var native=new NoInputOps(StampShifted(routes.Profile,"travel.wing_quote_icon",60,0,"scene_bag"),clicks);
+        using var session=new ScreenWorkflowSession(routes,Window(),native,new WingsOcr(),new MemoryStore());session.Start();session.BeginNavigation("trip");
+        session.ConfigureTravel(new MemoryStore(),()=>new JsonObject{["travel"]=new JsonObject{["auto_use_wings"]=true,["wing_reserve_min"]=0L}});
+        Assert.DoesNotContain("travel.use_wings",session.Observe().View.Targets.Keys);
+        Assert.False(session.TryTravel());Assert.Empty(clicks);
+    }
+    [Fact] public void WingsUseBoxIsRejectedWhenTheShiftLeavesTheClientArea()
+    {
+        var routes=ScreenRoutes.Load(RecognitionTests.Root());routes.Configuration["notifications"]=new JsonObject();routes.Profile.Definition.Remove("page_variants");
+        var native=new NoInputOps(Stamp(routes.Profile,"scene_bag"));using var session=new ScreenWorkflowSession(routes,Window(),native,new EmptyOcr(),new MemoryStore());session.Start();session.Observe();
+        var spec=routes.Profile.Templates["travel.wing_quote_icon"];
+        var use=NavigationProfile.ReadBox(routes.Configuration["travel_wings"]!["use_box"]!);
+        var hit=new TemplateHit("travel.wing_quote_icon",.99,new PixelBox(1240,spec.Box.Top,1268,spec.Box.Bottom),"sha");
+        // dx would push the declared button past the right edge; a clamped click is
+        // worse than no click, so the target is dropped for this frame.
+        Assert.Null(session.AnchoredBox("travel.wing_quote_icon",hit,use));
+    }
+    [Theory][InlineData(96)][InlineData(144)]
+    public void WingsUseBoxScalesWithClientPixelsForEitherReportedDpi(int dpi)
+    {
+        var routes=ScreenRoutes.Load(RecognitionTests.Root());routes.Configuration["notifications"]=new JsonObject();routes.Profile.Definition.Remove("page_variants");
+        var state=Window() with{Geometry=new(0,0,1600,1200,dpi),WindowRect=new(0,0,1600,1200)};
+        var native=new NoInputOps(new RgbImage(1600,1200,new byte[1600*1200*3])){State=state};
+        using var session=new ScreenWorkflowSession(routes,state,native,new EmptyOcr(),new MemoryStore());session.Start();session.Observe();
+        var layout=ReviewedLayout.For(1600,1200,dpi);var spec=routes.Profile.Templates["travel.wing_quote_icon"];
+        var icon=layout.SearchBox(spec.Box);
+        var hit=new TemplateHit("travel.wing_quote_icon",.99,new PixelBox(icon.Left+10,icon.Top+6,icon.Right+10,icon.Bottom+6),"sha");
+        var use=NavigationProfile.ReadBox(routes.Configuration["travel_wings"]!["use_box"]!);
+        var scaled=layout.SearchBox(use);
+        var box=session.AnchoredBox("travel.wing_quote_icon",hit,use);
+        // Captures are already physical client pixels, so the same client size gives
+        // the same box at 96 and 144 dpi; dpi changes are handled by the guard.
+        Assert.True(box.HasValue);
+        Assert.Equal(new PixelBox(scaled.Left+10,scaled.Top+6,scaled.Right+10,scaled.Bottom+6),box.Value);
+    }
     [Theory] [InlineData("craft_unavailable")] [InlineData("materials_unknown")] [InlineData("device_full")] [InlineData("device_batch_not_ready")]
     public void LocalPauseDoesNotStopSharedGuardOrClearManualPause(string reason)
     {
@@ -1266,6 +1691,19 @@ public sealed class ScreenWorkflowSessionTests
         if(quantity is null)Assert.True(frame.TransferAvailable);else {Assert.True(frame.TransferDialog);Assert.Equal(quantity,frame.DialogQuantity);}
         Assert.Null(frame.Available);Assert.Null(frame.BagQuantity);
     }
+    [Fact] public void CurrentBottleTransferFindsShiftedExactTitleAndQuantity()
+    {
+        var root=RecognitionTests.Root();var routes=ScreenRoutes.Load(root);
+        using var bgr=OpenCvSharp.Cv2.ImRead(Path.Combine(root,"tests/fixtures/production/storage-bottle-transfer-current.jpg"));using var rgb=new OpenCvSharp.Mat();
+        OpenCvSharp.Cv2.CvtColor(bgr,rgb,OpenCvSharp.ColorConversionCodes.BGR2RGB);var pixels=new byte[rgb.Width*rgb.Height*3];System.Runtime.InteropServices.Marshal.Copy(rgb.Data,pixels,0,pixels.Length);
+        using var ocr=new OnnxTextRecognizer(Path.Combine(root,"models",OnnxTextRecognizer.DefaultModelFileName));
+        using var session=new ScreenWorkflowSession(routes,Window(),new NoInputOps(new RgbImage(rgb.Width,rgb.Height,pixels)),ocr,new MemoryStore());session.Start();
+        session.SetVerifiedOwnerResolver(()=>new("capture","24081432","25251211640832"));
+        var plan=new WithdrawalPlan(1202292919,"空瓶",20,"character:[\"24081432\",\"25251211640832\"]");var frame=session.CreateStoragePort(plan,"bottle",new MemoryStore()).Observe();
+        Assert.Equal("storage_transfer",frame.Page);Assert.Equal(plan.Scope,frame.Scope);Assert.Equal(plan.ItemId,frame.ItemId);Assert.True(frame.TransferDialog);Assert.Equal(1,frame.DialogQuantity);
+        var wrong=plan with{ItemId=985189850,Name="樹枝"};var rejected=session.CreateStoragePort(wrong,"wrong",new MemoryStore()).Observe();
+        Assert.Equal("storage_transfer",rejected.Page);Assert.Null(rejected.ItemId);Assert.False(rejected.TransferDialog);
+    }
     [Fact] public void InnRoomExitUsesMapButtonWhileTownSceneNeedsNoExtraExit()
     {
         var routes=ScreenRoutes.Load(RecognitionTests.Root());routes.Configuration["notifications"]=new JsonObject();
@@ -1274,6 +1712,10 @@ public sealed class ScreenWorkflowSessionTests
         var clicks=new List<PixelPoint>();var native=new NoInputOps(Stamp(routes.Profile,"scene_bag","storage_room_exit_icon"),clicks);
         using var session=new ScreenWorkflowSession(routes,Window(),native,new EmptyOcr(),new MemoryStore());session.Start();
         var port=session.CreateMaintenancePort("room-exit",new MemoryStore());port.Observe();Assert.False(port.ReleaseNavigation());Assert.Single(clicks);
+        Assert.True(port.LastReleaseDispatched);Assert.True(port.ReleaseWaiting);
+        Assert.False(port.ReleaseNavigation());Assert.Single(clicks);Assert.False(port.LastReleaseDispatched);
+        native.CurrentImage=new RgbImage(1280,960,new byte[1280*960*3]);port.Observe();
+        Assert.False(port.ReleaseNavigation());Assert.True(port.ReleaseWaiting);Assert.False(port.LastReleaseDispatched);
         Assert.True(new PixelBox(1220,8,1275,60).Contains(clicks[0]));
         native.CurrentImage=Stamp(routes.Profile,"scene_skills");Thread.Sleep(320);port.Observe();Assert.False(port.ReleaseNavigation());Assert.Equal(2,clicks.Count);
         native.CurrentImage=Stamp(routes.Profile,"scene_bag");port.Observe();Assert.True(port.ReleaseNavigation());Assert.Equal(2,clicks.Count);Assert.Empty(native.Keys);
@@ -1326,6 +1768,27 @@ public sealed class ScreenWorkflowSessionTests
         Assert.Equal(plan.Scope,port.Observe().Scope);port.Perform(new("locate",plan.ItemId,plan.Name,plan.Quantity,plan.Scope,0));
         Assert.Equal(3,native.WheelDeltas.Count);Assert.All(native.WheelDeltas,x=>Assert.Equal(-120,x));
     }
+    [Fact] public void SharedListSearchCoversBothSidesOfRetainedOffsetAndStopsAtLimit()
+    {
+        var routes=ScreenRoutes.Load(RecognitionTests.Root());routes.Configuration["notifications"]=new JsonObject();
+        routes.Profile.Definition.Remove("page_variants");routes.Profile.Definition.Remove("coordinate_control_targets");
+        routes.Profile.Definition["pages"]=JsonNode.Parse("""{"storage_character":{"anchors":["scene_bag"],"surfaces":{"storage.canvas":[50,280,625,850]}}}""");
+        var native=new NoInputOps(Stamp(routes.Profile,"scene_bag"),[]);
+        using var session=new ScreenWorkflowSession(routes,Window(),native,new EmptyOcr(),new MemoryStore());session.Start();
+        var plan=new WithdrawalPlan(198875762,"鐵礦石",1,"character_storage");var port=session.CreateStoragePort(plan,"search-both",new MemoryStore());
+        var frame=port.Observe();var pass=frame.LocateLimit/3;
+        Assert.True(frame.LocateIntervalSeconds>=1.2);
+        for(var i=0;i<frame.LocateLimit;i++)
+        {
+            port.Observe();var captures=native.Captures;
+            port.Perform(new("locate",plan.ItemId,plan.Name,1,plan.Scope,i));Assert.Equal(captures,native.Captures);
+        }
+        Assert.Equal(frame.LocateLimit*3,native.WheelDeltas.Count);
+        Assert.All(native.WheelDeltas.Take(pass*3),delta=>Assert.Equal(-120,delta));
+        Assert.All(native.WheelDeltas.Skip(pass*3),delta=>Assert.Equal(120,delta));
+        Assert.Throws<InputBlockedException>(()=>port.Perform(new("locate",plan.ItemId,plan.Name,1,plan.Scope,frame.LocateLimit)));
+        Assert.Empty(native.Keys);
+    }
     [Fact] public void CaptureStorageScopesRequireMatchingVerifiedOwner()
     {
         var owner=new SessionScope("s","account-a","character-b");
@@ -1349,8 +1812,8 @@ public sealed class ScreenWorkflowSessionTests
         Assert.NotNull(s.VerifiedOwner);s.SetVerifiedOwnerResolver(()=>null);Assert.Null(s.VerifiedOwner);
         s.SetVerifiedOwnerResolver(()=>new("current","account","character"));Assert.Equal("current",s.VerifiedOwner!.SessionId);Assert.Equal("session",s.Scope.SessionId);
     }
-    [Theory][InlineData(false)][InlineData(true)]
-    public void GatheringCompletesOnlyAfterBoundStableLabelsDisappearOnScene(bool witnessedTask)
+    [Theory][InlineData(false,"iron_ore_nearby")][InlineData(true,"iron_ore_nearby")][InlineData(true,"point_daily_00")]
+    public void GatheringCompletesOnlyAfterBoundStableLabelsDisappearOnScene(bool witnessedTask,string routeKey)
     {
         var routes=ScreenRoutes.Load(RecognitionTests.Root());routes.Configuration["notifications"]=new JsonObject();
         routes.Profile.Definition.Remove("page_variants");routes.Profile.Definition.Remove("coordinate_control_targets");
@@ -1358,20 +1821,23 @@ public sealed class ScreenWorkflowSessionTests
         routes.Configuration["gathering_observer"]!["completion_idle_seconds"]=0;routes.Configuration["gathering_observer"]!["completion_idle_observations"]=2;
         var native=new NoInputOps(Stamp(routes.Profile,"scene_bag","maint_scene_map"));
         using var session=new ScreenWorkflowSession(routes,Window(),native,new EmptyOcr(),new MemoryStore());session.Start();
-        session.SavePortState("gathering:observed",new JsonObject{["started"]=true,["action_id"]="a",["session"]=session.Scope.SessionId});
-        var port=session.CreateGatheringPort("iron_ore_nearby","observed",new MemoryStore());
-        var route=new GatheringRoute("iron_ore_nearby",198875762,"mining","iron");
+        session.SavePortState("gathering:observed",new JsonObject{["started"]=true,["action_id"]="a",["session"]=session.Scope.SessionId,["awaiting_task_until"]=DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()/1000d+300});
+        var port=session.CreateGatheringPort(routeKey,"observed",new MemoryStore());
+        var route=new RuntimeCatalog(routes.Configuration).Gathering[routeKey];
+        session.BeginNavigation("gathering:observed",300);
         port.ObserveOnly(route,"a");port.ObserveOnly(route,"a");Assert.NotEqual("complete",port.ObserveOnly(route,"a").TaskStatus);
         if(witnessedTask)
         {
             native.CurrentImage=Stamp(routes.Profile,"scene_bag","maint_scene_map","gathering_observer.task_title","gathering_observer.iron_vein_objective");
             Assert.Equal("active",port.ObserveOnly(route,"a").TaskStatus);
+            Assert.Equal("gathering:observed",session.CurrentNavigationId);
             native.CurrentImage=Stamp(routes.Profile,"scene_bag","maint_scene_map","gathering_observer.task_title");
             Assert.Equal("active",port.ObserveOnly(route,"a").TaskStatus);
         }
         native.CurrentImage=Stamp(routes.Profile,"scene_bag","maint_scene_map");
         var absent=port.ObserveOnly(route,"a");Assert.NotEqual("complete",absent.TaskStatus);
         absent=port.ObserveOnly(route,"a");Assert.Equal(witnessedTask?"complete":"unknown",absent.TaskStatus);
+        Assert.Equal(witnessedTask?null:"gathering:observed",session.CurrentNavigationId);
     }
     [Fact] public void GatheringNavigationScrollsSkillListWhenPointIsOffscreen()
     {
@@ -1386,6 +1852,16 @@ public sealed class ScreenWorkflowSessionTests
         native.CurrentImage=Stamp(routes.Profile,"preset_catalog_point_daily_05_node","preset_gathering_close");
         port.ObserveOnly(route,"scroll");var captures=native.Captures;port.Navigate(route);
         Assert.Equal(3,native.WheelDeltas.Count);Assert.Equal(captures,native.Captures);Assert.Single(clicks);
+    }
+    [Fact] public void CurrentWoolSelectionClicksOrdinarySheepWithoutScrolling()
+    {
+        var routes=ScreenRoutes.Load(RecognitionTests.Root());routes.Configuration["notifications"]=new JsonObject();
+        var clicks=new List<PixelPoint>();var native=new NoInputOps(GatheringLabelRecognitionTests.WoolFrame(),clicks);
+        using var session=new ScreenWorkflowSession(routes,Window(),native,new EmptyOcr(),new MemoryStore());session.Start();
+        var route=new RuntimeCatalog(routes.Configuration).Gathering["point_wool_00"];
+        var port=session.CreateGatheringPort(route.Key,"wool-selection",new MemoryStore());
+        Assert.Equal("wool_nodes",port.ObserveOnly(route,"wool-selection").Page);port.Navigate(route);
+        Assert.Empty(native.WheelDeltas);var point=Assert.Single(clicks);Assert.InRange(point.X,803,834);Assert.InRange(point.Y,609,643);
     }
     [Fact] public void GatheringNavigationScrollsLifeSkillPageWhenSkillIsOffscreen()
     {
@@ -1414,16 +1890,37 @@ public sealed class ScreenWorkflowSessionTests
         ops.Minimized=false;session.ResumeExplicit();Assert.False(session.Guard.Paused);Assert.True(session.Observe().Stable);Assert.Equal(0,activate);
     }
     private sealed class EmptyOcr:IOcrEngine{public int Calls;public OcrLine? Recognize(int width,int height,byte[] grayPixels){Calls++;return null;}}
+    private sealed class FadeMenuLabelOcr:IColorOcrEngine
+    {
+        static readonly OcrLine Line=new("變更外貌/重生",.99);
+        public bool Enabled=true;
+        public OcrLine? Recognize(int width,int height,byte[] grayPixels)=>Enabled?Line:null;
+        public OcrLine? RecognizeRgb(RgbImage image)=>Enabled?Line:null;
+    }
+    private sealed class MenuLabelOcr:IColorOcrEngine
+    {
+        static readonly OcrLine Line=new("變更外貌/重生",.99);
+        public OcrLine? Recognize(int width,int height,byte[] grayPixels)=>Line;
+        public OcrLine? RecognizeRgb(RgbImage image)=>Line;
+    }
+    // Same label for every search crop, but not for the 220x84 entry probe (height 84), so the
+    // "menu already closed" branch is reachable while the menu itself still reads.
+    private sealed class WideMenuOcr:IColorOcrEngine
+    {
+        static readonly OcrLine Line=new("變更外貌/重生",.99);
+        public OcrLine? Recognize(int width,int height,byte[] grayPixels)=>Line;
+        public OcrLine? RecognizeRgb(RgbImage image)=>image.Height<=60?Line:null;
+    }
     private sealed class MemoryStore(JsonObject? initial=null):IWorkflowStore
     {private JsonObject? value=initial;public int Writes;public bool Fail;public JsonObject? Read()=>value is null?null:(JsonObject)value.DeepClone();public void Flush(JsonObject state){if(Fail)throw new IOException("disk");Writes++;value=(JsonObject)state.DeepClone();}}
     private sealed class NoInputOps(RgbImage? image=null,List<PixelPoint>? clicks=null):INativeWindowsOps,IGuardedWindowTransport
     {
-        public RgbImage? CurrentImage;public Func<int,RgbImage>? CaptureFrame;
-        public double CaptureMilliseconds;public Action? OnPointerDown;public HashSet<ushort> HeldKeys=[];
+        public RgbImage? CurrentImage;public Func<int,RgbImage>? CaptureFrame;public NativeWindowState? State;
+        public double CaptureMilliseconds;public Action? OnPointerDown;public Action<ushort>? OnKeyDown;public HashSet<ushort> HeldKeys=[];
         public bool Background,Minimized;public nint OtherForeground=99;public int Captures;public List<ushort> Keys {get;}=[];public bool RequiresForeground=>!Background;public void BindGuard(ForegroundInputGuard guard){}
         private PixelPoint point;public int Wheels;public List<int> WheelDeltas {get;}=[];
-        public NativeWindowState ReadWindow(nint hwnd)=>Window() with{ForegroundId=Background?OtherForeground:1,Minimized=Minimized};public RgbImage CaptureClient(NativeWindowState state){var began=System.Diagnostics.Stopwatch.GetTimestamp();Captures++;var result=CaptureFrame?.Invoke(Captures)??CurrentImage??image??throw new InvalidOperationException("no capture in construction tests");CaptureMilliseconds+=System.Diagnostics.Stopwatch.GetElapsedTime(began).TotalMilliseconds;return result;}
-        public void MoveClient(nint hwnd,PixelPoint position){if(clicks is null)throw new InvalidOperationException("no input");point=position;}public void MouseButton(MouseButton button,bool down){if(clicks is null)throw new InvalidOperationException("no input");if(down){OnPointerDown?.Invoke();clicks.Add(point);}}public void Wheel(int delta){if(clicks is null)throw new InvalidOperationException("no input");Wheels++;WheelDeltas.Add(delta);}public void Key(ushort key,bool down,bool unicode=false){if(down){Keys.Add(key);HeldKeys.Add(key);}else HeldKeys.Remove(key);}public bool AnyPhysicalKeyDown()=>false;
+        public NativeWindowState ReadWindow(nint hwnd)=>State??(Window() with{ForegroundId=Background?OtherForeground:1,Minimized=Minimized});public RgbImage CaptureClient(NativeWindowState state){var began=System.Diagnostics.Stopwatch.GetTimestamp();Captures++;var result=CaptureFrame?.Invoke(Captures)??CurrentImage??image??throw new InvalidOperationException("no capture in construction tests");CaptureMilliseconds+=System.Diagnostics.Stopwatch.GetElapsedTime(began).TotalMilliseconds;return result;}
+        public void MoveClient(nint hwnd,PixelPoint position){if(clicks is null)throw new InvalidOperationException("no input");point=position;}public void MouseButton(MouseButton button,bool down){if(clicks is null)throw new InvalidOperationException("no input");if(down){OnPointerDown?.Invoke();clicks.Add(point);}}public void Wheel(int delta){if(clicks is null)throw new InvalidOperationException("no input");Wheels++;WheelDeltas.Add(delta);}public void Key(ushort key,bool down,bool unicode=false){if(down){OnKeyDown?.Invoke(key);Keys.Add(key);HeldKeys.Add(key);}else HeldKeys.Remove(key);}public bool AnyPhysicalKeyDown()=>false;
     }
 }
 

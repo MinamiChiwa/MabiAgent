@@ -17,6 +17,16 @@ public sealed class PlanningParityTests
         var plan=new MaterialPlanner([new("r",2,1,new(){[1]=10},"metal")]).Plan([new("job",2,1,RecipeKey:"r")],stock);
         Assert.Equal(0,Assert.Single(plan.Tasks).ReadyRounds);Assert.Contains(plan.Issues,i=>i.Kind=="inventory_unknown"&&i.ItemId==1);
     }
+    [Fact] public void UnknownStorageDoesNotBecomeZeroOrAuthorizeFallbackSource()
+    {
+        var stock=new InventorySnapshot("s");stock.Set(new(1,0,"s","packet_capture","v",true));
+        stock.SetStorage("shared",new Dictionary<long,long?>{[1]=null});
+        var plan=new MaterialPlanner([new("r",2,1,new(){[1]=10},"metal")]).Plan([new("job",2,1,RecipeKey:"r")],stock);
+        Assert.Equal(0,Assert.Single(plan.Tasks).ReadyRounds);
+        Assert.Contains(plan.Issues,i=>i.Kind=="inventory_unknown"&&i.ItemId==1);
+        Assert.DoesNotContain(plan.Issues,i=>i.Kind=="no_source");
+        Assert.DoesNotContain(plan.Allocations,a=>a.SourceKind=="storage");
+    }
     public static IEnumerable<object[]> Cases()
     {
         var file=Path.Combine(AppContext.BaseDirectory,"Fixtures/material-plans.json");

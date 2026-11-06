@@ -17,8 +17,10 @@ public sealed class MaterialRow(JsonObject data):ObservableObject
 }
 public sealed class NodeRow(JsonObject data,int index):ObservableObject
 {
-    public JsonObject Data {get;}=data;public string Caption=>$"{index+1}. {Label}";
-    public string Label {get=>EditorRepository.Text(Data,"label");set{Data["label"]=value;OnPropertyChanged();OnPropertyChanged(nameof(Caption));}}
+    public JsonObject Data {get;}=data;public string Caption=>$"{index+1}. {DisplayLabel}";
+    public string Label {get=>EditorRepository.Text(Data,"label");set{Data["label"]=value;OnPropertyChanged();OnPropertyChanged(nameof(DisplayLabel));OnPropertyChanged(nameof(Caption));}}
+    public string DisplayLabel {get=>WorkbenchLabels.Localize(WorkbenchLabels.Friendly(Label));set{if(value!=DisplayLabel)Label=value;}}
+    public void RefreshLanguage(){OnPropertyChanged(nameof(DisplayLabel));OnPropertyChanged(nameof(Caption));}
     public string Page=>EditorRepository.Text(Data,"page");
     public ObservableCollection<ChainAnchorRow> Anchors {get;}=new(data["anchors"]!.AsArray().Select(a=>new ChainAnchorRow(a!.AsObject())));
 }
@@ -73,6 +75,13 @@ public sealed partial class ChainEditorViewModel:ObservableObject
     public string Output {get=>Param("output_per_round","1");set{SetNumber("output_per_round",value);OnPropertyChanged();}}
     public string Attempts {get=>Param("attempts_per_batch","10");set{SetNumber("attempts_per_batch",value);OnPropertyChanged();}}
     public string Skill {get=>Param("skill");set{SetParam("skill",value);OnPropertyChanged();}}
+    public string SkillDisplay
+    {
+        get=>WorkbenchLabels.Localize(Workspace.SkillName(Skill));
+        set{if(value==SkillDisplay)return;Skill=new[]{"daily","logging","mining","harvest","herb","wool","fishing","hoeing","insect"}.FirstOrDefault(key=>value==WorkbenchLabels.Localize(Workspace.SkillName(key)))??value;OnPropertyChanged();}
+    }
+    public string ProductDisplay {get=>WorkbenchLabels.Localize(Workspace.DisplayItemName(Product));set{if(value==ProductDisplay)return;Product=value;OnPropertyChanged();}}
+    public void RefreshLanguage(){OnPropertyChanged(nameof(SkillDisplay));OnPropertyChanged(nameof(ProductDisplay));foreach(var node in Nodes)node.RefreshLanguage();}
     public string Point {get=>Param("node");set{SetParam("node",value);OnPropertyChanged();}}
     public string Device=>Param("device");
     [ObservableProperty] private string hours="0";
@@ -89,7 +98,7 @@ public sealed partial class ChainEditorViewModel:ObservableObject
     partial void OnSelectedAnchorChanged(ChainAnchorRow? value){SelectedVariant=value?.Variants.FirstOrDefault();}
     public void Load(JsonObject document)
     {current=(JsonObject)document.DeepClone();Materials.Clear();foreach(var m in current["parameters"]?["inputs"]?.AsArray()??[]){var r=new MaterialRow(m!.AsObject());r.PropertyChanged+=MaterialChanged;Materials.Add(r);}previousMaterials=(JsonArray)(current["parameters"]?["inputs"]?.DeepClone()??new JsonArray());
-    var duration=current["parameters"]?["duration_s"]?.GetFiniteDouble()??0;Hours=((int)duration/3600).ToString();Minutes=((int)duration%3600/60).ToString();Seconds=(duration%60).ToString(CultureInfo.InvariantCulture);RefreshNodes();Versions.Clear();var id=EditorRepository.Text(current,"id");if(id.Length>0)foreach(var h in Repository.History(id))Versions.Add(new(h));foreach(var name in new[]{nameof(HasCurrent),nameof(Current),nameof(Name),nameof(Product),nameof(Output),nameof(Attempts),nameof(Skill),nameof(Point),nameof(Device),nameof(IsProduction),nameof(IsGathering)})OnPropertyChanged(name);baseline=EditSignature();}
+    var duration=current["parameters"]?["duration_s"]?.GetFiniteDouble()??0;Hours=((int)duration/3600).ToString();Minutes=((int)duration%3600/60).ToString();Seconds=(duration%60).ToString(CultureInfo.InvariantCulture);RefreshNodes();Versions.Clear();var id=EditorRepository.Text(current,"id");if(id.Length>0)foreach(var h in Repository.History(id))Versions.Add(new(h));foreach(var name in new[]{nameof(HasCurrent),nameof(Current),nameof(Name),nameof(Product),nameof(ProductDisplay),nameof(Output),nameof(Attempts),nameof(Skill),nameof(SkillDisplay),nameof(Point),nameof(Device),nameof(IsProduction),nameof(IsGathering)})OnPropertyChanged(name);baseline=EditSignature();}
     void RefreshNodes(){var id=SelectedNode is null?"":EditorRepository.Text(SelectedNode.Data,"id");Nodes.Clear();if(current is not null)foreach(var(n,i)in current["nodes"]!.AsArray().Select((n,i)=>(n,i)))Nodes.Add(new(n!.AsObject(),i));OnPropertyChanged(nameof(VisibleNodes));SelectedNode=VisibleNodes.FirstOrDefault(n=>EditorRepository.Text(n.Data,"id")==id)??VisibleNodes.FirstOrDefault();}
     void MaterialChanged(object? sender,PropertyChangedEventArgs e){if(current is null)return;EditorRepository.SynchronizeMaterials(current,previousMaterials);previousMaterials=(JsonArray)current["parameters"]!["inputs"]!.DeepClone();RefreshNodes();}
     public void ReportError(Exception error,string operation="任务链操作"){Repository.ReportFault(error,operation,current is null?null:EditorRepository.Text(current,"id"));Status=error.Message;}

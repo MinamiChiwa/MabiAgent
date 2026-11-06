@@ -40,6 +40,43 @@ public sealed class FaultIsolationTests
         Assert.Single(runner.Snapshot()["owned_slots"]!.AsArray());Assert.Empty(port.Clicks);
         runner.ObserveOnly();runner.Resume(true);Assert.Equal(0,runner.Snapshot()["completed"]!.GetValue<int>());Assert.Empty(port.Clicks);
     }
+    [Fact] public void MissingCollectionReceiptKeepsEvidenceButReleasesIndependentDevice()
+    {
+        var time=new ManualTime();var store=new MemoryStore();var port=new ProductionPort{ReleaseAllowed=true,Frame=new("metal_panel",EmptySlots:[0],SlotCount:1)};
+        var runner=new ProductionRunner(port,store,new("a","metal",60),time:time);var state=runner.Snapshot();
+        state["submitted"]=1;state["owned_slots"]=new JsonArray(0);state["phase"]="collect";state["status"]="running";store.Flush(state);
+        runner=new(port,store,new("a","metal",60),time:time);runner.Resume(true);runner.Tick();
+        Assert.Equal("unknown",runner.Snapshot()["status"]!.GetValue<string>());Assert.Null(runner.Snapshot()["pending"]);
+        Assert.True(runner.SafeToSwitch);Assert.Single(runner.Snapshot()["owned_slots"]!.AsArray());Assert.Equal(0,runner.Snapshot()["completed"]!.GetValue<int>());
+        var otherPort=new ProductionPort{Frame=new("wood_panel",EmptySlots:[0],SlotCount:1)};
+        var other=new ProductionRunner(otherPort,new MemoryStore(),new("b","wood",60),time:time);
+        var dispatcher=new WorkflowDispatcher(time);dispatcher.Register("a",runner,"metal");dispatcher.Register("b",other,"wood");dispatcher.Continue();
+        WorkCandidate[] plan=[new("a","production","metal",true,5,0),new("b","production","wood",true,5,1)];
+        for(var i=0;i<4;i++)dispatcher.Tick(plan,null);
+        Assert.Empty(port.Clicks);Assert.Contains("recipe",otherPort.Navigation);Assert.False(dispatcher.IsPaused);
+    }
+    [Theory][InlineData(false)][InlineData(true)]
+    public void PlayerOccupiedDeviceDoesNotCollectPlayerJobsOrBlockAnotherDevice(bool ready)
+    {
+        var time=new ManualTime();var native=new ProductionPort{Frame=new("metal_panel",EmptySlots:[],ReadySlots:ready?[0,1]:[],CollectAvailable:ready,SlotCount:2)};
+        var otherPort=new ProductionPort{Frame=new("wood_panel",EmptySlots:[0],SlotCount:1)};
+        var first=new ProductionRunner(native,new MemoryStore(),new("a","metal",60),time:time);
+        var second=new ProductionRunner(otherPort,new MemoryStore(),new("b","wood",60),time:time);
+        var dispatcher=new WorkflowDispatcher(time);dispatcher.Register("a",first,"metal");dispatcher.Register("b",second,"wood");dispatcher.Continue();
+        WorkCandidate[] plan=[new("a","production","metal",true,5,0),new("b","production","wood",true,5,1)];
+        for(var i=0;i<6;i++)dispatcher.Tick(plan,null);
+        Assert.Empty(native.Clicks);Assert.Contains("recipe",otherPort.Navigation);Assert.False(dispatcher.IsPaused);
+    }
+    [Theory][InlineData(false)][InlineData(true)]
+    public void PlayerOccupiedSlotStillAllowsCraftInFreeSlotWithoutCollectingPlayerTask(bool ready)
+    {
+        var time=new ManualTime();var store=new MemoryStore();var port=new ProductionPort{Frame=new("metal_panel",EmptySlots:[1],ReadySlots:ready?[0]:[],CollectAvailable:ready,SlotCount:2)};
+        var runner=new ProductionRunner(port,store,new("a","metal",60),time:time);
+        runner.Resume(true);runner.Tick();Assert.Contains("recipe",port.Navigation);Assert.Empty(port.Clicks);
+        port.Frame=port.Frame with{Page="recipe_detail",RecipeKey="a",CraftAvailable=true};runner.Tick();Assert.Equal("craft",Assert.Single(port.Clicks));
+        port.Frame=port.Frame with{Page="metal_panel",EmptySlots=[],ReadySlots=ready?[0]:[]};runner.Tick();
+        Assert.Equal(new[]{1},runner.Snapshot()["owned_slots"]!.AsArray().Select(n=>n!.GetValue<int>()));Assert.Equal(1,runner.Snapshot()["submitted"]!.GetValue<int>());
+    }
     [Fact] public void SlotPredictionAllowsOnsitePartialCollectionBeforeWholeBatchTail()
     {
         var time=new ManualTime();var store=new MemoryStore();var port=new ProductionPort{Frame=new("metal_panel",EmptySlots:[],ReadySlots:[0],CollectAvailable:true,SlotCount:2)};
@@ -84,6 +121,92 @@ public sealed class FaultIsolationTests
         var runner=new ProductionRunner(port,store,new("a","metal",60),time:time);var saved=runner.Snapshot();saved["submitted"]=1;saved["owned_slots"]=new JsonArray(0);saved["phase"]="waiting";saved["due_at"]=90d;store.Flush(saved);
         runner=new(port,store,new("a","metal",60),time:time);runner.Resume(true);runner.Tick();Assert.Empty(port.Clicks);Assert.Equal("collection_owner_unverified",runner.Snapshot()["reason"]!.GetValue<string>());
     }
+    [Theory][InlineData(false)][InlineData(true)]
+    public void ForeignReadySlotIsClearedOnlyWithExplicitApproval(bool approved)
+    {
+        var time=new ManualTime();var store=new MemoryStore();var port=new ProductionPort{Frame=new("metal_panel",EmptySlots:[],ReadySlots:[0,1],CollectAvailable:true,SlotCount:3)};
+        IReadOnlyDictionary<string,int[]> Owners()=>new Dictionary<string,int[]>{{"a",[0]}};
+        var runner=new ProductionRunner(port,store,new("a","metal",60),time:time,collectionOwners:Owners);var saved=runner.Snapshot();
+        saved["submitted"]=1;saved["owned_slots"]=new JsonArray(0);saved["phase"]="waiting";saved["status"]="waiting";saved["due_at"]=90d;saved["production_due_at"]=90d;
+        if(approved)saved["collect_all_once"]=new JsonObject{["source"]="user_explicit",["device"]="metal",["expires_at"]=10000d};
+        store.Flush(saved);
+        runner=new(port,store,new("a","metal",60),time:time,collectionOwners:Owners);time.Seconds=91;runner.Resume(true);runner.Tick();
+        // One click clears both slots, so the neighbour is never silently included.
+        Assert.Equal(new[]{1},runner.Snapshot()["foreign_ready"]!.AsArray().Select(n=>n!.GetValue<int>()));
+        if(!approved)
+        {
+            Assert.Empty(port.Clicks);Assert.Equal("collection_owner_unverified",runner.Snapshot()["reason"]!.GetValue<string>());
+            Assert.Equal("waiting",runner.Snapshot()["phase"]!.GetValue<string>());Assert.Equal(391,runner.NextCollectionAt(true));return;
+        }
+        Assert.Equal("collect",Assert.Single(port.Clicks));
+        Assert.Equal(new[]{0,1},store.Read()!["pending"]!["target_slots"]!.AsArray().Select(n=>n!.GetValue<int>()));
+    }
+    [Fact] public void LaterSlotKeepsItsOwnDueWhenEarlierCheckBacksOff()
+    {
+        var time=new ManualTime();var store=new MemoryStore();var port=new ProductionPort{Frame=new("metal_panel",EmptySlots:[],ReadySlots:[],SlotCount:2)};
+        var runner=new ProductionRunner(port,store,new("a","metal",60),2,time);var saved=runner.Snapshot();
+        saved["submitted"]=2;saved["owned_slots"]=new JsonArray(0,1);saved["slot_due_at"]=new JsonObject{["0"]=90d,["1"]=200d};saved["due_at"]=200d;saved["production_due_at"]=200d;
+        saved["phase"]="waiting";saved["status"]="waiting";
+        // The stale retry belongs to slot 0, which was due at 90. Slot 1 becomes due
+        // at 200 and must wake then, not at the retry (4590) nor at its 900s cap (990).
+        saved["collection_retry_at"]=4590d;store.Flush(saved);
+        runner=new(port,store,new("a","metal",60),2,time);
+        Assert.Equal(200,runner.NextCollectionAt(true));
+        // Off-site the shared 300s trip interval wins over the wake, and it is bounded
+        // by the interval rather than by the retry; on-site stays immediate.
+        saved=runner.Snapshot();saved["collection_not_before"]=400d;store.Flush(saved);
+        runner=new(port,store,new("a","metal",60),2,time);
+        Assert.Equal(400,runner.NextCollectionAt());Assert.Equal(200,runner.NextCollectionAt(true));
+        // Waking at 200 actually reaches the collect step: one click for our slot.
+        port.Frame=port.Frame with{EmptySlots=new int[0],ReadySlots=new[]{0,1},CollectAvailable=true};time.Seconds=201;runner.Resume(true);runner.Tick();
+        Assert.Equal("collect",Assert.Single(port.Clicks));
+        Assert.Equal(new[]{0,1},store.Read()!["pending"]!["target_slots"]!.AsArray().Select(n=>n!.GetValue<int>()));
+    }
+    [Fact] public void RetryOnTheLastSlotIsStillCapped()
+    {
+        var time=new ManualTime();var store=new MemoryStore();var port=new ProductionPort{Frame=new("metal_panel",EmptySlots:[],ReadySlots:[],SlotCount:1)};
+        var runner=new ProductionRunner(port,store,new("a","metal",60),time:time);var saved=runner.Snapshot();
+        saved["submitted"]=1;saved["owned_slots"]=new JsonArray(0);saved["slot_due_at"]=new JsonObject{["0"]=90d};saved["due_at"]=90d;saved["production_due_at"]=90d;
+        saved["collection_retry_at"]=4590d;store.Flush(saved);
+        runner=new(port,store,new("a","metal",60),time:time);
+        // No later slot to wake for, so the legacy one-hour backoff is still bounded.
+        Assert.Equal(990,runner.NextCollectionAt(true));
+    }
+    [Fact] public void RetryCoversOnlyTheSlotsThatWereChecked()
+    {
+        var time=new ManualTime();var store=new MemoryStore();var port=new ProductionPort{Frame=new("metal_panel",EmptySlots:[],ReadySlots:[],SlotCount:3)};
+        var runner=new ProductionRunner(port,store,new("a","metal",60),3,time);var saved=runner.Snapshot();
+        saved["submitted"]=3;saved["owned_slots"]=new JsonArray(0,1,2);saved["slot_due_at"]=new JsonObject{["0"]=90d,["1"]=200d,["2"]=300d};
+        saved["due_at"]=300d;saved["production_due_at"]=300d;saved["phase"]="waiting";saved["status"]="waiting";store.Flush(saved);
+        runner=new(port,store,new("a","metal",60),3,time);
+        // On site at 201 slots 90 and 200 are both due and get checked; neither is ready.
+        time.Seconds=201;runner.Resume(true);runner.Tick();
+        var state=runner.Snapshot();
+        Assert.Equal(201,state["collection_checked_until"]!.GetFiniteDouble());
+        Assert.Equal(216,state["collection_retry_at"]!.GetFiniteDouble());
+        // The failed check covered 90 and 200 only. Waking at 200 again would re-check
+        // the same two slots on every tick on site and on every trip interval off site.
+        Assert.Equal(216,runner.NextCollectionAt(true));Assert.Equal(216,runner.NextCollectionAt());
+        // Slot 300 was not looked at, so the retry cannot hold it back either.
+        state["collection_retry_at"]=4590d;store.Flush(state);runner=new(port,store,new("a","metal",60),3,time);
+        Assert.Equal(300,runner.NextCollectionAt(true));
+        // Restart keeps the same answer: the cutoff and the retry are both persisted.
+        state=runner.Snapshot();state["collection_retry_at"]=216d;store.Flush(state);runner=new(port,store,new("a","metal",60),3,time);
+        Assert.Equal(201,runner.Snapshot()["collection_checked_until"]!.GetFiniteDouble());
+        Assert.Equal(216,runner.NextCollectionAt(true));
+        // Once 300 has been checked too the cutoff moves on instead of sticking at 200.
+        state=runner.Snapshot();state["collection_checked_until"]=300d;state["collection_retry_at"]=315d;store.Flush(state);
+        runner=new(port,store,new("a","metal",60),3,time);
+        Assert.Equal(315,runner.NextCollectionAt(true));
+    }
+    [Fact] public void PlayerFullDeviceRechecksSlowlyInsteadOfParkingTheBatch()
+    {
+        var time=new ManualTime();var port=new ProductionPort{Frame=new("metal_panel",EmptySlots:[],ReadySlots:[0,1],CollectAvailable:true,SlotCount:2)};
+        var runner=new ProductionRunner(port,new MemoryStore(),new("a","metal",60),time:time);runner.Resume(true);runner.Tick();
+        Assert.Empty(port.Clicks);Assert.Equal("waiting",runner.Snapshot()["phase"]!.GetValue<string>());
+        Assert.Equal("waiting",runner.Snapshot()["status"]!.GetValue<string>());Assert.Equal(400,runner.Snapshot()["due_at"]!.GetFiniteDouble());
+        Assert.Equal(400,runner.NextCollectionAt());Assert.Equal("collection_owner_unverified",runner.Snapshot()["reason"]!.GetValue<string>());
+    }
     [Fact] public void SafeNavigationFailureQuarantinesOnlyTaskAndSupplyCannotRetryIt()
     {
         var bad=new FaultPort{FailNavigation=true,Releasable=true};var good=new FaultPort();
@@ -97,6 +220,16 @@ public sealed class FaultIsolationTests
         Assert.Equal(new[]{("a","task")},faults);Assert.Equal(1,bad.Navigations);
         dispatcher.Continue(false);Assert.Contains("a",dispatcher.Faults.Keys);
         dispatcher.Continue();Assert.Empty(dispatcher.Faults);
+    }
+    [Fact] public void NonExplicitContinueDoesNotResumeManualPause()
+    {
+        var port=new ProductionPort();var runner=new ProductionRunner(port,new MemoryStore(),new("a","metal",60));
+        var dispatcher=new WorkflowDispatcher();dispatcher.Register("a",runner,"metal");dispatcher.Continue();runner.Pause("manual");
+        dispatcher.Continue(false);dispatcher.Tick([new("a","production","metal",true,5,0)],null);
+        Assert.Equal("paused",runner.Snapshot()["status"]!.GetValue<string>());
+        Assert.Equal("manual",runner.Snapshot()["pause_reason"]!.GetValue<string>());Assert.Empty(port.Clicks);Assert.Empty(port.Navigation);
+        dispatcher.Continue();dispatcher.Tick([new("a","production","metal",true,5,0)],null);
+        Assert.NotEqual("paused",runner.Snapshot()["status"]!.GetValue<string>());
     }
     [Theory] [InlineData(false)] [InlineData(true)]
     public void UnprovenReleaseOrPersistenceErrorNeverQuarantines(bool persistence)

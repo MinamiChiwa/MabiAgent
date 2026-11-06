@@ -11,8 +11,8 @@ public sealed record InputOptions(string Scheme="touch",bool CenterOffset=true)
 
 public static class InputTransportFactory
 {
-    public static INativeWindowsOps Create(NativeWindowState target,InputOptions? options=null)
-    {options??=new();options.Validate();return options.IsTouch?new TouchInputOps(target):new NativeWindowsOps();}
+    public static INativeWindowsOps Create(NativeWindowState target,InputOptions? options=null,MabiAgent.Core.RuntimeDiagnostics? diagnostics=null)
+    {options??=new();options.Validate();return options.IsTouch?new TouchInputOps(target,diagnostics):new NativeWindowsOps();}
 }
 
 public interface IGuardedPointerGestures

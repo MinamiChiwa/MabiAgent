@@ -4,7 +4,7 @@ namespace MabiAgent.Workflows;
 public sealed record GatheringRoute(string Key, long TargetItemId, string Skill, string Node, int AttemptsPerBatch = 10, long? ReferenceYieldPerBatch = null);
 public sealed record GatheringFrame(string Page, bool Foreground = true, bool Stable = true, string? RouteKey = null,
     bool StartAvailable = false, JsonNode? TaskId = null, string TaskStatus = "unknown", long? ActualQuantity = null,
-    JsonNode? Evidence = null, bool YieldPending = false);
+    JsonNode? Evidence = null, bool YieldPending = false, bool MissingConsumables = false);
 public interface IGatheringPort : IForegroundWorkflowPort
 {
     GatheringFrame Observe(GatheringRoute route, string actionId);
@@ -12,6 +12,7 @@ public interface IGatheringPort : IForegroundWorkflowPort
     void Navigate(GatheringRoute route);
     /// <summary>Recheck route, foreground and start target through shared input guard. Never retry internally.</summary>
     void Start(GatheringRoute route, string actionId);
+    bool DismissMissingConsumables()=>false;
     bool HasExtensionPending=>false;
     bool TickExtension()=>false;
 }
@@ -22,8 +23,11 @@ public sealed record GatheringSupplyDecision(bool Ready, string? Reason = null, 
 /// Repeated calls for an action ID must reuse its reservation.</summary>
 public interface IGatheringConsumables
 {
+    void SetRemainingDemand(IEnumerable<(string RouteKey,long Rounds)> remaining) { }
     GatheringSupplyDecision ReserveForBatch(GatheringRoute route, string actionId);
     void ReleaseUnsubmitted(string actionId) { }
+    void RejectMissingBatch(string actionId) { }
+    IReadOnlyList<long> AwaitingInventoryItemIds=>[];
     IReadOnlyList<GatheringSupplyRequest> PendingRequests=>[];
     IReadOnlyList<JsonObject> Reservations=>[];
     void RestoreReservation(JsonObject reservation)=>throw new InvalidOperationException("耗材适配不支持恢复预留");
@@ -116,6 +120,27 @@ public sealed class GatheringRunner : PersistentWorkflow
             State["stop_requested"] = true; if (I("submitted") == 0 && Pending is null) { consumables?.ReleaseUnsubmitted(actionId); Set(("status", "complete"), ("phase", "complete"), ("pause_reason", null), ("reason", null)); } Save();
         }
     }
+    private bool PrepareSupply()
+    {
+        var supply=consumables?.ReserveForBatch(route,actionId);
+        WaitingForConsumables=supply is {Ready:false};
+        if(!WaitingForConsumables)return true;
+        Set(("status","paused"),("pause_reason",supply!.Reason??"consumables_unknown"));Save();return false;
+    }
+    private bool RejectMissing(GatheringFrame frame,bool allowInput)
+    {
+        if(!frame.MissingConsumables||I("submitted")!=0||consumables is null)return false;
+        // Only the start intent that this runner just persisted can own this
+        // refusal. A dialog already present for another route or a manual action
+        // must not clear this runner's reservation or be dismissed here.
+        if(Pending is not { } pending||pending["kind"]?.GetValue<string>()!="gathering")return true;
+        // The game's explicit refusal proves that this start did not consume bottles.
+        // An unknown result without that refusal keeps its original intent.
+        if(!allowInput||!frame.Foreground||!frame.Stable||!port.DismissMissingConsumables())return true;
+        consumables.RejectMissingBatch(actionId);
+        Set(("pending",null),("phase","navigate"),("status","running"),("reason",null),("pause_reason",null));Save();
+        PrepareSupply();return true;
+    }
     private void Start(GatheringFrame f)
     {
         var supply = consumables?.ReserveForBatch(route, actionId);
@@ -168,6 +193,7 @@ public sealed class GatheringRunner : PersistentWorkflow
         {
             if (S("status")=="idle"||S("status")=="complete"&&!port.HasExtensionPending) return Snapshot();
             var f = Observe(S("status") is not ("paused" or "unknown"));
+            if(RejectMissing(f,S("status")!="paused"))return Snapshot();
             if (S("status") == "unknown")
             { if (Ready(f.Page, f.Foreground, f.Stable)) { if (Pending is not null) ConfirmStart(f, false); else if (I("submitted") > 0) ObserveBatch(f, allowInput: false); } return Snapshot(); }
             if (!f.Foreground) { if (S("status") != "paused" || S("pause_reason") == "focus_lost") Pause("focus_lost"); return Snapshot(); }
@@ -192,7 +218,7 @@ public sealed class GatheringRunner : PersistentWorkflow
             else if (I("submitted") > 0) ObserveBatch(f);
             else if (B("stop_requested")) StopSubmitting();
             else if (f.TaskStatus == "active") Pause("active_task_exists");
-            else if (f.RouteKey != route.Key || !f.StartAvailable) port.Navigate(route);
+            else if (f.RouteKey != route.Key || !f.StartAvailable) {if(PrepareSupply())port.Navigate(route);}
             else Start(f);
             if(S("status")=="complete"&&port.HasExtensionPending){Set(("status","running"),("phase","workbench_finish"));Save();}
             return Snapshot();

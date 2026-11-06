@@ -13,7 +13,8 @@ public sealed class ScreenProductionPort:ScreenWorkflowPort,IProductionPort
     private readonly TimeProvider navigationClock;
     private double NavigationNow=>navigationClock.GetUtcNow().ToUnixTimeMilliseconds()/1000d;
     private bool DeviceTravel=>navigationState["device_travel"]?.GetValue<bool>()==true;
-    private static readonly IReadOnlySet<string> ProcessingWaitPages=new HashSet<string>{"skills","category_page"};
+    private readonly IReadOnlySet<string> processingWaitPages;
+    private bool NavigationPageResolved(string page)=>pendingNavigation=="skills.open_processing"?page!=pendingFrom&&processingWaitPages.Contains(page):page!=pendingFrom;
     public bool RemoteDevicePreview=>true;
     public bool HasExtensionPending=>workbench.Available&&workbench.Progress.State!=WorkbenchFlowState.Completed;
     public bool TickExtension()
@@ -31,7 +32,7 @@ public sealed class ScreenProductionPort:ScreenWorkflowPort,IProductionPort
     }
     public override bool CanReleaseForeground()=>!DeviceTravel&&pendingNavigation is null&&base.CanReleaseForeground();
     public ScreenProductionPort(ScreenWorkflowSession session,string recipeKey,string batchId,IWorkflowStore store,TimeProvider? navigationClock=null):base(session,batchId,store)
-    {recipe=session.Routes.Recipes.TryGetValue(recipeKey,out var found)?found:throw new ArgumentException("配方未配置");device=session.Routes.Devices[recipe.Device];workbench=new(session,recipeKey);navigationState=session.PortState("production:"+batchId);this.navigationClock=navigationClock??TimeProvider.System;}
+    {recipe=session.Routes.Recipes.TryGetValue(recipeKey,out var found)?found:throw new ArgumentException("配方未配置");device=session.Routes.Devices[recipe.Device];workbench=new(session,recipeKey);processingWaitPages=new HashSet<string>{"skills","category_page",device.QueuePage,recipe.Page};navigationState=session.PortState("production:"+batchId);this.navigationClock=navigationClock??TimeProvider.System;}
     protected override PageView Decorate(ClientCapture c,PageView view)
     {
         empty=null;ready=null;observedRecipe=null;arrived=false;if(view.Modal)return view;
@@ -72,7 +73,7 @@ public sealed class ScreenProductionPort:ScreenWorkflowPort,IProductionPort
     {var p=image.Crop(box).Pixels;var count=0;for(var i=0;i<p.Length;i+=3)if(p[i+1]-p[i]>20&&p[i+2]-p[i]>30&&p[i+2]>80)count++;return count>=300;}
     public ProductionFrame Observe()
     {
-        var o=pendingNavigation=="skills.open_processing"?ReadFocused(c=>Session.RecognizeDeclaredPages(c,ProcessingWaitPages)):Read();
+        var o=pendingNavigation=="skills.open_processing"?ReadFocused(c=>Session.RecognizeDeclaredPages(c,processingWaitPages)):Read();
         if(DeviceTravel)
         {
             if(o.View.Page!="device_travel_confirm")
@@ -92,7 +93,7 @@ public sealed class ScreenProductionPort:ScreenWorkflowPort,IProductionPort
         {navigationState["device_arrived"]=false;SaveNavigation();}
         // Observe the reversible result when it occurs. A recipe overlay may
         // open and auto-close after craft before Navigate is called again.
-        if(!DeviceTravel&&pendingNavigation is not null&&o.Stable&&o.View.Page!=pendingFrom)
+        if(!DeviceTravel&&pendingNavigation is not null&&o.Stable&&NavigationPageResolved(o.View.Page))
         {pendingNavigation=pendingFrom=null;scrollCount=navigationRetries=0;}
         if(!o.Stable)Session.ReportWarning("production_observation",$"phase={S(Store.Read(),"phase")}; waiting={pendingNavigation}; from={pendingFrom}; page={o.View.Page}; reason={Session.StabilityReason}",BatchId);
         if(arrived&&!DeviceTravel)Session.EndNavigation("device:"+BatchId);return new(o.View.Page,Session.InputAvailable,o.Stable,empty,observedRecipe,o.View.Targets.ContainsKey("production.craft"),o.View.Targets.ContainsKey("production.collect"),Session.ProductionDuration(recipe.DurationSeconds),ready,false,arrived,device.Slots.Count,NavigationActive:DeviceTravel);
@@ -115,6 +116,8 @@ public sealed class ScreenProductionPort:ScreenWorkflowPort,IProductionPort
             var approved=approval?["source"]?.GetValue<string>()=="user_explicit"&&approval?["device"]?.GetValue<string>()==recipe.Device
                 &&approval?["expires_at"]?.GetFiniteDouble()>DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()/1000d
                 &&targets is not null&&targets.Overlaps(owned);
+            // One click collects every ready slot, so the current ready set
+            // must exactly match the persisted target_slots.
             return targets is {Count:>0}&&(targets.IsSubsetOf(owned)||approved)&&ready is not null&&targets.SetEquals(ready);
         });
     }
@@ -135,13 +138,15 @@ public sealed class ScreenProductionPort:ScreenWorkflowPort,IProductionPort
         }
         if(pendingNavigation is not null)
         {
-            if(page!=pendingFrom||pendingNavigation==device.GotoTarget&&arrived){pendingNavigation=null;scrollCount=navigationRetries=0;}
-            else if(destination=="leave"&&pendingNavigation=="page.close")
+            if(NavigationPageResolved(page)||pendingNavigation==device.GotoTarget&&arrived){pendingNavigation=null;scrollCount=navigationRetries=0;}
+            else if(pendingNavigation!=device.GotoTarget&&o.View.Targets.ContainsKey(pendingNavigation))
             {
                 if(NavigationNow-navigationAt<5)return;
                 if(navigationRetries<2&&o.View.Targets.ContainsKey(pendingNavigation))
-                {Session.NavigateTarget(pendingNavigation);navigationRetries++;navigationAt=NavigationNow;Session.TraceNavigation(BatchId,"page.close","exit_retry_dispatched");return;}
-                pendingNavigation=pendingFrom=null;navigationRetries=0;throw new InputBlockedException("设备页关闭失败，已保留加工槽，请检查后继续");
+                {Session.NavigateTarget(pendingNavigation);navigationRetries++;navigationAt=NavigationNow;Session.TraceNavigation(BatchId,pendingNavigation,destination=="leave"?"exit_retry_dispatched":"navigation_retry_dispatched");return;}
+                var closing=destination=="leave"&&pendingNavigation=="page.close";
+                pendingNavigation=pendingFrom=null;navigationRetries=0;
+                throw new InputBlockedException(closing?"设备页关闭失败，已保留加工槽，请检查后继续":"加工菜单多次点击后未切换，请检查后继续");
             }
             else if(NavigationNow-navigationAt>45)throw new InputBlockedException("导航结果未确认，请复核");else return;
         }
@@ -158,7 +163,7 @@ public sealed class ScreenProductionPort:ScreenWorkflowPort,IProductionPort
             else if(destination is "recipe" or "recipe_preview")
             {
                 target=recipe.OpenTarget;
-                if(!o.View.Targets.ContainsKey(target)&&o.View.Targets.ContainsKey("list.scroll")){if(scrollCount++>=12)throw new InputBlockedException("配方列表搜索已到上限");Session.ScrollListDown(o);return;}
+                if(!o.View.Targets.ContainsKey(target)&&o.View.Targets.ContainsKey("list.scroll")){if(scrollCount>=ScreenWorkflowSession.ListSearchLimit)throw new InputBlockedException("配方列表搜索已到上限");Session.ScrollListSearch(o,scrollCount++);return;}
             }
         }
         else if(page=="recipe_detail")target=device.RecipeCloseTarget;

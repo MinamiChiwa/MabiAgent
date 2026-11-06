@@ -13,6 +13,12 @@ public interface IStorageSupplyPort : IForegroundWorkflowPort
     WithdrawalFrame Observe();
     bool CanLeaveAfterTransfer=>false;
     bool ReleaseNavigation()=>CanReleaseForeground();
+    /// <summary>True when the port is observing a declared load or animation after
+    /// an exit action. Waiting is not a failed release attempt.</summary>
+    bool ReleaseWaiting=>false;
+    /// <summary>True when the last release call dispatched one reversible exit step.
+    /// A dispatched step is progress, so it must not spend the bounded failure budget.</summary>
+    bool ReleaseAdvanced=>false;
     /// <summary>Revalidate page/item/quantity with the shared input guard; never retry transfer input.</summary>
     void Perform(WithdrawalAction action);
 }
@@ -20,13 +26,28 @@ public sealed class StorageSupplyRunner : PersistentWorkflow
 {
     private const long MaxQuantity = 9007199254740991;
     private readonly WithdrawalPlan[] plans; private readonly IStorageSupplyPort port; private readonly double timeout; private string? lastCapture;
+    public const int MaximumReleaseAttempts=3;
+    // A dispatch proves an action left the process, never that the page moved.
+    // Consecutive no-ops are bounded by MaximumReleaseAttempts, but a port that
+    // keeps reporting a dispatch while the page stands still would otherwise
+    // refund that budget forever, so steps and wall clock are bounded too.
+    public const int MaximumReleaseSteps=24;
+    public const double MaximumReleaseSeconds=60;
     public bool NavigationReleased=>State["reconciliation_navigation_released"]?.GetValue<bool>()==true;
+    public bool NavigationAbandoned=>S("release_reason")=="release_attempts_exhausted";
+    // Release is a navigation claim, never a proof of standing in town. Kept apart
+    // from the attempt budget and outliving a resume: only a release that actually
+    // reaches the scene clears it, so a restart cannot turn a given-up exit into
+    // an assumed homecoming for the next task.
+    public bool ExitPageUnverified=>State["exit_page_unverified"]?.GetValue<bool>()==true;
+    public string[] GoalActionIds=>plans.Skip(I("index")).SelectMany(p=>p.GoalIds??[]).Distinct().ToArray();
     public bool SafeToSwitch => Pending is null && (S("status") is "complete" or "blocked" or "unknown" || S("status")=="paused"&&S("pause_reason")=="unrecognized_page"&&port.CanReleaseForeground()) || NavigationReleased;
     public bool ReleaseNavigation()
     {
         lock(Gate)
         {
             if(S("status")=="paused")return false;
+            if(NavigationAbandoned)return false;
             if(Pending is not null)
             {
                 if(S("status")!="unknown"||Pending["kind"]?.GetValue<string>() is not ("confirm_transfer" or "prepare_transfer"))return false;
@@ -34,9 +55,69 @@ public sealed class StorageSupplyRunner : PersistentWorkflow
                 if(State["reconciliation_navigation_started"]?.GetValue<bool>()!=true)
                 {if(!port.CanLeaveAfterTransfer)return false;State["reconciliation_navigation_started"]=true;Save();}
             }
-            var released=port.ReleaseNavigation();
-            if(released&&Pending is not null){State["reconciliation_navigation_released"]=true;Save();}
-            return released;
+            if(I("release_attempts")>=MaximumReleaseAttempts){AbandonNavigation("storage_exit_unverified","attempts");return false;}
+            if(ReleaseBudgetExhausted())return false;
+            State["release_started_at"]??=Now;
+            bool released;
+            try{released=port.ReleaseNavigation();}
+            catch(Exception error)when(error is not(IOException or UnauthorizedAccessException or OutOfMemoryException))
+            {
+                // Leaving the storage page is reversible, so a blocked or rejected exit
+                // must stay bounded instead of retrying the same step on every tick.
+                Stall(error.Message);return false;
+            }
+            if(released)
+            {
+                State["release_attempts"]=0;State.Remove("release_reason");State.Remove("exit_page_unverified");
+                State.Remove("release_steps");State.Remove("release_started_at");State.Remove("release_budget");
+                if(Pending is not null)State["reconciliation_navigation_released"]=true;
+                Save();return true;
+            }
+            // A panel that is closing, a dialogue step, a room exit: the page moved, so
+            // the exit is still on its way and must not be written off as unverifiable.
+            // A normal close needs several steps; counting them as failures abandoned
+            // healthy exits and left the next task without a verified entry.
+            if(port.ReleaseAdvanced)
+            {
+                // One dispatched step is progress, so the consecutive-failure budget
+                // is refunded, but the step and time budgets keep counting: a port
+                // stuck on a dead control cannot buy itself unlimited retries.
+                State["release_steps"]=I("release_steps")+1;State["release_attempts"]=0;
+                State.Remove("release_reason");Save();return false;
+            }
+            // A declared page load or animation is neither a dead control nor proof
+            // that the exit reached the scene. Keep the wall-clock and step budgets
+            // running, but do not spend the consecutive-failure attempts while the
+            // port is still waiting for its next stable frame.
+            if(port.ReleaseWaiting)
+            {
+                State.Remove("release_reason");Save();return false;
+            }
+            Stall("release_pending");return false;
+        }
+    }
+    private bool ReleaseBudgetExhausted()
+    {
+        if(State["release_started_at"] is{} started&&Now-started.GetFiniteDouble()>MaximumReleaseSeconds)
+        {AbandonNavigation("storage_exit_unverified","time");return true;}
+        if(I("release_steps")>=MaximumReleaseSteps){AbandonNavigation("storage_exit_unverified","steps");return true;}
+        return false;
+    }
+    private void Stall(string reason)
+    {
+        if(I("release_attempts")+1>=MaximumReleaseAttempts){AbandonNavigation("storage_exit_unverified","attempts");return;}
+        State["release_attempts"]=I("release_attempts")+1;State["release_reason"]=reason;Save();
+    }
+    public void AbandonNavigation(string reason,string budget="attempts")
+    {
+        lock(Gate)
+        {
+            // Keep the transfer intent for accounting; only the reversible exit
+            // is given up so unrelated tasks can run again. The page stays
+            // unverified: the next task must enter from whatever is on screen.
+            Set(("reason",reason),("release_reason","release_attempts_exhausted"),("exit_page_unverified",true),("release_budget",budget));
+            if(S("status")!="complete")State["status"]="blocked";
+            Save();
         }
     }
     public bool RequestRefreshOnce()
@@ -49,6 +130,14 @@ public sealed class StorageSupplyRunner : PersistentWorkflow
         {
             if(Pending is not null||!plans.Skip(I("index")).All(p=>noLongerNeeded(p.ItemId)))return false;
             Set(("index",plans.Length),("status","complete"),("reason","material_demand_satisfied"),("wait",null));Save();return true;
+        }
+    }
+    public bool RetireUnneededPlans(Func<WithdrawalPlan,bool> stillNeeded)
+    {
+        lock(Gate)
+        {
+            if(S("status")=="complete"||I("index")>=plans.Length||Pending is not null||plans.Skip(I("index")).Any(stillNeeded))return false;
+            Set(("index",plans.Length),("status","complete"),("reason","material_demand_stopped"),("wait",null));Save();return true;
         }
     }
     private static bool Quantity(long? value, bool zero = false) => value >= (zero ? 0 : 1) && value <= MaxQuantity;
@@ -86,7 +175,7 @@ public sealed class StorageSupplyRunner : PersistentWorkflow
     }
     public void Pause(string reason = "manual") { port.Pause(reason); lock (Gate) { if (S("status") != "complete") { if (S("pause_reason") == "manual" && reason == "focus_lost") return; Set(("status", "paused"), ("pause_reason", reason)); Save(); } } }
     public void Resume(bool explicitRequest = true)
-    { lock (Gate) { if (S("status") == "complete" || !explicitRequest && S("pause_reason") != "focus_lost") return; ResetPageWait();ResetProgressWait(); Set(("status", "running"), ("pause_reason", null), ("reason", null)); if (Pending is null) {State["wait"] = null;if(explicitRequest)State["search"]=new JsonObject();} lastCapture = null; port.Resume(); Save(); } }
+    { lock (Gate) { if (S("status") == "complete" || !explicitRequest && S("pause_reason") != "focus_lost") return; ResetPageWait();ResetProgressWait(); Set(("status", "running"), ("pause_reason", null), ("reason", null)); if (Pending is null) {State["wait"] = null;if(explicitRequest)State["search"]=new JsonObject();} if(explicitRequest){State["release_attempts"]=0;State.Remove("release_reason");} lastCapture = null; port.Resume(); Save(); } }
     private void Block(string reason) { Set(("status", "blocked"), ("reason", reason)); Save(); }
     private void BlockPage(string reason)
     {if(Pending is not null)Unknown(reason);else{Set(("status","paused"),("pause_reason",reason),("reason",reason));Save();}}
@@ -101,7 +190,14 @@ public sealed class StorageSupplyRunner : PersistentWorkflow
     private static bool Balances(WithdrawalFrame f) => f.BalanceSource == "packet_capture" && Quantity(f.Available, true) && Quantity(f.BagQuantity, true) && !string.IsNullOrWhiteSpace(f.BagScope);
     private void Perform(string kind, WithdrawalPlan p, WithdrawalFrame f, bool pending = false, int searchIndex = 0)
     {
-        if (pending) State["pending"] = new JsonObject { ["kind"] = kind, ["item_id"] = p.ItemId, ["name"] = p.Name, ["quantity"] = p.Quantity, ["scope"] = p.Scope, ["bag_scope"] = f.BagScope, ["before_storage"] = f.Available, ["before_bag"] = f.BagQuantity, ["storage_balance_scope"] = f.StorageBalanceScope ?? f.Scope, ["bag_balance_scope"] = f.BagBalanceScope ?? f.BagScope, ["balance_source"] = f.BalanceSource, ["balances_at"] = f.BalanceAt, ["capture_id"] = f.CaptureId, ["at"] = f.At, ["deadline"] = f.At + timeout };
+        if (pending)
+        {
+            var prepared=kind=="confirm_transfer"?State["prepared_baseline"] as JsonObject:null;
+            State["pending"] = new JsonObject { ["kind"] = kind, ["item_id"] = p.ItemId, ["name"] = p.Name, ["quantity"] = p.Quantity, ["scope"] = p.Scope,
+                ["bag_scope"] = f.BagScope ?? prepared?["bag_scope"]?.DeepClone(), ["before_storage"] = f.Available ?? prepared?["before_storage"]?.GetValue<long?>(), ["before_bag"] = f.BagQuantity ?? prepared?["before_bag"]?.GetValue<long?>(),
+                ["storage_balance_scope"] = f.StorageBalanceScope ?? f.Scope ?? prepared?["storage_balance_scope"]?.GetValue<string>(), ["bag_balance_scope"] = f.BagBalanceScope ?? f.BagScope ?? prepared?["bag_balance_scope"]?.GetValue<string>(),
+                ["balance_source"] = f.BalanceSource ?? prepared?["balance_source"]?.GetValue<string>(), ["balances_at"] = f.BalanceAt ?? prepared?["balances_at"]?.GetValue<double?>(), ["capture_id"] = f.CaptureId, ["at"] = f.At, ["deadline"] = f.At + timeout };
+        }
         State["phase"] = kind; Save();
         try { port.Perform(new(kind, p.ItemId, p.Name, p.Quantity, p.Scope, searchIndex)); }
         catch (InputRejectedBeforeDispatchException)
@@ -120,14 +216,14 @@ public sealed class StorageSupplyRunner : PersistentWorkflow
     private string Reconcile(WithdrawalFrame f, WithdrawalPlan p)
     {
         var pending = Pending!; var at = pending["at"]!.GetFiniteDouble(); var fresh = f.CaptureId != pending["capture_id"]!.GetValue<string>() && f.At > at; var prepare = pending["kind"]!.GetValue<string>() == "prepare_transfer";
-        if (fresh && prepare && Identity(f, p) && f.TransferDialog && Quantity(f.DialogQuantity))
-        { Set(("pending", null), ("status", "running"), ("reason", null), ("wait", null)); Save(); return "dialog"; }
+        if (fresh && prepare && Identity(f, p) && f.TransferDialog)
+        { State["prepared_baseline"]=pending.DeepClone();Set(("pending", null), ("status", "running"), ("reason", null), ("wait", null)); Save(); return "dialog"; }
         // A port may report a stable transfer completion without exposing balances.
         // Balances remain optional reconciliation evidence, never an execution prerequisite.
         if (fresh && Identity(f, p) && f.TransferComplete)
         {
             State["completed"]!.AsArray().Add(new JsonObject { ["item_id"] = p.ItemId, ["name"] = p.Name, ["scope"] = p.Scope, ["bag_scope"] = f.BagScope, ["quantity"] = p.Quantity, ["goal_ids"] = new JsonArray((p.GoalIds ?? []).Select(g => (JsonNode?)JsonValue.Create(g)).ToArray()), ["capture_id"] = f.CaptureId, ["at"] = f.At, ["evidence"] = "transfer_complete" });
-            State["index"] = I("index") + 1; Set(("pending", null), ("phase", "navigate"), ("reason", null), ("wait", null), ("status", I("index") == plans.Length ? "complete" : "running")); Save(); return "completed";
+            State.Remove("prepared_baseline");State["index"] = I("index") + 1; Set(("pending", null), ("phase", "navigate"), ("reason", null), ("wait", null), ("status", I("index") == plans.Length ? "complete" : "running")); Save(); return "completed";
         }
         var same = pending["balance_source"]?.GetValue<string>() == "packet_capture" && Identity(f, p) && Balances(f) && SameBagOwner(f.BagScope,pending["bag_scope"]?.GetValue<string>(),p.Scope) && (f.StorageBalanceScope ?? f.Scope) == (pending["storage_balance_scope"] ?? pending["scope"])?.GetValue<string>() && SameBagOwner(f.BagBalanceScope ?? f.BagScope,(pending["bag_balance_scope"] ?? pending["bag_scope"])?.GetValue<string>(),p.Scope);
         // A newer screen does not make an unchanged packet snapshot fresh.
@@ -144,7 +240,7 @@ public sealed class StorageSupplyRunner : PersistentWorkflow
             if (bagDelta == p.Quantity && storageDelta == p.Quantity)
             {
                 State["completed"]!.AsArray().Add(new JsonObject { ["item_id"] = p.ItemId, ["name"] = p.Name, ["scope"] = p.Scope, ["bag_scope"] = f.BagScope, ["quantity"] = p.Quantity, ["goal_ids"] = new JsonArray((p.GoalIds ?? []).Select(g => (JsonNode?)JsonValue.Create(g)).ToArray()), ["capture_id"] = f.CaptureId, ["at"] = f.At, ["balance_source"] = f.BalanceSource, ["storage_balance_scope"] = f.StorageBalanceScope ?? f.Scope, ["bag_balance_scope"] = f.BagBalanceScope ?? f.BagScope });
-                State["index"] = I("index") + 1; Set(("pending", null), ("phase", "navigate"), ("reason", null), ("wait", null), ("status", I("index") == plans.Length ? "complete" : "running")); Save(); return "completed";
+                State.Remove("prepared_baseline");State["index"] = I("index") + 1; Set(("pending", null), ("phase", "navigate"), ("reason", null), ("wait", null), ("status", I("index") == plans.Length ? "complete" : "running")); Save(); return "completed";
             }
             if (prepare && bagDelta == 0 && storageDelta == 0&&(f.TransferDialog||f.BagScope!=pending["bag_scope"]?.GetValue<string>()&&f.Page is "scene" or "storage_character" or "storage_account"))
             { Set(("pending", null), ("phase",f.TransferDialog?"prepare_transfer":"navigate"), ("status", "running"), ("reason", null)); Save(); return f.TransferDialog?"dialog":"waiting"; }
@@ -197,10 +293,13 @@ public sealed class StorageSupplyRunner : PersistentWorkflow
         }
         if (f.TransferDialog)
         {
-            if (f.DialogQuantity is null) { Wait(WaitKind == "quantity_set" ? "quantity_set" : "quantity", f, "transfer_quantity_unknown"); return; }
             if (!Quantity(f.DialogQuantity) || f.DialogQuantity != p.Quantity)
             {
-                if (WaitKind != "quantity_set") { State["wait"] = new JsonObject { ["kind"] = "quantity_set", ["deadline"] = f.At + timeout }; Perform("set_quantity", p, f); }
+                if (WaitKind != "quantity_set")
+                {State["wait"] = new JsonObject { ["kind"] = "quantity_set", ["deadline"] = f.At + timeout, ["attempts"] = 1, ["retry_at"] = f.At + 2 }; Perform("set_quantity", p, f);}
+                else if(State["wait"] is JsonObject editing&&f.At<editing["deadline"]!.GetFiniteDouble()&&
+                    (editing["attempts"]?.GetValue<int>()??1)<3&&f.At>=(editing["retry_at"]?.GetFiniteDouble()??double.PositiveInfinity))
+                {editing["attempts"]=(editing["attempts"]?.GetValue<int>()??1)+1;editing["retry_at"]=f.At+2;Perform("set_quantity",p,f);}
                 else Wait("quantity_set", f, "transfer_quantity_not_observed");
             }
             else if (f.ConfirmAvailable) { State["wait"] = null; Perform("confirm_transfer", p, f, true); }

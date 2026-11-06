@@ -137,6 +137,17 @@ public sealed class WorkspaceTests:IDisposable
         Assert.Equal("keep",saved["travel"]!["extension"]!.GetValue<string>());
         Assert.True(saved["backpack"]!["preserve_other_selections"]!.GetValue<bool>());
     }
+    [Fact] public void WingReserveSettingsAcceptIntLongAndParsedJson()
+    {
+        foreach(var node in new JsonNode[]{JsonValue.Create((int)20)!,JsonValue.Create(20L)!,JsonNode.Parse("20")!})
+        {
+            var settings=JsonNode.Parse("""{"travel":{"auto_use_wings":true}}""")!.AsObject();
+            settings["travel"]!["wing_reserve_min"]=node;
+            Assert.Equal(20,DesktopPreferences.FromJson(settings).WingReserve);
+        }
+        var malformed=JsonNode.Parse("""{"travel":{"wing_reserve_min":"20"}}""")!.AsObject();
+        Assert.Throws<InvalidDataException>(()=>DesktopPreferences.FromJson(malformed));
+    }
     [Fact] public void MaterialOverridesAndThemeEditRoundTripWithoutDroppingExtensions()
     {
         var w=new Workspace(root,Data);var original=w.ReadSettings();original["ui"]!["future"]=true;original["extension"]="keep";AtomicJson.Write(Path.Combine(Data,"settings.json"),original);w.ReadSettings();

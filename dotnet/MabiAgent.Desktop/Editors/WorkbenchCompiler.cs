@@ -12,12 +12,13 @@ public static class WorkbenchCompiler
     public static void Apply(EditorRepository repository,WorkbenchDocument document,JsonObject configuration,bool allowStandaloneTests=false)
     {
         WorkbenchValidation.Validate(document);
-        WorkbenchValidation.ValidateConsumptionTargets(document,configuration);
         var profile=configuration["ui"]?.AsObject()??throw new InvalidDataException("缺少屏幕页面配置");
+        RemoveRetiredPublicFlowSettings(configuration);
+        WorkbenchValidation.ValidateConsumptionTargets(document,configuration);
         foreach(var(section,file)in new[]{("purchase","screen_purchase.1280x960.tw.json"),("travel_wings","screen_travel.1280x960.tw.json"),("relogin","screen_relogin.1280x960.tw.json"),("notifications","session_notifications.1280x960.tw.json")})
         {var relative="config/"+file;if(configuration[section] is null&&File.Exists(EditorRepository.SafePath(repository.Root,relative)))configuration[section]=new CatalogLoader(repository.Root).Load(relative);}
         profile["templates"]??=new JsonObject();profile["anchor_variants"]??=new JsonObject();profile["pages"]??=new JsonObject();profile["page_variants"]??=new JsonObject();
-        foreach(var anchor in document.Anchors)
+        foreach(var anchor in document.Anchors.Where(a=>IsCurrentPublicAnchor(a,configuration)))
         {
             if(anchor.Data["source_namespace"]?.GetValue<string>() is "quantity" or "maintenance")
             {ApplyInline(configuration,anchor);var referenced=document.Chains.SelectMany(c=>c.Cards).Any(c=>c.AnchorId==anchor.Id||WorkbenchModel.SplitIds(c.ConditionAnchorIds).Contains(anchor.Id)||WorkbenchModel.SplitIds(c.ExpectedAnchorIds).Contains(anchor.Id))||document.Pages.Any(p=>WorkbenchModel.SplitIds(p.AnchorIds).Contains(anchor.Id)||p.Transitions.Any(t=>t.AnchorId==anchor.Id));if(!referenced)continue;}
@@ -39,16 +40,16 @@ public static class WorkbenchCompiler
                 profile["workbench_owned_variants"]![anchor.Id]=new JsonArray(current.Except(installed,StringComparer.Ordinal).Select(s=>(JsonNode?)JsonValue.Create(s)).ToArray());
             }
         }
-        foreach(var page in document.Pages)
+        foreach(var page in document.Pages.Where(p=>IsCurrentPublicPage(p,profile)))
         {
             var section=EditorRepository.Text(page.Data,"source_section","pages");var key=EditorRepository.Text(page.Data,"source_key",page.Id);
             var source=profile[section]?[key]?.DeepClone()?.AsObject()??page.Data["source"]?.DeepClone()?.AsObject()??new JsonObject{["targets"]=new JsonObject()};
-            var imageAnchors=WorkbenchModel.SplitIds(page.AnchorIds).Select(document.FindAnchor).Where(a=>a is not null).Cast<WorkbenchAnchor>().Select(a=>(Anchor:a,State:a.States.FirstOrDefault(s=>s.Mode=="image"))).Where(x=>x.State is not null).ToArray();
+            var imageAnchors=WorkbenchModel.SplitIds(page.AnchorIds).Select(document.FindAnchor).Where(a=>a is not null&&IsCurrentPublicAnchor(a!,configuration)).Cast<WorkbenchAnchor>().Select(a=>(Anchor:a,State:a.States.FirstOrDefault(s=>s.Mode=="image"))).Where(x=>x.State is not null).ToArray();
             if(imageAnchors.Length>0)source["anchors"]=new JsonArray(imageAnchors.Select(x=>(JsonNode?)JsonValue.Create(StateKey(x.Anchor,x.State!))).ToArray());
             else source.Remove("anchors");
             foreach(var link in page.Transitions)
             {
-                if(link.Target.Length==0||document.FindAnchor(link.AnchorId) is not {} anchor||anchor.States.FirstOrDefault() is not {} state)continue;
+                if(link.Target.Length==0||document.FindAnchor(link.AnchorId) is not {} anchor||anchor.States.FirstOrDefault() is not {} state||!IsCurrentPublicAnchor(anchor,configuration)||!IsCurrentPublicTransition(page,source,link))continue;
                 PutTarget(source,link.Target,anchor,state,state.RandomClick);
             }
             if(page.MatchRule=="any"&&imageAnchors.Length>1)
@@ -61,7 +62,7 @@ public static class WorkbenchCompiler
         }
         var flows=new JsonObject();
         WorkbenchRepository.BindMapNavigation(configuration);
-        foreach(var chain in document.Chains.Where(c=>c.Enabled))
+        foreach(var chain in document.Chains.Where(c=>c.Enabled&&CanCompileChain(c,document,configuration)))
         {
             if(chain.RuntimeKey.Length==0)throw new InvalidDataException(chain.Name+"：请关联运行任务");
             if(!allowStandaloneTests&&chain.Data["source_path"] is null&&configuration["recipes"]?[chain.RuntimeKey] is null&&configuration["gathering_routes"]?[chain.RuntimeKey] is null)throw new InvalidDataException(chain.Name+"：请将运行任务绑定到现有生产或采集任务；独立流程可使用测试按钮");
@@ -134,10 +135,72 @@ public static class WorkbenchCompiler
         foreach(var strategy in document.Strategies)
         {
             if(JsonNode.DeepEquals(strategy.Data["value"],strategy.Data["original"]))continue;
-            var path=strategy.Data["path"]!.AsArray();var old=EditorRepository.GetPath(configuration,path);if(old is null||!WorkbenchValidation.SameType(old,strategy.Data["original"]!))throw new InvalidDataException(strategy.Name+"：原参数已变化，请重新载入");
+            var path=strategy.Data["path"]!.AsArray();var old=EditorRepository.GetPath(configuration,path);if(old is null)continue;if(!WorkbenchValidation.SameType(old,strategy.Data["original"]!))throw new InvalidDataException(strategy.Name+"：原参数已变化，请重新载入");
             JsonNode current=configuration;foreach(var part in path.Take(path.Count-1))current=part is JsonValue v&&v.TryGetValue<int>(out var i)?current[i]!:current[part!.GetValue<string>()]!;
             if(path.Last() is JsonValue last&&last.TryGetValue<int>(out var index))current[index]=strategy.Data["value"]?.DeepClone();else current[path.Last()!.GetValue<string>()]=strategy.Data["value"]?.DeepClone();
         }
+        RemoveRetiredPublicFlowSettings(configuration);
+    }
+    internal static void RemoveRetiredPublicFlowSettings(JsonObject configuration)
+    {
+        if(configuration["ui"] is not JsonObject ui)return;
+        if(ui["storage_supply"] is JsonObject storage)storage.Remove("shortcut");
+        if(ui["pages"]?["scene"] is JsonObject scene)
+            foreach(var collection in new[]{"targets","coordinate_targets","fixed_targets","surfaces","random_targets"})
+                if(scene[collection] is JsonObject targets)targets.Remove("scene.open_storage");
+    }
+    static JsonArray NormalizeSourcePath(JsonArray path)
+    {
+        var normalized=new JsonArray();
+        for(var i=0;i<path.Count;i++)
+            normalized.Add(i==0&&path[i] is JsonValue first&&first.TryGetValue<string>(out var root)&&root=="ui_profile"?JsonValue.Create("ui"):path[i]?.DeepClone());
+        return normalized;
+    }
+    static JsonNode? CurrentSource(JsonObject configuration,JsonArray path)=>EditorRepository.GetPath(configuration,NormalizeSourcePath(path));
+    static bool IsCurrentPublicAnchor(WorkbenchAnchor anchor,JsonObject configuration)
+        =>!anchor.InLibrary||anchor.Data["source_path"] is not JsonArray path||CurrentSource(configuration,path) is not null;
+    static bool IsPublicPage(WorkbenchPage page)
+    {
+        var section=EditorRepository.Text(page.Data,"source_section");var key=EditorRepository.Text(page.Data,"source_key");
+        return page.Data["in_library"]?.GetValue<bool>()==true||page.Data["source_path"] is JsonArray||section.Length>0&&key.Length>0;
+    }
+    static bool IsCurrentPublicPage(WorkbenchPage page,JsonObject profile)
+    {
+        var section=EditorRepository.Text(page.Data,"source_section");var key=EditorRepository.Text(page.Data,"source_key");
+        return !IsPublicPage(page)||section is ("pages" or "page_variants")&&profile[section]?[key] is JsonObject;
+    }
+    static bool PageHasTarget(JsonObject page,string target)
+        =>target.Length>0&&(page["targets"]?[target] is not null||page["coordinate_targets"]?[target] is not null||page["fixed_targets"]?[target] is not null||page["surfaces"]?[target] is not null);
+    static bool CurrentTargetExists(JsonObject configuration,string pageId,string target)
+    {
+        if(pageId.Length==0||target.Length==0)return true;
+        foreach(var section in new[]{"pages","page_variants"})
+            foreach(var entry in configuration["ui"]?[section]?.AsObject()??new JsonObject())
+                if(entry.Value is JsonObject spec&&(entry.Key==pageId||EditorRepository.Text(spec,"page",EditorRepository.Text(spec,"runtime_page"))==pageId)&&PageHasTarget(spec,target))return true;
+        return false;
+    }
+    static bool IsCurrentPublicTransition(WorkbenchPage page,JsonObject current,WorkbenchTransition link)
+        =>link.Data["imported"]?.GetValue<bool>()!=true||!IsPublicPage(page)||PageHasTarget(current,link.Target);
+    static bool CanCompileChain(WorkbenchChain chain,WorkbenchDocument document,JsonObject configuration)
+    {
+        var sourcePath=chain.Data["source_path"] as JsonArray;var currentRoute=sourcePath is null?null:CurrentSource(configuration,sourcePath);
+        if(sourcePath is not null&&currentRoute is not JsonObject)return false;
+        var anchors=chain.Cards.Select(c=>document.FindAnchor(c.AnchorId)).Where(a=>a is not null).Cast<WorkbenchAnchor>().ToArray();
+        if(anchors.Any(a=>!IsCurrentPublicAnchor(a,configuration)))return false;
+        var profile=configuration["ui"]?.AsObject()??new JsonObject();
+        foreach(var id in chain.Cards.Select(c=>c.PageId).Where(x=>x.Length>0).Distinct(StringComparer.Ordinal))
+            if(document.Pages.FirstOrDefault(p=>p.Id==id) is {} page&&!IsCurrentPublicPage(page,profile))return false;
+        if(sourcePath is not null&&chain.Cards.Any(c=>!CurrentTargetExists(configuration,c.PageId,c.Target)))return false;
+        foreach(var card in chain.Cards)
+        {
+            var page=document.Pages.FirstOrDefault(p=>p.Id==card.PageId);var link=card.TransitionId.Length>0?page?.Transitions.FirstOrDefault(t=>t.Id==card.TransitionId):null;
+            if(page is not null&&link is not null&&IsCurrentPublicPage(page,profile))
+            {
+                var pageSource=profile[EditorRepository.Text(page.Data,"source_section","pages")]?[EditorRepository.Text(page.Data,"source_key",page.Id)]?.AsObject();
+                if(pageSource is not null&&!IsCurrentPublicTransition(page,pageSource,link))return false;
+            }
+        }
+        return true;
     }
     static string RuntimePage(WorkbenchDocument document,string id)=>document.Pages.FirstOrDefault(p=>p.Id==id) is {} page?EditorRepository.Text(page.Data,"runtime_page",id):id;
     static JsonObject CompileRouteStep(JsonObject card)
@@ -164,7 +227,8 @@ public static class WorkbenchCompiler
     }
     public static void ValidateAssets(EditorRepository repository,WorkbenchDocument document)
     {
-        foreach(var anchor in document.Anchors)foreach(var state in anchor.States.Where(s=>s.Mode=="image"))
+        var current=PublishedCatalogCompiler.Compile(repository,includeWorkbench:false);
+        foreach(var anchor in document.Anchors.Where(a=>IsCurrentPublicAnchor(a,current)))foreach(var state in anchor.States.Where(s=>s.Mode=="image"))
         {
             var path=repository.ResolveImagePath(state.Path);if(!File.Exists(path))throw new InvalidDataException(anchor.Name+"：图片不存在");
             if(new FileInfo(path).Length>8*1024*1024)throw new InvalidDataException(anchor.Name+"：图片超过 8 MiB");

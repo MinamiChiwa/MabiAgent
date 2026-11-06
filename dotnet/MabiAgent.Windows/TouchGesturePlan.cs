@@ -16,9 +16,9 @@ internal sealed record TouchGesturePlan(string Kind,PixelPoint[][] Points,int Re
     }
     internal TouchGesturePlan Screen(ClientGeometry geometry)=>new(Kind,Points.Select(frame=>frame.Select(p=>new PixelPoint(checked(geometry.X+p.X),checked(geometry.Y+p.Y))).ToArray()).ToArray(),ReleaseDelayMilliseconds);
     internal PixelBox Bounds=>new(Points.SelectMany(p=>p).Min(p=>p.X)-12,Points.SelectMany(p=>p).Min(p=>p.Y)-12,Points.SelectMany(p=>p).Max(p=>p.X)+12,Points.SelectMany(p=>p).Max(p=>p.Y)+12);
-    internal void Generate(SyntheticTouchDevice probe,nint hwnd,Action check,bool begin=true)
+    internal void Generate(SyntheticTouchDevice probe,nint hwnd,Action check)
     {
-        check();if(begin)probe.Begin();check();probe.Down(Points[0],hwnd);
+        check();probe.Begin();check();probe.Down(Points[0],hwnd);
         foreach(var frame in Points.Skip(1)){Thread.Sleep(20);check();probe.Move(frame);}
         Thread.Sleep(20);check();probe.Up();probe.Dispose();
     }

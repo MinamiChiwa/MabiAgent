@@ -20,6 +20,7 @@ public static class WorkbenchTestExecution
         =>Task.Run(async()=>
         {
             cancellation.ThrowIfCancellationRequested();if(isRunning())throw new InvalidOperationException("请先暂停运行中的任务再测试。");
+            if(!recognizeOnly&&File.Exists(Path.Combine(repository.StateDirectory,"stop-reset.json")))throw new InvalidOperationException("上次停止重置未完成，请先重试停止全部");
             WorkbenchValidation.Validate(document);WorkbenchCompiler.ValidateAssets(repository,document);
             var cards=chain.Cards.Where(c=>c.Enabled&&(selected is null||selected.Contains(c.Id))).ToArray();
             if(cards.Length==0)throw new InvalidOperationException("请选择至少一个启用步骤。");
@@ -38,11 +39,14 @@ public static class WorkbenchTestExecution
             }
             var settingsPath=Path.Combine(repository.StateDirectory,"settings.json");
             InputOptions ReadInput()=>InputOptions.FromJson(File.Exists(settingsPath)?JsonNode.Parse(File.ReadAllBytes(settingsPath))!.AsObject():new());
-            var inputOptions=ReadInput();var ops=InputTransportFactory.Create(game.State,inputOptions);var current=ops.ReadWindow(game.State.WindowId);
+            var inputOptions=ReadInput();var diagnostics=new RuntimeDiagnostics(repository.StateDirectory);var ops=InputTransportFactory.Create(game.State,inputOptions,diagnostics);var current=ops.ReadWindow(game.State.WindowId);
+            if(ops is TouchInputOps touch)touch.DiagnosticWriteFailed+=failure=>Report(progress,"触控诊断","写入失败",$"{failure.GestureId}/{failure.Stage}；{failure.Error}");
             EnsureIdentity(game.State,current);
             using var session=new ScreenWorkflowSession(routes,current,ops,getOcr(),new JsonWorkflowStore(Path.Combine(repository.StateDirectory,"native-input-intents.json")),
-                ()=>NativeWindowActivation.Activate(current),diagnostics:new RuntimeDiagnostics(repository.StateDirectory),inputOptions:inputOptions);
+                recognizeOnly?null:()=>NativeWindowActivation.Activate(current),diagnostics:diagnostics,inputOptions:inputOptions);
             session.LifeVipEnabled=()=>File.Exists(settingsPath)&&DesktopPreferences.FromJson(JsonNode.Parse(File.ReadAllBytes(settingsPath))!.AsObject()).LifeVip;
+            session.ConfigureRuntimeLimitRecognition(repository.Root);
+            using var stopInput=cancellation.Register(()=>session.Guard.RequestPause());
             var runtimeCatalog=new RuntimeCatalog(configuration);
             var packetPorts=new DesktopPorts(session,capture,current,new CapturePlanningAdapter(accounts,runtimeCatalog.Names),runtimeCatalog,()=>File.Exists(settingsPath)?JsonNode.Parse(File.ReadAllBytes(settingsPath))!.AsObject():new());
             var inputStamp=File.GetLastWriteTimeUtc(settingsPath).Ticks;

@@ -1,0 +1,40 @@
+<u:UrsaWindow xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+ xmlns:u="https://irihi.tech/ursa" xmlns:mv="using:MarkView.Avalonia" xmlns:mri="using:MarkView.Avalonia.Rendering.Inlines"
+ x:Class="MabiAgent.Desktop.UserGuideWindow" Title="使用指南" Width="940" Height="780" MinWidth="520" MinHeight="380"
+ WindowStartupLocation="CenterOwner" IsFullScreenButtonVisible="False" Background="{DynamicResource WorkspacePage}">
+ <u:UrsaWindow.Styles>
+  <Style Selector="mri|MarkdownHyperlink.markdown-link">
+   <Setter Property="Foreground" Value="{DynamicResource SemiColorPrimary}"/>
+  </Style>
+  <Style Selector="mri|MarkdownHyperlink.markdown-footnote-ref">
+   <Setter Property="Foreground" Value="{DynamicResource SemiColorPrimary}"/>
+  </Style>
+ </u:UrsaWindow.Styles>
+ <Grid RowDefinitions="Auto,*" Margin="20" RowSpacing="14">
+  <Grid ColumnDefinitions="*,Auto">
+   <StackPanel Spacing="4">
+    <TextBlock Text="使用指南" FontSize="22" FontWeight="SemiBold"/>
+    <TextBlock Text="MabiAgent" Classes="muted"/>
+   </StackPanel>
+   <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+    <Button x:Name="HomeButton" Content="使用指南" Click="GoHome"/>
+    <Button x:Name="GuideLanguageButton" ToolTip.Tip="{Binding LanguageButtonTooltip}">
+     <StackPanel Orientation="Horizontal" Spacing="6">
+      <PathIcon Data="{StaticResource SemiIconLanguage}" Width="16" Height="16"/>
+      <TextBlock Text="{Binding LanguageButtonLabel}"/>
+     </StackPanel>
+     <Button.Flyout><MenuFlyout Placement="BottomEdgeAlignedRight">
+      <MenuItem Header="简体中文" Command="{Binding UseSimplifiedChineseCommand}"/>
+      <MenuItem Header="繁體中文" Command="{Binding UseTraditionalChineseCommand}"/>
+     </MenuFlyout></Button.Flyout>
+    </Button>
+   </StackPanel>
+  </Grid>
+  <Border Grid.Row="1" Classes="card" Padding="16">
+   <Grid RowDefinitions="Auto,*">
+    <TextBlock x:Name="LinkError" IsVisible="False" Classes="muted" Margin="0,0,0,8"/>
+    <mv:MarkdownViewer x:Name="Document" Grid.Row="1" FontSize="14"/>
+   </Grid>
+  </Border>
+ </Grid>
+</u:UrsaWindow>

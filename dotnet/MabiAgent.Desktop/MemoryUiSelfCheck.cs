@@ -21,13 +21,13 @@ internal static class MemoryUiSelfCheck
         {
             model=new MainViewModel(workspace,selection);await model.RefreshAsync();Sample("基础模型");
             var timer=Stopwatch.StartNew();model.AttachAutomation(service);timer.Stop();Sample($"服务绑定 {timer.Elapsed.TotalMilliseconds:F0}ms");
-            Check(!service.OcrLoaded&&!model.WorkbenchCreated&&!model.CompatibilityEditorsCreated,"服务绑定不提前创建OCR及编辑器");
+            Check(service.OcrLoaded&&!model.WorkbenchCreated&&!model.CompatibilityEditorsCreated,"服务绑定预加载OCR，编辑器仍按需创建");
             _=model.HasUnsavedEditorChanges;Check(!model.WorkbenchCreated&&!model.CompatibilityEditorsCreated,"关闭草稿检查不创建编辑器");
             window=new MainWindow(model);window.Show();await Task.Delay(250);window.UpdateLayout();Sample("主窗口");
-            Check(!service.OcrLoaded&&!model.WorkbenchCreated&&!model.CompatibilityEditorsCreated,"只查看队列不加载识别与编辑工作台");
-            model.SelectedPage=5;window.UpdateLayout();await Task.Delay(80);Sample("锚点摘要");
+            Check(service.OcrLoaded&&!model.WorkbenchCreated&&!model.CompatibilityEditorsCreated,"只查看队列保持OCR预加载且不创建编辑工作台");
+            model.SelectedPage=2;window.UpdateLayout();await Task.Delay(80);Sample("设置首屏");
             for(var i=0;i<3;i++){var editor=new AnchorWorkbenchWindow(model.Workbench!);editor.Show();await Task.Delay(60);editor.Close();}
-            Check(!service.OcrLoaded&&!model.CompatibilityEditorsCreated,"浏览锚点工作台不初始化OCR和兼容编辑器");
+            Check(service.OcrLoaded&&!model.CompatibilityEditorsCreated,"浏览配置工作台复用OCR且不创建兼容编辑器");
             Sample("工作台打开关闭3次");
             var engine=service.GetOcr();
             timer.Restart();for(var i=0;i<12;i++){var width=new[]{120,320,640}[i%3];engine.Recognize(width,32,new byte[width*32]);}timer.Stop();Sample($"12次OCR {timer.Elapsed.TotalMilliseconds:F0}ms");

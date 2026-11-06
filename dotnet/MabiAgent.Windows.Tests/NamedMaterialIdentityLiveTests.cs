@@ -6,6 +6,7 @@ using Xunit;
 namespace MabiAgent.Windows.Tests;
 public sealed class NamedMaterialIdentityLiveTests
 {
+
     [Fact] public async Task ExplicitNamedDepositWithFullContainerEvidence()
     {
         var name=Environment.GetEnvironmentVariable("MABI_FULL_IDENTITY_NAME");if(name is null)return;
@@ -13,16 +14,16 @@ public sealed class NamedMaterialIdentityLiveTests
         var path=Path.Combine(root,"build/named-material-identity",name+"-full.json");
         if(File.Exists(path))Assert.Contains(JsonNode.Parse(File.ReadAllText(path))!["status"]!.GetValue<string>(),new[]{"baseline","no_container_change_confirmed"});
         var metadata=new AccountItemService(Path.Combine(root,"build/current-queue-live-check/accounts"),Path.Combine(root,"config/items.verified.tw.json"));
-        var decoder=ClientInventoryDecoder.Load(Path.Combine(root,"config/client-inventory-schema.disk.json"));
+        var layout=RecognitionTests.CurrentClientLayout();var decoder=layout.CreateDecoder();
         LoginInventory? decoded=null;var decodeGate=new object();
         LoginInventory Decode(byte[] body){var value=decoder.Decode(body);lock(decodeGate)decoded=value;return value;}
         var game=Assert.Single(GameWindowDiscovery.List());Assert.NotEqual(game.State.WindowId,game.State.ForegroundId);
-        await using var capture=new CaptureCoordinator(Decode,identityMetadata:metadata.KnownCaptureIdentities());capture.SelectProcess(game.State.ProcessId);_=capture.RunAsync();await Task.Delay(2000);
+        await using var capture=new CaptureCoordinator(Decode,protocol:layout.Protocol,decodeUpdates:decoder.DecodeUpdates,identityMetadata:metadata.KnownCaptureIdentities());capture.SelectProcess(game.State.ProcessId);_=capture.RunAsync();await Task.Delay(2000);
         using var ocr=new OnnxTextRecognizer(Path.Combine(root,"models",OnnxTextRecognizer.DefaultModelFileName));
         var store=new MabiAgent.Workflows.JsonWorkflowStore(path);using var session=new ScreenWorkflowSession(ScreenRoutes.Load(root),game.State,InputTransportFactory.Create(game.State),ocr,new MabiAgent.Workflows.JsonWorkflowStore(path+".intents"));session.Start();
         var report=new JsonObject{["name"]=name,["source"]="backpack",["destination"]="account_storage",["status"]="baseline"};
         async Task Refresh()
-        {var script=new ScreenPrivateTheaterRefresh(session);script.Start(DateTimeOffset.UtcNow);var timer=Stopwatch.StartNew();while(script.Status==MabiAgent.Workflows.PrivateTheaterRefreshStatus.Running&&timer.Elapsed.TotalSeconds<180){script.Tick(DateTimeOffset.UtcNow);await Task.Delay(200);}Assert.Equal(MabiAgent.Workflows.PrivateTheaterRefreshStatus.Complete,script.Status);await Task.Delay(3000);Assert.NotNull(capture.Snapshot().Inventory?.VerifiedThrough);}
+        {var script=new ScreenQuickReentry(session);script.Start(DateTimeOffset.UtcNow);var timer=Stopwatch.StartNew();while(script.Status==MabiAgent.Workflows.QuickReentryStatus.Running&&timer.Elapsed.TotalSeconds<180){script.Tick(DateTimeOffset.UtcNow);await Task.Delay(200);}Assert.Equal(MabiAgent.Workflows.QuickReentryStatus.Complete,script.Status);await Task.Delay(3000);Assert.NotNull(capture.Snapshot().Inventory?.VerifiedThrough);}
         try
         {
             await Refresh();LoginInventory before;lock(decodeGate)before=decoded!;
@@ -71,9 +72,9 @@ public sealed class NamedMaterialIdentityLiveTests
         var game=Assert.Single(GameWindowDiscovery.List());Assert.NotEqual(game.State.WindowId,game.State.ForegroundId);
         var metadata=new AccountItemService(Path.Combine(root,"build/current-queue-live-check/accounts"),Path.Combine(root,"config/items.verified.tw.json"));
         var rows=new List<ConsumableStack>();var gate=new object();bool observing=false;
-        var decoder=ClientInventoryDecoder.Load(Path.Combine(root,"config/client-inventory-schema.disk.json"));
-        await using var capture=new CaptureCoordinator(decoder.Decode,identityMetadata:metadata.KnownCaptureIdentities(),observeFrame:(frame,connection,at)=>
-        {if(frame.Opcode!=GameProtocol.InventoryOpcode)return;lock(gate)if(observing&&rows.Count<100)rows.AddRange(ConsumableCodec.ParseUpdates(GameProtocol.DecodeBody(frame.Flag,frame.Body)));});
+        var layout=RecognitionTests.CurrentClientLayout();var decoder=layout.CreateDecoder();
+        await using var capture=new CaptureCoordinator(decoder.Decode,protocol:layout.Protocol,decodeUpdates:decoder.DecodeUpdates,identityMetadata:metadata.KnownCaptureIdentities(),observeFrame:(frame,connection,at)=>
+        {if(frame.Opcode!=layout.Protocol.Inventory)return;lock(gate)if(observing&&rows.Count<100)rows.AddRange(decoder.DecodeUpdates(GameProtocol.DecodeBody(frame.Flag,frame.Body)));});
         capture.SelectProcess(game.State.ProcessId);_=capture.RunAsync();await Task.Delay(2000);Assert.Equal(CaptureState.Listening,capture.Snapshot().State);
         using var ocr=new OnnxTextRecognizer(Path.Combine(root,"models",OnnxTextRecognizer.DefaultModelFileName));
         var store=new MabiAgent.Workflows.JsonWorkflowStore(path);var journal=new MabiAgent.Workflows.JsonWorkflowStore(Path.Combine(directory,"intents.json"));
@@ -82,9 +83,9 @@ public sealed class NamedMaterialIdentityLiveTests
         var report=new JsonObject{["name"]=name,["quantity"]=1,["status"]="bootstrap"};
         try
         {
-            var theater=new ScreenPrivateTheaterRefresh(session);theater.Start(DateTimeOffset.UtcNow);var timer=Stopwatch.StartNew();
-            while(theater.Status==MabiAgent.Workflows.PrivateTheaterRefreshStatus.Running&&timer.Elapsed.TotalSeconds<180){theater.Tick(DateTimeOffset.UtcNow);await Task.Delay(200);}
-            Assert.Equal(MabiAgent.Workflows.PrivateTheaterRefreshStatus.Complete,theater.Status);timer.Restart();
+            var theater=new ScreenQuickReentry(session);theater.Start(DateTimeOffset.UtcNow);var timer=Stopwatch.StartNew();
+            while(theater.Status==MabiAgent.Workflows.QuickReentryStatus.Running&&timer.Elapsed.TotalSeconds<180){theater.Tick(DateTimeOffset.UtcNow);await Task.Delay(200);}
+            Assert.Equal(MabiAgent.Workflows.QuickReentryStatus.Complete,theater.Status);timer.Restart();
             while(capture.Snapshot().Inventory?.VerifiedThrough is null&&timer.Elapsed.TotalSeconds<20)await Task.Delay(200);
             report["capture_message"]=capture.Snapshot().Message;report["packet_error"]=capture.Snapshot().Inventory?.Error;Assert.NotNull(capture.Snapshot().Inventory?.VerifiedThrough);
             var plan=new MabiAgent.Workflows.WithdrawalPlan(1,name,1,"account_storage");var port=session.CreateStoragePort(plan,"identity:"+name,store);timer.Restart();bool selected=false,prepared=false,confirmed=false;
@@ -123,11 +124,11 @@ public sealed class NamedMaterialIdentityLiveTests
         var game=Assert.Single(GameWindowDiscovery.List());Assert.NotEqual(game.State.WindowId,game.State.ForegroundId);
         var events=new List<JsonObject>();var gate=new object();
         var metadata=new AccountItemService(Path.Combine(root,"data/agent-run/desktop/accounts"));
-        var decoder=ClientInventoryDecoder.Load(Path.Combine(root,"config/client-inventory-schema.disk.json"));
-        await using var capture=new CaptureCoordinator(decoder.Decode,identityMetadata:metadata.KnownCaptureIdentities(),observeFrame:(frame,connection,at)=>
+        var layout=RecognitionTests.CurrentClientLayout();var decoder=layout.CreateDecoder();
+        await using var capture=new CaptureCoordinator(decoder.Decode,protocol:layout.Protocol,decodeUpdates:decoder.DecodeUpdates,identityMetadata:metadata.KnownCaptureIdentities(),observeFrame:(frame,connection,at)=>
         {
-            if(frame.Opcode!=GameProtocol.InventoryOpcode)return;
-            var rows=ConsumableCodec.ParseUpdates(GameProtocol.DecodeBody(frame.Flag,frame.Body));
+            if(frame.Opcode!=layout.Protocol.Inventory)return;
+            var rows=decoder.DecodeUpdates(GameProtocol.DecodeBody(frame.Flag,frame.Body));
             lock(gate)foreach(var row in rows)if(events.Count<100)events.Add(new JsonObject{["item_id"]=row.ItemId,["stack_id"]=row.StackableId,["quantity"]=row.Quantity,["connection"]=connection,["at"]=at});
         });
         capture.SelectProcess(game.State.ProcessId);_=capture.RunAsync();var timer=Stopwatch.StartNew();

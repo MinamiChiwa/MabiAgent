@@ -42,9 +42,9 @@ public class SchemaTests
     [Fact] public void RepositorySchemaCanBeLoadedWithoutTouchingGame()
     {
         var root = new DirectoryInfo(AppContext.BaseDirectory);
-        while (root is not null && !File.Exists(Path.Combine(root.FullName, "config/client-inventory-schema.disk.json"))) root = root.Parent;
+        while (root is not null && !File.Exists(Path.Combine(root.FullName, "dotnet/MabiAgent.Capture.Tests/Fixtures/client-inventory-schema.historical.json"))) root = root.Parent;
         Assert.NotNull(root);
-        var decoder = ClientInventoryDecoder.Load(Path.Combine(root.FullName, "config/client-inventory-schema.disk.json"));
+        var decoder = ClientInventoryDecoder.Load(Path.Combine(root.FullName, "dotnet/MabiAgent.Capture.Tests/Fixtures/client-inventory-schema.historical.json"));
         Assert.Throws<InvalidDataException>(() => decoder.Decode(new byte[8]));
     }
 }

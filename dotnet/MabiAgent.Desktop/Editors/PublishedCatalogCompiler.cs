@@ -80,6 +80,12 @@ public static class PublishedCatalogCompiler
     static JsonObject PageFor(JsonObject profile,string runtime,string page)=>(profile["page_variants"]?[runtime+"__"+page]??profile["pages"]![page])!.AsObject();
     static JsonArray Strings(IEnumerable<string> values)=>new(values.Select(v=>(JsonNode?)JsonValue.Create(v)).ToArray());
     static void MapPage(JsonObject page,Func<string,string> map){if(page["anchors"] is JsonArray names)page["anchors"]=Strings(names.Select(n=>map(n!.GetValue<string>())));if(page["targets"] is JsonObject targets)foreach(var(k,v)in targets.ToArray())targets[k]=map(v!.GetValue<string>());}
-    static JsonObject Variant(EditorRepository repository,JsonNode variant){var path=repository.AssetPath(EditorRepository.Text(variant["asset"]!,"id"));var relative=Path.GetRelativePath(repository.Root,path);return new(){["path"]=relative.StartsWith("..",StringComparison.Ordinal)?path:relative,["sha256"]=variant["asset"]!["sha256"]!.DeepClone(),["bytes"]=new FileInfo(path).Length,["box"]=variant["box"]!.DeepClone(),["search"]=variant["search"]!.DeepClone(),["threshold"]=variant["threshold"]!.DeepClone(),["match_mode"]=variant["match_mode"]!.DeepClone()};}
+    static JsonObject Variant(EditorRepository repository,JsonNode variant)
+    {
+        var path=repository.AssetPath(EditorRepository.Text(variant["asset"]!,"id"));var relative=Path.GetRelativePath(repository.Root,path);
+        var result=new JsonObject{["path"]=relative.StartsWith("..",StringComparison.Ordinal)?path:relative,["sha256"]=variant["asset"]!["sha256"]!.DeepClone(),["bytes"]=new FileInfo(path).Length,["box"]=variant["box"]!.DeepClone(),["search"]=variant["search"]!.DeepClone(),["threshold"]=variant["threshold"]!.DeepClone(),["match_mode"]=variant["match_mode"]!.DeepClone()};
+        foreach(var field in new[]{"light_threshold","relative_contrast","relative_contrast_threshold","glyph_threshold"})if(variant[field] is{} value)result[field]=value.DeepClone();
+        return result;
+    }
 }
 

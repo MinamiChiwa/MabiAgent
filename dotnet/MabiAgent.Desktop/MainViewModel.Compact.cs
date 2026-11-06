@@ -38,13 +38,13 @@ public partial class MainViewModel
         }
         else
         {
-            var done=Math.Min(active.Target,active.Completed+activeConfirmed);
+            var done=Math.Min(active.Target,active.ConfirmedQuantity);
             ActiveJobName=active.Name;
-            ActiveProgressText=(active.IsFishing?JobRow.Duration(done):done.ToString())+" / "+active.TargetLabel;
+            ActiveProgressText=(active.IsFishing?JobRow.Duration(done):$"{done}{active.QuantityUnit}")+" / "+active.TargetLabel;
             ActiveProgress=active.Target<=0?0:Math.Clamp(done*100d/active.Target,0,100);
         }
         var upcoming=goals.Where(j=>j.Completed<j.Target).OrderBy(j=>j.Order).Take(4).Select(j=>new CompactJob(j.Name,j.CompletedLabel+" / "+j.TargetLabel,j.Status,
-            j.Target<=0?0:Math.Clamp(j.Completed*100d/j.Target,0,100),j.Id==active?.Id,j.IsWarningState)).ToArray();
+            j.Target<=0?0:Math.Clamp(j.ConfirmedQuantity*100d/j.Target,0,100),j.Id==active?.Id,j.IsWarningState)).ToArray();
         if(!UpcomingJobs.SequenceEqual(upcoming)){UpcomingJobs.Clear();foreach(var row in upcoming)UpcomingJobs.Add(row);OnPropertyChanged(nameof(HasUpcomingJobs));}
     }
     partial void OnRuntimeIssuesChanged(string value)

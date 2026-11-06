@@ -1,8 +1,8 @@
 <Styles xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:u="https://irihi.tech/ursa">
 <Styles.Resources><ResourceDictionary>
 <!-- Noto Sans SC (SIL OFL 1.1) is embedded; its GB 18030 coverage includes every Big5 traditional character. -->
-<FontFamily x:Key="WorkspaceFont">avares://MabiAgent.Desktop/Assets/Fonts#Noto Sans SC, Microsoft YaHei UI, Microsoft JhengHei UI, Segoe UI</FontFamily>
-<FontFamily x:Key="DefaultFontFamily">avares://MabiAgent.Desktop/Assets/Fonts#Noto Sans SC, Microsoft YaHei UI, Microsoft JhengHei UI, Segoe UI</FontFamily>
+<FontFamily x:Key="WorkspaceFont">Microsoft YaHei UI, Microsoft JhengHei UI, Segoe UI, avares://MabiAgent.Desktop/Assets/Fonts#Noto Sans SC</FontFamily>
+<FontFamily x:Key="DefaultFontFamily">Microsoft YaHei UI, Microsoft JhengHei UI, Segoe UI, avares://MabiAgent.Desktop/Assets/Fonts#Noto Sans SC</FontFamily>
 <ResourceDictionary.ThemeDictionaries>
 <ResourceDictionary x:Key="Dark">
 <!-- Dusk: painted sky over hills; panels are dark glass so the scene shows through at the edges -->
@@ -211,7 +211,7 @@
   <Style Selector="Button"><Setter Property="Transitions"><Transitions><BrushTransition Property="Background" Duration="0:0:0.14"/><BrushTransition Property="Foreground" Duration="0:0:0.14"/><BrushTransition Property="BorderBrush" Duration="0:0:0.14"/><DoubleTransition Property="Opacity" Duration="0:0:0.10"/></Transitions></Setter></Style>
   <Style Selector="TextBox"><Setter Property="Transitions"><Transitions><BrushTransition Property="BorderBrush" Duration="0:0:0.14"/><BrushTransition Property="Background" Duration="0:0:0.14"/></Transitions></Setter></Style>
   <Style Selector="ComboBox"><Setter Property="Transitions"><Transitions><BrushTransition Property="BorderBrush" Duration="0:0:0.14"/><BrushTransition Property="Background" Duration="0:0:0.14"/></Transitions></Setter></Style>
-  <Style Selector="Border.card"><Setter Property="Transitions"><Transitions><BrushTransition Property="BorderBrush" Duration="0:0:0.16"/><BrushTransition Property="Background" Duration="0:0:0.16"/></Transitions></Setter></Style>
+
   <Style Selector="Border.pill"><Setter Property="Transitions"><Transitions><BrushTransition Property="Background" Duration="0:0:0.20"/></Transitions></Setter></Style>
   <Style Selector="ListBoxItem"><Setter Property="Transitions"><Transitions><BrushTransition Property="Background" Duration="0:0:0.14"/><BrushTransition Property="BorderBrush" Duration="0:0:0.14"/><DoubleTransition Property="Opacity" Duration="0:0:0.10"/></Transitions></Setter></Style>
   <Style Selector="CheckBox"><Setter Property="Transitions"><Transitions><DoubleTransition Property="Opacity" Duration="0:0:0.10"/></Transitions></Setter></Style>

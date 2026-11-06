@@ -149,5 +149,8 @@ public sealed record PageView(string Page,bool Modal,IReadOnlyList<TemplateHit> 
 public sealed record UiObservation(string ImageSha256,double CapturedAt,SessionScope Scope,PageView View,bool Stable,bool IdentityVerified,ClientFrameEvidence? Frame=null,string ResourceRevision="");
 public sealed record TargetProof(string Name,string Page,PixelPoint Point,string ImageSha256,double CapturedAt,SessionScope Scope,PixelBox? ClickRegion=null,ClickRegionShape ClickShape=ClickRegionShape.Rectangle,ClientFrameEvidence? Frame=null,string ResourceRevision="");
 public sealed class InputBlockedException(string message,bool targetChangedBeforeDispatch=false):InvalidOperationException(message)
-{ public bool TargetChangedBeforeDispatch {get;}=targetChangedBeforeDispatch; }
+{
+    public bool TargetChangedBeforeDispatch {get;}=targetChangedBeforeDispatch;
+    public bool CaptureTimedOut {get;init;}
+}
 public sealed class InputOutcomeUnknownException(string message):IOException(message);

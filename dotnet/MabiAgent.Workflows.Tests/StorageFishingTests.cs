@@ -36,6 +36,45 @@ public sealed class StorageFishingTests
         port.Frame=port.Frame with{At=118,CaptureId="fresh",Available=7,BagQuantity=5,BalanceAt=118};runner.ObserveOnly();
         Assert.Equal("complete",runner.Snapshot()["status"]!.GetValue<string>());Assert.Null(runner.Snapshot()["pending"]);Assert.Equal(2,port.Actions.Count);
     }
+    [Fact] public void UnreadableTransferQuantityEditsOnceBeforeFinalConfirmation()
+    {
+        var port=new StoragePort{Frame=new(100,"list","storage",Scope:"shared",ItemId:1,Name:"空瓶",Available:30,BagQuantity:0,BagScope:"bag:1",TransferAvailable:true,BalanceSource:"packet_capture",BalanceAt:100)};
+        var runner=new StorageSupplyRunner([new(1,"空瓶",20,"shared")],port,new MemoryStore());
+        runner.Tick();Assert.Equal("prepare_transfer",Assert.Single(port.Actions).Kind);
+        port.Frame=port.Frame with{At=101,CaptureId="dialog",Name="空瓶",TransferAvailable=false,TransferDialog=true,DialogQuantity=null,Available=null,BagQuantity=null,BagScope=null,BalanceSource=null,BalanceAt=null};runner.Tick();
+        Assert.Null(runner.Snapshot()["pending"]);Assert.Equal("set_quantity",port.Actions[1].Kind);
+        port.Frame=port.Frame with{At=102,CaptureId="still-unreadable"};runner.Tick();
+        Assert.Equal(2,port.Actions.Count);Assert.Equal("running",runner.Snapshot()["status"]!.GetValue<string>());
+        runner.Pause();runner.Resume();port.Frame=port.Frame with{At=103,CaptureId="resume-unreadable"};runner.Tick();
+        Assert.Equal("set_quantity",port.Actions[2].Kind);
+        port.Frame=port.Frame with{At=104,CaptureId="twenty",DialogQuantity=20,ConfirmAvailable=true};runner.Tick();
+        Assert.Equal("confirm_transfer",port.Actions[3].Kind);Assert.Equal(20,port.Actions[3].Quantity);
+        var pending=runner.Snapshot()["pending"]!.DeepClone();
+        Assert.Equal(30,pending["before_storage"]!.GetValue<long>());Assert.Equal(0,pending["before_bag"]!.GetValue<long>());Assert.Equal("packet_capture",pending["balance_source"]!.GetValue<string>());
+        runner.Pause();runner.Resume();port.Frame=port.Frame with{At=105,CaptureId="after-confirm",TransferDialog=false,ConfirmAvailable=false};runner.Tick();
+        Assert.Equal(4,port.Actions.Count);Assert.True(JsonNode.DeepEquals(pending,runner.Snapshot()["pending"]));
+    }
+    [Fact] public void QuantityEditingRetriesAreBoundedAndNeverRepeatFinalTransfer()
+    {
+        var port=new StoragePort{Frame=new(100,"dialog","storage",Scope:"shared",ItemId:1,Name:"空瓶",TransferDialog:true,DialogQuantity:1)};
+        var runner=new StorageSupplyRunner([new(1,"空瓶",20,"shared")],port,new MemoryStore());runner.Tick();
+        foreach(var at in new[]{101d,102d,104d,106d}){port.Frame=port.Frame with{At=at,CaptureId=at.ToString()};runner.Tick();}
+        Assert.Equal(3,port.Actions.Count);Assert.All(port.Actions,a=>Assert.Equal("set_quantity",a.Kind));
+        port.Frame=port.Frame with{At=107,CaptureId="twenty",DialogQuantity=20,ConfirmAvailable=true};runner.Tick();
+        port.Frame=port.Frame with{At=108,CaptureId="confirmed-but-no-receipt"};runner.Tick();
+        Assert.Equal(4,port.Actions.Count);Assert.Equal("confirm_transfer",port.Actions[^1].Kind);Assert.NotNull(runner.Snapshot()["pending"]);
+        var failingPort=new StoragePort{Frame=new(100,"dialog","storage",Scope:"shared",ItemId:1,Name:"空瓶",TransferDialog:true,DialogQuantity:1)};
+        var failing=new StorageSupplyRunner([new(1,"空瓶",20,"shared")],failingPort,new MemoryStore());failing.Tick();
+        foreach(var at in new[]{102d,104d,116d}){failingPort.Frame=failingPort.Frame with{At=at,CaptureId=at.ToString()};failing.Tick();}
+        Assert.Equal(3,failingPort.Actions.Count);Assert.Equal("blocked",failing.Snapshot()["status"]!.GetValue<string>());
+    }
+    [Fact] public void OneItemDirectTransferCanStillReconcileWithoutQuantityDialog()
+    {
+        var port=new StoragePort();var runner=new StorageSupplyRunner([new(1,"ore",1,"shared")],port,new MemoryStore());
+        runner.Tick();
+        port.Frame=port.Frame with{At=101,CaptureId="complete",TransferAvailable=false,TransferComplete=true,Available=9,BagQuantity=3,BalanceAt=101};runner.Tick();
+        Assert.Equal("complete",runner.Snapshot()["status"]!.GetValue<string>());Assert.Single(port.Actions);Assert.Equal("prepare_transfer",port.Actions[0].Kind);
+    }
     [Theory][InlineData(true)][InlineData(false)] public void UnknownPreparationReleasesOnlyAfterReturningToSafeList(bool safeList)
     {
         var port=new StoragePort{LeaveAllowed=safeList};var runner=new StorageSupplyRunner([new(1,"ore",3,"shared")],port,new MemoryStore());runner.Tick();
@@ -98,6 +137,37 @@ public sealed class StorageFishingTests
         runner.Tick();Assert.Equal(new[]{"navigate","move","start"},port.Actions.Select(a=>a.Kind));
         Assert.NotNull(runner.Snapshot()["pending"]);Assert.Equal(0,runner.Snapshot()["submitted"]!.GetValue<int>());
     }
+    [Fact] public void FishingRefreshReturnsToNavigationWhenPointProofWasInvalidated()
+    {
+        var port=new FishingPort{CanResumeAtPoint=false};var store=new MemoryStore();var plan=new FishingPlan("lake",30);
+        var runner=new IdleFishingRunner(plan,port,store);var state=runner.Snapshot();
+        state["status"]="paused";state["phase"]="refresh";state["pause_reason"]="inventory_sync_complete";
+        state["navigation_seen"]=true;state["navigation_deadline"]=99d;store.Flush(state);
+        runner=new(plan,port,store);runner.Resume();
+        port.Frame=new(1,"reentered");runner.Tick();
+        Assert.Equal("navigate",runner.Snapshot()["phase"]!.GetValue<string>());
+        Assert.False(runner.Snapshot()["navigation_seen"]!.GetValue<bool>());
+        Assert.Null(runner.Snapshot()["navigation_deadline"]);
+        Assert.Empty(port.Actions);
+        port.Frame=new(2,"route-start");runner.Tick();
+        Assert.Equal("navigate",Assert.Single(port.Actions).Kind);Assert.Null(runner.Snapshot()["pending"]);
+        port.Frame=new(3,"route-active",NavigationActive:true);runner.Tick();
+        Assert.True(runner.Snapshot()["navigation_seen"]!.GetValue<bool>());
+        port.CanResumeAtPoint=true;port.Frame=new(4,"re-arrived",NavigationActive:false);runner.Tick();
+        Assert.Equal("refresh",runner.Snapshot()["phase"]!.GetValue<string>());Assert.Single(port.Actions);
+    }
+    [Fact] public void FishingSentCastIsReconciledBeforeInvalidPointCanReroute()
+    {
+        var port=new FishingPort{CanResumeAtPoint=true};var store=new MemoryStore();var plan=new FishingPlan("lake",30);
+        var runner=new IdleFishingRunner(plan,port,store);var state=runner.Snapshot();state["phase"]="refresh";store.Flush(state);
+        runner=new(plan,port,store);runner.Resume();
+        port.Frame=new(1,"cast","fishing",FishingButton:true);runner.Tick();
+        var pending=runner.Snapshot()["pending"]!.DeepClone();Assert.Equal("start",runner.Snapshot()["pending"]!["kind"]!.GetValue<string>());
+        port.CanResumeAtPoint=false;port.Frame=new(2,"inventory-sync-choice");runner.Tick();
+        Assert.Equal("confirm_start",runner.Snapshot()["phase"]!.GetValue<string>());
+        Assert.True(JsonNode.DeepEquals(pending,runner.Snapshot()["pending"]));
+        Assert.Equal("start",Assert.Single(port.Actions).Kind);
+    }
     [Fact] public void FishingYieldsBeforeRecheckingNicknameSettings()
     {
         var port=new FishingPort{Frame=new(1,"scene",PreparationComplete:false)};
@@ -112,12 +182,13 @@ public sealed class StorageFishingTests
         Assert.Equal("yielded",runner.Tick()["status"]!.GetValue<string>());
         Assert.Empty(port.Actions);
     }
-    [Fact] public void FishingPreflightRejectionsRetryOnFreshFramesThenKeepTheTaskRunning()
+    [Fact] public void FishingPreflightRejectionsRetryOnFreshFramesThenReportLocalFailure()
     {
         var port=new FishingPort{Frame=new(1,"1","fishing",FishingButton:true),Error=new InputRejectedBeforeDispatchException("target changed")};var store=new MemoryStore();
         var saved=new IdleFishingRunner(new("lake",30),port,store).Snapshot();saved["phase"]="refresh";store.Flush(saved);
         var runner=new IdleFishingRunner(new("lake",30),port,store);runner.Resume();
-        for(var i=1;i<=4;i++){port.Frame=port.Frame with{At=i,CaptureId=i.ToString()};runner.Tick();}
+        for(var i=1;i<=3;i++){port.Frame=port.Frame with{At=i,CaptureId=i.ToString()};runner.Tick();}
+        port.Frame=port.Frame with{At=4,CaptureId="4"};Assert.Throws<TimeoutException>(()=>runner.Tick());
         Assert.Equal("running",runner.Snapshot()["status"]!.GetValue<string>());
         Assert.Equal("cast_preflight_retry_limit",runner.Snapshot()["reason"]!.GetValue<string>());
         Assert.Equal(3,runner.Snapshot()["cast_preflight_rejections"]!.GetValue<int>());
@@ -243,9 +314,16 @@ public sealed class StorageFishingTests
         runner.Pause();port.Frame=port.Frame with{At=103,CaptureId="4",Available=7,BagQuantity=5,BalanceAt=103};runner.ObserveOnly();runner.ObserveOnly();
         Assert.Equal("complete",runner.Snapshot()["status"]!.GetValue<string>());Assert.Single(runner.Snapshot()["completed"]!.AsArray());Assert.Equal(2,port.Actions.Count);
     }
+    [Theory][InlineData(true,"refresh")][InlineData(false,"navigate")]
+    public void FishingBackpackYieldKeepsPointUnlessAnotherTripInvalidatesIt(bool atPoint,string expected)
+    {
+        var port=new FishingPort{CanResumeAtPoint=atPoint};var store=new MemoryStore();var plan=new FishingPlan("lake",30);
+        var runner=new IdleFishingRunner(plan,port,store);var state=runner.Snapshot();state["status"]="yielded";state["phase"]="yielded";store.Flush(state);
+        runner=new(plan,port,store);runner.Resume();Assert.Equal(expected,runner.Snapshot()["phase"]!.GetValue<string>());Assert.Empty(port.Actions);
+    }
     [Fact] public void FishingYieldResumesFromSameProgressWhenScheduledAgain()
     {
-        var port=new FishingPort();var store=new MemoryStore();var plan=new FishingPlan("lake",30);var runner=new IdleFishingRunner(plan,port,store);
+        var port=new FishingPort{CanResumeAtPoint=false};var store=new MemoryStore();var plan=new FishingPlan("lake",30);var runner=new IdleFishingRunner(plan,port,store);
         var saved=runner.Snapshot();saved["status"]="yielded";saved["phase"]="yielded";saved["elapsed_s"]=10d;store.Flush(saved);runner=new(plan,port,store);
         var dispatcher=new WorkflowDispatcher();dispatcher.Continue();dispatcher.Register("fish",runner);
         dispatcher.Tick([new("fish","idle_fishing",null,true,0,0)],null);Assert.Equal("running",runner.Snapshot()["status"]!.GetValue<string>());Assert.Equal(10,runner.Snapshot()["elapsed_s"]!.GetValue<double>());
@@ -349,11 +427,141 @@ public sealed class StorageFishingTests
         Assert.Equal("complete", runner.Snapshot()["status"]!.GetValue<string>());
         Assert.Equal(1, port.Actions.Count(x => x.Kind == "start"));
     }
+    [Fact] public void UnverifiableStorageExitIsAbandonedAfterBoundedAttempts()
+    {
+        // The live run reported navigation_result_not_observed for the storage
+        // panel close on every tick, so the exit has to stay bounded.
+        var port = new StoragePort { ReleaseError = new InvalidOperationException("navigation_result_not_observed:storage_character.close") };
+        var runner = new StorageSupplyRunner([new(1, "ore", 1, "shared")], port, new MemoryStore());
+        runner.Tick();
+        port.Frame = port.Frame with { At = 101, CaptureId = "complete", TransferAvailable = false, TransferComplete = true, Available = 9, BagQuantity = 1, BalanceAt = 101 }; runner.Tick();
+        Assert.Equal("complete", runner.Snapshot()["status"]!.GetValue<string>());
+        for (var attempt = 0; attempt < 3; attempt++) Assert.False(runner.ReleaseNavigation());
+        Assert.True(runner.NavigationAbandoned); Assert.True(runner.SafeToSwitch);
+        Assert.Equal("complete", runner.Snapshot()["status"]!.GetValue<string>());
+        Assert.Equal("release_attempts_exhausted", runner.Snapshot()["release_reason"]!.GetValue<string>());
+        var releases = port.Releases; Assert.False(runner.ReleaseNavigation()); Assert.Equal(releases, port.Releases);
+        Assert.Single(runner.Snapshot()["plans"]!.AsArray());
+    }
+    [Fact] public void SilentStorageExitFailureStopsAfterOneExtraProbe()
+    {
+        var port = new StoragePort { ReleaseSucceeds = false };
+        var runner = new StorageSupplyRunner([new(1, "ore", 1, "shared")], port, new MemoryStore());
+        runner.Tick();
+        port.Frame = port.Frame with { At = 101, CaptureId = "complete", TransferAvailable = false, TransferComplete = true, Available = 9, BagQuantity = 1, BalanceAt = 101 }; runner.Tick();
+        for (var attempt = 0; attempt < 4; attempt++) Assert.False(runner.ReleaseNavigation());
+        // The fourth probe only notices the exhausted budget; it never clicks again.
+        Assert.Equal(3, port.Releases); Assert.True(runner.NavigationAbandoned); Assert.True(runner.SafeToSwitch);
+    }
+    [Fact] public void DeclaredReleaseWaitDoesNotConsumeFailureAttempts()
+    {
+        var port = new StoragePort { ReleaseSucceeds = false, Waiting = true };
+        var runner = new StorageSupplyRunner([new(1, "ore", 1, "shared")], port, new MemoryStore());
+        runner.Tick();
+        port.Frame = port.Frame with { At = 101, CaptureId = "complete", TransferAvailable = false, TransferComplete = true, Available = 9, BagQuantity = 1, BalanceAt = 101 };
+        runner.Tick();
+        for (var scan = 0; scan < 10; scan++) Assert.False(runner.ReleaseNavigation());
+        Assert.False(runner.NavigationAbandoned);
+        Assert.False(runner.ExitPageUnverified);
+        Assert.Equal(10, port.Releases);
+        Assert.Equal(0, runner.Snapshot()["release_attempts"]?.GetValue<int>() ?? 0);
+        Assert.Equal(0, runner.Snapshot()["release_steps"]?.GetValue<int>() ?? 0);
+        port.Waiting = false;
+        for (var attempt = 0; attempt < 3; attempt++) Assert.False(runner.ReleaseNavigation());
+        Assert.True(runner.NavigationAbandoned);
+    }
+    [Fact] public void DeclaredReleaseWaitStillExpiresAtTheWallClockBoundary()
+    {
+        var clock = new ManualTime();
+        var port = new StoragePort { ReleaseSucceeds = false, Waiting = true };
+        var runner = new StorageSupplyRunner([new(1, "ore", 1, "shared")], port, new MemoryStore(), 15, clock);
+        runner.Tick();
+        port.Frame = port.Frame with { At = 101, CaptureId = "complete", TransferAvailable = false, TransferComplete = true, Available = 9, BagQuantity = 1, BalanceAt = 101 };
+        runner.Tick();
+        Assert.False(runner.ReleaseNavigation());
+        clock.Seconds += StorageSupplyRunner.MaximumReleaseSeconds + 1;
+        Assert.False(runner.ReleaseNavigation());
+        Assert.True(runner.NavigationAbandoned);
+        Assert.True(runner.ExitPageUnverified);
+        Assert.False(runner.NavigationReleased);
+        Assert.Equal("time", runner.Snapshot()["release_budget"]!.GetValue<string>());
+    }    [Fact] public void ClosingPanelThenSkippingDialogueIsNotCountedAsAFailure()
+    {
+        // A healthy close is several steps: panel close, then dialogue steps. Only a
+        // step that moves nothing is a failure, otherwise the budget abandons an exit
+        // that was still on its way and the next task is left in the warehouse.
+        var port = new StoragePort { ReleaseSucceeds = false, Advancing = true };
+        var runner = new StorageSupplyRunner([new(1, "ore", 1, "shared")], port, new MemoryStore());
+        runner.Tick();
+        port.Frame = port.Frame with { At = 101, CaptureId = "complete", TransferAvailable = false, TransferComplete = true, Available = 9, BagQuantity = 1, BalanceAt = 101 };
+        runner.Tick();
+        Assert.Equal("complete", runner.Snapshot()["status"]!.GetValue<string>());
+        for (var step = 0; step < 6; step++) Assert.False(runner.ReleaseNavigation());
+        Assert.False(runner.NavigationAbandoned); Assert.False(runner.ExitPageUnverified);
+        Assert.Equal(6, port.Releases); Assert.Equal(0, runner.Snapshot()["release_attempts"]?.GetValue<int>()??0);
+        // Standing in town is what ends the exit, and it is the only thing that does.
+        port.Advancing = false; port.ReleaseSucceeds = true;
+        Assert.True(runner.ReleaseNavigation());
+        Assert.False(runner.ExitPageUnverified); Assert.False(runner.NavigationAbandoned);
+    }
+    [Fact] public void DispatchedButUnchangedExitExhaustsTheBudget()
+    {
+        // The port keeps reporting a dispatched click while the page stands still.
+        // A dispatch is not progress, so the step budget must still run out instead
+        // of refunding itself on every tick and leaving the queue on a dead exit.
+        var clock = new ManualTime();
+        var port = new StoragePort { ReleaseSucceeds = false, Advancing = true };
+        var runner = new StorageSupplyRunner([new(1, "ore", 1, "shared")], port, new MemoryStore(), 15, clock);
+        runner.Tick();
+        port.Frame = port.Frame with { At = 101, CaptureId = "complete", TransferAvailable = false, TransferComplete = true, Available = 9, BagQuantity = 1, BalanceAt = 101 };
+        runner.Tick();
+        for (var step = 0; step <= StorageSupplyRunner.MaximumReleaseSteps; step++) Assert.False(runner.ReleaseNavigation());
+        Assert.True(runner.NavigationAbandoned); Assert.True(runner.ExitPageUnverified);
+        var state = runner.Snapshot();
+        Assert.Equal("steps", state["release_budget"]!.GetValue<string>());
+        // The transfer that was already confirmed is never rolled back by giving up the exit.
+        Assert.Single(state["completed"]!.AsArray());
+    }
+    [Fact] public void ReleaseBudgetAlsoExpiresByWallClock()
+    {
+        var clock = new ManualTime();
+        var port = new StoragePort { ReleaseSucceeds = false, Advancing = true };
+        var runner = new StorageSupplyRunner([new(1, "ore", 1, "shared")], port, new MemoryStore(), 15, clock);
+        runner.Tick();
+        port.Frame = port.Frame with { At = 101, CaptureId = "complete", TransferAvailable = false, TransferComplete = true, Available = 9, BagQuantity = 1, BalanceAt = 101 };
+        runner.Tick();
+        for (var step = 0; step < 5; step++) { clock.Seconds += 20; Assert.False(runner.ReleaseNavigation()); }
+        Assert.True(runner.NavigationAbandoned);
+        Assert.Equal("time", runner.Snapshot()["release_budget"]!.GetValue<string>());
+    }
+    [Fact] public void AbandonedExitLeavesThePageUnverifiedAndKeepsTheConfirmedTransfer()
+    {
+        var port = new StoragePort { ReleaseSucceeds = false };
+        var runner = new StorageSupplyRunner([new(1, "ore", 1, "shared")], port, new MemoryStore());
+        runner.Tick();
+        port.Frame = port.Frame with { At = 101, CaptureId = "complete", TransferAvailable = false, TransferComplete = true, Available = 9, BagQuantity = 1, BalanceAt = 101 };
+        runner.Tick();
+        for (var attempt = 0; attempt < 3; attempt++) Assert.False(runner.ReleaseNavigation());
+        Assert.True(runner.NavigationAbandoned); Assert.True(runner.ExitPageUnverified);
+        Assert.Equal("storage_exit_unverified", runner.Snapshot()["reason"]!.GetValue<string>());
+        // Giving up the exit never rolls back the transfer that was already confirmed:
+        // the bag change stays journaled, so supply for the next batch still counts.
+        Assert.Equal("complete", runner.Snapshot()["status"]!.GetValue<string>());
+        Assert.Single(runner.Snapshot()["completed"]!.AsArray());
+        Assert.Equal(1, runner.Snapshot()["index"]!.GetValue<int>());
+        Assert.True(runner.SafeToSwitch);
+    }
 }
 internal sealed class StoragePort : IStorageSupplyPort
 {
     public bool LeaveAllowed;public int Releases;public bool CanLeaveAfterTransfer=>LeaveAllowed;public bool ReleaseAllowed;public bool CanReleaseForeground()=>ReleaseAllowed;
-    public bool ReleaseNavigation(){Releases++;return true;}
+    /// <summary>Drives the "page never confirmed closed" exit the live run reported.</summary>
+    public bool ReleaseSucceeds=true;public Exception? ReleaseError;
+    /// <summary>Stands for a declared page load or animation after an exit action.</summary>
+    public bool Waiting;public bool ReleaseWaiting=>Waiting;
+    /// <summary>Stands for an exit step that really moved the page (close, dialogue skip).</summary>
+    public bool Advancing;public bool ReleaseAdvanced=>Advancing;
+    public bool ReleaseNavigation(){Releases++;if(ReleaseError is{} error)throw error;return ReleaseSucceeds;}
     public List<string> GlobalPauses=[];public List<string> LocalPauses=[];
     public Exception? Error;
     public WithdrawalFrame Frame = new(100, "1", "storage", Scope: "shared", ItemId: 1, Name: "ore", Available: 10, BagQuantity: 2, BagScope: "bag:1", TransferAvailable: true, BalanceSource: "packet_capture", BalanceAt: 100);
@@ -363,6 +571,8 @@ internal sealed class StoragePort : IStorageSupplyPort
 internal sealed class FishingPort : IFishingPort
 {
     public bool Moving,CastDuringMovement;
+    public bool ReleaseAllowed; public bool CanReleaseForeground()=>ReleaseAllowed;
+    public bool CanResumeAtPoint {get;set;}=true;
     public void MoveWhileObserving(FishingAction action,Func<FishingFrame,bool> observe)
     {Perform(action);Moving=true;try{for(var i=0;i<2;i++)if(observe(Observe()))break;}finally{Moving=false;}}
     public Exception? Error;

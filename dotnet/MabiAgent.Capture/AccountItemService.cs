@@ -25,8 +25,10 @@ public sealed partial class AccountItemService
     public void ReportFault(Exception error,string operation,string? account=null)
     {var log=new MabiAgent.Core.RuntimeDiagnostics(Path.GetDirectoryName(directory)!);log.Write(log.Create(Guid.NewGuid().ToString("N"),"error","account",operation,"account",account,null,null,null,"correct_then_retry",error.Message,error,trigger:operation));}
     private readonly string? verifiedCatalogPath;
+    private JsonElement? clientCatalog;
+    private string ClientCatalogPath => Path.Combine(directory, "client-item-names.tw.json");
     private static readonly string[] AssociationFields = ["item_id", "name", "association", "source", "captured", "capture_source"];
-    private static readonly string[] InventoryFields = ["account_id", "character_id", "character", "container", "item_id", "name", "quantity", "observed_at", "source", "evidence", "frame_sha256"];
+    private static readonly string[] InventoryFields = ["account_id", "character_id", "character", "container", "item_id", "name", "quantity", "observed_at", "source", "evidence", "frame_sha256", "revision", "full_sync_revision", "verified_through", "full_sync_observed_at"];
     public AccountItemService(string directory, string? verifiedCatalogPath = null, string? candidatePath = null)
     { this.directory = Path.GetFullPath(directory); this.verifiedCatalogPath = verifiedCatalogPath; LoadCandidates(candidatePath); }
     private string IndexPath => Path.Combine(directory, "accounts.json");
@@ -59,8 +61,44 @@ public sealed partial class AccountItemService
         else registry = new();
         if (verifiedCatalogPath is not null && File.Exists(verifiedCatalogPath))
         { using var json = JsonDocument.Parse(File.ReadAllText(verifiedCatalogPath)); registry.LoadVerifiedCatalog(json.RootElement); }
+        LoadClientNames(registry);
         foreach(var row in registry.Snapshot()) if(row.Association is NameAssociation.Unknown or NameAssociation.Candidate && candidates.TryGetValue(row.ItemId,out var candidate))registry.Set(row with{Name=candidate.Name,Association=NameAssociation.Candidate,Source=candidate.Source});
         return registry;
+    }
+    private void LoadClientNames(ItemNameRegistry registry)
+    {
+        var path = File.Exists(ClientCatalogPath) ? ClientCatalogPath : verifiedCatalogPath is null ? null : Path.Combine(Path.GetDirectoryName(Path.GetFullPath(verifiedCatalogPath))!, "client-item-names.tw.json");
+        if (clientCatalog is null && path is not null && File.Exists(path))
+        {
+            if (new FileInfo(path).Length > 16 * 1024 * 1024) throw new InvalidDataException("客户端名称目录超过大小限制");
+            using var json = JsonDocument.Parse(File.ReadAllText(path));
+            ItemNameRegistry.ValidateClientCatalog(json.RootElement); clientCatalog = json.RootElement.Clone();
+        }
+        if (clientCatalog is { } catalog) registry.LoadClientCatalog(catalog);
+    }
+    /// <summary>完整校验后原子保存名称目录；关联立即生效，库存数量仍来自抓包。</summary>
+    public ClientCatalogUpdate UpdateClientCatalog(JsonElement catalog)
+    {
+        ItemNameRegistry.ValidateClientCatalog(catalog);
+        var serialized = catalog.GetRawText();
+        if (Encoding.UTF8.GetByteCount(serialized) > 16 * 1024 * 1024) throw new InvalidDataException("客户端名称目录超过大小限制");
+        lock (gate)
+        {
+            var before = ReadIndex().Select(account => (account.Key, Registry(account.Key).Snapshot())).ToArray();
+            var changed = 0;
+            foreach (var (_, rows) in before)
+            {
+                var next = new ItemNameRegistry();
+                foreach (var row in rows) next.Set(row);
+                next.LoadClientCatalog(catalog);
+                var previous = rows.ToDictionary(r => r.ItemId);
+                changed += next.Snapshot().Count(row => row.Name != previous[row.ItemId].Name || row.Association != previous[row.ItemId].Association);
+            }
+            AtomicWrite(ClientCatalogPath, serialized, Fingerprint(ClientCatalogPath));
+            clientCatalog = catalog.Clone();
+            Interlocked.Increment(ref version);
+            return new(catalog.GetProperty("items").EnumerateObject().Count(), changed);
+        }
     }
     public uint? ResolveVerified(string accountId, string name)
     { lock (gate) { RequireAccount(accountId); return Registry(accountId).ResolveVerified(name); } }
@@ -107,31 +145,41 @@ public sealed partial class AccountItemService
             throw new ArgumentException("仅保存身份完整的当前库存");
         if (snapshot.Counts.Values.Sum(c => c.Count) > 30000 || snapshot.Counts.Values.Any(c => c.Any(p => p.Key == 0 || p.Value < 0)))
             throw new ArgumentException("Invalid inventory counts");
+        var observedAt = snapshot.ObservedAt ?? DateTimeOffset.UtcNow;
+        var fullSyncObservedAt = snapshot.FullSyncObservedAt ?? observedAt;
         lock (gate)
         {
+            var inventoryPath = Path.Combine(Folder(scope.AccountId), "inventory.csv");
+            var associationPath = Path.Combine(Folder(scope.AccountId), "associations.csv");
+            var inventoryHash = Fingerprint(inventoryPath); var inventory = ReadCsv(inventoryPath);
+            var containers = snapshot.Counts.Where(pair => !IsStale(snapshot, fullSyncObservedAt, inventory, ContainerName(pair.Key), pair.Key == InventoryContainer.AccountStorage ? "" : scope.CharacterId)).ToArray();
+            if (containers.Length == 0) return;
             SetCurrentCapture(snapshot);
             var indexHash = Fingerprint(IndexPath); var index = ReadIndex();
             var metadata = index[scope.AccountId] as JsonObject;
             if (metadata is null) { metadata = new JsonObject { ["account_id"] = scope.AccountId, ["characters"] = new JsonObject() }; index[scope.AccountId] = metadata; }
             if (metadata["characters"] is not JsonObject) metadata["characters"] = new JsonObject();
             metadata["characters"]![scope.CharacterId] = identity.Label;
-            var inventoryPath = Path.Combine(Folder(scope.AccountId), "inventory.csv");
-            var associationPath = Path.Combine(Folder(scope.AccountId), "associations.csv");
-            var inventoryHash = Fingerprint(inventoryPath); var associationHash = Fingerprint(associationPath);
-            var inventory = ReadCsv(inventoryPath); var associations = ReadCsv(associationPath); var registry = Registry(scope.AccountId);
+            var associationHash = Fingerprint(associationPath);
+            var associations = ReadCsv(associationPath); var registry = Registry(scope.AccountId);
             var names = registry.Snapshot().ToDictionary(r => r.ItemId);
             foreach (var id in snapshot.Counts.Values.SelectMany(c => c.Keys).Distinct())
             { var row = names.GetValueOrDefault(id); names[id] = row is null ? candidates.TryGetValue(id,out var candidate)?new(id,candidate.Name,NameAssociation.Candidate,candidate.Source,true):new(id, null, NameAssociation.Unknown, "capture:" + scope.SessionId, true) : row with { Captured = true }; }
-            var now = DateTimeOffset.UtcNow.ToString("O", CultureInfo.InvariantCulture);
-            foreach (var pair in snapshot.Counts)
+            foreach (var row in names.Values) registry.Set(row);
+            LoadClientNames(registry);
+            names = registry.Snapshot().ToDictionary(r => r.ItemId);
+            var observed = observedAt.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture);
+            foreach (var pair in containers)
             {
                 var container = ContainerName(pair.Key); var owner = pair.Key == InventoryContainer.AccountStorage ? "" : scope.CharacterId;
                 inventory.RemoveAll(r => Field(r, "container") == container && Field(r, "character_id") == owner);
                 Dictionary<string, string> Row(string item, string quantity, string source) => new(StringComparer.Ordinal)
                 {
                     ["account_id"] = scope.AccountId, ["character_id"] = owner, ["character"] = owner.Length == 0 ? "账号共享" : identity.Label,
-                    ["container"] = container, ["item_id"] = item, ["quantity"] = quantity, ["observed_at"] = now, ["source"] = source,
-                    ["evidence"] = scope.SessionId, ["frame_sha256"] = ""
+                    ["container"] = container, ["item_id"] = item, ["quantity"] = quantity, ["observed_at"] = observed, ["source"] = source,
+                    ["evidence"] = scope.SessionId, ["frame_sha256"] = snapshot.FrameSha256 ?? "", ["revision"] = snapshot.Revision.ToString(CultureInfo.InvariantCulture),
+                    ["full_sync_revision"] = snapshot.FullSyncRevision.ToString(CultureInfo.InvariantCulture), ["verified_through"] = snapshot.VerifiedThrough.Value.ToString("R", CultureInfo.InvariantCulture),
+                    ["full_sync_observed_at"] = fullSyncObservedAt.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture)
                 };
                 foreach (var count in pair.Value)
                 { var row = Row(count.Key.ToString(CultureInfo.InvariantCulture), count.Value.ToString(CultureInfo.InvariantCulture), snapshot.Source); row["name"] = names[count.Key].Name ?? ""; inventory.Add(row); }
@@ -212,6 +260,41 @@ public sealed partial class AccountItemService
     }
     private static string Number(long? value) => value?.ToString(CultureInfo.InvariantCulture) ?? "";
     private static string ContainerName(InventoryContainer value) => value switch { InventoryContainer.Backpack => "backpack", InventoryContainer.CharacterStorage => "character_storage", InventoryContainer.AccountStorage => "account_storage", _ => throw new ArgumentOutOfRangeException(nameof(value)) };
+    private static bool IsStale(InventorySnapshot snapshot, DateTimeOffset fullSyncObservedAt, IEnumerable<Dictionary<string,string>> rows, string container, string owner)
+    {
+        foreach (var row in rows.Where(r => Field(r,"container")==container && Field(r,"character_id")==owner))
+        {
+            var full = OptionalLong(row,"full_sync_revision"); var revision = OptionalLong(row,"revision"); var verified = OptionalDouble(row,"verified_through");
+            if (Field(row,"evidence")==snapshot.Scope!.SessionId && (full.HasValue || revision.HasValue || verified.HasValue))
+            {
+                if (snapshot.FullSyncRevision<full || snapshot.Revision<revision || snapshot.VerifiedThrough<verified) return true;
+                continue;
+            }
+            // Health advances never change the full-sync generation. Legacy rows
+            // use their last observation time once, until a new full sync takes over.
+            var priorAt = ObservedTime(row,"full_sync_observed_at") ?? ObservedTime(row,"observed_at");
+            if (!priorAt.HasValue || fullSyncObservedAt<=priorAt.Value) return true;
+        }
+        return false;
+    }
+    private static long? OptionalLong(Dictionary<string,string> row, string field)
+    {
+        var value=Field(row,field);if(value.Length==0)return null;
+        if(!long.TryParse(value,NumberStyles.None,CultureInfo.InvariantCulture,out var parsed)||parsed<0)throw new InvalidDataException("Invalid inventory generation");
+        return parsed;
+    }
+    private static double? OptionalDouble(Dictionary<string,string> row, string field)
+    {
+        var value=Field(row,field);if(value.Length==0)return null;
+        if(!double.TryParse(value,NumberStyles.Float,CultureInfo.InvariantCulture,out var parsed)||!double.IsFinite(parsed))throw new InvalidDataException("Invalid inventory observation generation");
+        return parsed;
+    }
+    private static DateTimeOffset? ObservedTime(Dictionary<string,string> row, string field)
+    {
+        var value=Field(row,field);if(value.Length==0)return null;
+        if(!DateTimeOffset.TryParse(value,CultureInfo.InvariantCulture,DateTimeStyles.RoundtripKind,out var parsed))throw new InvalidDataException("Invalid inventory observation time");
+        return parsed;
+    }
     private static string Field(Dictionary<string, string> row, string key) => row.GetValueOrDefault(key, "");
     private static List<Dictionary<string, string>> ReadCsv(string path)
     {
@@ -257,7 +340,9 @@ public sealed partial class AccountItemService
     private static void WriteRow(TextWriter output, IEnumerable<string> values) => output.WriteLine(string.Join(',', values.Select(v => v.IndexOfAny([',', '"', '\r', '\n']) >= 0 ? "\"" + v.Replace("\"", "\"\"", StringComparison.Ordinal) + "\"" : v)));
     private static void AtomicWrite(string path, string content, string? expected)
     {
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!); var temporary = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        using var writeLock = new FileStream(path + ".lock", FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+        var temporary = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
         try
         {
             using (var file = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None))

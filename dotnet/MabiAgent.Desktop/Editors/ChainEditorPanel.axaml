@@ -46,7 +46,7 @@
                   </StackPanel>
                   <StackPanel Spacing="6" Margin="0,8">
                     <TextBlock Text="产物名称" Classes="muted" FontSize="13" />
-                    <TextBox Text="{Binding Product,UpdateSourceTrigger=PropertyChanged}" PlaceholderText="完整道具名称" />
+                    <TextBox Text="{Binding ProductDisplay,UpdateSourceTrigger=PropertyChanged}" PlaceholderText="完整道具名称" />
                   </StackPanel>
                   <WrapPanel IsVisible="{Binding IsProduction}">
                     <StackPanel Spacing="6" Width="90" Margin="0,8,12,8">
@@ -69,7 +69,7 @@
                   <WrapPanel IsVisible="{Binding IsGathering}">
                     <StackPanel Spacing="6" Width="160" Margin="0,8,12,8">
                       <TextBlock Text="采集技能" Classes="muted" FontSize="13" />
-                      <TextBox Text="{Binding Skill}" PlaceholderText="采集技能" />
+                      <TextBox Text="{Binding SkillDisplay}" PlaceholderText="采集技能" />
                     </StackPanel>
                     <StackPanel Spacing="6" Width="160" Margin="0,8,12,8">
                       <TextBlock Text="采集点" Classes="muted" FontSize="13" />
@@ -115,7 +115,7 @@
                     <ComboBox ItemsSource="{Binding VisibleNodes}" SelectedItem="{Binding SelectedNode}" Margin="0,12" DisplayMemberBinding="{Binding Caption}" />
                     <StackPanel Spacing="6">
                       <TextBlock Text="节点名称" Classes="muted" FontSize="13" />
-                      <TextBox Text="{Binding SelectedNode.Label}" PlaceholderText="节点名称" />
+                      <TextBox Text="{Binding SelectedNode.DisplayLabel}" PlaceholderText="节点名称" />
                     </StackPanel>
                     <WrapPanel Margin="0,12">
                       <Button Classes="danger" ui:UiIcon.Kind="trash" Content="删除节点" Command="{Binding RemoveNodeCommand}" Margin="0,0,8,8" />

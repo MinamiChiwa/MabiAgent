@@ -29,6 +29,9 @@ public sealed class CaptureCoordinator : IAsyncDisposable
     public event Action? Changed;
     private readonly object gate = new();
     private readonly Func<byte[], LoginInventory> decodeLogin;
+    private readonly Func<CaptureTarget,CancellationToken,ClientCaptureLayout>? resolveLayout;
+    private readonly CaptureProtocol? protocol;
+    private readonly Func<byte[],IReadOnlyList<ConsumableStack>>? decodeUpdates;
     private readonly AccountItemService? accounts;
     private readonly ICaptureEnvironment environment;
     private readonly TimeSpan interval;
@@ -47,9 +50,9 @@ public sealed class CaptureCoordinator : IAsyncDisposable
     private readonly RuntimeDiagnostics? diagnostics;private readonly string trace=Guid.NewGuid().ToString("N");private string? lastFault;
     private void Record(Exception error,string stage)
     {var key=stage+":"+error.GetType().FullName+":"+error.Message;if(key==lastFault)return;lastFault=key;diagnostics?.Write(diagnostics.Create(trace,"error","capture",stage,"capture",Snapshot().Inventory?.Scope?.SessionId,null,null,null,"bounded_reconnect",error.Message,error,trigger:"capture > "+stage));}
-    public CaptureCoordinator(Func<byte[], LoginInventory> decodeLogin, AccountItemService? accounts = null, ICaptureEnvironment? environment = null, TimeSpan? pollInterval = null,RuntimeDiagnostics? diagnostics=null,IEnumerable<CharacterIdentity>? identityMetadata=null,Action<GameFrame,string,double>? observeFrame=null)
+    public CaptureCoordinator(Func<byte[], LoginInventory> decodeLogin, AccountItemService? accounts = null, ICaptureEnvironment? environment = null, TimeSpan? pollInterval = null,RuntimeDiagnostics? diagnostics=null,IEnumerable<CharacterIdentity>? identityMetadata=null,Action<GameFrame,string,double>? observeFrame=null,Func<CaptureTarget,CancellationToken,ClientCaptureLayout>? resolveLayout=null,CaptureProtocol? protocol=null,Func<byte[],IReadOnlyList<ConsumableStack>>? decodeUpdates=null)
     {
-        this.diagnostics=diagnostics;this.observeFrame=observeFrame;
+        this.diagnostics=diagnostics;this.observeFrame=observeFrame;this.resolveLayout=resolveLayout;this.protocol=protocol;this.decodeUpdates=decodeUpdates;
         this.decodeLogin = decodeLogin; this.accounts = accounts; this.environment = environment ?? new WindowsCaptureEnvironment();
         this.identityMetadata=identityMetadata?.Take(256).ToArray()??[];
         interval = pollInterval ?? TimeSpan.FromSeconds(1);
@@ -132,6 +135,9 @@ public sealed class CaptureCoordinator : IAsyncDisposable
         try
         {
             Set(version, new(CaptureState.Starting, "连接被动抓包设备", target, null));
+            var layout=resolveLayout?.Invoke(target,stop.Token);
+            var decoder=layout?.CreateDecoder();
+            Func<byte[],LoginInventory> decode=decoder is null?decodeLogin:decoder.Decode;
             var devices = UsableDevices();
             if (devices.Length == 0 || devices.Length > 64) throw new IOException("未找到可用抓包设备");
             filter = environment.OpenEndpointFilter(target, out var allows);
@@ -146,9 +152,9 @@ public sealed class CaptureCoordinator : IAsyncDisposable
             if(accounts is not null)
             {
                 try{seeds=seeds.Concat(accounts.KnownCaptureIdentities()).GroupBy(i=>i.CharacterId,StringComparer.Ordinal).Select(g=>g.First()).Take(256).ToArray();}
-                catch(Exception error)when(error is IOException or UnauthorizedAccessException or JsonException or ArgumentException){Record(error,"identity_metadata");}
+                catch(Exception error)when(error is IOException or InvalidDataException or UnauthorizedAccessException or JsonException or ArgumentException){Record(error,"identity_metadata");}
             }
-            var inventory = new StreamingInventory(decodeLogin, Guid.NewGuid().ToString("N"),seeds);
+            var inventory = new StreamingInventory(decode, Guid.NewGuid().ToString("N"),seeds,layout?.Protocol??protocol,decoder is null?decodeUpdates:decoder.DecodeUpdates);
             lock (gate) { if (selectionVersion != version) return; currentInventory = inventory; }
             service = new PassiveCaptureService(inventory, () => new DeviceGroup(devices, environment), endpoint =>
             {
@@ -170,7 +176,7 @@ public sealed class CaptureCoordinator : IAsyncDisposable
                 if (current.VerifiedThrough.HasValue && current.Revision != recordedRevision && DateTimeOffset.UtcNow>=accountRetryAt)
                 {
                     try { accounts?.Record(current); recordedRevision=current.Revision; accountError = null; }
-                    catch (Exception error) when (error is IOException or UnauthorizedAccessException or JsonException or ArgumentException)
+                    catch (Exception error) when (error is IOException or InvalidDataException or UnauthorizedAccessException or JsonException or ArgumentException)
                     { Record(error,"account_write");accountError = "账户记录未保存：" + error.Message[..Math.Min(200, error.Message.Length)]; }
                     accountRetryAt=DateTimeOffset.UtcNow.AddSeconds(accountError is null?0:2);
                 }

@@ -14617,10 +14617,10 @@
         "search": [
           800,
           285,
-          1100,
+          862,
           930
         ],
-        "match_mode": "light_text",
+        "match_mode": "list_label",
         "threshold": 0.95,
         "relative_contrast": true,
         "relative_contrast_threshold": 40,
@@ -14677,10 +14677,10 @@
         "search": [
           800,
           285,
-          1100,
+          887,
           930
         ],
-        "match_mode": "light_text",
+        "match_mode": "list_label",
         "threshold": 0.95,
         "relative_contrast": true,
         "relative_contrast_threshold": 40,
@@ -14737,10 +14737,10 @@
         "search": [
           800,
           285,
-          1100,
+          837,
           930
         ],
-        "match_mode": "light_text",
+        "match_mode": "list_label",
         "threshold": 0.95,
         "relative_contrast": true,
         "relative_contrast_threshold": 40,
@@ -14797,10 +14797,10 @@
         "search": [
           800,
           285,
-          1100,
+          862,
           930
         ],
-        "match_mode": "light_text",
+        "match_mode": "list_label",
         "threshold": 0.95,
         "relative_contrast": true,
         "relative_contrast_threshold": 40,
@@ -14857,10 +14857,10 @@
         "search": [
           800,
           285,
-          1100,
+          862,
           930
         ],
-        "match_mode": "light_text",
+        "match_mode": "list_label",
         "threshold": 0.95,
         "relative_contrast": true,
         "relative_contrast_threshold": 40,
@@ -14917,10 +14917,10 @@
         "search": [
           800,
           285,
-          1100,
+          887,
           930
         ],
-        "match_mode": "light_text",
+        "match_mode": "list_label",
         "threshold": 0.95,
         "relative_contrast": true,
         "relative_contrast_threshold": 40,
@@ -14977,10 +14977,10 @@
         "search": [
           800,
           285,
-          1100,
+          862,
           930
         ],
-        "match_mode": "light_text",
+        "match_mode": "list_label",
         "threshold": 0.95,
         "relative_contrast": true,
         "relative_contrast_threshold": 40,
@@ -15037,10 +15037,10 @@
         "search": [
           800,
           285,
-          1100,
+          887,
           930
         ],
-        "match_mode": "light_text",
+        "match_mode": "list_label",
         "threshold": 0.95,
         "relative_contrast": true,
         "relative_contrast_threshold": 40,
@@ -15097,10 +15097,10 @@
         "search": [
           800,
           285,
-          1100,
+          887,
           930
         ],
-        "match_mode": "light_text",
+        "match_mode": "list_label",
         "threshold": 0.95,
         "relative_contrast": true,
         "relative_contrast_threshold": 40,
@@ -15157,10 +15157,10 @@
         "search": [
           800,
           285,
-          1100,
+          887,
           930
         ],
-        "match_mode": "light_text",
+        "match_mode": "list_label",
         "threshold": 0.95,
         "relative_contrast": true,
         "relative_contrast_threshold": 40,
@@ -15217,10 +15217,10 @@
         "search": [
           800,
           285,
-          1100,
+          887,
           930
         ],
-        "match_mode": "light_text",
+        "match_mode": "list_label",
         "threshold": 0.95,
         "relative_contrast": true,
         "relative_contrast_threshold": 40,
@@ -15277,10 +15277,10 @@
         "search": [
           800,
           285,
-          1100,
+          887,
           930
         ],
-        "match_mode": "light_text",
+        "match_mode": "list_label",
         "threshold": 0.95,
         "relative_contrast": true,
         "relative_contrast_threshold": 40,
@@ -15337,10 +15337,10 @@
         "search": [
           800,
           285,
-          1100,
+          862,
           930
         ],
-        "match_mode": "light_text",
+        "match_mode": "list_label",
         "threshold": 0.95,
         "relative_contrast": true,
         "relative_contrast_threshold": 40,
@@ -15397,10 +15397,10 @@
         "search": [
           800,
           285,
-          1100,
+          887,
           930
         ],
-        "match_mode": "light_text",
+        "match_mode": "list_label",
         "threshold": 0.95,
         "relative_contrast": true,
         "relative_contrast_threshold": 40,
@@ -15457,10 +15457,10 @@
         "search": [
           800,
           285,
-          1100,
+          837,
           930
         ],
-        "match_mode": "light_text",
+        "match_mode": "list_label",
         "threshold": 0.95,
         "relative_contrast": true,
         "relative_contrast_threshold": 40,
@@ -15517,10 +15517,10 @@
         "search": [
           800,
           285,
-          1100,
+          912,
           930
         ],
-        "match_mode": "light_text",
+        "match_mode": "list_label",
         "threshold": 0.95,
         "relative_contrast": true,
         "relative_contrast_threshold": 40,
@@ -15577,10 +15577,10 @@
         "search": [
           800,
           285,
-          1100,
+          887,
           930
         ],
-        "match_mode": "light_text",
+        "match_mode": "list_label",
         "threshold": 0.95,
         "relative_contrast": true,
         "relative_contrast_threshold": 40,
@@ -15637,10 +15637,10 @@
         "search": [
           800,
           285,
-          1100,
+          912,
           930
         ],
-        "match_mode": "light_text",
+        "match_mode": "list_label",
         "threshold": 0.95,
         "relative_contrast": true,
         "relative_contrast_threshold": 40,
@@ -15697,10 +15697,10 @@
         "search": [
           800,
           285,
-          1100,
+          887,
           930
         ],
-        "match_mode": "light_text",
+        "match_mode": "list_label",
         "threshold": 0.95,
         "relative_contrast": true,
         "relative_contrast_threshold": 40,
@@ -15757,10 +15757,10 @@
         "search": [
           800,
           285,
-          1100,
+          862,
           930
         ],
-        "match_mode": "light_text",
+        "match_mode": "list_label",
         "threshold": 0.95,
         "relative_contrast": true,
         "relative_contrast_threshold": 40,
@@ -15817,10 +15817,10 @@
         "search": [
           800,
           285,
-          1100,
+          912,
           930
         ],
-        "match_mode": "light_text",
+        "match_mode": "list_label",
         "threshold": 0.95,
         "relative_contrast": true,
         "relative_contrast_threshold": 40,
@@ -15877,10 +15877,10 @@
         "search": [
           800,
           285,
-          1100,
+          862,
           930
         ],
-        "match_mode": "light_text",
+        "match_mode": "list_label",
         "threshold": 0.95,
         "relative_contrast": true,
         "relative_contrast_threshold": 40,
@@ -15937,10 +15937,10 @@
         "search": [
           800,
           285,
-          1100,
+          912,
           930
         ],
-        "match_mode": "light_text",
+        "match_mode": "list_label",
         "threshold": 0.95,
         "relative_contrast": true,
         "relative_contrast_threshold": 40,
@@ -15997,10 +15997,10 @@
         "search": [
           800,
           285,
-          1100,
+          912,
           930
         ],
-        "match_mode": "light_text",
+        "match_mode": "list_label",
         "threshold": 0.95,
         "relative_contrast": true,
         "relative_contrast_threshold": 40,
@@ -16057,10 +16057,10 @@
         "search": [
           800,
           285,
-          1100,
+          912,
           930
         ],
-        "match_mode": "light_text",
+        "match_mode": "list_label",
         "threshold": 0.95,
         "relative_contrast": true,
         "relative_contrast_threshold": 40,
@@ -16117,10 +16117,10 @@
         "search": [
           800,
           285,
-          1100,
+          887,
           930
         ],
-        "match_mode": "light_text",
+        "match_mode": "list_label",
         "threshold": 0.95,
         "relative_contrast": true,
         "relative_contrast_threshold": 40,
@@ -16177,10 +16177,10 @@
         "search": [
           800,
           285,
-          1100,
+          912,
           930
         ],
-        "match_mode": "light_text",
+        "match_mode": "list_label",
         "threshold": 0.95,
         "relative_contrast": true,
         "relative_contrast_threshold": 40,
@@ -16237,10 +16237,10 @@
         "search": [
           800,
           285,
-          1100,
+          887,
           930
         ],
-        "match_mode": "light_text",
+        "match_mode": "list_label",
         "threshold": 0.95,
         "relative_contrast": true,
         "relative_contrast_threshold": 40,
@@ -16297,10 +16297,10 @@
         "search": [
           800,
           285,
-          1100,
+          912,
           930
         ],
-        "match_mode": "light_text",
+        "match_mode": "list_label",
         "threshold": 0.95,
         "relative_contrast": true,
         "relative_contrast_threshold": 40,
@@ -16357,10 +16357,10 @@
         "search": [
           800,
           285,
-          1100,
+          887,
           930
         ],
-        "match_mode": "light_text",
+        "match_mode": "list_label",
         "threshold": 0.95,
         "relative_contrast": true,
         "relative_contrast_threshold": 40,
@@ -16417,10 +16417,10 @@
         "search": [
           800,
           285,
-          1100,
+          912,
           930
         ],
-        "match_mode": "light_text",
+        "match_mode": "list_label",
         "threshold": 0.95,
         "relative_contrast": true,
         "relative_contrast_threshold": 40,
@@ -16477,10 +16477,10 @@
         "search": [
           800,
           285,
-          1100,
+          837,
           930
         ],
-        "match_mode": "light_text",
+        "match_mode": "list_label",
         "threshold": 0.95,
         "relative_contrast": true,
         "relative_contrast_threshold": 40,
@@ -16537,10 +16537,10 @@
         "search": [
           800,
           285,
-          1100,
+          887,
           930
         ],
-        "match_mode": "light_text",
+        "match_mode": "list_label",
         "threshold": 0.95,
         "relative_contrast": true,
         "relative_contrast_threshold": 40,
@@ -16597,10 +16597,10 @@
         "search": [
           800,
           285,
-          1100,
+          887,
           930
         ],
-        "match_mode": "light_text",
+        "match_mode": "list_label",
         "threshold": 0.95,
         "relative_contrast": true,
         "relative_contrast_threshold": 40,
@@ -16657,10 +16657,10 @@
         "search": [
           800,
           285,
-          1100,
+          862,
           930
         ],
-        "match_mode": "light_text",
+        "match_mode": "list_label",
         "threshold": 0.95,
         "relative_contrast": true,
         "relative_contrast_threshold": 40,
@@ -16717,10 +16717,10 @@
         "search": [
           800,
           285,
-          1100,
+          862,
           930
         ],
-        "match_mode": "light_text",
+        "match_mode": "list_label",
         "threshold": 0.95,
         "relative_contrast": true,
         "relative_contrast_threshold": 40,
@@ -16777,10 +16777,10 @@
         "search": [
           800,
           285,
-          1100,
+          862,
           930
         ],
-        "match_mode": "light_text",
+        "match_mode": "list_label",
         "threshold": 0.95,
         "relative_contrast": true,
         "relative_contrast_threshold": 40,
@@ -16837,10 +16837,10 @@
         "search": [
           800,
           285,
-          1100,
+          887,
           930
         ],
-        "match_mode": "light_text",
+        "match_mode": "list_label",
         "threshold": 0.95,
         "relative_contrast": true,
         "relative_contrast_threshold": 40,
@@ -16897,10 +16897,10 @@
         "search": [
           800,
           285,
-          1100,
+          862,
           930
         ],
-        "match_mode": "light_text",
+        "match_mode": "list_label",
         "threshold": 0.95,
         "relative_contrast": true,
         "relative_contrast_threshold": 40,
@@ -16957,10 +16957,10 @@
         "search": [
           800,
           285,
-          1100,
+          862,
           930
         ],
-        "match_mode": "light_text",
+        "match_mode": "list_label",
         "threshold": 0.95,
         "relative_contrast": true,
         "relative_contrast_threshold": 40,
@@ -17017,10 +17017,10 @@
         "search": [
           800,
           285,
-          1100,
+          887,
           935
         ],
-        "match_mode": "light_text",
+        "match_mode": "list_label",
         "threshold": 0.95,
         "relative_contrast": true,
         "relative_contrast_threshold": 40,
@@ -17077,10 +17077,10 @@
         "search": [
           800,
           285,
-          1100,
+          862,
           930
         ],
-        "match_mode": "light_text",
+        "match_mode": "list_label",
         "threshold": 0.95,
         "relative_contrast": true,
         "relative_contrast_threshold": 40,
@@ -17137,10 +17137,10 @@
         "search": [
           800,
           285,
-          1100,
+          912,
           930
         ],
-        "match_mode": "light_text",
+        "match_mode": "list_label",
         "threshold": 0.95,
         "relative_contrast": true,
         "relative_contrast_threshold": 40,
@@ -17197,10 +17197,10 @@
         "search": [
           800,
           285,
-          1100,
+          887,
           930
         ],
-        "match_mode": "light_text",
+        "match_mode": "list_label",
         "threshold": 0.95,
         "relative_contrast": true,
         "relative_contrast_threshold": 40,
@@ -17257,10 +17257,10 @@
         "search": [
           800,
           285,
-          1100,
+          937,
           930
         ],
-        "match_mode": "light_text",
+        "match_mode": "list_label",
         "threshold": 0.95,
         "relative_contrast": true,
         "relative_contrast_threshold": 40,
@@ -17317,10 +17317,10 @@
         "search": [
           800,
           285,
-          1100,
+          937,
           930
         ],
-        "match_mode": "light_text",
+        "match_mode": "list_label",
         "threshold": 0.95,
         "relative_contrast": true,
         "relative_contrast_threshold": 40,
@@ -17377,10 +17377,10 @@
         "search": [
           800,
           285,
-          1100,
+          937,
           930
         ],
-        "match_mode": "light_text",
+        "match_mode": "list_label",
         "threshold": 0.95,
         "relative_contrast": true,
         "relative_contrast_threshold": 40,
@@ -17437,10 +17437,10 @@
         "search": [
           800,
           285,
-          1100,
+          962,
           930
         ],
-        "match_mode": "light_text",
+        "match_mode": "list_label",
         "threshold": 0.95,
         "relative_contrast": true,
         "relative_contrast_threshold": 40,
@@ -18111,7 +18111,7 @@
           138
         ],
         "threshold": 0.97,
-        "match_mode": "grayscale",
+        "match_mode": "light_text",
         "source": "release_catalog",
         "source_sha256": "a881baba411cda342364a0da737b69176fbd8f3d6246f8ce35e3a59f92a910b2",
         "crop_native": [
@@ -18124,7 +18124,9 @@
           1,
           1
         ],
-        "bytes": 3186
+        "bytes": 3186,
+        "light_threshold": 180,
+        "glyph_threshold": 0.97
       },
       "preset_fabric_detail_equipment": {
         "path": "assets/templates/screen_ui/catalog-2026-10-25/preset_fabric_detail_equipment_stable.png",
@@ -18713,7 +18715,7 @@
           55
         ],
         "threshold": 0.97,
-        "match_mode": "grayscale",
+        "match_mode": "light_text",
         "source": "release_catalog",
         "source_sha256": "a881baba411cda342364a0da737b69176fbd8f3d6246f8ce35e3a59f92a910b2",
         "crop_native": [
@@ -18725,7 +18727,9 @@
         "scale": [
           1,
           1
-        ]
+        ],
+        "light_threshold": 180,
+        "glyph_threshold": 0.97
       },
       "preset_chemical_title": {
         "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_chemical_title.png",
@@ -19369,59 +19373,6 @@
           389
         ]
       },
-      "storage_bank_npc": {
-        "path": "assets/templates/screen_ui/storage/storage_bank_npc.png",
-        "sha256": "a96dbad716dca3b6c1a08fcb61bf3b10ddfd335138a2b886088488722558ff50",
-        "bytes": 1413,
-        "box": [
-          193,
-          160,
-          224,
-          190
-        ],
-        "search": [
-          0,
-          80,
-          1150,
-          850
-        ],
-        "threshold": 0.92,
-        "source": "release_catalog",
-        "crop_native": [
-          193,
-          160,
-          224,
-          190
-        ]
-      },
-      "storage_npc_name": {
-        "path": "assets/templates/screen_ui/storage/storage_npc_name.png",
-        "sha256": "0f27db223faef4287cf68312fb1df02d4919ec53dddd8071bd799a2db3616701",
-        "bytes": 1117,
-        "box": [
-          796,
-          696,
-          837,
-          728
-        ],
-        "search": [
-          760,
-          650,
-          900,
-          760
-        ],
-        "threshold": 0.97,
-        "source": "release_catalog",
-        "crop_native": [
-          796,
-          696,
-          837,
-          728
-        ],
-        "match_mode": "light_text",
-        "light_threshold": 180,
-        "glyph_threshold": 0.96
-      },
       "storage_dialog_open_live": {
         "path": "assets/templates/screen_ui/storage/storage_dialog_open_live.png",
         "sha256": "32dcb0c2bffb6fbac3d313269889e6215ce3f5e1f0b802c0bf0df685e0f23d31",
@@ -19729,34 +19680,6 @@
           61
         ]
       },
-      "storage_bank_label": {
-        "path": "assets/templates/screen_ui/storage/storage_bank_label.png",
-        "sha256": "5a91dc44eb275b1e0213db8364b2ab71152608b788cb8e2851d9a4ecff1e68c8",
-        "bytes": 2464,
-        "box": [
-          261,
-          261,
-          306,
-          287
-        ],
-        "search": [
-          0,
-          80,
-          1150,
-          850
-        ],
-        "threshold": 0.97,
-        "source": "release_catalog",
-        "crop_native": [
-          261,
-          261,
-          306,
-          287
-        ],
-        "match_mode": "light_text",
-        "light_threshold": 180,
-        "glyph_threshold": 0.96
-      },
       "fishing_navigation_task": {
         "path": "assets/templates/screen_ui/storage/fishing_navigation_task.png",
         "sha256": "e58b96956f3407b76866b8ec9b2027c1370aef3176e2a4ea39eeda124131a490",
@@ -19921,55 +19844,6 @@
           693,
           697,
           725
-        ]
-      },
-      "storage_shortcut_open": {
-        "path": "assets/templates/screen_ui/storage_shortcut_open.png",
-        "sha256": "0f136dbcba08069cc3a4179dd6ac79e6a3d33f26e4343233447e38274a06e30e",
-        "bytes": 5593,
-        "box": [
-          530,
-          878,
-          627,
-          903
-        ],
-        "search": [
-          520,
-          868,
-          637,
-          913
-        ],
-        "threshold": 0.95,
-        "match_mode": "light_text",
-        "light_threshold": 180,
-        "source": "tests/fixtures/production/storage-open-current.jpg"
-      },
-      "storage_shortcut_end": {
-        "path": "assets/templates/screen_ui/storage/storage_shortcut_end.png",
-        "sha256": "d8b62f514ac5274dc93bfa853c0af4abe8305ce38800ca0b6e0f80d4900c1edf",
-        "bytes": 2732,
-        "box": [
-          671,
-          881,
-          753,
-          903
-        ],
-        "search": [
-          666,
-          876,
-          758,
-          908
-        ],
-        "threshold": 0.97,
-        "match_mode": "light_text",
-        "light_threshold": 200,
-        "glyph_threshold": 0.97,
-        "source": "release_catalog",
-        "crop_native": [
-          671,
-          881,
-          753,
-          903
         ]
       },
       "storage_chest_name": {
@@ -20357,6 +20231,34 @@
         "light_threshold": 180,
         "source": "tests/fixtures/production/storage-bank-menu-current.jpg"
       },
+      "storage_room_exit_home": {
+        "path": "assets/templates/screen_ui/storage/storage_room_exit_home.png",
+        "sha256": "0edc24a1999abc54fb7313e80ee3a8623e694c835c8a4884029801d6b01396d0",
+        "bytes": 4068,
+        "box": [
+          550,
+          694,
+          735,
+          726
+        ],
+        "search": [
+          540,
+          684,
+          745,
+          736
+        ],
+        "threshold": 0.97,
+        "source": "tests/fixtures/production/storage-exit-my-home.png",
+        "crop_native": [
+          550,
+          694,
+          735,
+          726
+        ],
+        "match_mode": "light_text",
+        "light_threshold": 180,
+        "glyph_threshold": 0.95
+      },
       "storage_room_exit_generic": {
         "path": "assets/templates/screen_ui/storage/storage_room_exit_generic.png",
         "sha256": "fd14439fec9fa5b86fc5e5a6745e69d198bc051c6185990e549ec937befa44fe",
@@ -20583,6 +20485,276 @@
           675,
           608
         ]
+      },
+      "fishing_navigation_task_current": {
+        "path": "assets/templates/screen_ui/storage/fishing_navigation_task_current.png",
+        "sha256": "c41bdb08d28bcd2450da7793a04c77a128108759de3beae3e043363145f7085c",
+        "bytes": 4960,
+        "box": [
+          1148,
+          199,
+          1261,
+          223
+        ],
+        "search": [
+          1060,
+          140,
+          1280,
+          360
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "glyph_threshold": 0.9,
+        "light_threshold": 180
+      },
+      "storage_bank_three_open_text": {
+        "path": "assets/templates/screen_ui/storage/storage_bank_three_open_text.png",
+        "sha256": "8f8695bf9eabe00b7e457debfed01ff897cff69cd2e1f4bfb7f18194189a0479",
+        "bytes": 1846,
+        "box": [
+          486,
+          879,
+          547,
+          903
+        ],
+        "search": [
+          478,
+          871,
+          555,
+          911
+        ],
+        "threshold": 0.95,
+        "match_mode": "light_text",
+        "light_threshold": 180,
+        "source": "tests/fixtures/production/storage-bank-three-options.png"
+      },
+      "storage_bank_three_end_text": {
+        "path": "assets/templates/screen_ui/storage/storage_bank_three_end_text.png",
+        "sha256": "674666e245f73e6480631010118711f3268fb1f49a5ac1328ec4710d73a9591e",
+        "bytes": 3120,
+        "box": [
+          714,
+          879,
+          793,
+          903
+        ],
+        "search": [
+          706,
+          871,
+          801,
+          911
+        ],
+        "threshold": 0.95,
+        "match_mode": "light_text",
+        "light_threshold": 180,
+        "source": "tests/fixtures/production/storage-bank-three-options.png"
+      },
+      "map_inn_label": {
+        "path": "assets/templates/screen_ui/storage/map_inn_label.png",
+        "sha256": "c3d0e79536e5348e1dad935dc5c40933be6216055ab4337d9cb634fc9f15ee92",
+        "bytes": 2595,
+        "box": [
+          418,
+          479,
+          464,
+          504
+        ],
+        "crop_native": [
+          418,
+          479,
+          464,
+          504
+        ],
+        "search": [
+          0,
+          80,
+          1150,
+          850
+        ],
+        "threshold": 0.97,
+        "match_mode": "blue_text",
+        "light_threshold": 180,
+        "glyph_threshold": 0.93,
+        "source": "tests/fixtures/production/tir-inn-wide-current.png"
+      },
+      "storage_open_text": {
+        "path": "assets/templates/screen_ui/storage/storage_open_text.png",
+        "sha256": "0f136dbcba08069cc3a4179dd6ac79e6a3d33f26e4343233447e38274a06e30e",
+        "bytes": 5593,
+        "box": [
+          530,
+          878,
+          627,
+          903
+        ],
+        "search": [
+          520,
+          868,
+          637,
+          913
+        ],
+        "threshold": 0.95,
+        "match_mode": "light_text",
+        "light_threshold": 180,
+        "source": "tests/fixtures/production/storage-open-current.jpg"
+      },
+      "map_storage_box": {
+        "path": "assets/templates/screen_ui/storage/map_storage_box.png",
+        "sha256": "6845cb653a8cc8aecda53cc735b22edeb6f3ddcc33de8fea0799e2910878b3ee",
+        "bytes": 2499,
+        "box": [
+          902,
+          500,
+          954,
+          524
+        ],
+        "crop_native": [
+          902,
+          500,
+          954,
+          524
+        ],
+        "search": [
+          0,
+          80,
+          1150,
+          800
+        ],
+        "threshold": 0.97,
+        "source": "tests/fixtures/production/tir-inn-box-unselected-current.png",
+        "control_box": [
+          905,
+          447,
+          952,
+          494
+        ],
+        "match_mode": "light_text",
+        "light_threshold": 180,
+        "glyph_threshold": 0.93
+      },
+      "map_inn_label_covered": {
+        "path": "assets/templates/screen_ui/storage/map_inn_label_covered.png",
+        "sha256": "2267709250fda9c4e4bbfae3c3f8d73c9539afc87f28028512e3eb66894c4f02",
+        "bytes": 2941,
+        "box": [
+          436,
+          526,
+          482,
+          551
+        ],
+        "crop_native": [
+          436,
+          526,
+          482,
+          551
+        ],
+        "search": [
+          0,
+          80,
+          1150,
+          850
+        ],
+        "threshold": 0.97,
+        "match_mode": "blue_text",
+        "light_threshold": 180,
+        "glyph_threshold": 0.93,
+        "source": "tests/fixtures/production/tir-inn-map-current.png"
+      },
+      "storage_travel_title": {
+        "path": "assets/templates/screen_ui/storage/storage_travel_title.png",
+        "sha256": "0c0657c454d6bf1dd90f850d5540b2da05091bd71c2ce4ca3ded2cadcf3c6db2",
+        "bytes": 1985,
+        "box": [
+          799,
+          703,
+          868,
+          730
+        ],
+        "search": [
+          760,
+          670,
+          925,
+          770
+        ],
+        "threshold": 0.97,
+        "source": "tests/fixtures/production/tir-storage-travel-current.png",
+        "crop_native": [
+          799,
+          703,
+          868,
+          730
+        ],
+        "match_mode": "light_text",
+        "light_threshold": 180,
+        "glyph_threshold": 0.96
+      },
+      "map_inn_visible_text": {
+        "path": "assets/templates/screen_ui/storage/map_inn_visible_text.png",
+        "sha256": "8643027707d695fcd10a86d8b21a2598d421aa872c4dd907c808d5b8a822ef45",
+        "bytes": 1466,
+        "box": [
+          411,
+          447,
+          433,
+          477
+        ],
+        "crop_native": [
+          411,
+          447,
+          433,
+          477
+        ],
+        "search": [
+          0,
+          80,
+          1150,
+          850
+        ],
+        "threshold": 0.97,
+        "match_mode": "blue_text",
+        "light_threshold": 180,
+        "glyph_threshold": 0.96,
+        "source": "tests/fixtures/production/tir-inn-player-covered-current.png",
+        "control_box": [
+          415,
+          451,
+          461,
+          476
+        ]
+      },
+      "map_storage_box_selected": {
+        "path": "assets/templates/screen_ui/storage/map_storage_box_selected.png",
+        "sha256": "b5442c92ff7a2d4ba03bae8a924ec320e70af755d1546c36db7d3b9b85409710",
+        "bytes": 2166,
+        "box": [
+          920,
+          476,
+          970,
+          496
+        ],
+        "crop_native": [
+          920,
+          476,
+          970,
+          496
+        ],
+        "search": [
+          0,
+          80,
+          1150,
+          800
+        ],
+        "threshold": 0.97,
+        "source": "tests/fixtures/production/tir-inn-zoom-current.png",
+        "control_box": [
+          923,
+          421,
+          970,
+          468
+        ],
+        "match_mode": "light_text",
+        "light_threshold": 180,
+        "glyph_threshold": 0.93
       }
     },
     "pages": {
@@ -22384,12 +22556,6 @@
             300,
             800,
             700
-          ],
-          "scene.open_storage": [
-            400,
-            300,
-            800,
-            700
           ]
         }
       },
@@ -22397,7 +22563,6 @@
         "anchors": [
           "bag_tools_tab",
           "bag_fashion_tab",
-          "bag_auto_wear",
           "bag_close"
         ],
         "targets": {
@@ -22420,13 +22585,13 @@
       },
       "region_map": {
         "targets": {
-          "map.storage_npc": "storage_bank_npc",
-          "map.storage_bank": "storage_bank_label"
+          "map.inn": "map_inn_label",
+          "map.storage_box": "map_storage_box"
         }
       },
       "storage_travel": {
         "anchors": [
-          "storage_npc_name",
+          "storage_travel_title",
           "maint_npc_goto"
         ],
         "targets": {
@@ -22439,7 +22604,7 @@
       },
       "storage_dialog": {
         "anchors": [
-          "storage_shortcut_open",
+          "storage_open_text",
           "storage_end_current"
         ],
         "covers_pages": [
@@ -25128,6 +25293,30 @@
             933
           ]
         }
+      },
+      "storage_bank_three_options": {
+        "page": "storage_dialog",
+        "anchors": [
+          "storage_bank_three_open_text",
+          "storage_bank_three_end_text"
+        ],
+        "covers_pages": [
+          "npc_dialogue"
+        ],
+        "coordinate_targets": {
+          "storage.open": [
+            470,
+            867,
+            563,
+            918
+          ],
+          "storage_dialog.leave": [
+            697,
+            867,
+            810,
+            918
+          ]
+        }
       }
     },
     "anchor_variants": {
@@ -25151,6 +25340,7 @@
         "storage_account_dim"
       ],
       "storage_room_exit_title": [
+        "storage_room_exit_home",
         "storage_room_exit_generic"
       ],
       "surplus_item_source": [
@@ -25159,6 +25349,16 @@
       "purchase.dialog_name": [
         "purchase.dialog_name_native",
         "purchase.dialog_name_current"
+      ],
+      "fishing_navigation_task": [
+        "fishing_navigation_task_current"
+      ],
+      "map_inn_label": [
+        "map_inn_label_covered",
+        "map_inn_visible_text"
+      ],
+      "map_storage_box": [
+        "map_storage_box_selected"
       ]
     },
     "idle_fishing": {
@@ -25728,12 +25928,18 @@
           290,
           410
         ],
+        "name_search_region": [
+          140,
+          350,
+          330,
+          460
+        ],
         "quantity": {
           "region": [
-            946,
-            777,
-            972,
-            800
+            923,
+            771,
+            1000,
+            805
           ],
           "format": "integer",
           "thresholds": [
@@ -25760,15 +25966,6 @@
         "steps": -3,
         "limit": 12,
         "interval_s": 0.5
-      },
-      "shortcut": {
-        "key": "x",
-        "target": "scene.open_storage",
-        "timeout_s": 15,
-        "steps": {
-          "npc_dialogue": "dialog.advance",
-          "storage_dialog": "storage.open"
-        }
       }
     },
     "travel_confirmations": {
@@ -25791,8 +25988,7 @@
       "preset_metal_silver_recipe"
     ],
     "pages": [
-      "tree_detail",
-      "storage_shortcut_dialog"
+      "tree_detail"
     ]
   },
   "gathering_observer": {
@@ -27151,11 +27347,17 @@
       },
       "storage_character": {
         "target": "storage_character.close",
-        "expected_page": "npc_dialogue"
+        "wait_for_pages": [
+          "npc_dialogue",
+          "scene"
+        ]
       },
       "storage_account": {
         "target": "storage_account.close",
-        "expected_page": "npc_dialogue"
+        "wait_for_pages": [
+          "npc_dialogue",
+          "scene"
+        ]
       },
       "storage_detail": {
         "target": "storage.detail_close"

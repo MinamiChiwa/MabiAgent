@@ -6,9 +6,57 @@ using Xunit;
 
 public sealed class ProcessingNavigationTests
 {
+    [Fact] public void EditedGatheringLabelKeepsItsRecognitionCalibrationWhenPublished()
+    {
+        var root=Path.GetFullPath(Path.Combine(AppContext.BaseDirectory,"../../../../../"));
+        var repository=new EditorRepository(root,Path.Combine(Path.GetTempPath(),"unused-gathering-label"));
+        var template=repository.Templates.First(t=>t["kind"]!.GetValue<string>()=="gathering"&&t["parameters"]!["node"]!.GetValue<string>()=="羊"&&t["parameters"]!["target_item_name"]!.GetValue<string>()=="羊毛");
+        var draft=repository.CreateDraft(template["template_key"]!.GetValue<string>());
+        var name="preset_catalog_point_wool_00_node";
+        var variants=draft["nodes"]!.AsArray().SelectMany(n=>n!["anchors"]!.AsArray()).Where(a=>a!["key"]!.GetValue<string>()==name).SelectMany(a=>a!["variants"]!.AsArray()).ToArray();
+        Assert.NotEmpty(variants);
+        foreach(var variant in variants)
+        {
+            Assert.Equal("list_label",variant!["match_mode"]!.GetValue<string>());Assert.True(variant["relative_contrast"]!.GetValue<bool>());
+            Assert.Equal(.97,variant["glyph_threshold"]!.GetValue<double>());variant["relative_contrast_threshold"]=41;
+        }
+        draft["status"]="published";
+        var routes=ScreenRoutes.FromConfiguration(root,PublishedCatalogCompiler.Compile(repository,[draft],includeWorkbench:false),repository.UserAssetRoot);
+        var compiled=routes.Profile.Templates.Values.Where(t=>t.Name.EndsWith("__"+name,StringComparison.Ordinal)).ToArray();
+        var label=Assert.Single(compiled);Assert.Equal("list_label",label.Mode);Assert.True(label.RelativeContrast);Assert.Equal(41,label.RelativeContrastThreshold);Assert.Equal(.97,label.GlyphThreshold);
+        using var bgr=OpenCvSharp.Cv2.ImRead(Path.Combine(root,"tests/fixtures/production/wool-nodes-current.png"));using var rgb=new OpenCvSharp.Mat();OpenCvSharp.Cv2.CvtColor(bgr,rgb,OpenCvSharp.ColorConversionCodes.BGR2RGB);
+        var pixels=new byte[rgb.Width*rgb.Height*3];System.Runtime.InteropServices.Marshal.Copy(rgb.Data,pixels,0,pixels.Length);
+        using var matcher=new TemplateMatcher(routes.Profile);Assert.NotNull(matcher.Anchor(new(rgb.Width,rgb.Height,pixels),label.Name));
+    }
+    [Fact] public void SharedMapRouteRequiresTheNamedShopBeforeMaximumZoom()
+    {
+        var root=Path.GetFullPath(Path.Combine(AppContext.BaseDirectory,"../../../../../"));
+        var routes=ScreenRoutes.Load(root);var stages=routes.Configuration["maintenance"]!["map_navigation"]!["stages"]!.AsObject();
+        Assert.False(routes.Profile.Templates.ContainsKey("maint_map_recenter"));
+        Assert.Null(routes.Profile.Definition["pages"]!["region_map"]!["targets"]?["map.recenter"]);
+        foreach(var (stage,definition) in stages)
+        foreach(var step in new[]{"choices","search"}.SelectMany(k=>definition?[k]?.AsArray()??new JsonArray()))
+        {
+            Assert.NotEqual("map.recenter",step?["target"]?.GetValue<string>());
+            if(step?["kind"]?.GetValue<string>()=="zoom_max")Assert.Equal("zoom",stage);
+            if(step?["next"]?.GetValue<string>()!="zoom")continue;
+            Assert.Equal("$shop",step["target"]!.GetValue<string>());Assert.Equal("drag",step["kind"]!.GetValue<string>());
+            Assert.Equal(new[]{625,450},step["destination"]!.AsArray().Select(n=>n!.GetValue<int>()));
+        }
+    }
+    [Fact] public void PublishedRuntimePreservesSharedMapGeometryAndSearch()
+    {
+        var root=Path.GetFullPath(Path.Combine(AppContext.BaseDirectory,"../../../../../"));
+        var repository=new EditorRepository(root,Path.Combine(Path.GetTempPath(),"mabi-map-"+Guid.NewGuid().ToString("N")));
+        var direct=ScreenRoutes.Load(root);
+        var published=ScreenRoutes.FromConfiguration(root,PublishedCatalogCompiler.CompileAvailable(repository),repository.UserAssetRoot);
+        foreach(var section in new[]{"pages","page_variants"})
+        foreach(var (key,page) in direct.Profile.Definition[section]!.AsObject().Where(p=>p.Key=="region_map"||p.Value?["page"]?.GetValue<string>()=="region_map"))
+            Assert.True(JsonNode.DeepEquals(page,published.Profile.Definition[section]?[key]),section+":"+key+"\nexpected="+page+"\nactual="+published.Profile.Definition[section]?[key]);
+        Assert.True(JsonNode.DeepEquals(direct.Configuration["maintenance"]!["map_navigation"],published.Configuration["maintenance"]!["map_navigation"]));
+    }
     [Theory]
     [InlineData("production/daily-nodes-current.jpg","preset_daily_title")]
-    [InlineData("private-theater/create-current.jpg","private_theater_create_title")]
     [InlineData("production/ore-task-current.jpg","gathering_observer.ore_objective")]
     [InlineData("production/hard-log-task-current.jpg","gathering_observer.hard_log_objective")]
     [InlineData("production/high-log-task-current.jpg","gathering_observer.high_log_objective")]
@@ -21,7 +69,20 @@ public sealed class ProcessingNavigationTests
         using var rgb=new OpenCvSharp.Mat();OpenCvSharp.Cv2.CvtColor(bgr,rgb,OpenCvSharp.ColorConversionCodes.BGR2RGB);
         var pixels=new byte[rgb.Width*rgb.Height*3];System.Runtime.InteropServices.Marshal.Copy(rgb.Data,pixels,0,pixels.Length);
         using var matcher=new TemplateMatcher(routes.Profile);Assert.NotNull(matcher.Anchor(new(rgb.Width,rgb.Height,pixels),anchor));
-        Assert.Contains(routes.Configuration["private_theater_refresh"]!["steps"]!.AsArray(),s=>s!["id"]!.GetValue<string>()=="create_ready");
+        Assert.Contains(routes.Configuration["quick_reentry"]!["steps"]!.AsArray(),s=>s!["id"]!.GetValue<string>()=="appearance");
+    }
+    [Fact] public void PublishedFabricFacilityRecognizesArrivedPanel()
+    {
+        var root=Path.GetFullPath(Path.Combine(AppContext.BaseDirectory,"../../../../../"));
+        var repository=new EditorRepository(root,Path.Combine(Path.GetTempPath(),"mabi-fabric-"+Guid.NewGuid().ToString("N")));
+        var profile=ScreenRoutes.FromConfiguration(root,PublishedCatalogCompiler.CompileAvailable(repository),repository.UserAssetRoot).Profile;
+        using var bgr=OpenCvSharp.Cv2.ImRead(Path.Combine(root,"tests/fixtures/production/fabric-arrived-current.png"));
+        using var rgb=new OpenCvSharp.Mat();OpenCvSharp.Cv2.CvtColor(bgr,rgb,OpenCvSharp.ColorConversionCodes.BGR2RGB);
+        var pixels=new byte[rgb.Width*rgb.Height*3];System.Runtime.InteropServices.Marshal.Copy(rgb.Data,pixels,0,pixels.Length);
+        using var recognizer=new ScreenPageRecognizer(profile);var view=recognizer.Recognize(new RgbImage(rgb.Width,rgb.Height,pixels));
+        Assert.Equal("fabric_panel",view.Page);Assert.Contains("fabric.open_fabric_first",view.Targets.Keys);
+        foreach(var name in new[]{"preset_fabric_title","preset_fabric_equipment"})
+        {Assert.Equal("light_text",profile.Templates[name].Mode);Assert.Equal(.97,profile.Templates[name].GlyphThreshold);}
     }
     [Fact] public void PublishedChemicalFacilityRecognizesCurrentPanel()
     {

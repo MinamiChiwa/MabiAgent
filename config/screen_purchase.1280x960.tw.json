@@ -292,9 +292,9 @@
         916
       ],
       "search": [
-        979,
+        970,
         886,
-        1032,
+        1060,
         921
       ],
       "threshold": 0.97,
@@ -552,6 +552,35 @@
         700,
         518
       ]
+    },
+    "map_store_label_blue": {
+      "path": "assets/templates/purchase/map_store_label_blue.png",
+      "bytes": 2110,
+      "sha256": "8e9ca8f50ebe622ec9b2b5a5dcb004886dff3eca9cf137c36ef8ae042b64bb2c",
+      "box": [
+        536,
+        249,
+        584,
+        269
+      ],
+      "search": [
+        80,
+        100,
+        1200,
+        815
+      ],
+      "threshold": 0.97,
+      "glyph_threshold": 0.93,
+      "match_mode": "blue_text",
+      "light_threshold": 140,
+      "source": "assets/templates/purchase/map_store_label_min.png",
+      "crop_native": [
+        20,
+        0,
+        68,
+        20
+      ],
+      "source_notes": "Crop of the clean static shop lettering; no player marker or overlay pixels are used as a reference."
     }
   },
   "pages": {
@@ -726,10 +755,10 @@
   },
   "quantity": {
     "region": [
-      953,
-      787,
-      981,
-      819
+      932,
+      790,
+      1002,
+      816
     ],
     "format": "integer",
     "min_confidence": 0.8,

@@ -12,16 +12,34 @@ public partial class App:Application
     private IHost? host;
     private bool closing;
     private IClassicDesktopStyleApplicationLifetime desktop=null!;
-    public override void Initialize()=>AvaloniaXamlLoader.Load(this);
-    public override void OnFrameworkInitializationCompleted(){desktop=(IClassicDesktopStyleApplicationLifetime)ApplicationLifetime!;desktop.ShutdownMode=ShutdownMode.OnExplicitShutdown;base.OnFrameworkInitializationCompleted();Dispatcher.UIThread.Post(()=>Start(desktop.Args??[]));}
+    public UiLanguageService Language=>UiLanguageService.Shared;
+    public override void Initialize(){RuntimeLocalization.Initialize();AvaloniaXamlLoader.Load(this);}
+    public override void OnFrameworkInitializationCompleted()
+    {
+        if(ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime lifetime){base.OnFrameworkInitializationCompleted();return;}
+        desktop=lifetime;desktop.ShutdownMode=ShutdownMode.OnExplicitShutdown;base.OnFrameworkInitializationCompleted();Dispatcher.UIThread.Post(()=>Start(desktop.Args??[]));
+    }
     private void Shutdown(int code=0)=>desktop.Shutdown(code);
     private async void Start(string[] arguments)
     {
         var e=new {Args=arguments};
         try
         {
+            if(e.Args.Contains("--apply-update")||e.Args.Contains("--recover-update")){Shutdown(ApplyStagedUpdate(e.Args));return;}
+            // A journal from an interrupted update is restored by the staged copy, never by this
+            // process: the files it has to move include the assemblies this process has loaded.
+            // The packaged launcher always passes --root and --state-dir, so this must not depend
+            // on an empty argument list. Automated runs keep their own state and skip it.
+            if(!MabiAgent.Update.UpdateEntry.IsAutomatedRun(e.Args))
+            {
+                MabiAgent.Update.UpdateRunner.CleanupStale();
+                var installRoot=MabiAgent.Update.InstallLayout.ResolveRoot(AppContext.BaseDirectory);
+                if(MabiAgent.Update.UpdateRecovery.TryHandlePending(installRoot,Environment.ProcessId)){Shutdown();return;}
+            }
             var builder=Host.CreateApplicationBuilder(e.Args);
-            builder.Services.AddSingleton(new Workspace(FindRoot(e.Args),Argument(e.Args,"--state-dir")));
+            var appWorkspace=new Workspace(FindRoot(e.Args),Argument(e.Args,"--state-dir"));
+            try{Language.SetLanguage(DesktopPreferences.FromJson(appWorkspace.ReadSettings()).Language);}catch{Language.SetLanguage(UiLanguageService.SimplifiedChinese);}
+            builder.Services.AddSingleton(appWorkspace);builder.Services.AddSingleton(Language);
             builder.Services.AddSingleton(new MabiAgent.Windows.GameWindowSelection(MabiAgent.Windows.GameWindowDiscovery.List));
             builder.Services.AddSingleton<MainViewModel>();builder.Services.AddSingleton<MainWindow>();
             builder.Services.AddSingleton<AutomationService>();
@@ -65,7 +83,7 @@ public partial class App:Application
                 var workspace=host.Services.GetRequiredService<Workspace>();
                 vm.InitializeEditorSelfCheck(new Editors.EditorRepository(workspace.Root,workspace.DataPath),new MabiAgent.Capture.AccountItemService(Path.Combine(workspace.DataPath,"accounts")));
                 if(e.Args.Contains("--editor-draft"))vm.ChainEditor!.NewDraftCommand.Execute(null);
-                var uiChecks=e.Args.Contains("--memory-check")?await MemoryUiSelfCheck.Run(FindRoot(e.Args)):e.Args.Contains("--scroll-check")?await ScrollUiSelfCheck.Run(FindRoot(e.Args)):e.Args.Contains("--mini-check")?await CompactUiSelfCheck.Run(window,vm,Environment.GetEnvironmentVariable("MABI_MINI_PREVIEW")):e.Args.Contains("--help-check")?await PresentationSelfCheck.RunHelp(window,vm):e.Args.Contains("--queue-check")?await QueueUiSelfCheck.Run(FindRoot(e.Args),Argument(e.Args,"--queue-preview")):e.Args.Contains("--chrome-check")?await UiChromeRegression.Run(FindRoot(e.Args)):e.Args.Contains("--interaction-check")?await UiSelfCheck.Run(FindRoot(e.Args)):[];
+                var uiChecks=e.Args.Contains("--guide-check")?await GuideUiSelfCheck.Run(window,vm,Argument(e.Args,"--guide-preview")):e.Args.Contains("--language-check")?await LanguageUiSelfCheck.Run(window,vm,Argument(e.Args,"--language-audit")):e.Args.Contains("--memory-check")?await MemoryUiSelfCheck.Run(FindRoot(e.Args)):e.Args.Contains("--scroll-check")?await ScrollUiSelfCheck.Run(FindRoot(e.Args)):e.Args.Contains("--mini-check")?await CompactUiSelfCheck.Run(window,vm,Environment.GetEnvironmentVariable("MABI_MINI_PREVIEW")):e.Args.Contains("--help-check")?await PresentationSelfCheck.RunHelp(window,vm):e.Args.Contains("--queue-check")?await QueueUiSelfCheck.Run(FindRoot(e.Args),Argument(e.Args,"--queue-preview")):e.Args.Contains("--queue-perf-check")?await QueuePerformanceSelfCheck.Run(FindRoot(e.Args),Argument(e.Args,"--perf-report")):e.Args.Contains("--chrome-check")?await UiChromeRegression.Run(FindRoot(e.Args)):e.Args.Contains("--interaction-check")?await UiSelfCheck.Run(FindRoot(e.Args)):[];
                 if(e.Args.Contains("--native-check"))
                 {
                     var service=host.Services.GetRequiredService<AutomationService>();
@@ -95,7 +113,7 @@ public partial class App:Application
                     if(e.Args.Contains("--expanded"))foreach(var expander in Avalonia.VisualTree.VisualExtensions.GetVisualDescendants(window).OfType<Expander>().ToArray())expander.IsExpanded=true;
                     foreach(var theme in new[]{Avalonia.Styling.ThemeVariant.Dark,Avalonia.Styling.ThemeVariant.Light})
                     foreach(var compact in new[]{false,true})
-                    foreach(var selectedPage in Enumerable.Range(0,6))
+                    foreach(var selectedPage in Enumerable.Range(0,3))
                     {
                         RequestedThemeVariant=theme;window.Width=compact?1000:1340;window.Height=compact?700:920;vm.SelectedPage=selectedPage;await Task.Delay(260);window.UpdateLayout();
                         using var capture=new Avalonia.Media.Imaging.RenderTargetBitmap(new PixelSize((int)window.Width,(int)window.Height));capture.Render(window);capture.Save(Path.Combine(suite,$"{theme}-{(compact?"compact":"normal")}-{selectedPage}.png"),Avalonia.Media.Imaging.PngBitmapEncoderOptions.Default);
@@ -140,7 +158,7 @@ public partial class App:Application
         {
             var report=Argument(e.Args,"--report");
             if(e.Args.Contains("--self-check")&&report is not null)File.WriteAllText(report,System.Text.Json.JsonSerializer.Serialize(new{ok=false,error=error.ToString()}));
-            else await Ursa.Controls.MessageBox.ShowAsync(error.Message,"启动失败");
+            else await Ursa.Controls.MessageBox.ShowAsync(error.Message,RuntimeLocalization.Translate("启动失败"));
             Shutdown(1);
         }
     }
@@ -187,8 +205,14 @@ public partial class App:Application
             closing=false;window.IsEnabled=true;
             var report=Argument(args,"--report");
             if(args.Contains("--close-check")&&report is not null){File.WriteAllText(report,System.Text.Json.JsonSerializer.Serialize(new{ok=false,error=error.ToString()}));Shutdown(1);}
-            else await Ursa.Controls.MessageBox.ShowAsync(window,"关闭未完成："+error.Message,"关闭工具");
+            else await Ursa.Controls.MessageBox.ShowAsync(window,"关闭未完成："+error.Message,RuntimeLocalization.Translate("关闭工具"));
             return false;
         }
     }
+    /// <summary>
+    /// The update entry lives in the update assembly so the same code path is exercised by tests:
+    /// it waits for the old process without terminating it, resolves a pending journal, then
+    /// replaces the verified files and records every outcome in <c>updates/last-update.json</c>.
+    /// </summary>
+    private static int ApplyStagedUpdate(string[] args)=>MabiAgent.Update.UpdateEntry.Run(args);
 }

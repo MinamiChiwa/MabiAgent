@@ -71,9 +71,9 @@ public class CoordinatorTests
         var body = Convert.FromBase64String(fixture.RootElement.GetProperty("body_base64").GetString()!);
         var character = long.Parse(fixture.RootElement.GetProperty("character_id").GetString()!, System.Globalization.CultureInfo.InvariantCulture);
         var root = new DirectoryInfo(AppContext.BaseDirectory);
-        while (root is not null && !File.Exists(Path.Combine(root.FullName, "config/client-inventory-schema.disk.json"))) root = root.Parent;
+        while (root is not null && !File.Exists(Path.Combine(root.FullName, "dotnet/MabiAgent.Capture.Tests/Fixtures/client-inventory-schema.historical.json"))) root = root.Parent;
         Assert.NotNull(root);
-        var decoder = ClientInventoryDecoder.Load(Path.Combine(root.FullName, "config/client-inventory-schema.disk.json"));
+        var decoder = ClientInventoryDecoder.Load(Path.Combine(root.FullName, "dotnet/MabiAgent.Capture.Tests/Fixtures/client-inventory-schema.historical.json"));
         var source = new Source(body, character); var environment = new Environment { Target = Target(1), SourceFactory = () => source };
         await using var coordinator = new CaptureCoordinator(decoder.Decode, environment: environment, pollInterval: TimeSpan.FromMilliseconds(10));
         _ = coordinator.RunAsync(); await Until(() => coordinator.Snapshot().CurrentIdentity is not null);
@@ -115,7 +115,7 @@ public class CoordinatorTests
         var environment = new Environment { Target = Target(1), Devices = ["nic-a", "nic-b"] };
         await using var coordinator = new CaptureCoordinator(_ => InventoryTests.Login(), environment: environment, pollInterval: TimeSpan.FromMilliseconds(10));
         coordinator.SelectDevices(["nic-b"]);
-        _ = coordinator.RunAsync(); await Until(() => coordinator.Snapshot().State == CaptureState.Listening);
+        _ = coordinator.RunAsync(); await Until(() => coordinator.Snapshot().State == CaptureState.Listening && environment.Created.Contains("nic-b"));
         Assert.Equal(["nic-b"], coordinator.Snapshot().Devices); Assert.Equal(["nic-b"], environment.Created.ToArray());
         coordinator.SelectDevices(["nic-gone"]);
         await Until(() => coordinator.Snapshot().State == CaptureState.Retry && coordinator.Snapshot().Message.Contains("网卡"));
@@ -123,6 +123,22 @@ public class CoordinatorTests
         coordinator.SelectDevices([]);
         await Until(() => coordinator.Snapshot().State == CaptureState.Listening && coordinator.Snapshot().Devices.Count == 2);
         await coordinator.StopAsync();
+    }
+    [Fact] public async Task CorruptAssociationCsvIsolatesAccountWriteWithoutReconnectingCapture()
+    {
+        var folder=Path.Combine(Path.GetTempPath(),"mabi-corrupt-account-"+Guid.NewGuid().ToString("N"));
+        try
+        {
+            var accounts=new AccountItemService(folder);var prior=new StreamingInventory(_=>InventoryTests.Login(),"old");
+            prior.Accept(new(0,GameProtocol.LoginOpcode,0,[1]),"old",1);prior.Accept(new(0,GameProtocol.ProfileOpcode,0,InventoryTests.Profile(9007199254740993)),"old",2);accounts.Record(prior.Snapshot());
+            File.WriteAllText(accounts.Files(prior.Snapshot().Identity!.AccountId).Associations,"item_id,name\n\"unclosed,");
+            var environment=new Environment{Target=Target(1)};
+            await using var coordinator=new CaptureCoordinator(_=>InventoryTests.Login(),accounts,environment,TimeSpan.FromMilliseconds(10));
+            _=coordinator.RunAsync();await Until(()=>coordinator.Snapshot().AccountWriteError is not null);
+            Assert.Equal(CaptureState.Listening,coordinator.Snapshot().State);Assert.Contains("账户记录未保存",coordinator.Snapshot().AccountWriteError);
+            await Task.Delay(50);Assert.Equal(1,environment.Opened);Assert.Equal(CaptureState.Listening,coordinator.Snapshot().State);
+            await coordinator.StopAsync();
+        }finally{if(Directory.Exists(folder))Directory.Delete(folder,true);}
     }
     private static CaptureTarget Target(int id) => new(id, new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc));
     private static async Task Until(Func<bool> condition)

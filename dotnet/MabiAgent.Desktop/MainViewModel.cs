@@ -1,5 +1,4 @@
 using System.Collections.ObjectModel;
-using System.ComponentModel;
 using Avalonia.Collections;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -13,6 +12,7 @@ public partial class MainViewModel:ObservableObject
 {
     private readonly Workspace workspace;
     private readonly RuntimeActivity activity;
+    private readonly UiLanguageService language;
     private readonly GameWindowSelection windowSelection;
     private AutomationService? automation;
     private Lazy<ChainEditorViewModel>? chainEditor;
@@ -34,16 +34,16 @@ public partial class MainViewModel:ObservableObject
         automation=service;
         var repository=service.Repository;workspace.CatalogProvider=()=>PublishedCatalogCompiler.CompileAvailable(repository);
         _=Task.Run(()=>{try{var cleaned=repository.CleanupStorage();if(cleaned.Revisions+cleaned.DeletedChains>0)activity.Log($"已自动清理 {cleaned.Revisions} 个旧任务链版本、{cleaned.DeletedChains} 个过期的已删除任务链");}catch(Exception e){activity.Report(e);}});
-        IAnchorTextDetector detector=new OnnxLineAnchorTextDetector(service.GetOcr);
+        IAnchorTextDetector? detector=null;try{detector=new OnnxLineAnchorTextDetector(service.GetOcr());}catch(Exception e){activity.Report(e);Error="文字检测未加载："+e.Message;}
         var capture=new SelectedGameCaptureService(windowSelection,new NativeWindowsOps(),()=>service.IsRunning);
-        chainEditor=new(()=>new(repository,capture,detector));anchorEditor=new(()=>new(repository,capture,detector));AccountItems=new(service.Accounts);
+        chainEditor=new(()=>new(repository,capture,detector));anchorEditor=new(()=>new(repository,capture,detector));AccountItems=new(service.Accounts,service.UpdateItemAssociationsAsync);
         if(workbench is {IsValueCreated:true})workbench.Value.Dispose();
         workbench=new(()=>new(this,repository,capture,detector,service.RunWorkbenchTestAsync));
         AccountItems.AssociationsChanged+=(_,_)=>Dispatcher.UIThread.InvokeAsync(async()=>await RefreshAsync());
-        repository.CatalogChanged+=()=>Dispatcher.UIThread.InvokeAsync(async()=>await RefreshAsync());
+        repository.CatalogChanged+=()=>{gatheringSkillsLoaded=false;Dispatcher.UIThread.InvokeAsync(async()=>await RefreshAsync());};
         OnPropertyChanged(nameof(ChainEditor));OnPropertyChanged(nameof(AnchorEditor));OnPropertyChanged(nameof(Workbench));OnPropertyChanged(nameof(AccountItems));StartCommand.NotifyCanExecuteChanged();liveTimer.Start();
         service.Changed+=()=>{if(Interlocked.Exchange(ref runtimeNotificationQueued,1)!=0)return;Dispatcher.UIThread.Post(()=>
-        {try{if(!closing){ExecutionStatus=service.Status.Message;IsRunning=service.IsRunning;CaptureStatus=service.CaptureStatus.Message;UpdateCaptureDetails(service.CaptureStatus);UpdateRuntime();}}catch(Exception error){activity.Report(error);Error="状态显示失败："+error.Message;}finally{Interlocked.Exchange(ref runtimeNotificationQueued,0);}});};
+        {try{if(!closing){ExecutionStatus=service.Status.Message;IsRunning=service.IsRunning;CaptureStatus=service.CaptureStatus.Message;UpdateCaptureDetails(service.CaptureStatus);UpdateRuntime();}}catch(Exception error){activity.Report(error);Error="状态显示失败："+error.Message;}finally{Interlocked.Exchange(ref runtimeNotificationQueued,0);}},DispatcherPriority.Background);};
     }
     [RelayCommand(CanExecute=nameof(CanStart))] private async Task StartAsync()
     {
@@ -59,6 +59,7 @@ public partial class MainViewModel:ObservableObject
     public QueueRows Jobs {get;}=[];
     public ObservableCollection<RecipeRow> Recipes {get;}=[];
     public ObservableCollection<GatheringChoice> GatheringChoices {get;}=[];
+    public ObservableCollection<GoalCategoryChoice> GoalCategories {get;}=[];
     public string[] TaskKinds {get;}=["生产","采集","挂机钓鱼","原地钓鱼"];
     [ObservableProperty] private string taskKind="生产";
     [ObservableProperty] private GatheringChoice? selectedGathering;
@@ -66,6 +67,9 @@ public partial class MainViewModel:ObservableObject
     [ObservableProperty] private string fishingMinutes="30";
     [ObservableProperty] private string fishingSeconds="0";
     private GatheringChoice[] allGathering=[];
+    private IReadOnlyDictionary<string,string> gatheringSkills=new Dictionary<string,string>();
+    private bool gatheringSkillsLoaded;
+    private bool refreshingGoalCategories;
     public bool IsProductionGoal=>TaskKind=="生产";
     public bool IsGatheringGoal=>TaskKind=="采集";
     public string GoalQuantityLabel=>IsGatheringGoal?"采集轮数":"目标产物数量";
@@ -73,38 +77,89 @@ public partial class MainViewModel:ObservableObject
     public bool IsFishingGoal=>TaskKind is "挂机钓鱼" or "原地钓鱼";
     public bool IsInPlaceFishing=>TaskKind=="原地钓鱼";
     public bool NeedsGatheringPoint=>!IsProductionGoal&&!IsInPlaceFishing;
-    partial void OnTaskKindChanged(string value){GatheringChoices.Clear();foreach(var g in allGathering.Where(g=>g.Fishing==IsFishingGoal))GatheringChoices.Add(g);SelectedGathering=IsInPlaceFishing?null:GatheringChoices.FirstOrDefault();OnPropertyChanged(nameof(IsProductionGoal));OnPropertyChanged(nameof(IsGatheringGoal));OnPropertyChanged(nameof(GoalQuantityLabel));OnPropertyChanged(nameof(GoalQuantityUnit));OnPropertyChanged(nameof(IsFishingGoal));OnPropertyChanged(nameof(IsInPlaceFishing));OnPropertyChanged(nameof(NeedsGatheringPoint));AddGoalCommand.NotifyCanExecuteChanged();}
+    public string GoalCategoryLabel=>IsProductionGoal?"生产设施":"采集技能";
+    public bool ShowGoalCategory=>IsProductionGoal||NeedsGatheringPoint;
+    [ObservableProperty] private GoalCategoryChoice? selectedGoalCategory;
+    partial void OnTaskKindChanged(string value)
+    {
+        RefreshGoalCategories();
+        if(IsProductionGoal)RecipeChoices.Refresh();
+        else if(NeedsGatheringPoint)RefreshGatheringChoices(null,true);
+        else{GatheringChoices.Clear();SelectedGathering=null;}
+        OnPropertyChanged(nameof(IsProductionGoal));OnPropertyChanged(nameof(IsGatheringGoal));OnPropertyChanged(nameof(GoalQuantityLabel));OnPropertyChanged(nameof(GoalQuantityUnit));OnPropertyChanged(nameof(IsFishingGoal));OnPropertyChanged(nameof(IsInPlaceFishing));OnPropertyChanged(nameof(NeedsGatheringPoint));AddGoalCommand.NotifyCanExecuteChanged();
+    }
+    partial void OnSelectedGoalCategoryChanged(GoalCategoryChoice? value)
+    {
+        if(refreshingGoalCategories)return;
+        if(IsProductionGoal)
+        {
+            RecipeChoices.Refresh();
+            if(SelectedRecipe is{} recipe&&!RecipeChoices.Contains(recipe))SelectedRecipe=null;
+        }
+        else if(NeedsGatheringPoint)RefreshGatheringChoices(null,true);
+        AddProductionCommand.NotifyCanExecuteChanged();AddGoalCommand.NotifyCanExecuteChanged();
+    }
+    private void RefreshGoalCategories()
+    {
+        var previous=SelectedGoalCategory?.Key;
+        GoalCategoryChoice[] categories;
+        if(IsProductionGoal)categories=GoalChoices.ProductionCategories(Recipes);
+        else if(NeedsGatheringPoint)categories=GoalChoices.GatheringCategories(allGathering.Where(route=>route.Fishing==IsFishingGoal),CurrentGatheringSkills());
+        else categories=[];
+        refreshingGoalCategories=true;
+        try
+        {
+            GoalCategories.Clear();foreach(var category in categories)GoalCategories.Add(category);
+            SelectedGoalCategory=GoalCategories.FirstOrDefault(category=>category.Key==previous)??GoalCategories.FirstOrDefault();
+        }
+        finally{refreshingGoalCategories=false;}
+        OnPropertyChanged(nameof(GoalCategoryLabel));OnPropertyChanged(nameof(ShowGoalCategory));
+    }
+    private IReadOnlyDictionary<string,string> CurrentGatheringSkills()
+    {
+        if(gatheringSkillsLoaded)return gatheringSkills;
+        try{gatheringSkills=GoalChoices.LoadGatheringSkills(workspace.Root,workspace.CatalogProvider);}
+        catch{gatheringSkills=new Dictionary<string,string>();}
+        gatheringSkillsLoaded=true;return gatheringSkills;
+    }
+    private void RefreshGatheringChoices(string? preserveId=null,bool selectFirst=false)
+    {
+        if(IsInPlaceFishing){GatheringChoices.Clear();SelectedGathering=null;return;}
+        var route=preserveId??SelectedGathering?.Id;
+        var choices=GoalChoices.FilterAndSort(allGathering.Where(choice=>choice.Fishing==IsFishingGoal),SelectedGoalCategory,CurrentGatheringSkills()).ToArray();
+        if(!GatheringChoices.SequenceEqual(choices)){GatheringChoices.Clear();foreach(var choice in choices)GatheringChoices.Add(choice);}
+        SelectedGathering=GatheringChoices.FirstOrDefault(choice=>choice.Id==route)??(selectFirst?GatheringChoices.FirstOrDefault():null);
+        AddGoalCommand.NotifyCanExecuteChanged();
+    }
     partial void OnSelectedGatheringChanged(GatheringChoice? value)=>AddGoalCommand.NotifyCanExecuteChanged();
     partial void OnFishingHoursChanged(string value)=>AddGoalCommand.NotifyCanExecuteChanged();
     partial void OnFishingMinutesChanged(string value)=>AddGoalCommand.NotifyCanExecuteChanged();
     partial void OnFishingSecondsChanged(string value)=>AddGoalCommand.NotifyCanExecuteChanged();
     public DataGridCollectionView QueueView {get;}
-    public DataGridCollectionView RecipeView {get;}
     public DataGridCollectionView RecipeChoices {get;}
     [ObservableProperty] private string recipeSearch="";
     partial void OnRecipeSearchChanged(string value)
     {
         RecipeChoices.Refresh();
         if(SelectedRecipe is {} r&&!RecipeChoices.Contains(r))SelectedRecipe=null;
+        if(SelectedGoalCategory is{} category&&!GoalCategories.Contains(category))RefreshGoalCategories();
         AddProductionCommand.NotifyCanExecuteChanged();AddGoalCommand.NotifyCanExecuteChanged();
     }
     public DataGridCollectionView AutomaticView {get;}
     [ObservableProperty] private JobRow? selectedJob;
     [ObservableProperty] private RecipeRow? selectedRecipe;
-    [ObservableProperty] private RecipeRow? catalogSelectedRecipe;
-    partial void OnCatalogSelectedRecipeChanged(RecipeRow? value)=>CreateRecipeGoalCommand.NotifyCanExecuteChanged();
-    private bool CanCreateRecipeGoal=>!IsBusy&&CatalogSelectedRecipe is not null&&RecipeView.Contains(CatalogSelectedRecipe);
-    [RelayCommand(CanExecute=nameof(CanCreateRecipeGoal))] private void CreateRecipeGoal()
-    {if(CatalogSelectedRecipe is not{} recipe)return;TaskKind="生产";RecipeSearch="";SelectedRecipe=recipe;OpenAdd();}
     [ObservableProperty] private string targetQuantity="1";
     [ObservableProperty] private string editedQuantity="1";
     [ObservableProperty] private bool addDialogOpen;
     [ObservableProperty] private string? addError;
     [ObservableProperty] private int selectedPage;
-    public string PageTitle=>SelectedPage switch{1=>"材料与配方",2=>"维护与设置",3=>"账户道具",4=>"自定义任务链",5=>"锚点调试",_=>"任务队列"};
-    public string PageDescription=>SelectedPage switch{1=>"查看设备、产量与耗时，选择配方后创建任务。",2=>"设置自动维护、材料留存、外观与数据监听。",3=>"按账户查看角色与仓库数量，确认道具名称关联。",4=>"从预设创建草稿，编辑流程与锚点后发布。",5=>"管理识别模板、搜索区域和显示状态。",_=>"安排目标顺序，查看进度、自动补料与待核账状态。"};
-    public bool ShowGlobalSearch=>SelectedPage is 0 or 1;
-    public string SearchHint=>SelectedPage==1?"搜索材料、配方或设备":"搜索目标名称或状态";
+    [ObservableProperty] private string uiLanguageCode=UiLanguageService.SimplifiedChinese;
+    public string LanguageButtonLabel=>language.Culture==UiLanguageService.TraditionalChinese?"繁中":"简中";
+    public string LanguageButtonTooltip=>$"切换界面语言；当前为{language.LanguageName}";
+    public string PageTitle=>SelectedPage switch{1=>"仓库",2=>"设置",_=>"任务队列"};
+    public string PageDescription=>SelectedPage switch{1=>"按账户查看角色与仓库数量，确认道具名称关联。",2=>"设置自动维护、材料留存、外观、数据监听与高级工作台。",_=>"安排目标顺序，查看进度、自动补料与待核账状态。"};
+    public bool ShowGlobalSearch=>SelectedPage==0;
+    public string SearchHint=>"搜索目标名称或状态";
     public bool CanStart=>automation is not null&&SelectedWindow is not null&&!IsBusy&&!IsRunning&&!closing;
     public bool CanPause=>automation?.IsRunning==true&&!closing;
     [RelayCommand] private async Task StopAllAsync()
@@ -114,9 +169,29 @@ public partial class MainViewModel:ObservableObject
         catch(Exception e){activity.Report(e);Error=e.Message;}
     }
     private bool closing;
-    public void PrepareClose(){closing=true;if(workbench is {IsValueCreated:true})workbench.Value.Dispose();saveTimer.Stop();liveTimer.Stop();StartCommand.NotifyCanExecuteChanged();PauseCommand.NotifyCanExecuteChanged();}
+    public void PrepareClose(){closing=true;if(workbench is {IsValueCreated:true})workbench.Value.Dispose();saveTimer.Stop();liveTimer.Stop();language.LanguageChanged-=LanguageChanged;StartCommand.NotifyCanExecuteChanged();PauseCommand.NotifyCanExecuteChanged();}
+    /// <summary>
+    /// Persists pending settings before a self-update closes the app; an invalid input keeps the
+    /// reason on screen and refuses. Queue state needs no flush — <c>RuntimeQueue.Edit</c>
+    /// writes it atomically on every change.
+    /// </summary>
+    public bool PrepareUpdate() => SaveSettings();
     partial void OnIsRunningChanged(bool value){StartCommand.NotifyCanExecuteChanged();PauseCommand.NotifyCanExecuteChanged();}
     partial void OnSelectedPageChanged(int value){OnPropertyChanged(nameof(PageTitle));OnPropertyChanged(nameof(PageDescription));OnPropertyChanged(nameof(ShowGlobalSearch));OnPropertyChanged(nameof(SearchHint));}
+    private void LanguageChanged(object? sender,EventArgs e)
+    {
+        UiLanguageCode=language.Culture;OnPropertyChanged(nameof(LanguageButtonLabel));OnPropertyChanged(nameof(LanguageButtonTooltip));
+        if(chainEditor is {IsValueCreated:true})chainEditor.Value.RefreshLanguage();
+        OnPropertyChanged(nameof(PageTitle));OnPropertyChanged(nameof(PageDescription));OnPropertyChanged(nameof(SearchHint));OnPropertyChanged(string.Empty);
+    }
+    [RelayCommand] private void UseSimplifiedChinese()=>ChangeLanguage(UiLanguageService.SimplifiedChinese);
+    [RelayCommand] private void UseTraditionalChinese()=>ChangeLanguage(UiLanguageService.TraditionalChinese);
+    public void ChangeLanguage(string culture)
+    {
+        var normalized=UiLanguageService.Normalize(culture);if(normalized is null)return;language.SetLanguage(normalized);UiLanguageCode=normalized;
+        try{workspace.SaveUiLanguage(normalized);SettingsError=null;SettingsStatus="语言偏好已保存";}
+        catch(Exception e){activity.Report(e);SettingsError=e.Message;SettingsStatus="语言偏好保存失败："+e.Message;}
+    }
     
     public int ManualCount=>Jobs.Count(j=>!j.Automatic);
     public bool HasSelection=>SelectedJob is not null;
@@ -153,30 +228,29 @@ public partial class MainViewModel:ObservableObject
     private readonly DispatcherTimer liveTimer=new(){Interval=TimeSpan.FromSeconds(1)};
     private readonly DispatcherTimer saveTimer=new(){Interval=TimeSpan.FromMilliseconds(350)};
     public string DataPath=>workspace.DataPath;
-    public MainViewModel(Workspace workspace,GameWindowSelection windowSelection)
+    public MainViewModel(Workspace workspace,GameWindowSelection windowSelection,UiLanguageService? language=null)
     {
         this.windowSelection=windowSelection;
-        this.workspace=workspace;activity=new(workspace.DataPath);QueueView=new DataGridCollectionView(Jobs);AutomaticView=new DataGridCollectionView(Jobs);RecipeView=new DataGridCollectionView(Recipes);RecipeChoices=new DataGridCollectionView(Recipes);
-        RecipeChoices.Filter=x=>x is RecipeRow r&&(r.Name.Contains(RecipeSearch,StringComparison.OrdinalIgnoreCase)||r.Device.Contains(RecipeSearch));
+        this.workspace=workspace;this.language=language??UiLanguageService.Shared;UiLanguageCode=this.language.Culture;activity=new(workspace.DataPath);QueueView=new DataGridCollectionView(Jobs);AutomaticView=new DataGridCollectionView(Jobs);RecipeChoices=new DataGridCollectionView(Recipes);
+        this.language.LanguageChanged+=LanguageChanged;
+        RecipeChoices.Filter=x=>x is RecipeRow r&&GoalChoices.Matches(r,SelectedGoalCategory)&&(r.Name.Contains(RecipeSearch,StringComparison.OrdinalIgnoreCase)||r.Device.Contains(RecipeSearch,StringComparison.OrdinalIgnoreCase));
+        RecipeChoices.SortDescriptions.Add(DataGridSortDescription.FromComparer(GoalChoices.RecipeComparer));
+        RefreshGoalCategories();
         saveTimer.Tick+=(_,_)=>SaveSettings();
         liveTimer.Tick+=async(_,_)=>await RefreshLiveQueueAsync();
         bool Match(JobRow j)=>j.Name.Contains(Search,StringComparison.OrdinalIgnoreCase)||j.Status.Contains(Search);
         QueueView.Filter=x=>x is JobRow j&&!j.Automatic&&Match(j);
         AutomaticView.Filter=x=>x is JobRow j&&j.Automatic&&Match(j);
-        RecipeView.Filter=x=>x is RecipeRow r&&(r.Name.Contains(Search,StringComparison.OrdinalIgnoreCase)||r.Device.Contains(Search));
     }
     partial void OnSearchChanged(string value)
     {
-        QueueView.Refresh();AutomaticView.Refresh();RecipeView.Refresh();
-        if(CatalogSelectedRecipe is{} recipe&&!RecipeView.Contains(recipe))CatalogSelectedRecipe=null;
-        CreateRecipeGoalCommand.NotifyCanExecuteChanged();
+        QueueView.Refresh();AutomaticView.Refresh();
         if(SelectedJob is {} j&&!(j.Automatic?AutomaticView:QueueView).Contains(j))SelectedJob=null;
         SetQueueSelection(Jobs.Where(j=>SelectedJobIds.Contains(j.Id)&&(j.Automatic?AutomaticView:QueueView).Contains(j)).ToArray());
     }
     partial void OnSelectedJobChanged(JobRow? value){if(value is not null){EditedQuantity=value.Target.ToString();EditedHours=(value.Target/3600).ToString();EditedMinutes=(value.Target%3600/60).ToString();EditedSeconds=(value.Target%60).ToString();}OnPropertyChanged(nameof(IsFishingSelection));OnPropertyChanged(nameof(IsQuantitySelection));UpdateActions();}
     private void UpdateActions()
     {
-        CreateRecipeGoalCommand.NotifyCanExecuteChanged();
         OnPropertyChanged(nameof(HasSelection));OnPropertyChanged(nameof(CanEditQuantity));OnPropertyChanged(nameof(QuantityError));
         AddProductionCommand.NotifyCanExecuteChanged();AddGoalCommand.NotifyCanExecuteChanged();SaveQuantityCommand.NotifyCanExecuteChanged();ControlCommand.NotifyCanExecuteChanged();MoveCommand.NotifyCanExecuteChanged();
     }
@@ -220,7 +294,7 @@ public partial class MainViewModel:ObservableObject
             if(!FormNumbers.TryWhole(BackpackThreshold,1,100,out var threshold))throw new ArgumentException("背包阈值请输入 1–100%");
             if(!FormNumbers.TryWhole(MaterialReserve,0,FormNumbers.Maximum,out var material))throw new ArgumentException("材料留存请输入非负整数");
             if(!FormNumbers.TryWhole(WingReserve,0,FormNumbers.Maximum,out var wings))throw new ArgumentException("精灵之翼留存请输入非负整数");
-            workspace.SavePreferences(new(RepairEnabled,(int)minutes,gold,AutoBuyBottles,BackpackEnabled,(int)threshold,SellSurplus,material,AutoUseWings,wings,MaterialReserves.ToDictionary(x=>x.Id,x=>x.Quantity),ThemeKey,RecognitionLowCpu,InputScheme,TouchCenterOffset,LifeVip));
+            workspace.SavePreferences(new(RepairEnabled,(int)minutes,gold,AutoBuyBottles,BackpackEnabled,(int)threshold,SellSurplus,material,AutoUseWings,wings,MaterialReserves.ToDictionary(x=>x.Id,x=>x.Quantity),ThemeKey,RecognitionLowCpu,InputScheme,TouchCenterOffset,LifeVip,UiLanguageCode));
             SettingsDirty=false;SettingsError=null;SettingsStatus="已自动保存";return true;
         }
         catch(Exception e){activity.Fault(e,nameof(SaveSettings),scope:"settings");SettingsError=e.Message;SettingsStatus="未保存，输入已保留";return false;}
@@ -270,7 +344,7 @@ public partial class MainViewModel:ObservableObject
         UpdateRuntime();
         var inventory=automation?.CaptureStatus.Inventory;
         var nextStamp=inventory?.Scope?.SessionId+":"+inventory?.Revision+":"+inventory?.VerifiedThrough.HasValue+":"+automation?.Accounts.Version;
-        if(nextStamp!=accountStamp&&SelectedPage==3&&!IsBusy&&!closing&&AccountItems?.IsCellEditing!=true){AccountItems?.RefreshLive();accountStamp=nextStamp;}
+        if(nextStamp!=accountStamp&&SelectedPage==1&&!IsBusy&&!closing&&AccountItems?.IsCellEditing!=true){accountStamp=nextStamp;await AccountItems!.RefreshLiveAsync(nextStamp);}
         if(IsBusy||closing||refreshingQueue)return;
         var path=System.IO.Path.Combine(DataPath,"work-queue.json");
         var info=new System.IO.FileInfo(path);var stamp=info.Exists?$"{info.LastWriteTimeUtc.Ticks}:{info.Length}":"missing";
@@ -306,12 +380,13 @@ public partial class MainViewModel:ObservableObject
         }
         finally{IsApplyingQueue=false;}
         SetQueueSelection(Jobs.Where(j=>selectedIds.Contains(j.Id)&&(j.Automatic?AutomaticView:QueueView).Contains(j)));
+        if(SelectedJob is{} visible&&!(visible.Automatic?AutomaticView:QueueView).Contains(visible))SelectedJob=null;
         OnPropertyChanged(nameof(SelectedJob));
         var timedRecipes=data.Recipes.Select(r=>r with{LifeVip=LifeVip}).ToArray();
-        if(!Recipes.SequenceEqual(timedRecipes)){Recipes.Clear();foreach(var recipe in timedRecipes)Recipes.Add(recipe);}
-        var nextGathering=data.Gathering??[];if(!allGathering.SequenceEqual(nextGathering)){var route=SelectedGathering?.Id;allGathering=nextGathering;OnTaskKindChanged(TaskKind);SelectedGathering=IsInPlaceFishing?null:GatheringChoices.FirstOrDefault(g=>g.Id==route)??GatheringChoices.FirstOrDefault();}
+        if(!Recipes.SequenceEqual(timedRecipes)){Recipes.Clear();foreach(var recipe in timedRecipes)Recipes.Add(recipe);RefreshGoalCategories();RecipeChoices.Refresh();}
+        var nextGathering=data.Gathering??[];if(!allGathering.SequenceEqual(nextGathering)){var route=SelectedGathering?.Id;allGathering=nextGathering;gatheringSkillsLoaded=false;RefreshGoalCategories();RefreshGatheringChoices(route,true);}
         SelectedRecipe=Recipes.FirstOrDefault(r=>r.Id==recipeId&&RecipeChoices.Contains(r))??RecipeChoices.Cast<RecipeRow>().FirstOrDefault();
-        if(Jobs.Any(j=>j.Status=="任务链需更新"))Error="部分旧任务链与当前预设不兼容，已保留并隔离；其他任务可继续。请在任务链页更新身份锚点。";
+        if(Jobs.Any(j=>j.Status=="任务链需更新"))Error="部分旧任务链与当前预设不兼容，已保留并隔离；其他任务可继续。请在设置的高级工作台中更新身份锚点。";
         Status=$"{Jobs.Count} 条目标 · {Recipes.Count} 个配方";
         OnPropertyChanged(nameof(AutomaticCount));
         OnPropertyChanged(nameof(ManualCount));
@@ -337,7 +412,7 @@ public partial class MainViewModel:ObservableObject
     [RelayCommand(CanExecute=nameof(CanAddGoal))] private async Task AddGoalAsync()
     {if(!CanAddGoal)return;if(IsProductionGoal){await AddProductionAsync();return;}var route=IsInPlaceFishing?MabiAgent.Workflows.FishingPlan.CurrentLocation:SelectedGathering?.Id;if(route is null)return;long quantity;if(IsFishingGoal){if(!TryFishingDuration(out quantity))return;}else if(!FormNumbers.TryWhole(TargetQuantity,1,FormNumbers.Maximum,out quantity))return;if(await ChangeAsync(()=>workspace.AddGathering(IsFishingGoal?"idle_fishing":"gathering",route,quantity),IsInPlaceFishing?"已加入原地钓鱼目标":IsFishingGoal?"已加入挂机钓鱼目标":"已加入采集目标"))AddDialogOpen=false;else AddError=Error;}
     public void InitializeEditorSelfCheck(EditorRepository repository,MabiAgent.Capture.AccountItemService accounts)
-    {workspace.CatalogProvider=()=>PublishedCatalogCompiler.CompileAvailable(repository);ChainEditor=new(repository);AnchorEditor=new(repository);Workbench=new(this,repository);AccountItems=new(accounts);OnPropertyChanged(nameof(ChainEditor));OnPropertyChanged(nameof(AnchorEditor));OnPropertyChanged(nameof(Workbench));OnPropertyChanged(nameof(AccountItems));}
+    {workspace.CatalogProvider=()=>PublishedCatalogCompiler.CompileAvailable(repository);gatheringSkillsLoaded=false;ChainEditor=new(repository);AnchorEditor=new(repository);Workbench=new(this,repository);AccountItems=new(accounts);OnPropertyChanged(nameof(ChainEditor));OnPropertyChanged(nameof(AnchorEditor));OnPropertyChanged(nameof(Workbench));OnPropertyChanged(nameof(AccountItems));}
     [RelayCommand] private void OpenAdd(){AddError=null;AddDialogOpen=true;}
     [RelayCommand] private void CloseAdd(){if(!IsBusy)AddDialogOpen=false;}
     [RelayCommand(CanExecute=nameof(CanAdd))] private async Task AddProductionAsync()

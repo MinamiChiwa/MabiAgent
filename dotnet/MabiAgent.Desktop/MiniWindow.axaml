@@ -1,4 +1,4 @@
-<Window xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:u="https://irihi.tech/ursa" xmlns:ui="clr-namespace:MabiAgent.Desktop.Controls" x:Class="MabiAgent.Desktop.MiniWindow" Title="MabiAgent 迷你窗口" Width="340" SizeToContent="Height" CanResize="False" WindowDecorations="None" ShowInTaskbar="True" Topmost="{Binding MiniPinned}" TransparencyLevelHint="Transparent" Background="Transparent" KeyDown="HandleKeys">
+<Window xmlns:local="clr-namespace:MabiAgent.Desktop" xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:u="https://irihi.tech/ursa" xmlns:ui="clr-namespace:MabiAgent.Desktop.Controls" x:Class="MabiAgent.Desktop.MiniWindow" x:CompileBindings="True" x:DataType="local:MainViewModel" Title="MabiAgent 迷你窗口" Width="340" SizeToContent="Height" CanResize="False" WindowDecorations="None" ShowInTaskbar="True" Topmost="{Binding MiniPinned}" TransparencyLevelHint="Transparent" Background="Transparent" KeyDown="HandleKeys">
  <Border x:Name="MiniShell" Classes="mini-shell">
   <StackPanel>
    <!-- Title row doubles as the drag handle; double-click returns to the main window -->
@@ -14,7 +14,7 @@
          <TextBlock Text="待处理问题" Classes="heading"/>
          <ScrollViewer MaxHeight="220" HorizontalScrollBarVisibility="Disabled">
           <ItemsControl ItemsSource="{Binding IssueLines}">
-           <ItemsControl.ItemTemplate><DataTemplate><TextBlock Text="{Binding}" Classes="status-warning" TextWrapping="Wrap" Margin="0,2"/></DataTemplate></ItemsControl.ItemTemplate>
+           <ItemsControl.ItemTemplate><DataTemplate x:DataType="x:String"><TextBlock Text="{Binding}" Classes="status-warning" TextWrapping="Wrap" Margin="0,2"/></DataTemplate></ItemsControl.ItemTemplate>
           </ItemsControl>
          </ScrollViewer>
          <TextBlock Text="请先在游戏中核实，再回到主窗口处理。" Classes="caption" TextWrapping="Wrap"/>
@@ -66,7 +66,7 @@
     <TextBlock Text="队列为空，回到主窗口添加目标。" Classes="caption" IsVisible="{Binding !HasUpcomingJobs}"/>
     <TextBlock Text="游戏窗口" Classes="field"/>
     <Grid ColumnDefinitions="*,Auto">
-     <ComboBox x:Name="MiniWindowPicker" ItemsSource="{Binding GameWindows}" SelectedItem="{Binding SelectedWindow}" DisplayMemberBinding="{Binding Label}" PlaceholderText="选择游戏窗口" AutomationProperties.Name="游戏窗口" ToolTip.Tip="{Binding WindowStatus}"/>
+     <ComboBox x:Name="MiniWindowPicker" ItemsSource="{Binding GameWindows}" SelectedItem="{Binding SelectedWindow}" DisplayMemberBinding="{ReflectionBinding Label}" PlaceholderText="选择游戏窗口" AutomationProperties.Name="游戏窗口" ToolTip.Tip="{Binding WindowStatus}"/>
      <Button Grid.Column="1" Classes="mini-round" Command="{Binding RefreshWindowsCommand}" AutomationProperties.Name="查找游戏窗口" ToolTip.Tip="重新查找游戏窗口" Margin="8,0,0,0"><ui:Icon Kind="refresh"/></Button>
     </Grid>
     <TextBlock Text="{Binding CaptureStatus}" Classes="caption" TextWrapping="Wrap"/>

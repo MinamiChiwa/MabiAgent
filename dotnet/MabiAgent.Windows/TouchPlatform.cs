@@ -40,25 +40,59 @@ internal static class TouchNative
     [DllImport("user32.dll")] private static extern nint SetThreadDpiAwarenessContext(nint context);
 }
 
-internal sealed class TouchEnvelope(nuint w,nint handle,JsonObject decoded):IDisposable
+internal static class TouchDiagnostics
 {
-    private nint owned=handle;
-    internal JsonObject Decoded{get;}=decoded;
-    internal JsonObject Forward(nint hwnd)
+    internal static bool Write(MabiAgent.Core.RuntimeDiagnostics? diagnostics,string gestureId,string stage,JsonObject? details=null,DateTimeOffset? occurredAt=null)
     {
-        if(owned==0)throw new InputBlockedException("触控句柄已转交，禁止重放");
-        // WM_TOUCH forwarding transfers the system handle to the destination. Do not close or reuse it afterward.
-        var h=owned;owned=0;var ok=TouchNative.PostTouch(hwnd,0x0240,w,h);var error=ok?0:Marshal.GetLastWin32Error();
+        if(diagnostics is null)return true;
+        try
+        {
+            var payload=new JsonObject{["gesture_id"]=gestureId,["stage"]=stage};
+            if(details is not null)foreach(var property in details.ToArray())payload[property.Key]=property.Value?.DeepClone();
+            var value=diagnostics.Create(gestureId,"info","touch",stage,"input",null,null,null,null,"none",payload.ToJsonString());
+            return diagnostics.Write(occurredAt is{} at?value with{At=at}:value);
+        }
+        catch{return false;/* Diagnostics must never change input dispatch or its outcome. RuntimeDiagnostics.WriteError retains write failures. */}
+    }
+}
+
+internal static class TouchThreadCleanup
+{
+    internal static void Run(Thread thread,Action requestClose,Action complete,string error,int joinMilliseconds=3000)
+    {
+        for(var attempt=0;attempt<2;attempt++)
+        {
+            requestClose();
+            if(thread.Join(joinMilliseconds)){complete();return;}
+        }
+        throw new TimeoutException(error);
+    }
+}
+
+internal sealed class TouchEnvelope:IDisposable
+{
+    private readonly nuint w;private readonly Func<nint,uint,nuint,nint,bool> postTouch;private readonly Action<nint> closeTouch;
+    private nint owned;private bool attempted;
+    internal JsonObject Decoded{get;}
+    internal TouchEnvelope(nuint w,nint handle,JsonObject decoded,Func<nint,uint,nuint,nint,bool>? postTouch=null,Action<nint>? closeTouch=null)
+    {this.w=w;owned=handle;Decoded=decoded;this.postTouch=postTouch??TouchNative.PostTouch;this.closeTouch=closeTouch??(h=>TouchNative.CloseTouchInputHandle(h));}
+    internal JsonObject Forward(nint hwnd,Action<JsonObject>? traceSink=null)
+    {
+        if(attempted||owned==0)throw new InputBlockedException("触控句柄已转交或尝试转交，禁止重放");
+        attempted=true;var h=owned;var ok=postTouch(hwnd,0x0240,w,h);var error=ok?0:Marshal.GetLastWin32Error();
         var trace=new JsonObject{["message"]=0x0240,["target"]=(long)hwnd,["submitted"]=ok,["error"]=error,["decoded_before_transfer"]=Decoded.DeepClone()};
+        // Only a successful post transfers ownership. A failed post still burns this envelope, then closes its local handle.
+        if(ok)owned=0;
+        try{traceSink?.Invoke(trace);}finally{if(!ok)Dispose();}
         if(!ok)throw new InputOutcomeUnknownException("WM_TOUCH转交失败，禁止重放："+error);return trace;
     }
-    public void Dispose(){var h=Interlocked.Exchange(ref owned,0);if(h!=0)TouchNative.CloseTouchInputHandle(h);}
+    public void Dispose(){var h=Interlocked.Exchange(ref owned,0);if(h!=0)closeTouch(h);}
 }
 
 internal sealed class TouchInputWindow:IDisposable
 {
     private readonly Thread thread;private readonly TaskCompletionSource<nint> ready=new(TaskCreationOptions.RunContinuationsAsynchronously);private readonly WndProc proc;
-    private readonly string name="MabiTouchInput_"+Guid.NewGuid().ToString("N");private nint hwnd;private readonly PixelBox box;private int disposed;private readonly bool legacyTouch,retainTouchHandles;private readonly string? label;private readonly bool inputSurface;
+    private readonly string name="MabiTouchInput_"+Guid.NewGuid().ToString("N");private nint hwnd;private readonly PixelBox box;private int cleanupComplete;private readonly bool legacyTouch,retainTouchHandles;private readonly string? label;private readonly bool inputSurface;
     private int mouseMoves,mouseDowns,mouseUps,mouseDragMoves;
     internal int MouseDragMoves=>Volatile.Read(ref mouseDragMoves);
     internal int MouseMoves=>Volatile.Read(ref mouseMoves);internal int MouseDowns=>Volatile.Read(ref mouseDowns);internal int MouseUps=>Volatile.Read(ref mouseUps);
@@ -123,7 +157,11 @@ internal sealed class TouchInputWindow:IDisposable
         }
         if(m==0x0010){DestroyWindow(h);return 0;}if(m==0x0002){PostQuitMessage(0);return 0;}return DefWindowProc(h,m,w,l);
     }
-    public void Dispose(){if(Interlocked.Exchange(ref disposed,1)!=0)return;if(hwnd!=0)PostMessage(hwnd,0x0010,0,0);if(!thread.Join(3000))throw new TimeoutException("触控辅助窗口未退出");while(Touches.TryDequeue(out var touch))touch.Dispose();GC.KeepAlive(proc);}
+    public void Dispose()
+    {
+        if(Volatile.Read(ref cleanupComplete)!=0)return;
+        TouchThreadCleanup.Run(thread,()=>{if(hwnd!=0)PostMessage(hwnd,0x0010,0,0);},()=>{while(Touches.TryDequeue(out var touch))touch.Dispose();GC.KeepAlive(proc);Volatile.Write(ref cleanupComplete,1);},"触控辅助窗口未退出");
+    }
     private delegate nint WndProc(nint h,uint m,nuint w,nint l);
     [StructLayout(LayoutKind.Sequential,CharSet=CharSet.Unicode)]private struct WindowClass{public uint Size,Style;public nint Procedure;public int ClassExtra,WindowExtra;public nint Instance,Icon,Cursor,Background;public string? Menu,Name;public nint SmallIcon;}
     [StructLayout(LayoutKind.Sequential)]private struct Message{public nint Window;public uint Id;public nuint WParam;public nint LParam;public uint Time;public TouchNative.Point Point;public uint Private;}
@@ -150,31 +188,47 @@ internal sealed class TouchInputWindow:IDisposable
 
 internal sealed class SyntheticTouchDevice:IDisposable
 {
-    private nint device;private readonly PixelPoint anchor;private readonly nint anchorWindow;private readonly bool anchored;private PixelPoint target;private nint targetWindow;
+    private nint device;private readonly PixelPoint anchor;private readonly nint anchorWindow;private nint targetWindow;
     private PixelPoint[] active=[];
     private bool anchorAttempted,targetAttempted;internal JsonArray Frames{get;}=new();internal bool Released{get;private set;}
-    internal SyntheticTouchDevice(PixelPoint anchor,nint anchorWindow,bool anchored=true)
-    {this.anchor=anchor;this.anchorWindow=anchorWindow;this.anchored=anchored;device=TouchNative.CreateSyntheticPointerDevice(2,3,3);if(device==0)throw new Win32Exception(Marshal.GetLastWin32Error(),"创建合成触点设备失败");}
+    internal SyntheticTouchDevice(PixelPoint anchor,nint anchorWindow)
+    {RequireLocalWindow(anchorWindow);this.anchor=anchor;this.anchorWindow=anchorWindow;device=TouchNative.CreateSyntheticPointerDevice(2,3,3);if(device==0)throw new Win32Exception(Marshal.GetLastWin32Error(),"创建合成触点设备失败");}
     internal void Begin()
-    {if(!anchored)return;anchorAttempted=true;Send(TouchNative.Contact(1,anchor,TouchNative.Down,anchorWindow));Thread.Sleep(20);}
+    {anchorAttempted=true;Send(TouchNative.Contact(1,anchor,TouchNative.Down,anchorWindow));Thread.Sleep(20);}
     internal void Down(PixelPoint point,nint hwnd)
     {Down([point],hwnd);}
     internal void Down(PixelPoint[] points,nint hwnd)
     {
         if(points.Length is <1 or >2||targetAttempted)throw new ArgumentException("仅支持一到两个未按下目标触点");
-        active=points.ToArray();target=active[0];targetWindow=hwnd;targetAttempted=true;SendTarget(TouchNative.Down);
+        RequireLocalWindow(hwnd);
+        active=points.ToArray();targetWindow=hwnd;targetAttempted=true;SendTarget(TouchNative.Down);
     }
     internal void Move(PixelPoint[] points)
-    {if(!targetAttempted||points.Length!=active.Length)throw new InvalidOperationException("目标触点数量变化");active=points.ToArray();target=active[0];SendTarget(TouchNative.Update);}
-    private void SendTarget(uint flags)=>Send((anchored?new[]{TouchNative.Contact(1,anchor,TouchNative.Update,anchorWindow)}:Array.Empty<TouchNative.TypeInfo>()).Concat(active.Select((p,i)=>TouchNative.Contact((uint)i+2,p,flags,targetWindow))).ToArray());
+    {if(!targetAttempted||points.Length!=active.Length)throw new InvalidOperationException("目标触点数量变化");active=points.ToArray();SendTarget(TouchNative.Update);}
+    private void SendTarget(uint flags)=>Send(new[]{TouchNative.Contact(1,anchor,TouchNative.Update,anchorWindow)}.Concat(active.Select((p,i)=>TouchNative.Contact((uint)i+2,p,flags,targetWindow))).ToArray());
     internal void Up()
     {if(!targetAttempted)return;SendTarget(TouchNative.Up);targetAttempted=false;}
     private void Send(params TouchNative.TypeInfo[] frame)
     {
+        // Native contacts are local message sources only. Never let them reach the game,
+        // including if an auxiliary window disappears during a gesture.
+        foreach(var contact in frame)
+        {
+            var pointer=contact.Touch.Pointer;
+            RequireLocalWindow(pointer.Target);
+            if((pointer.Flags&0x10000)!=0 && TouchNative.At(new(pointer.Pixel.X,pointer.Pixel.Y))!=pointer.Target)
+                throw new InputBlockedException("触控消息源必须位于当前进程的辅助窗口，禁止原生直达游戏");
+        }
         using var dpi=TouchNative.PhysicalDpi();var ok=TouchNative.InjectSyntheticPointerInput(device,frame,(uint)frame.Length);var error=ok?0:Marshal.GetLastWin32Error();
         Frames.Add(new JsonObject{["tick"]=System.Diagnostics.Stopwatch.GetTimestamp(),["submitted"]=ok,["error"]=error,["foreground"]=(long)TouchNative.Foreground,["contacts"]=new JsonArray(frame.Select(p=>(JsonNode)new JsonObject{["id"]=p.Touch.Pointer.Id,["flags"]=p.Touch.Pointer.Flags,["suggested_target"]=(long)p.Touch.Pointer.Target,["point"]=new JsonArray(p.Touch.Pointer.Pixel.X,p.Touch.Pointer.Pixel.Y)}).ToArray())});
         if(!ok)throw new Win32Exception(error,$"合成触点投递失败（系统错误{error}），禁止重放");
     }
+    private static void RequireLocalWindow(nint hwnd)
+    {
+        GetWindowThreadProcessId(hwnd,out var owner);
+        if(owner!=(uint)Environment.ProcessId)throw new InputBlockedException("原生触点仅允许当前进程的辅助窗口");
+    }
+    [DllImport("user32.dll")]private static extern uint GetWindowThreadProcessId(nint hwnd,out uint pid);
     public void Dispose()
     {
         if(device==0)return;Exception? error=null;

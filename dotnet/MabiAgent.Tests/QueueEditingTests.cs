@@ -17,13 +17,14 @@ public sealed class QueueEditingTests
         Assert.Equal("cast",review["pending"]!["action_id"]!.GetValue<string>());Assert.NotNull(review["evidence"]);
         q=new(q.ToJson());q.Begin("fish","next","character:fish");Assert.True(q.Jobs[0].Pending);
     }
-    [Fact] public void ExplicitFishingNoEffectReviewKeepsZeroCreditAndAuditEvidence()
+    [Theory][InlineData("user")][InlineData("codex_visual_review")]
+    public void ExplicitFishingNoEffectReviewKeepsZeroCreditAndAuditEvidence(string reviewer)
     {
         var q=Empty();q.Add("fish","idle_fishing",100,1800,"lake",[]);q.Begin("fish","cast","character:fish");
-        q.ResolveFishingNoEffect("fish","cast","operator confirmed no visible click effect",DateTimeOffset.UtcNow);
+        q.ResolveFishingNoEffect("fish","cast","operator confirmed no visible click effect",DateTimeOffset.UtcNow,reviewer);
         Assert.Equal("queued",q.Status("fish"));Assert.Equal(0,q.Jobs[0].Completed);Assert.False(q.Jobs[0].Pending);
         var review=q.ToJson()["jobs"]![0]!["reviewed_actions"]![0]!;
-        Assert.Equal("user_confirmed_no_input_effect",review["outcome"]!.GetValue<string>());Assert.Equal("operator confirmed no visible click effect",review["evidence"]!.GetValue<string>());
+        Assert.Equal(reviewer=="user"?"user_confirmed_no_input_effect":"operator_confirmed_no_input_effect",review["outcome"]!.GetValue<string>());Assert.Equal(reviewer,review["reviewer"]!.GetValue<string>());Assert.Equal("operator confirmed no visible click effect",review["evidence"]!.GetValue<string>());
     }
     [Fact] public void DeleteRemovesPendingCompletedCancelledAndDependenciesAtomically()
     {

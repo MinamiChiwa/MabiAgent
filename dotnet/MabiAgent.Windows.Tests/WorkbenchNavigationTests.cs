@@ -7,6 +7,19 @@ namespace MabiAgent.Windows.Tests;
 
 public sealed class WorkbenchNavigationTests
 {
+    [Fact] public void ZoomSettleIntervalStartsAfterTheSweepFinishes()
+    {
+        var (session,ops)=Create();using(session)
+        {
+            var port=session.CreateMaintenancePort("test",new Store());port.Observe();
+            var step=JsonNode.Parse("""{"target":"map.canvas","kind":"zoom_max","settle_s":0.2}""")!.AsObject();
+            Assert.False(port.TestNavigationStep(step).Completed);Assert.Equal(12,ops.Wheels);
+            Assert.False(port.TestNavigationStep(step).Completed);
+            Assert.Equal("dispatch",port.LastTestNavigationTrace?.Phase);
+            Thread.Sleep(250);
+            Assert.True(port.TestNavigationStep(step).Completed);Assert.Equal(12,ops.Wheels);
+        }
+    }
     [Fact] public void InterruptedZoomSweepKeepsPauseAndDoesNotRetryUnknownInput()
     {
         var (session,ops)=Create();using(session)

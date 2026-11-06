@@ -354,11 +354,11 @@
       <Border Classes="card flush section-settings" Margin="0,12,0,0">
        <DataGrid ItemsSource="{Binding StrategyView}" AutoGenerateColumns="False" GridLinesVisibility="Horizontal">
         <DataGrid.Columns>
-         <DataGridTextColumn Header="分类" Binding="{Binding CategoryLabel}" IsReadOnly="True" Width="Auto"/>
-         <DataGridTextColumn Header="参数" Binding="{Binding ParameterLabel}" IsReadOnly="True" Width="2*" MinWidth="160"/>
-         <DataGridTemplateColumn Header="值" Width="Auto"><DataGridTemplateColumn.CellTemplate><DataTemplate><Grid><CheckBox Content="启用" IsChecked="{Binding BooleanValue}" IsVisible="{Binding IsBoolean}"/><TextBox Text="{Binding Value}" IsVisible="{Binding !IsBoolean}" MinHeight="30" Margin="0,2"/></Grid></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
+         <DataGridTextColumn Header="分类" Binding="{Binding CategoryLabel,Mode=OneWay}" IsReadOnly="True" Width="Auto"/>
+         <DataGridTextColumn Header="参数" Binding="{Binding ParameterLabel,Mode=OneWay}" IsReadOnly="True" Width="2*" MinWidth="160"/>
+         <DataGridTemplateColumn Header="值" Width="Auto"><DataGridTemplateColumn.CellTemplate><DataTemplate><Grid><CheckBox Content="启用" IsChecked="{Binding BooleanValue}" IsVisible="{Binding IsBoolean}"/><TextBox Text="{Binding DisplayValue}" IsVisible="{Binding !IsBoolean}" MinHeight="30" Margin="0,2"/></Grid></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
          <DataGridTemplateColumn Header="定位" Width="Auto"><DataGridTemplateColumn.CellTemplate><DataTemplate><Button Content="窗口定位" Click="LocateStrategy" IsVisible="{Binding IsCoordinate}"/></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
-         <DataGridTextColumn Header="说明" Binding="{Binding DescriptionLabel}" IsReadOnly="True" Width="3*" MinWidth="180"/>
+         <DataGridTextColumn Header="说明" Binding="{Binding DescriptionLabel,Mode=OneWay}" IsReadOnly="True" Width="3*" MinWidth="180"/>
         </DataGrid.Columns>
        </DataGrid>
       </Border>
@@ -370,10 +370,10 @@
      <Grid>
       <DataGrid ItemsSource="{Binding Results}" IsReadOnly="True" AutoGenerateColumns="False">
        <DataGrid.Columns>
-        <DataGridTextColumn Header="时间" Binding="{Binding Time}" Width="Auto"/>
-        <DataGridTextColumn Header="步骤" Binding="{Binding Card}" Width="Auto"/>
+        <DataGridTextColumn Header="时间" Binding="{Binding Time,Mode=OneWay}" Width="Auto"/>
+        <DataGridTextColumn Header="步骤" Binding="{Binding Card,Mode=OneWay}" Width="Auto"/>
         <DataGridTemplateColumn Header="结果" Width="Auto"><DataGridTemplateColumn.CellTemplate><DataTemplate><Border Classes="state"><TextBlock Text="{Binding Result}" Classes.status-success="{Binding IsSuccess}" Classes.status-warning="{Binding IsWarning}" Classes.status-error="{Binding IsError}" Classes.status-info="{Binding IsInfo}"/></Border></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
-        <DataGridTextColumn Header="详情" Binding="{Binding Details}" Width="*"/>
+        <DataGridTextColumn Header="详情" Binding="{Binding Details,Mode=OneWay}" Width="*"/>
        </DataGrid.Columns>
       </DataGrid>
       <StackPanel IsVisible="{Binding !HasResults}" VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="380" Spacing="8" Margin="16"><Border Classes="icon-tile" HorizontalAlignment="Center"><ui:Icon Kind="check"/></Border><TextBlock Text="暂无测试结果" Classes="heading" HorizontalAlignment="Center"/><TextBlock Text="在任务链中运行全流程测试（F5）或测试选中步骤（F6）。" Classes="muted" TextAlignment="Center"/></StackPanel>

@@ -71,6 +71,33 @@ public sealed class WorkbenchFlowSafetyReviewTests
         Assert.Equal(WorkbenchFlowState.Completed,flow.Tick().State);Assert.Equal(captures,ops.Captures);
     }
 
+    [Theory]
+    [InlineData("page")]
+    [InlineData("anchors")]
+    public void FixedActionWithoutPriorObservationDoesNotClaimAnExpectedStateThatWasAlreadyPresent(string expectation)
+    {
+        var routes=ScreenRoutes.Load(RecognitionTests.Root());routes.Configuration["notifications"]=new JsonObject();
+        routes.Profile.Definition["pages"]=JsonNode.Parse("""{"scene":{"anchors":["scene_bag"]}}""");routes.Profile.Definition.Remove("page_variants");
+        var ops=new ReviewOps(Stamp(routes.Profile,"scene_bag"));using var session=new ScreenWorkflowSession(routes,ops.State,ops,new ReviewOcr(),new ReviewStore());session.Start();
+        var card=JsonNode.Parse("""{"cards":[{"id":"fixed","action":"key","key_code":32,"key_duration_ms":1,"timeout_seconds":5}]}""")!.AsObject();
+        if(expectation=="page")card["cards"]![0]!["expected_page_id"]="scene";else card["cards"]![0]!["expected_anchors"]=new JsonArray("scene_bag");
+        var time=new ReviewTime();var flow=new ScreenWorkbenchFlow(session,card,timeProvider:time);
+        flow.Tick();if(!flow.HasDispatchedInput)flow.Tick();Assert.True(flow.HasDispatchedInput);Assert.True(ops.Captures>0);var observation=session.LastObservation!;time.Seconds=1;
+        Assert.Equal(WorkbenchFlowState.Running,flow.Tick(observation).State);
+    }
+    [Fact]
+    public void FirstFixedCardObservesBaselineAndConfirmsExpectedPageOnlyAfterItChanges()
+    {
+        var routes=ScreenRoutes.Load(RecognitionTests.Root());routes.Configuration["notifications"]=new JsonObject();
+        routes.Profile.Definition["pages"]=JsonNode.Parse("""{"scene":{"anchors":["scene_bag"]}}""");routes.Profile.Definition.Remove("page_variants");
+        var ops=new ReviewOps(Stamp(routes.Profile,"scene_bag"));using var session=new ScreenWorkflowSession(routes,ops.State,ops,new ReviewOcr(),new ReviewStore());session.Start();
+        var card=JsonNode.Parse("""{"cards":[{"id":"fixed","action":"key","key_code":32,"key_duration_ms":1,"expected_page_id":"bag","timeout_seconds":5}]}""")!.AsObject();
+        var time=new ReviewTime();var flow=new ScreenWorkbenchFlow(session,card,timeProvider:time);flow.Tick();if(!flow.HasDispatchedInput)flow.Tick();
+        Assert.True(flow.HasDispatchedInput);Assert.True(ops.Captures>0);var observation=session.LastObservation!;time.Seconds=1;
+        var changed=observation with{View=observation.View with{Page="bag"}};
+        Assert.Equal(WorkbenchFlowState.Completed,flow.Tick(changed).State);
+    }
+
     static RgbImage Stamp(NavigationProfile profile,string name)
     {
         var template=profile.Templates[name];var pixels=new byte[1280*960*3];var source=template.Image.CopyPixels();

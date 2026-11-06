@@ -107,12 +107,15 @@ public sealed class MaterialPlanner
             }
             quantity=TakeLots(item,quantity,consumer,goal);if(quantity==0)return;
             if(available is null){Unavailable("inventory_unknown",item,quantity,consumer,goal,path);return;}
+            var storageUnknown=false;
             foreach(var (scope,rows) in storage)
             {
-                var take=Math.Min(quantity,rows.GetValueOrDefault(item)??0);
+                if(!rows.TryGetValue(item,out var stored)||stored is null){storageUnknown=true;continue;}
+                var take=Math.Min(quantity,stored.Value);
                 if(take>0){rows[item]-=take;quantity-=take;allocations.Add(new(item,take,"storage",scope,consumer,goal));issues.Add(new("storage_withdrawal_required",item,take,take,goal,consumer,path));}
                 if(quantity==0)return;
             }
+            if(storageUnknown){Unavailable("inventory_unknown",item,quantity,consumer,goal,path);return;}
             var key=owner.byItem.GetValueOrDefault(item);
             if(key is not null && path.Contains(key)){Unavailable("recipe_cycle",item,quantity,consumer,goal,[..path,key]);return;}
             var recipe=key is null?null:owner.recipes.GetValueOrDefault(key);var route=owner.gathering.GetValueOrDefault(item);

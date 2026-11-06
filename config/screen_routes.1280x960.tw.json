@@ -3074,7 +3074,11 @@
           69
         ],
         "threshold": 0.97,
-        "match_mode": "grayscale",
+        "glyph_threshold": 0.97,
+        "match_mode": "light_text",
+        "relative_contrast": true,
+        "relative_contrast_threshold": 80,
+        "matching_notes": "Opaque white back glyph only; relative contrast removes the gray-template/current-white brightness veto while preserving the 0.97 score threshold.",
         "source": "release_catalog",
         "source_sha256": "21fb396c7a28ba6db677c91433f4b11d88b7d80cf2d7a53ab4be0ab174cd9f2d",
         "crop_native": [

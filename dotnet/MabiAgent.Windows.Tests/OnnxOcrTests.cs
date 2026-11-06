@@ -42,8 +42,9 @@ public class OnnxOcrTests
         using var bgr=OpenCvSharp.Cv2.ImRead(Path.Combine(root,"tests/fixtures/production/backpack-weight-orange-current.jpg"));
         using var rgb=new OpenCvSharp.Mat();OpenCvSharp.Cv2.CvtColor(bgr,rgb,OpenCvSharp.ColorConversionCodes.BGR2RGB);
         var pixels=new byte[rgb.Width*rgb.Height*3];System.Runtime.InteropServices.Marshal.Copy(rgb.Data,pixels,0,pixels.Length);var frame=new RgbImage(rgb.Width,rgb.Height,pixels);
-        var spec=ScreenRoutes.Load(root).Configuration["maintenance"]!["weight"]!;
-        var text=new ScreenQuantityReader(engine).ColorText(frame,NavigationProfile.ReadBox(spec["region"]!),.75);
+        var spec=ScreenRoutes.Load(root).Configuration["maintenance"]!["weight"]!;var search=NavigationProfile.ReadBox(spec["region"]!);
+        var region=ScreenMaintenancePort.FindWeightTextRegion(frame,search);Assert.NotNull(region);
+        var text=new ScreenQuantityReader(engine).ColorText(frame,region.Value,.75);
         var read=text is null?null:QuantityParser.Parse(text,"fixed_ratio");
         Assert.NotNull(read);Assert.Equal(76308,read.Quantity);Assert.Equal(81000,read.Capacity);
         using var listBgr=OpenCvSharp.Cv2.ImRead(Path.Combine(root,"tests/fixtures/production/surplus-raw-log-list-current.jpg"));
@@ -51,6 +52,32 @@ public class OnnxOcrTests
         var listPixels=new byte[listRgb.Width*listRgb.Height*3];System.Runtime.InteropServices.Marshal.Copy(listRgb.Data,listPixels,0,listPixels.Length);
         var label=new ScreenQuantityReader(engine).ColorText(new(listRgb.Width,listRgb.Height,listPixels),new PixelBox(730,260,785,285),.75);
         Assert.Equal("原木",label);
+    }
+    [Theory][InlineData(-8,.84,false)][InlineData(8,1.08,false)][InlineData(0,1,true)]
+    public void BackpackWeightReadsAcrossBobAndColorChanges(int offsetY,double colorScale,bool neutral)
+    {
+        var root=RecognitionTests.Root();using var engine=new OnnxTextRecognizer(Path.Combine(root,"models",OnnxTextRecognizer.DefaultModelFileName));
+        using var bgr=OpenCvSharp.Cv2.ImRead(Path.Combine(root,"tests/fixtures/production/backpack-weight-orange-current.jpg"));using var rgb=new OpenCvSharp.Mat();OpenCvSharp.Cv2.CvtColor(bgr,rgb,OpenCvSharp.ColorConversionCodes.BGR2RGB);
+        var pixels=new byte[rgb.Width*rgb.Height*3];System.Runtime.InteropServices.Marshal.Copy(rgb.Data,pixels,0,pixels.Length);var original=new RgbImage(rgb.Width,rgb.Height,pixels);
+        var search=NavigationProfile.ReadBox(ScreenRoutes.Load(root).Configuration["maintenance"]!["weight"]!["region"]!);var frame=MoveAndTint(original,search,offsetY,colorScale,neutral);
+        var region=ScreenMaintenancePort.FindWeightTextRegion(frame,search);Assert.NotNull(region);
+        var text=new ScreenQuantityReader(engine).ColorText(frame,region.Value,.75);var read=text is null?null:QuantityParser.Parse(text,"fixed_ratio");
+        Assert.True(read is{Quantity:76308,Capacity:81000},$"offset={offsetY}; scale={colorScale}; region={region}; text={text}");
+    }
+    private static RgbImage MoveAndTint(RgbImage image,PixelBox box,int offsetY,double scale,bool neutral)
+    {
+        var source=image.CopyPixels();var target=new byte[source.Length];
+        for(var y=box.Top;y<box.Bottom;y++)
+        {
+            var sourceY=y-offsetY;if(sourceY<box.Top||sourceY>=box.Bottom)continue;
+            for(var x=box.Left;x<box.Right;x++)
+            {
+                var from=(sourceY*image.Width+x)*3;var to=(y*image.Width+x)*3;
+                var orange=source[from]>=140&&source[from]-source[from+1]>=40&&source[from+2]<=100;
+                for(var channel=0;channel<3;channel++)target[to+channel]=(byte)Math.Clamp((int)Math.Round(source[from+(neutral&&orange?0:channel)]*scale),0,255);
+            }
+        }
+        return new(image.Width,image.Height,target);
     }
       [Fact] public void CurrentThickWoolStorageDetailKeepsNameAndContainerIdentity()
       {

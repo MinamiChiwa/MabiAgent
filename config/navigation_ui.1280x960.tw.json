@@ -22,7 +22,6 @@
       "anchors": [
         "bag_tools_tab",
         "bag_fashion_tab",
-        "bag_auto_wear",
         "bag_close"
       ],
       "targets": {

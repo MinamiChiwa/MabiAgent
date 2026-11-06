@@ -15,6 +15,9 @@ public sealed record InventorySnapshot(InventoryScope? Scope, CharacterIdentity?
     public long? Gold { get; init; }
     public double? GoldAt { get; init; }
     public IReadOnlyDictionary<uint,long> ItemRevisions { get; init; } = new ReadOnlyDictionary<uint,long>(new Dictionary<uint,long>());
+    public string? FrameSha256 { get; init; }
+    public DateTimeOffset? ObservedAt { get; init; }
+    public DateTimeOffset? FullSyncObservedAt { get; init; }
     public bool ExecutionEligible => false;
     public bool PlanningOnly => true;
     public string Source => "packet_capture";
@@ -42,8 +45,9 @@ public static class LoginIdentity
 }
 
 /// <summary>Current planning observation. No packet or inventory observation grants permission to issue input.</summary>
-public sealed class StreamingInventory(Func<byte[], LoginInventory> decodeLogin, string captureId, IEnumerable<CharacterIdentity>? knownIdentities=null)
+public sealed class StreamingInventory(Func<byte[], LoginInventory> decodeLogin, string captureId, IEnumerable<CharacterIdentity>? knownIdentities=null, CaptureProtocol? protocol=null, Func<byte[],IReadOnlyList<ConsumableStack>>? decodeUpdates=null)
 {
+    public CaptureProtocol Protocol { get; } = protocol ?? CaptureProtocol.Historical;
     private readonly object gate = new();
     private readonly Dictionary<long, CharacterIdentity> known = IdentityIndex(knownIdentities??[]);
     internal IReadOnlyList<CharacterIdentity> KnownIdentities { get { lock(gate)return known.Values.ToArray(); } }
@@ -72,11 +76,13 @@ public sealed class StreamingInventory(Func<byte[], LoginInventory> decodeLogin,
     private long itemRevision;
     private long? gold;
     private double? fullAt, verifiedThrough;
+    private string? frameSha256;
+    private DateTimeOffset observedAt, fullSyncObservedAt;
     private string? error;
     internal string? ActiveConnectionId { get { lock (gate) return connection; } }
     public bool ValidateFullSync(GameFrame frame)
     {
-        if (frame.Opcode != GameProtocol.LoginOpcode) return false;
+        if (frame.Opcode != Protocol.Login) return false;
         try { ValidateLogin(decodeLogin(GameProtocol.DecodeBody(frame.Flag, frame.Body))); return true; }
         catch (Exception ex) when (ex is InvalidDataException or ArgumentException or OverflowException) { return false; }
     }
@@ -97,7 +103,7 @@ public sealed class StreamingInventory(Func<byte[], LoginInventory> decodeLogin,
         {
             try
             {
-                if (frame.Opcode == GameProtocol.LoginOpcode)
+                if (frame.Opcode == Protocol.Login)
                 {
                     InvalidateCore("Waiting for matching login profile"); pending = null; connection = connectionId;
                     var login = decodeLogin(GameProtocol.DecodeBody(frame.Flag, frame.Body)); ValidateLogin(login);
@@ -106,7 +112,7 @@ public sealed class StreamingInventory(Func<byte[], LoginInventory> decodeLogin,
                     return;
                 }
                 if (connection != connectionId) return;
-                if (frame.Opcode == GameProtocol.ProfileOpcode && pending is not null)
+                if (frame.Opcode == Protocol.Profile && pending is not null)
                 {
                     var body = GameProtocol.DecodeBody(frame.Flag, frame.Body);
                     // A profile for another visible character is not our identity join.
@@ -115,10 +121,11 @@ public sealed class StreamingInventory(Func<byte[], LoginInventory> decodeLogin,
                     if (known.Count >= 256 && !known.ContainsKey(pending.CharacterCode)) known.Clear();
                     known[pending.CharacterCode] = who; Bind(who); return;
                 }
-                if (frame.Opcode != GameProtocol.InventoryOpcode) return;
+                if (frame.Opcode != Protocol.Inventory) return;
                 if (scope is null || pending is not null || error is not null)
                 { pending = null; InvalidateCore("Inventory changed before identity or full sync resolved"); return; }
-                var updates = ConsumableCodec.ParseUpdates(GameProtocol.DecodeBody(frame.Flag, frame.Body));
+                var updateBody = GameProtocol.DecodeBody(frame.Flag, frame.Body);
+                var updates = decodeUpdates is null ? ConsumableCodec.ParseUpdates(updateBody) : decodeUpdates(updateBody);
                 var backpack = new Dictionary<string, ConsumableStack>(records[InventoryContainer.Backpack], StringComparer.Ordinal);
                 var touched = new HashSet<uint>();
                 foreach (var row in updates)
@@ -153,7 +160,7 @@ public sealed class StreamingInventory(Func<byte[], LoginInventory> decodeLogin,
         var login = pending!;
         var next = login.Containers.ToDictionary(p => p.Key, p => p.Value.ToDictionary(r => r.StackKeyHex, StringComparer.Ordinal));
         records = next; itemRevisions.Clear(); identity = who; scope = new(who.AccountId, who.CharacterId, captureId + ":" + connection);
-        gold=login.Gold;fullRevision++; revision++; fullAt = pendingAt; verifiedThrough = pendingAt; pending = null; error = null;
+        gold=login.Gold;fullRevision++; revision++; fullAt = pendingAt; verifiedThrough = pendingAt; frameSha256=login.BodySha256; observedAt=DateTimeOffset.UtcNow; fullSyncObservedAt=observedAt; pending = null; error = null;
     }
     public void Invalidate(string reason) { lock (gate) { pending = null; InvalidateCore(reason); } }
     private void InvalidateCore(string reason) { verifiedThrough = null; error = reason[..Math.Min(reason.Length, 400)]; }
@@ -165,7 +172,10 @@ public sealed class StreamingInventory(Func<byte[], LoginInventory> decodeLogin,
         // Actual loss, malformed traffic and connection closure use Invalidate.
         lock (gate)
             if (scope is not null && healthy && error is null)
+            {
+                if (!verifiedThrough.HasValue || at > verifiedThrough.Value) observedAt=DateTimeOffset.UtcNow;
                 verifiedThrough = verifiedThrough.HasValue ? Math.Max(verifiedThrough.Value, at) : at;
+            }
     }
     public InventorySnapshot Snapshot()
     {
@@ -173,7 +183,7 @@ public sealed class StreamingInventory(Func<byte[], LoginInventory> decodeLogin,
         {
             var counts = records.ToDictionary(p => p.Key, p => (IReadOnlyDictionary<uint,long>)new ReadOnlyDictionary<uint,long>(p.Value.Values
                 .GroupBy(r => r.ItemId).ToDictionary(g => g.Key, g => g.Aggregate(0L, (sum,r) => checked(sum + r.Quantity)))));
-            return new(scope, identity, new ReadOnlyDictionary<InventoryContainer,IReadOnlyDictionary<uint,long>>(counts), revision, fullRevision, fullAt, verifiedThrough, error){Gold=verifiedThrough is not null?gold:null,GoldAt=verifiedThrough is not null?fullAt:null,ItemRevisions=new ReadOnlyDictionary<uint,long>(itemRevisions.ToDictionary())};
+            return new(scope, identity, new ReadOnlyDictionary<InventoryContainer,IReadOnlyDictionary<uint,long>>(counts), revision, fullRevision, fullAt, verifiedThrough, error){Gold=verifiedThrough is not null?gold:null,GoldAt=verifiedThrough is not null?fullAt:null,ItemRevisions=new ReadOnlyDictionary<uint,long>(itemRevisions.ToDictionary()),FrameSha256=verifiedThrough is not null?frameSha256:null,ObservedAt=verifiedThrough is not null?observedAt:null,FullSyncObservedAt=verifiedThrough is not null?fullSyncObservedAt:null};
         }
     }
 }

@@ -31,14 +31,18 @@ public sealed class LegacyParityTests
                 // cast script; it is no longer part of migrated intent state.
                 expected[i]?["pending"]?.AsObject().Remove("button_disappeared");
                 expected[i]!["next_direction"]=expected[i]!["next_direction"]!.GetValue<string>()=="a"?"w":"s";
+                // Arrival now releases travel ownership; completed rounds explicitly leave.
+                if(i>=3){expected[i]!["navigation_seen"]=false;expected[i]!["navigation_deadline"]=null;}
+                if(expected[i]?["pending"]?["kind"]?.GetValue<string>()=="start")
+                    expected[i]!["pending"]!["deadline"]=expected[i]!["pending"]!["at"]!.GetValue<double>()+20;
                 // New dismount bookkeeping is covered by native fishing tests.
                 if(actual is JsonObject fish&&fish.ContainsKey("dismount_at")){Assert.Null(fish["dismount_at"]);fish.Remove("dismount_at");}
                 // Cast latency and preflight retry counters are additive diagnostics.
-                if(actual is JsonObject fishState){fishState.Remove("cast_preflight_rejections");fishState.Remove("last_cast_elapsed_ms");}
+                if(actual is JsonObject fishState){fishState.Remove("cast_preflight_rejections");fishState.Remove("last_cast_elapsed_ms");fishState.Remove("unobserved_cast_attempts");fishState.Remove("last_unobserved_cast");}
             }
             if(key=="maintenance"&&actual?["repair"] is JsonObject repair&&repair.ContainsKey("gold_reserve"))
             {Assert.Equal(40000,repair["gold_reserve"]!.GetValue<long>());repair.Remove("gold_reserve");}
-            if(key=="maintenance"&&actual?["backpack"] is JsonObject bag)bag.Remove("check_due_at");
+            if(key=="maintenance"&&actual?["backpack"] is JsonObject bag){bag.Remove("check_due_at");Assert.False(bag["capacity_blocked"]!.GetValue<bool>());bag.Remove("capacity_blocked");}
             if(key=="maintenance"&&actual?["repair"] is JsonObject payment)
             {
                 if(payment.ContainsKey("quote_is_upper_bound")){Assert.False(payment["quote_is_upper_bound"]!.GetValue<bool>());payment.Remove("quote_is_upper_bound");}

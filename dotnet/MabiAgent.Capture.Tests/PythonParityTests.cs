@@ -8,11 +8,11 @@ public class PythonParityTests
     [Fact] public void NativeDecoderMatchesOriginalPythonSchemaAndStackRecords()
     {
         var root = new DirectoryInfo(AppContext.BaseDirectory);
-        while (root is not null && !File.Exists(Path.Combine(root.FullName, "config/client-inventory-schema.disk.json"))) root = root.Parent;
+        while (root is not null && !File.Exists(Path.Combine(root.FullName, "dotnet/MabiAgent.Capture.Tests/Fixtures/client-inventory-schema.historical.json"))) root = root.Parent;
         Assert.NotNull(root);
         using var json = JsonDocument.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures/python-parity.json")));
         Assert.True(json.RootElement.GetProperty("synthetic").GetBoolean());
-        var login = ClientInventoryDecoder.Load(Path.Combine(root.FullName, "config/client-inventory-schema.disk.json")).Decode(Convert.FromBase64String(json.RootElement.GetProperty("body_base64").GetString()!));
+        var login = ClientInventoryDecoder.Load(Path.Combine(root.FullName, "dotnet/MabiAgent.Capture.Tests/Fixtures/client-inventory-schema.historical.json")).Decode(Convert.FromBase64String(json.RootElement.GetProperty("body_base64").GetString()!));
         Assert.Equal(json.RootElement.GetProperty("character_id").GetString(), login.CharacterCode.ToString(CultureInfo.InvariantCulture));
         var expected = json.RootElement.GetProperty("records");
         foreach (var pair in new[] { ("backpack",InventoryContainer.Backpack), ("account_storage",InventoryContainer.AccountStorage), ("character_storage",InventoryContainer.CharacterStorage) })

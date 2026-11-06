@@ -54,15 +54,14 @@ public sealed class LiveTargetPicker:Window
             start=PhysicalPoint(e.GetPosition(this));dragging=true;e.Pointer.Capture(surface);e.Handled=true;
         };
         surface.PointerMoved+=(_,e)=>{if(dragging&&kind!=TargetSelectionKind.Point){Draw(NativeRegion(start,Constrain(PhysicalPoint(e.GetPosition(this))),new(geometry.Width,geometry.Height)));e.Handled=true;}};
-        surface.PointerReleased+=async (_,e)=>
+        surface.PointerReleased+=(_,e)=>
         {
             if(!dragging)return;dragging=false;e.Pointer.Capture(null);e.Handled=true;
             var end=Constrain(PhysicalPoint(e.GetPosition(this)));var box=kind==TargetSelectionKind.Point?new PixelRect(end.X,end.Y,1,1):NativeRegion(start,end,new(geometry.Width,geometry.Height));
             if(box is not {} valid)return;
             try
             {
-                target.Validate();Hide();await Task.Delay(60);
-                if(completed)return;
+                // 指定窗口截图不包含浮层；完成核验和截图后再关闭，避免隐藏活动窗引起失焦。
                 target.Validate();Finish(new(valid,target.Capture(),kind switch{TargetSelectionKind.Circle=>"circle",TargetSelectionKind.Ellipse=>"ellipse",_=>"rectangle"}));
             }
             catch(Exception error){completion.TrySetException(error);completed=true;Close();}

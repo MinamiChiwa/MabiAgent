@@ -1,4 +1,5 @@
 using MabiAgent.Core;
+using System.Diagnostics;
 using System.Globalization;
 using System.Text.Json.Nodes;
 using MabiAgent.Workflows;
@@ -17,6 +18,18 @@ public sealed class ScreenMaintenancePort:ScreenWorkflowPort,IMaintenancePort
     private long? previewQuote;private long previewEpoch;
     private string? rejectedKey;private double rejectedAt;
     public NavigationTestTrace? LastTestNavigationTrace{get;private set;}
+    // Whether the last ReleaseNavigation call actually dispatched a reversible
+    // step. The caller budgets exit failures; a dispatched step is progress.
+    internal bool LastReleaseDispatched{get;private set;}
+    internal bool ReleaseWaiting
+    {
+        get
+        {
+            if(awaiting is null||routeKey is null||!routeKey.StartsWith("release",StringComparison.Ordinal))return false;
+            var now=Stopwatch.GetTimestamp()/(double)Stopwatch.Frequency;
+            return now<nextAt||now-dispatchedAt<(awaiting["timeout_s"]?.GetFiniteDouble()??15);
+        }
+    }
     void TraceNavigation(string target,string phase){LastTestNavigationTrace=new(target,phase);Session.TraceNavigation(BatchId,target,phase);}
     public ScreenMaintenancePort(ScreenWorkflowSession session,string batchId,IWorkflowStore store):base(session,batchId,store)
     {config=session.Routes.Configuration["maintenance"]??new JsonObject();}
@@ -61,10 +74,45 @@ public sealed class ScreenMaintenancePort:ScreenWorkflowPort,IMaintenancePort
     private QuantityValue? ReadWeight()
     {
         var spec=config["weight"];if(spec is null||Session.LastCapture is not{} capture)return null;
-        // Warning colors invert the old binary mask. Read the declared numeric
-        // region in its original colors; this is weight, never item inventory.
-        var text=Session.QuantityReader.ColorText(capture.Image,Session.Box(spec["region"]!),spec["min_confidence"]?.GetFiniteDouble()??.75);
+        // The warning badge bobs vertically. Locate its numeric line once
+        // inside a padded search envelope, then run exactly one color OCR read.
+        var region=FindWeightTextRegion(capture.Image,Session.Box(spec["region"]!));if(region is null)return null;
+        var text=Session.QuantityReader.ColorText(capture.Image,region.Value,spec["min_confidence"]?.GetFiniteDouble()??.75);
         return text is null?null:QuantityParser.Parse(text,"fixed_ratio");
+    }
+    internal static PixelBox? FindWeightTextRegion(RgbImage image,PixelBox search)
+    {
+        if(!search.IsInside(image.Width,image.Height))return null;
+        var support=new int[search.Height];var pixels=image.Pixels;
+        static bool Ink(int r,int g,int b)=>r>=140&&r-g>=40&&b<=100||Math.Min(r,Math.Min(g,b))>=140&&Math.Max(r,Math.Max(g,b))-Math.Min(r,Math.Min(g,b))<40;
+        for(var y=0;y<search.Height;y++)for(var x=0;x<search.Width;x++)
+        {
+            var i=((search.Top+y)*image.Width+search.Left+x)*3;int r=pixels[i],g=pixels[i+1],b=pixels[i+2];
+            if(Ink(r,g,b))support[y]++;
+        }
+        var minimum=Math.Max(4,search.Width/32);var groups=new List<(int Top,int Bottom,int Ink)>();
+        for(var y=0;y<support.Length;)
+        {
+            if(support[y]<minimum){y++;continue;}var top=y;var ink=0;
+            while(y<support.Length&&support[y]>=minimum){ink+=support[y];y++;}
+            if(y-top is >=10 and <=40)groups.Add((top,y-1,ink));
+        }
+        foreach(var group in groups.OrderByDescending(g=>g.Ink))
+        {
+            var left=search.Right;var right=search.Left;var ink=0;
+            for(var y=search.Top+group.Top;y<=search.Top+group.Bottom;y++)
+                for(var x=search.Left;x<search.Right;x++)
+                {
+                    var i=(y*image.Width+x)*3;int r=pixels[i],g=pixels[i+1],b=pixels[i+2];
+                    if(!Ink(r,g,b))continue;left=Math.Min(left,x);right=Math.Max(right,x);ink++;
+                }
+            var height=group.Bottom-group.Top+1;var width=right-left+1;
+            if(left>right||width<32||width<height*2||ink<width*2)continue;
+            const int margin=4;
+            return new(Math.Max(search.Left,left-margin),Math.Max(search.Top,search.Top+group.Top-margin),
+                Math.Min(search.Right,right+margin+1),Math.Min(search.Bottom,search.Top+group.Bottom+margin+1));
+        }
+        return null;
     }
     public void ResetNavigation(){previewQuote=null;routeKey=stage=lastPage=rejectedKey=awaitingSignature=null;awaiting=null;beforeMap=null;beforeTerrain=null;searches=zoomPasses=dialogueSteps=releaseDialogueSteps=releaseRetries=0;lastReleaseDialogueAt=-1;nextAt=0;dispatchedSearch=false;LastTestNavigationTrace=null;dispatched.Clear();Session.EndNavigation("maintenance:"+BatchId);}
     private RgbImage Terrain()=>Session.LastCapture!.Image.Crop(Session.Box(new PixelBox(200,150,1050,780)));
@@ -88,6 +136,7 @@ public sealed class ScreenMaintenancePort:ScreenWorkflowPort,IMaintenancePort
     {var changed=0;for(var i=0;i<before.Length;i+=3)if(Math.Max(Math.Abs(before[i]-after[i]),Math.Max(Math.Abs(before[i+1]-after[i+1]),Math.Abs(before[i+2]-after[i+2])))>25)changed++;return changed>before.Length/3*.10;}
     public bool ReleaseNavigation()
     {
+        LastReleaseDispatched=false;
         var o=Session.LastObservation;if(o is null||!o.Stable||!Session.InputAvailable)return false;
         if(o.View.Page=="npc_dialogue")
         {
@@ -97,21 +146,33 @@ public sealed class ScreenMaintenancePort:ScreenWorkflowPort,IMaintenancePort
             var now=Session.LastCapture!.CapturedAt;if(now-lastReleaseDialogueAt<1)return false;
             if(releaseDialogueSteps>=16)throw new InputBlockedException("仓库退出对话超过步骤上限");
             var target=o.View.Targets.ContainsKey("dialog.skip")?"dialog.skip":"dialog.advance";
-            Session.NavigateTarget(target);lastReleaseDialogueAt=now;releaseDialogueSteps++;TraceNavigation(target,"release_dialogue");return false;
+            Session.NavigateTarget(target);lastReleaseDialogueAt=now;releaseDialogueSteps++;LastReleaseDispatched=true;
+            TraceNavigation(target,"release_dialogue");return false;
         }
         if(o.View.Page=="scene")
         {
             if(o.View.Targets.ContainsKey("storage.room_exit"))
             {
                 var exit=new JsonObject{["target"]="storage.room_exit",["wait_for_pages"]=new JsonArray("storage_room_exit"),["timeout_s"]=15};
-                var error=NavigateCore("release_room",exit,false,false,o);if(error is not null)throw new InputBlockedException(error);return false;
+                var prior=LastTestNavigationTrace;
+                var error=NavigateCore("release_room",exit,false,false,o);if(error is not null)throw new InputBlockedException(error);
+                LastReleaseDispatched=!ReferenceEquals(prior,LastTestNavigationTrace)&&LastTestNavigationTrace?.Phase=="dispatch";return false;
             }
             ResetNavigation();return true;
         }
         var step=config["exit_navigation"]?[o.View.Page]??(o.View.Targets.ContainsKey("page.close")?new JsonObject{["target"]="page.close"}:null)
             ??(o.View.Page=="recipe_detail"&&o.View.Targets.ContainsKey("recipe_detail.close")?new JsonObject{["target"]="recipe_detail.close"}:null);
         if(step is null)return false;
-        var reason=NavigateCore("release",step as JsonObject,false,false,o);if(reason is not null)throw new InputBlockedException("维护页面退出未确认："+reason);return false;
+        var previous=LastTestNavigationTrace;
+        var reason=NavigateCore("release",step as JsonObject,false,false,o);if(reason is not null)throw new InputBlockedException("维护页面退出未确认："+reason);
+        LastReleaseDispatched=!ReferenceEquals(previous,LastTestNavigationTrace)&&LastTestNavigationTrace?.Phase=="dispatch";return false;
+    }
+    internal bool ReleaseFieldExit(string target)
+    {
+        LastReleaseDispatched=false;
+        var o=Session.LastObservation;if(o is null||!o.Stable||!Session.InputAvailable||o.View.Page!="scene"||!o.View.Targets.ContainsKey(target))return false;
+        // A field exit may load straight into town; do not wait for the storage confirmation page here.
+        LastReleaseDispatched=true;Session.NavigateTarget(target);return true;
     }
     public string? Navigate(string destination)=>NavigateCore(destination,null,false,false,Session.LastObservation??throw new InputRejectedBeforeDispatchException("缺少维护等待观察"));
     internal string? NavigateObserved(string destination,UiObservation observation)=>NavigateCore(destination,null,false,false,observation);
@@ -143,7 +204,7 @@ public sealed class ScreenMaintenancePort:ScreenWorkflowPort,IMaintenancePort
                     try{Session.Step(sent);}
                     catch(Exception error) when(error is InputRejectedBeforeDispatchException or InputBlockedException{TargetChangedBeforeDispatch:true})
                     {return ReobserveRejectedStep(key,S(sent,"target")!,now,error);}
-                    zoomPasses++;beforeMap=map;beforeTerrain=terrain;dispatchedAt=now;nextAt=now+(sent["settle_s"]?.GetFiniteDouble()??.3);
+                    zoomPasses++;beforeMap=map;beforeTerrain=terrain;WaitAfterDispatch(sent);
                     rejectedKey=null;TraceNavigation(S(sent,"target")!,"zoom_max");return null;
                 }
                 // Saturation is observed after a full positive wheel sweep. An already maximal map is valid.
@@ -185,6 +246,8 @@ public sealed class ScreenMaintenancePort:ScreenWorkflowPort,IMaintenancePort
         }
         if(key!=routeKey){routeKey=key;stage=null;searches=dialogueSteps=0;dispatched.Clear();}
         var route=testRoute??config["navigation"]?[destination]?[page]??config["exit_navigation"]?[page]??(o.View.Targets.ContainsKey("page.close")?new JsonObject{["target"]="page.close"}:null);if(route is null)return "navigation_calibration_missing:"+destination+":"+page;
+        if(testRoute is null&&destination=="backpack_tidy"&&page=="bag"&&!o.View.Targets.ContainsKey("bag.items_selected"))
+            route=new JsonObject{["target"]="bag.open_items"};
         JsonNode? step=route;
         if(route["stages"] is {} stages)
         {
@@ -206,7 +269,15 @@ public sealed class ScreenMaintenancePort:ScreenWorkflowPort,IMaintenancePort
         {
             return ReobserveRejectedStep(key,target,now,error);
         }
-        rejectedKey=null;TraceNavigation(target,"dispatch");return null;
+        WaitAfterDispatch(step);rejectedKey=null;TraceNavigation(target,"dispatch");return null;
+    }
+    private void WaitAfterDispatch(JsonNode step)
+    {
+        // A touch sweep can take longer than the declared settle interval.
+        // Give the game that interval after delivery, before reading its result.
+        dispatchedAt=Stopwatch.GetTimestamp()/(double)Stopwatch.Frequency;
+        var settle=step["settle_s"]?.GetFiniteDouble()??.3;
+        nextAt=settle>0?dispatchedAt+settle:0;
     }
     private string? ReobserveRejectedStep(string key,string target,double now,Exception error)
     {

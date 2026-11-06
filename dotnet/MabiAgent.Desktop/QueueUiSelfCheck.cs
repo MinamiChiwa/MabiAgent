@@ -25,12 +25,19 @@ internal static class QueueUiSelfCheck
             var panel=window.GetVisualDescendants().OfType<QueuePanel>().Single();
             var grid=panel.GetVisualDescendants().OfType<DataGrid>().Single(g=>g.Name=="ManualGrid");
             Check(grid.SelectionMode==DataGridSelectionMode.Extended,"任务列表启用多选");
+            Check(grid.Columns[0].Header?.ToString()==""&&!grid.Columns[0].CanUserSort,"拖动列无顺序标题和编号排序");
+            Check(grid.Columns.All(c=>c.SortMemberPath!=nameof(JobRow.Order)),"表格无执行顺序列");
+            Check(panel.GetVisualDescendants().OfType<TextBlock>().Any(t=>t.Text=="任务会根据材料、加工时间和当前状态自动安排。"),"队列显示自动安排提示");
+            var gathering=workspace.Read().Gathering!.First(g=>!g.Fishing);
+            workspace.AddGathering("gathering",gathering.Id,7);await vm.RefreshAsync();await Settle();
+            Check(vm.Jobs.Single(j=>j.IsGathering).TargetSuffix=="轮"&&vm.Jobs.First(j=>j.IsFishing).TargetSuffix=="","采集计划使用轮数，钓鱼使用时分秒");
             Check(!panel.GetVisualDescendants().Any(v=>v is Control{Name:"DetailsCard"}),"列表无底部编辑卡片");
             grid.SelectedItems.Add(vm.Jobs[0]);grid.SelectedItems.Add(vm.Jobs[1]);
             Check(vm.QueueSelectionCount==2,"表格多选连通批量操作");
             var ids=vm.SelectedJobIds.ToHashSet();vm.BatchTarget="48";await vm.ApplyBatchTargetCommand.ExecuteAsync(null);await Settle();
             Check(workspace.Read().Jobs.Where(j=>ids.Contains(j.Id)).All(j=>j.Target==48)&&vm.SelectedJobIds.SetEquals(ids),"批量编辑落盘并保留多选");
             var row=vm.Jobs.First(j=>!j.IsFishing);
+            Check(row.BeginTargetEdit(),"双击计划单元格进入编辑");await Settle();
             var input=panel.GetVisualDescendants().OfType<TextBox>().First(b=>b.DataContext is JobRow j&&j.Id==row.Id);
             input.Focus();input.SetCurrentValue(TextBox.TextProperty,"57");
             workspace.EditQueue(q=>q.Control(vm.Jobs.Last().Id,"pause"));await vm.RefreshLiveQueueAsync();await Settle();
@@ -40,6 +47,9 @@ internal static class QueueUiSelfCheck
             Check(workspace.Read().Jobs.Single(j=>j.Id==row.Id).Target==57,"行内回车直接保存数量");
             input.SetCurrentValue(TextBox.TextProperty,"999");input.RaiseEvent(new KeyEventArgs{RoutedEvent=InputElement.KeyDownEvent,Key=Key.Escape});
             Check(row.TargetInput=="57"&&workspace.Read().Jobs.Single(j=>j.Id==row.Id).Target==57,"Esc 撤回行内草稿");
+            // Ending the edit drops the editor instance, so the focus test reopens the cell.
+            Check(row.BeginTargetEdit(),"重新进入计划编辑");await Settle();
+            input=panel.GetVisualDescendants().OfType<TextBox>().First(b=>b.DataContext is JobRow j&&j.Id==row.Id);
             input.Focus();input.SetCurrentValue(TextBox.TextProperty,"59");grid.Focus();await WaitIdle();
             Check(workspace.Read().Jobs.Single(j=>j.Id==row.Id).Target==59,"行内失焦自动保存");
             var fish=vm.Jobs.First(j=>j.IsFishing);fish.TargetInput="1:02:03";await vm.SaveRowTargetAsync(fish);
@@ -57,6 +67,9 @@ internal static class QueueUiSelfCheck
             var pause=vm.Jobs.First(j=>!j.IsFishing);workspace.EditQueue(q=>q.Control(pause.Id,"pause"));await vm.RefreshLiveQueueAsync();
             vm.QueueView.SortDescriptions.Add(Avalonia.Collections.DataGridSortDescription.FromPath(nameof(JobRow.Name)));vm.Search="已暂停";await Settle();
             Check(!vm.QueueView.IsEmpty&&vm.QueueView.Cast<JobRow>().All(j=>j.Status.Contains("已暂停"))&&vm.QueueView.SortDescriptions.Count==1,"进度更新后排序筛选保持一致");
+            vm.SetQueueSelection([pause]);vm.SelectedJob=pause;
+            workspace.EditQueue(q=>q.Control(pause.Id,"continue"));await vm.RefreshLiveQueueAsync();await Settle();
+            Check(vm.SelectedJob is null&&!vm.SelectedJobIds.Contains(pause.Id),"状态刷新隐藏任务后清除单选和多选");
             vm.Search="";vm.ResetSortCommand.Execute(null);await Settle();
             // Real pointer sequence through the in-app reorder: grip of the last row → above the first row.
             var order=vm.QueueView.Cast<JobRow>().ToArray();var dragged=order[^1];

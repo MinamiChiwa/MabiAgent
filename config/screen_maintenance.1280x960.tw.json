@@ -429,33 +429,12 @@
         ],
         "light_threshold": 180
       },
-      "maint_map_recenter": {
-        "path": "assets/templates/maintenance_ui/map_recenter.png",
-        "bytes": 2656,
-        "sha256": "1fef84e12139283005e4ca300b655ff3db19142e6dabc68f30bd409d6d4a0684",
-        "box": [
-          613,
-          896,
-          650,
-          933
-        ],
-        "search": [
-          603,
-          886,
-          660,
-          943
-        ],
-        "match_mode": "light_text",
-        "light_threshold": 180,
-        "source": "native-client-capture",
-        "source_notes": "原生客户区裁图保留于 path；原始位置见 box，临时全图不保留。"
-      },
       "maint_tir_world_header": {
         "path": "assets/templates/maintenance_ui/maint_tir_world_header.png",
-        "bytes": 3667,
-        "sha256": "004b2f71d80412330b1c32af95d26b14bc368e9154cebe62c76053d74b0c8b3f",
+        "bytes": 4382,
+        "sha256": "9b72f53b821a053261cfe3aa7b1100d3ad8e8770d4e4381379a59a755e5f9567",
         "box": [
-          209,
+          195,
           26,
           279,
           49
@@ -470,29 +449,29 @@
         "light_threshold": 180,
         "glyph_threshold": 0.97,
         "source": "native-client-capture",
-        "source_notes": "原生客户区裁图保留于 path；原始位置见 box，临时全图不保留。"
+        "source_notes": "2026-11-06当前世界地图固定地区页眉原生裁图；与本地地图文字尺寸不同，保留单独变体和0.97阈值。"
       },
       "maint_tir_region_header": {
         "path": "assets/templates/maintenance_ui/maint_tir_region_header.png",
-        "bytes": 4191,
-        "sha256": "386f4726491b093231c6e398fa082ed5b5e66d416e3b05839aeefb526e0e2923",
+        "bytes": 3822,
+        "sha256": "4fd75f8c5473724d0d4a8e3e3dc166f6782cc001a88e81ea9611dd60a1aaeb12",
         "box": [
-          195,
+          191,
           26,
-          279,
+          275,
           49
         ],
         "search": [
-          195,
-          26,
-          279,
-          49
+          175,
+          20,
+          320,
+          65
         ],
         "match_mode": "light_text",
         "light_threshold": 180,
         "glyph_threshold": 0.97,
         "source": "native-client-capture",
-        "matching_notes": "当前地区固定页眉文字，仅授权非消费地区导航；不使用玩家位置标记。",
+        "matching_notes": "2026-11-06当前原生客户区固定地区页眉；允许页眉横向位置余量，保留0.97字形阈值，不依赖玩家位置标记。",
         "source_notes": "原生客户区裁图保留于 path；原始位置见 box，临时全图不保留。"
       },
       "maint_tir_town": {
@@ -1886,7 +1865,6 @@
           "maint_region_world"
         ],
         "targets": {
-          "map.recenter": "maint_map_recenter",
           "map.current_is_tir": "maint_tir_region_header",
           "map.tir_town": "maint_tir_town",
           "map.blacksmith": "maint_map_blacksmith",
@@ -2067,7 +2045,8 @@
         "maint_tir_world_header"
       ],
       "purchase.map_store_label": [
-        "purchase.map_store_label_min"
+        "purchase.map_store_label_min",
+        "purchase.map_store_label_blue"
       ],
       "maint_ferghus_portrait": [
         "maint_ferghus_portrait_subpixel"
@@ -2102,10 +2081,10 @@
       "item_id": 1,
       "scope": "backpack_weight_hundredths",
       "region": [
-        1027,
-        801,
-        1138,
-        832
+        975,
+        780,
+        1141,
+        850
       ],
       "format": "fixed_ratio",
       "scale": 100,
@@ -2293,6 +2272,25 @@
         },
         "npc_dialogue": {
           "target": "dialog.advance"
+        }
+      },
+      "storage": {
+        "scene": {
+          "target": "scene.open_map",
+          "wait_for_pages": [
+            "region_map"
+          ],
+          "timeout_s": 8
+        },
+        "storage_travel": {
+          "target": "storage.travel",
+          "wait_for_pages": [
+            "storage_character",
+            "storage_account",
+            "storage_dialog",
+            "npc_dialogue"
+          ],
+          "timeout_s": 120
         }
       }
     },
@@ -2585,11 +2583,6 @@
               ],
               "next": "zoom",
               "settle_s": 0.35
-            },
-            {
-              "target": "map.recenter",
-              "next": "local_wide",
-              "search_only": true
             }
           ],
           "search": [
@@ -2642,15 +2635,48 @@
             {
               "target": "map.canvas",
               "kind": "scroll",
-              "steps": -12,
+              "steps": 2,
               "settle_s": 0.4,
-              "search_only": true
-            },
+              "search_only": true,
+              "next": "label_search"
+            }
+          ]
+        },
+        "label_search": {
+          "choices": [
+            {
+              "target": "$shop",
+              "kind": "drag",
+              "destination": [
+                625,
+                450
+              ],
+              "next": "zoom",
+              "settle_s": 0.35
+            }
+          ],
+          "search": [
             {
               "target": "map.canvas",
-              "kind": "zoom_max",
-              "next": "portrait",
-              "settle_s": 0.4
+              "kind": "scroll",
+              "steps": 2,
+              "settle_s": 0.4,
+              "search_only": true,
+              "next": "label_search_final"
+            }
+          ]
+        },
+        "label_search_final": {
+          "choices": [
+            {
+              "target": "$shop",
+              "kind": "drag",
+              "destination": [
+                625,
+                450
+              ],
+              "next": "zoom",
+              "settle_s": 0.35
             }
           ]
         }

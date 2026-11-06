@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Animation.Easings;
 using Avalonia.Rendering.Composition;
+using MabiAgent.Desktop;
 namespace MabiAgent.Desktop.Controls;
 
 // Entrance motion played on the compositor. Logical Opacity and layout bounds never change,
@@ -9,6 +10,7 @@ internal static class Motion
 {
     public static void Rotate(Visual target)
     {
+        if(UiMotion.Reduced)return;
         if(ElementComposition.GetElementVisual(target) is not {} visual)return;
         visual.CenterPoint=new Vector3D(target.Bounds.Width/2,target.Bounds.Height/2,0);
         var rotation=visual.Compositor.CreateScalarKeyFrameAnimation();
@@ -20,6 +22,7 @@ internal static class Motion
     static readonly TimeSpan PopTime=TimeSpan.FromMilliseconds(200);
     public static void FadeIn(Visual target)
     {
+        if(UiMotion.Reduced)return;
         if(ElementComposition.GetElementVisual(target) is not {} visual)return;
         var fade=visual.Compositor.CreateScalarKeyFrameAnimation();
         fade.InsertKeyFrame(0f,0f);fade.InsertKeyFrame(1f,1f,new CubicEaseOut());fade.Duration=FadeTime;
@@ -27,6 +30,7 @@ internal static class Motion
     }
     public static void SlideIn(Visual target,double distance)
     {
+        if(UiMotion.Reduced)return;
         if(ElementComposition.GetElementVisual(target) is not {} visual)return;
         var at=visual.Offset;
         var slide=visual.Compositor.CreateVector3DKeyFrameAnimation();
@@ -36,6 +40,7 @@ internal static class Motion
     }
     public static void PopIn(Visual target)
     {
+        if(UiMotion.Reduced)return;
         if(ElementComposition.GetElementVisual(target) is not {} visual)return;
         var size=target.Bounds.Size;
         visual.CenterPoint=new Vector3D(size.Width/2,size.Height/2,0);

@@ -32,6 +32,19 @@ public sealed class ScreenGatheringPort:ScreenWorkflowPort,IGatheringPort
         var source=choices[next]!;nav=source["navigation"]!;observer=source["observer"];state["source_fallback_index"]=next;state["source_node"]=source["node"]!.DeepClone();Save();
         scrollCount=navigationRetries=0;pendingPage=pendingExpectedPage=null;pendingStep=null;Session.TraceNavigation(BatchId,S(source,"node")??"fallback","unavailable_source_fallback");return true;
     }
+    protected override PageView Decorate(ClientCapture capture,PageView view)
+    {
+        if(state["started"]?.GetValue<bool>()==true&&state["bound"]?.GetValue<bool>()!=true&&Session.Matcher.Anchor(capture.Image,"missing_consumables") is{} hit)
+            return new("gathering_missing_consumables",false,[hit],new Dictionary<string,PixelPoint>(),[hit.Box]);
+        return view;
+    }
+    public bool DismissMissingConsumables()
+    {
+        if(Session.LastObservation is not {Stable:true,View.Page:"gathering_missing_consumables"}||!Session.InputAvailable)return false;
+        Session.Guard.PressKey(0x1B,TimeSpan.FromMilliseconds(80));
+        state.Clear();Save();Session.EndNavigation("gathering:"+BatchId);idleSince=null;idleCount=0;
+        pendingPage=pendingExpectedPage=null;pendingStep=null;return true;
+    }
     private bool Match(ClientCapture c,string? name)=>name is not null&&Session.Matcher.Anchor(c.Image,"gathering_observer."+name,minimum:.8) is not null;
     private void Save()=>Session.SavePortState("gathering:"+BatchId,state);
     private void Verify(GatheringRoute requested){if(requested.Key!=key||requested.TargetItemId!=route["target_item_id"]!.GetValue<long>())throw new InputBlockedException("采集点与端口不匹配");}
@@ -42,6 +55,7 @@ public sealed class ScreenGatheringPort:ScreenWorkflowPort,IGatheringPort
     private GatheringFrame ObserveFrame(GatheringRoute requested,string actionId,bool allowInspection)
     {
         Verify(requested);var o=Read();if(!o.Stable||!Session.InputAvailable){idleCount=0;idleSince=null;return new(o.View.Page,Session.InputAvailable,false);}
+        if(o.View.Page=="gathering_missing_consumables")return new(o.View.Page,true,true,key,MissingConsumables:true);
         var c=Session.LastCapture!;var cfg=Session.Routes.Configuration["gathering_observer"];var started=state["started"]?.GetValue<bool>()==true&&S(state,"session")==Session.Scope.SessionId&&S(state,"action_id")==actionId;
         var taskTitle=Match(c,S(cfg,"task_title_template"));
         // The exact selected detail and durable start intent already bind this native task.
@@ -57,7 +71,8 @@ public sealed class ScreenGatheringPort:ScreenWorkflowPort,IGatheringPort
         var status="unknown";var evidence=new JsonObject{["source"]="screen",["capture"]=c.Image.Sha256,["navigation_idle_confirmed"]=false};
         if(started&&expected)
         {
-            Session.EndNavigation("gathering:"+BatchId);
+            // The native task title appears while still travelling. Keep the
+            // navigation instance alive so a later first wing quote is handled.
             state["bound"]=true;state["task_id"]="screen-gathering:"+key+":"+actionId;status="active";idleCount=0;idleSince=null;
             // Progress digits are mutable UI and are not recognition anchors.
             // A started native task is sufficient to enter the active phase;
@@ -76,7 +91,7 @@ public sealed class ScreenGatheringPort:ScreenWorkflowPort,IGatheringPort
         else{idleCount=0;idleSince=null;}
         // Native attempts are never treated as produced quantity. Unknown yield frees navigation for independent work.
         if(status=="complete")evidence["navigation_idle_confirmed"]=true;
-        if(status=="complete"){state["complete"]=true;Save();}
+        if(status=="complete"){state["complete"]=true;Session.EndNavigation("gathering:"+BatchId);Save();}
         if(started&&state["complete"]?.GetValue<bool>()==true){status="complete";evidence["navigation_idle_confirmed"]=true;}
         long? actual=null;
         var owned=started&&state["bound"]?.GetValue<bool>()==true;
@@ -130,9 +145,8 @@ public sealed class ScreenGatheringPort:ScreenWorkflowPort,IGatheringPort
         var target=S(step,"target");
         if(target is not null&&!o.View.Targets.ContainsKey(target)&&o.View.Targets.ContainsKey("list.scroll"))
         {
-            if(scrollCount++>=12){if(TryNextSource())return;throw new InputBlockedException("采集点列表搜索已到上限");}
-            if(state["source_fallback_index"] is not null)Session.Guard.Scroll(Session.Guard.ObserveCurrentTarget("list.scroll",o),3);
-            else Session.ScrollListDown(o);
+            if(scrollCount>=ScreenWorkflowSession.ListSearchLimit){if(TryNextSource())return;throw new InputBlockedException("采集点列表搜索已到上限");}
+            Session.ScrollListSearch(o,scrollCount++);
             return;
         }
         Session.Step(step);WaitForNavigation(o,step);
@@ -150,7 +164,7 @@ public sealed class ScreenGatheringPort:ScreenWorkflowPort,IGatheringPort
             state["awaiting_task_until"]=DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()/1000d+300;
             Save();return true;
         });}
-        catch(InputRejectedBeforeDispatchException)
+        catch(MabiAgent.Core.InputNotDispatchedException)
         {state.Clear();foreach(var (name,value) in beforeState)state[name]=value?.DeepClone();Save();throw;}
         idleSince=null;idleCount=0;
         Session.BeginNavigation("gathering:"+BatchId,300);

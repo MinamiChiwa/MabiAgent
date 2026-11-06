@@ -1,134 +1,194 @@
 {
   "extends": "config/screen_routes.1280x960.tw.json",
   "quantity": {},
-  "private_theater_refresh": {
+  "quick_reentry": {
     "client_size": [
       1280,
       960
     ],
-    "capture_wait_s": 60,
+    "capture_wait_s": 8,
+    "field_exit": {
+      "exit_target": "storage.room_exit",
+      "confirmation_page": "storage_room_exit",
+      "timeout_s": 45
+    },
+    "menu_search": {
+      "labels": [
+        "變更外貌/重生",
+        "變更外貌",
+        "變更外觀",
+        "變更外殼",
+        "刪除外貌/重生",
+        "刪除外貌",
+        "变更外貌"
+      ],
+      "region": [
+        640,
+        540,
+        1280,
+        940
+      ],
+      "crop_width": 300,
+      "crop_height": 44,
+      "step_x": 80,
+      "step_y": 20,
+      "minimum_confidence": 0.6,
+      "light_threshold": 150,
+      "minimum_ink": 10
+    },
+    "confirm_search": {
+      "labels": [
+        "要進行重生",
+        "進行重生",
+        "要進行重生？"
+      ],
+      "region": [
+        540,
+        878,
+        820,
+        960
+      ],
+      "crop_width": 240,
+      "crop_height": 46,
+      "step_x": 20,
+      "step_y": 8,
+      "minimum_confidence": 0.55,
+      "light_threshold": 140,
+      "minimum_ink": 10
+    },
+    "cancel_search": {
+      "labels": [
+        "要取消重生",
+        "取消重生",
+        "不消耗重生石"
+      ],
+      "region": [
+        500,
+        660,
+        800,
+        780
+      ],
+      "crop_width": 260,
+      "crop_height": 46,
+      "step_x": 20,
+      "step_y": 8,
+      "minimum_confidence": 0.55,
+      "light_threshold": 140,
+      "minimum_ink": 10
+    },
+    "rebirth_search": {
+      "labels": [
+        "下一步"
+      ],
+      "region": [
+        560,
+        878,
+        780,
+        960
+      ],
+      "crop_width": 200,
+      "crop_height": 44,
+      "step_x": 20,
+      "step_y": 8,
+      "minimum_confidence": 0.55,
+      "light_threshold": 140,
+      "minimum_ink": 10
+    },
     "steps": [
       {
-        "id": "open_bag",
+        "id": "escape_menu",
         "kind": "key",
-        "key": 73,
-        "delay_ms": 1500
+        "key": 27,
+        "hold_ms": 80,
+        "delay_ms": 1500,
+        "timeout_s": 15
       },
       {
-        "id": "bag_ready",
+        "id": "menu_ready",
         "kind": "wait",
-        "anchors": [
-          "bag_tools_label"
-        ],
-        "delay_ms": 100,
-        "timeout_s": 60
+        "delay_ms": 250,
+        "timeout_s": 30
       },
       {
-        "id": "tools_tab",
+        "id": "appearance",
+        "kind": "click_text",
+        "search": {
+          "labels": [
+            "變更外貌/重生",
+            "變更外貌",
+            "變更外觀",
+            "變更外殼",
+            "刪除外貌/重生",
+            "刪除外貌",
+            "变更外貌"
+          ],
+          "region": [
+            640,
+            540,
+            1280,
+            940
+          ],
+          "crop_width": 300,
+          "crop_height": 44,
+          "step_x": 80,
+          "step_y": 20,
+          "minimum_confidence": 0.6,
+          "light_threshold": 150,
+          "minimum_ink": 10
+        },
+        "delay_ms": 1500,
+        "timeout_s": 45
+      },
+      {
+        "id": "rebirth_ready",
+        "kind": "wait",
+        "delay_ms": 500,
+        "timeout_s": 45
+      },
+      {
+        "id": "escape_back",
         "kind": "key",
-        "key": 83,
-        "delay_ms": 1500
+        "key": 27,
+        "hold_ms": 80,
+        "delay_ms": 1800,
+        "timeout_s": 15
       },
       {
-        "id": "tools_selected",
+        "id": "dialog_kind",
         "kind": "wait",
-        "anchors": [
-          "maint_tools_selected"
-        ],
-        "delay_ms": 100,
-        "timeout_s": 60
-      },
-      {
-        "id": "game_tab",
-        "kind": "click",
-        "point": [
-          1139,
-          140
-        ],
-        "delay_ms": 3000
-      },
-      {
-        "id": "game_tab_selected",
-        "kind": "wait",
-        "anchors": [
-          "bag_game_selected"
-        ],
         "delay_ms": 300,
-        "timeout_s": 60
+        "timeout_s": 20
       },
       {
-        "id": "private_theater_item",
-        "kind": "click",
-        "point": [
-          1060,
-          218
-        ],
-        "delay_ms": 2500
+        "id": "escape_if_confirm",
+        "kind": "key",
+        "key": 27,
+        "hold_ms": 80,
+        "delay_ms": 1800,
+        "timeout_s": 15
       },
       {
-        "id": "use_item",
+        "id": "cancel_ready",
+        "kind": "wait",
+        "delay_ms": 300,
+        "timeout_s": 20
+      },
+      {
+        "id": "exit",
         "kind": "key",
         "key": 32,
-        "delay_ms": 1500
+        "hold_ms": 60,
+        "delay_ms": 3000,
+        "timeout_s": 15
       },
       {
-        "id": "create_ready",
+        "id": "loaded",
         "kind": "wait",
-        "anchors": [
-          "private_theater_create_title"
-        ],
-        "delay_ms": 300,
-        "timeout_s": 60
-      },
-      {
-        "id": "leader_review",
-        "kind": "click",
-        "point": [
-          866,
-          238
-        ],
-        "delay_ms": 1500
-      },
-      {
-        "id": "create",
-        "kind": "key",
-        "key": 32,
-        "delay_ms": 8000
-      },
-      {
-        "id": "map_loaded",
-        "kind": "wait",
-        "anchors": [
-          "private_theater_loaded_text"
-        ],
-        "delay_ms": 300,
-        "timeout_s": 120
-      },
-      {
-        "id": "map_exit",
-        "kind": "click",
-        "point": [
-          1244,
-          32
-        ],
-        "delay_ms": 1500
-      },
-      {
-        "id": "leave",
-        "kind": "key",
-        "key": 32,
-        "delay_ms": 2000
-      },
-      {
-        "id": "returned",
-        "kind": "wait",
-        "anchors": [
-          "theater_returned_menu_glyph"
-        ],
-        "delay_ms": 0,
+        "delay_ms": 500,
         "timeout_s": 120
       }
-    ]
+    ],
+    "menu_icon": "quick_reentry_rebirth_icon"
   },
   "ui": {
     "templates": {
@@ -647,35 +707,6 @@
         "scale": [
           1,
           1
-        ]
-      },
-      "bag_game_selected": {
-        "path": "assets/templates/gathering_ui/bag_game_selected.png",
-        "sha256": "af5b3fce48daadf3ac2a91a0503b57d4d3f8866d1f772fe2f6b00f5296c713cc",
-        "bytes": 2368,
-        "box": [
-          1104,
-          116,
-          1176,
-          162
-        ],
-        "search": [
-          1100,
-          112,
-          1180,
-          166
-        ],
-        "threshold": 0.96,
-        "glyph_threshold": 0.96,
-        "match_mode": "light_text",
-        "light_threshold": 180,
-        "source": "tests/fixtures/private-theater/game-selected-20261102.jpg",
-        "source_sha256": "65d4f75ac2682410a66dfbb799322cb914a44ff480fb67ad7aec17c16e922ad3",
-        "crop_native": [
-          1104,
-          116,
-          1176,
-          162
         ]
       },
       "bag_items_selected": {
@@ -2126,88 +2157,47 @@
           1
         ]
       },
-      "private_theater_loaded_text": {
-        "path": "assets/templates/screen_ui/stable_labels/private_theater_loaded_text.png",
-        "sha256": "b1c2310d50afd3100d4cc4ae4422a4b3af81c9fc6f722e74f0a9ff7817cc0f97",
-        "bytes": 501,
+      "missing_consumables": {
+        "path": "assets/templates/gathering_ui/missing_consumables.png",
+        "sha256": "9f45d8b78ad80c744bf34329149577d4e31eaa9163309ee7306ebada78e16a31",
+        "bytes": 5259,
         "box": [
-          1138,
-          470,
-          1257,
-          491
+          539,
+          400,
+          741,
+          424
         ],
         "search": [
-          1128,
-          460,
-          1267,
-          501
+          300,
+          200,
+          1000,
+          850
         ],
-        "threshold": 0.92,
+        "threshold": 0.96,
         "match_mode": "light_text",
-        "light_threshold": 200,
-        "matching_notes": "Pure static function glyph mask, excluding button background and variable content."
+        "glyph_threshold": 0.9,
+        "light_threshold": 180
       },
-      "private_theater_create_title": {
-        "path": "assets/templates/gathering_ui/theater_create_title.png",
-        "sha256": "ea4182cace54aa840f4225443c0f187bc42b590dd68c63c1e82850dca6e339cd",
-        "bytes": 533,
+      "quick_reentry_rebirth_icon": {
+        "path": "assets/templates/screen_ui/quick_reentry_rebirth_icon.png",
+        "sha256": "37e70f6e3f0e6d9cd4600b387c2d654782df6480860cdf99db38308538cfd553",
+        "bytes": 2122,
         "box": [
-          21,
-          25,
-          138,
-          54
+          874,
+          765,
+          902,
+          798
         ],
         "search": [
-          11,
-          15,
-          148,
-          64
+          640,
+          540,
+          1280,
+          940
         ],
-        "threshold": 0.92,
+        "threshold": 0.96,
         "match_mode": "light_text",
-        "light_threshold": 200,
-        "source": "tests/fixtures/private-theater/create-current.jpg",
-        "source_sha256": "1084228edc87e465b5d173c49646ddf55478b67c4060594ba793febb96073be0",
-        "crop_native": [
-          21,
-          25,
-          138,
-          54
-        ],
-        "scale": [
-          1,
-          1
-        ],
-        "matching_notes": "Stable create-party title glyphs only; excludes character name, buttons and translucent background."
-      },
-      "theater_returned_menu_glyph": {
-        "path": "assets/templates/gathering_ui/scene_menu_glyph.png",
-        "sha256": "7e85431febd626d71cda17791fe1bbc14ea2dd91bd53dbbdb9fc86e245a48004",
-        "bytes": 131,
-        "box": [
-          1070,
-          26,
-          1092,
-          50
-        ],
-        "search": [
-          1060,
-          16,
-          1102,
-          60
-        ],
-        "threshold": 0.95,
-        "match_mode": "light_text",
-        "light_threshold": 195,
-        "source": "tests/fixtures/private-theater/returned-hidden-bag-current.jpg",
-        "source_sha256": "1e1ef0815f3ea523122602e76f5cdd7b56521c4992c4ef27c0b97931709a325a",
-        "crop_native": [
-          1070,
-          26,
-          1092,
-          50
-        ],
-        "matching_notes": "Static menu lines only, excludes notification badge and hotkey."
+        "glyph_threshold": 0.88,
+        "light_threshold": 180
       }
     },
     "pages": {
@@ -2269,7 +2259,6 @@
         "anchors": [
           "bag_tools_tab",
           "bag_fashion_tab",
-          "bag_auto_wear",
           "bag_close"
         ],
         "targets": {

@@ -81,6 +81,13 @@ public sealed class MigrationTests
         Assert.Equal("wood",s.Select(new[]{new WorkCandidate("metal","production","metal",true,5,0),new WorkCandidate("wood","production","wood",true,2,1)},new(null,false,"wood"))?.Id);
         Assert.Equal("fiber",s.Select(new[]{new WorkCandidate("ore","gathering",null,true,0,0,Coverage:2),new WorkCandidate("fiber","gathering",null,true,0,1,Coverage:0.1)},new(null,false,null))?.Id);
     }
+    [Fact] public void OrdinaryProductionKeepsUserOrderWithoutChangingOnsiteOrDuePriority()
+    {
+        var s=new Scheduler();WorkCandidate[] rows=[new("first","production","metal",true,1,0),new("second","production","wood",true,5,1)];
+        Assert.Equal("first",s.Select(rows,new(null,false,null))?.Id);
+        Assert.Equal("second",s.Select(rows,new(null,false,"wood"))?.Id);
+        Assert.Equal("due",s.Select([..rows,new WorkCandidate("due","production","fabric",true,0,2,Collectible:true)],new(null,false,null))?.Id);
+    }
     [Fact] public void JsonRoundtripPreservesUnknownFieldsAndExactLargeIds()
     {
         var raw=JsonNode.Parse("""{"schema_version":1,"jobs":[{"job_id":"a","kind":"production","target_item_id":4712562853295720,"target_quantity":10,"recipe_key":"r","depends_on":[],"paused":false,"cancelled":false,"completed_quantity":0,"pending":null,"receipts":[],"future_extension":{"a":true}}]}""")!.AsObject();

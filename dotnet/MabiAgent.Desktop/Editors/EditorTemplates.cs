@@ -28,7 +28,12 @@ public sealed partial class EditorRepository
     {
         var variants=new JsonArray();var profile=Routes[space]!;var names=new[]{name}.Concat(profile["anchor_variants"]?[name]?.AsArray().Select(n=>n!.GetValue<string>())??[]);
         foreach(var key in names.Distinct())if(profile["templates"]?[key] is JsonObject spec&&spec["path"] is not null)
-        {var box=(spec["box"]??spec["crop_native"]??spec["search"])!;var sha=Text(spec,"sha256");var path=SafePath(Root,Text(spec,"path"));if(sha.Length==0&&File.Exists(path))sha=Convert.ToHexStringLower(SHA256.HashData(File.ReadAllBytes(path)));var id="template_"+sha;installedAssets[id]=path;variants.Add(new JsonObject{["asset"]=new JsonObject{["id"]=id,["sha256"]=sha,["width"]=box[2]!.GetValue<int>()-box[0]!.GetValue<int>(),["height"]=box[3]!.GetValue<int>()-box[1]!.GetValue<int>(),["source"]="installed_template"},["box"]=box.DeepClone(),["search"]=(spec["search"]??box).DeepClone(),["threshold"]=spec["threshold"]?.DeepClone()??JsonValue.Create(.97),["match_mode"]=Text(spec,"match_mode",space=="ui_profile"?"grayscale":"light_text")});}
+        {
+            var box=(spec["box"]??spec["crop_native"]??spec["search"])!;var sha=Text(spec,"sha256");var path=SafePath(Root,Text(spec,"path"));if(sha.Length==0&&File.Exists(path))sha=Convert.ToHexStringLower(SHA256.HashData(File.ReadAllBytes(path)));var id="template_"+sha;installedAssets[id]=path;
+            var variant=new JsonObject{["asset"]=new JsonObject{["id"]=id,["sha256"]=sha,["width"]=box[2]!.GetValue<int>()-box[0]!.GetValue<int>(),["height"]=box[3]!.GetValue<int>()-box[1]!.GetValue<int>(),["source"]="installed_template"},["box"]=box.DeepClone(),["search"]=(spec["search"]??box).DeepClone(),["threshold"]=spec["threshold"]?.DeepClone()??JsonValue.Create(.97),["match_mode"]=Text(spec,"match_mode",space=="ui_profile"?"grayscale":"light_text")};
+            foreach(var field in new[]{"light_threshold","relative_contrast","relative_contrast_threshold","glyph_threshold"})if(spec[field] is{} value)variant[field]=value.DeepClone();
+            variants.Add(variant);
+        }
         return new JsonObject{["key"]=name,["label"]=AnchorLabel(name),["variants"]=variants};
     }
     JsonObject Node(string id,string label,string page,IEnumerable<string> names,string role="navigation",string? target=null,string? expected=null,string space="ui_profile")=>new(){["id"]=id,["label"]=label,["page"]=page,["target"]=target,["expected_page"]=expected,["role"]=role,["anchors"]=new JsonArray(names.Distinct().Select(n=>(JsonNode)Anchor(n,space)).ToArray())};

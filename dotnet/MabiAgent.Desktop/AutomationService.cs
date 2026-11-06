@@ -12,10 +12,19 @@ namespace MabiAgent.Desktop;
 // One worker and one gate own every workflow tick. Capture never sends input.
 public sealed partial class AutomationService:IAsyncDisposable
 {
+    private readonly GameClientLayoutResolver clientLayout = new(NativeWindowsOps.ReadProcessIdentity);
+    public string ClientLayoutStatus => clientLayout.Status;
+    public bool ClientDirectoryRequired => clientLayout.NeedsDirectory || itemNamesDirectoryRequired;
+    public async Task RetryClientDirectoryAsync(string directory)
+    {
+        clientLayout.FallbackDirectory=string.IsNullOrWhiteSpace(directory)?null:Path.GetFullPath(directory,workspace.Root);
+        await RebindCaptureAsync();
+    }
     private readonly Workspace workspace;private readonly GameWindowSelection selection;private readonly SemaphoreSlim gate=new(1,1);
     private readonly RuntimeActivity activity;private readonly SchedulingWake wake=new();
     public string ExecutionStage=>activity.Description;
     private readonly object lifecycle=new(),ocrGate=new();private readonly CancellationTokenSource lifetime=new();
+    private CancellationTokenSource executionLifetime;private CancellationTokenSource? workbenchCancellation;
     private Task? worker,captureTask;private CancellationTokenSource? captureLifetime;private readonly CaptureCoordinator? capture;
     private readonly CaptureStatus captureUnavailable;private AutomationCoordinator? host;private ScreenWorkflowSession? session;private DesktopPorts? ports;private OnnxTextRecognizer? ocr;
     private InputOptions? hostInput;private long inputSettingsStamp=-1;
@@ -34,6 +43,7 @@ public sealed partial class AutomationService:IAsyncDisposable
     public void ApplyCaptureDevices(IReadOnlyCollection<string> devices){workspace.SaveCaptureDevices(devices);capture?.SelectDevices(devices);NotifyChanged();}
     public async Task RebindCaptureAsync()
     {
+        clientLayout.ResetFailure();
         capture?.SelectProcess(selection.Selected?.State.ProcessId);
         await StopCaptureAsync().ConfigureAwait(false);StartCapture();
     }
@@ -56,12 +66,14 @@ public sealed partial class AutomationService:IAsyncDisposable
     private string? lastFault;
     private string? lastCaptureWarning,lastRuntimeWarning;
     public event Action? Changed;public bool IsRunning=>Status.Running||recovering||refreshingInventory;
+    /// <summary>True once the input guard is paused, i.e. no input can be sent to the game.</summary>
+    public bool InputPaused=>session?.Guard.Paused==true;
     public AutomationService(Workspace workspace,GameWindowSelection selection)
     {
-        this.workspace=workspace;this.selection=selection;activity=new(workspace.DataPath);
+        this.workspace=workspace;this.selection=selection;activity=new(workspace.DataPath);executionLifetime=new();
         Accounts=new(Path.Combine(workspace.DataPath,"accounts"),Path.Combine(workspace.Root,"config/items.verified.tw.json"),Path.Combine(workspace.Root,"config/item-name-candidates.tw.json"));Repository=new(workspace.Root,workspace.DataPath,ResolveVerifiedName);
         captureUnavailable=new(CaptureState.Stopped,"抓包不可用",null,null);
-        try{var decoder=ClientInventoryDecoder.Load(Path.Combine(workspace.Root,"config/client-inventory-schema.disk.json"));capture=new(decoder.Decode,Accounts,diagnostics:new RuntimeDiagnostics(workspace.DataPath));capture.SelectProcess(selection.Selected?.State.ProcessId);capture.SelectDevices(CaptureDeviceSetting);}
+        try{capture=new(_=>throw new InvalidDataException("必须先解析当前客户端"),Accounts,diagnostics:new RuntimeDiagnostics(workspace.DataPath),resolveLayout:clientLayout.Resolve);capture.SelectProcess(selection.Selected?.State.ProcessId);capture.SelectDevices(CaptureDeviceSetting);}
         catch(Exception e)when(e is not OutOfMemoryException){captureUnavailable=captureUnavailable with{Message="抓包配置不可用："+e.Message};activity.Fault(e,"抓包配置",scope:"capture");}
         selection.Changed+=SelectionChanged;Repository.CatalogChanged+=CatalogChanged;workspace.Changed+=NotifyRuntimeChanged;if(capture is not null)capture.Changed+=NotifyRuntimeChanged;
     }
@@ -74,6 +86,8 @@ public sealed partial class AutomationService:IAsyncDisposable
     private void RequestRebuild(string reason)
     {rebuildReason=reason;Interlocked.Increment(ref configurationRevision);session?.Guard.RequestPause();wake.Signal();}
     private void EnsureWorker(){lock(lifecycle){ObjectDisposedException.ThrowIf(disposed,this);if(worker is null||worker.IsCompleted)worker=Task.Run(()=>RunAsync(lifetime.Token));}}
+    private CancellationToken ExecutionToken(){lock(lifecycle){ObjectDisposedException.ThrowIf(disposed,this);return executionLifetime.Token;}}
+    private void ThrowIfStopResetPending(){if(File.Exists(Path.Combine(workspace.DataPath,"stop-reset.json")))throw new InvalidOperationException("上次停止重置未完成，请先重试停止全部");}
     private void NotifyChanged()
     {
         activity.Progress(Status.Message+" · "+Status.ActivePhase+" · 页面 "+(session?.CurrentPage??"未识别")+" · "+Status.PauseReason);
@@ -123,9 +137,9 @@ public sealed partial class AutomationService:IAsyncDisposable
     private sealed class ObservationStore:IWorkflowStore
     {public JsonObject? Read()=>null;public void Flush(JsonObject state)=>throw new InvalidOperationException("只读观测不写消费记录");}
     public Task StartAsync()
-    {EnsureWorker();var command=Volatile.Read(ref commandRevision);return Task.Run(async()=>{await activity.AcquireAsync(gate,"开始",lifetime.Token).ConfigureAwait(false);using var stage=activity.Enter("开始或继续",true);try
+    {ThrowIfStopResetPending();EnsureWorker();var token=ExecutionToken();var command=Volatile.Read(ref commandRevision);return Task.Run(async()=>{await activity.AcquireAsync(gate,"开始",token).ConfigureAwait(false);using var stage=activity.Enter("开始或继续",true);try
         {
-            ObjectDisposedException.ThrowIf(disposed,this);if(File.Exists(Path.Combine(workspace.DataPath,"stop-reset.json")))throw new InvalidOperationException("上次停止重置未完成，请先重试停止全部");if(recovering||refreshingInventory)throw new InvalidOperationException("公共恢复或库存刷新仍在执行，请先暂停");
+            ObjectDisposedException.ThrowIf(disposed,this);ThrowIfStopResetPending();token.ThrowIfCancellationRequested();if(recovering||refreshingInventory)throw new InvalidOperationException("公共恢复或库存刷新仍在执行，请先暂停");
             var game=selection.Selected??throw new InvalidOperationException("请先选择游戏窗口");
             if(host is not null&&(builtRevision!=Volatile.Read(ref configurationRevision)||!SameWindow(hostWindow,game.State)))DestroyHost();
             if(host is null||host.SafeToSwitch)ApplyOcrPreferences();
@@ -138,8 +152,9 @@ public sealed partial class AutomationService:IAsyncDisposable
         var revision=Volatile.Read(ref configurationRevision);var routes=ScreenRoutes.FromConfiguration(workspace.Root,PublishedCatalogCompiler.CompileAvailable(Repository),Repository.UserAssetRoot);var catalog=new RuntimeCatalog(routes.Configuration);
         var scope=ScreenWorkflowSession.ProcessScope(game.State);var current=DesktopPorts.VerifiedCapture(CaptureStatus,game.State);
         if(current?.Scope is{} owner)scope=scope with{SessionId=scope.SessionId+":owner:"+JsonSerializer.Serialize(new[]{owner.AccountId,owner.CharacterId})};
-        var input=InputOptions.FromJson(ReadRuntimeSettings());
-        var next=new ScreenWorkflowSession(routes,game.State,InputTransportFactory.Create(game.State,input),GetOcr(),new JsonWorkflowStore(Path.Combine(workspace.DataPath,"native-input-intents.json")),()=>NativeWindowActivation.Activate(game.State),scope,new RuntimeDiagnostics(workspace.DataPath),inputOptions:input);
+        var input=InputOptions.FromJson(ReadRuntimeSettings());var diagnostics=new RuntimeDiagnostics(workspace.DataPath);var inputOps=InputTransportFactory.Create(game.State,input,diagnostics);
+        if(inputOps is TouchInputOps touch)touch.DiagnosticWriteFailed+=failure=>{activity.Warning("touch",$"触控诊断写入失败：{failure.GestureId}/{failure.Stage}；{failure.Error}");NotifyChanged();};
+        var next=new ScreenWorkflowSession(routes,game.State,inputOps,GetOcr(),new JsonWorkflowStore(Path.Combine(workspace.DataPath,"native-input-intents.json")),()=>NativeWindowActivation.Activate(game.State),scope,diagnostics,inputOptions:input);
         try
         {
             next.LifeVipEnabled=()=>DesktopPreferences.FromJson(ReadRuntimeSettings()).LifeVip;
@@ -176,17 +191,17 @@ public sealed partial class AutomationService:IAsyncDisposable
                     else if(ports!.IdentityChanged()){RequestRebuild("当前角色已变化，请重新开始");host.Pause("configuration_changed");recovering=false;Status=host.Status with{Message=rebuildReason!};}
                     else if(refreshingInventory)
                     {
-                        using var refreshStage=activity.Enter("私人剧场刷新库存");
+                        using var refreshStage=activity.Enter("快速重进刷新库存");
                         if(refreshCommand!=Volatile.Read(ref commandRevision)||session!.Guard.Paused)
-                        {refreshingInventory=false;resumeAfterRecovery=false;ports!.CancelInventorySync();host.Pause("manual");Status=host.Status with{ActivePhase="private_theater_refresh",Message="私人剧场刷新已暂停",PauseReason="manual"};NotifyChanged();continue;}
-                        var advanced=ports!.TickPrivateTheaterRefresh(DateTimeOffset.UtcNow);
-                        var complete=ports.PrivateTheaterRefreshStatus==PrivateTheaterRefreshStatus.Complete;
-                        var failed=ports.PrivateTheaterRefreshStatus==PrivateTheaterRefreshStatus.Failed;
+                        {refreshingInventory=false;resumeAfterRecovery=false;ports!.CancelInventorySync();host.Pause("manual");Status=host.Status with{ActivePhase="quick_reentry",Message="快速重进已暂停",PauseReason="manual"};NotifyChanged();continue;}
+                        var advanced=ports!.TickQuickReentry(DateTimeOffset.UtcNow);
+                        var complete=ports.QuickReentryStatus==QuickReentryStatus.Complete;
+                        var failed=ports.QuickReentryStatus==QuickReentryStatus.Failed;
                         var fresh=ports.VerifiedCapture() is {} sync&&sync.FullSyncAt>refreshStartedAt&&ports.CurrentEpoch is{} epoch&&epoch!=recoveryEpoch&&(recoveryIdentity is null||ports.CurrentIdentity==recoveryIdentity);
-                        Status=host.Status with{Running=false,ActivePhase="private_theater_refresh",Message=failed?"私人剧场刷新失败："+(ports.PrivateTheaterRefreshFailure??PrivateTheaterStepLabel(ports.PrivateTheaterRefreshStep)):complete&&fresh?"库存刷新已完成，请显式继续":"私人剧场刷新中 · "+PrivateTheaterStepLabel(ports.PrivateTheaterRefreshStep)};
+                        Status=host.Status with{Running=false,ActivePhase="quick_reentry",Message=failed?"快速重进失败："+(ports.QuickReentryFailure??QuickReentryStepLabel(ports.QuickReentryStep)):complete&&fresh?"库存刷新已完成，请显式继续":"快速重进中 · "+QuickReentryStepLabel(ports.QuickReentryStep)};
                         if(complete)refreshCompletedAt??=DateTimeOffset.UtcNow;
                         var stopped=refreshCommand!=Volatile.Read(ref commandRevision)||session!.Guard.Paused;
-                        var captureExpired=refreshCompletedAt is{} finished&&DateTimeOffset.UtcNow-finished>=TimeSpan.FromSeconds(session!.Routes.Configuration["private_theater_refresh"]?["capture_wait_s"]?.GetValue<int>()??8);
+                        var captureExpired=refreshCompletedAt is{} finished&&DateTimeOffset.UtcNow-finished>=TimeSpan.FromSeconds(session!.Routes.Configuration["quick_reentry"]?["capture_wait_s"]?.GetValue<int>()??8);
                         if(stopped||failed||complete&&(fresh||captureExpired))
                         {
                             refreshingInventory=false;
@@ -194,13 +209,13 @@ public sealed partial class AutomationService:IAsyncDisposable
                             else if(complete&&fresh&&!stopped)
                             {
                                 host.Pause("inventory_sync_complete");
-                                Status=host.Status with{Running=false,ActivePhase="private_theater_refresh",Message="库存刷新已完成，请显式继续",PauseReason="inventory_sync_complete"};
+                                Status=host.Status with{Running=false,ActivePhase="quick_reentry",Message="库存刷新已完成，请显式继续",PauseReason="inventory_sync_complete"};
                             }
                             else if(stopped)
-                            {var reason=failed?ports.PrivateTheaterRefreshFailure??"私人剧场刷新失败":"刷新已中止，未取得完整抓包";host.Pause("manual");Status=host.Status with{Running=false,ActivePhase="private_theater_refresh",Message=reason+"；已暂停",PauseReason="manual"};}
+                            {var reason=failed?ports.QuickReentryFailure??"快速重进失败":"刷新已中止，未取得完整抓包";host.Pause("manual");Status=host.Status with{Running=false,ActivePhase="quick_reentry",Message=reason+"；已暂停",PauseReason="manual"};}
                             else
                             {
-                                var reason=failed?ports.PrivateTheaterRefreshFailure??"私人剧场刷新失败":"私人剧场已完成但未收到完整新抓包";
+                                var reason=failed?ports.QuickReentryFailure??"快速重进失败":"快速重进已完成但未收到完整新抓包";
                                 host.FinishInventorySyncWithoutCoverage(reason);Status=host.Status;
                             }
                             resumeAfterRecovery=false;
@@ -234,8 +249,8 @@ public sealed partial class AutomationService:IAsyncDisposable
                         if(Status.Running&&session!.Guard.Paused){var reason=session.Guard.PauseReason;host.Pause(reason??"input_paused");Status=host.Status with{Message=reason=="restart_required"?"游戏运行时限已到，请重启后核账":"输入已暂停，请核实后继续"};}
                         else if(host.Status.Running&&ports.InventorySyncRequested&&host.SafeToSwitch)
                         {
-                            if(captureEnabled&&CaptureStatus.State==CaptureState.Listening){ports.InventorySyncRequested=false;BeginPrivateTheaterRefresh(true);}
-                            else Status=host.Status with{Message=captureEnabled?"私人剧场刷新等待库存监听就绪":"私人剧场刷新需要完整库存监听，请先开启监听"};
+                            if(captureEnabled&&CaptureStatus.State==CaptureState.Listening){ports.InventorySyncRequested=false;BeginQuickReentry(true);}
+                            else Status=host.Status with{Message=captureEnabled?"快速重进刷新等待库存监听就绪":"快速重进刷新需要完整库存监听，请先开启监听"};
                         }
                     }
                 }
@@ -254,9 +269,9 @@ public sealed partial class AutomationService:IAsyncDisposable
         catch(Exception e){activity.Fault(e,"调度线程停止",session?.Scope.SessionId,Status.ActiveJob,Status.ActivePhase,session?.CurrentPage);RecordFault("调度线程停止："+e);session?.Guard.RequestPause();recovering=false;resumeAfterRecovery=false;Status=Status with{Running=false,PauseReason="runtime_error",Message="调度线程异常，请核实后继续",Fault=e.ToString()};NotifyChanged();}
     }
     public Task ReloginAsync()
-    {EnsureWorker();var command=Volatile.Read(ref commandRevision);return Task.Run(async()=>{await activity.AcquireAsync(gate,"登录恢复",lifetime.Token).ConfigureAwait(false);using var stage=activity.Enter("准备登录恢复",true);var created=false;var initiated=false;try
+    {ThrowIfStopResetPending();EnsureWorker();var token=ExecutionToken();var command=Volatile.Read(ref commandRevision);return Task.Run(async()=>{await activity.AcquireAsync(gate,"登录恢复",token).ConfigureAwait(false);using var stage=activity.Enter("准备登录恢复",true);var created=false;var initiated=false;try
         {
-            ObjectDisposedException.ThrowIf(disposed,this);var game=selection.Selected??throw new InvalidOperationException("请先选择游戏窗口");
+            ObjectDisposedException.ThrowIf(disposed,this);ThrowIfStopResetPending();token.ThrowIfCancellationRequested();var game=selection.Selected??throw new InvalidOperationException("请先选择游戏窗口");
             if(host is not null&&(builtRevision!=Volatile.Read(ref configurationRevision)||!SameWindow(hostWindow,game.State)))DestroyHost();
             created=host is null;if(created)BuildHost(game);
             if(!host!.SafeToSwitch)throw new InvalidOperationException("当前批次或消费意图尚未到安全边界");
@@ -266,15 +281,15 @@ public sealed partial class AutomationService:IAsyncDisposable
         }catch{if(created||initiated){session?.Relogin?.Pause();DestroyHost();}throw;}finally{gate.Release();wake.Signal();}});}
     // User-triggered inventory refresh: the same private theater script the scheduler uses, behind the same safety checks.
     public Task RefreshInventoryAsync()
-    {EnsureWorker();var command=Volatile.Read(ref commandRevision);return Task.Run(async()=>{await activity.AcquireAsync(gate,"库存刷新",lifetime.Token).ConfigureAwait(false);using var stage=activity.Enter("准备私人剧场刷新",true);var created=false;var initiated=false;try
+    {ThrowIfStopResetPending();EnsureWorker();var token=ExecutionToken();var command=Volatile.Read(ref commandRevision);return Task.Run(async()=>{await activity.AcquireAsync(gate,"库存刷新",token).ConfigureAwait(false);using var stage=activity.Enter("准备快速重进刷新",true);var created=false;var initiated=false;try
         {
-            ObjectDisposedException.ThrowIf(disposed,this);var game=selection.Selected??throw new InvalidOperationException("请先选择游戏窗口");
+            ObjectDisposedException.ThrowIf(disposed,this);ThrowIfStopResetPending();token.ThrowIfCancellationRequested();var game=selection.Selected??throw new InvalidOperationException("请先选择游戏窗口");
             if(!captureEnabled||CaptureStatus.State!=CaptureState.Listening)throw new InvalidOperationException("请先开启库存监听并等待就绪");
             if(host is not null&&(builtRevision!=Volatile.Read(ref configurationRevision)||!SameWindow(hostWindow,game.State)))DestroyHost();
             created=host is null;if(created)BuildHost(game);
             if(!host!.CanPrepareInventoryRefresh)throw new InvalidOperationException("当前批次或消费意图尚未到安全边界");
             if(command!=Volatile.Read(ref commandRevision))throw new InvalidOperationException("库存刷新已取消");
-            if(created)session!.Start();else session!.ResumeExplicit();BeginPrivateTheaterRefresh(false);initiated=true;NotifyChanged();
+            if(created)session!.Start();else session!.ResumeExplicit();BeginQuickReentry(false);initiated=true;NotifyChanged();
         }catch{if(created||initiated){ports?.CancelInventorySync();DestroyHost();}throw;}finally{gate.Release();wake.Signal();}});}
     private void BeginRecovery(bool automatic)
     {
@@ -289,28 +304,20 @@ public sealed partial class AutomationService:IAsyncDisposable
         if(recoveryCommand!=Volatile.Read(ref commandRevision)){session.Pause("manual");throw new InvalidOperationException("重登已取消");}
         resumeAfterRecovery=automatic;recovering=true;Status=RecoveryStatus(host.Status,session.Relogin!.Snapshot(),null);
     }
-    private void BeginPrivateTheaterRefresh(bool automatic)
+    private void BeginQuickReentry(bool automatic)
     {
         if(refreshingInventory||recovering)throw new InvalidOperationException("库存刷新已在进行中，请等待当前脚本结束");
         if(host is null||ports is null||session is null||!host.CanPrepareInventoryRefresh)throw new InvalidOperationException("当前批次尚未到安全边界");
         if(!captureEnabled||CaptureStatus.State!=CaptureState.Listening)throw new InvalidOperationException("请先开启库存监听并等待就绪");
-        if(automatic&&session.Guard.Paused)throw new InvalidOperationException("输入已暂停，不启动私人剧场刷新");
+        if(automatic&&session.Guard.Paused)throw new InvalidOperationException("输入已暂停，不启动快速重进");
         if(ports.IdentityChanged())throw new InvalidOperationException("当前角色已变化，请重新开始");
-        // Only a current complete packet snapshot can prove absence. Unknown is not zero.
-        if(InventoryRefreshPolicy.UseSameCharacterRelogin(ports.VerifiedCapture()?.Quantity(MabiAgent.Capture.InventoryContainer.Backpack,1604367201)))
-        {
-            try{BeginRecovery(automatic);}
-            catch(InputBlockedException error)when(automatic&&!session.Guard.Paused)
-            {host.FinishInventorySyncWithoutCoverage(error.Message);Status=host.Status;}
-            return;
-        }
         refreshCommand=Volatile.Read(ref commandRevision);refreshCompletedAt=null;refreshStartedAt=System.Diagnostics.Stopwatch.GetTimestamp()/(double)System.Diagnostics.Stopwatch.Frequency;recoveryIdentity=ports.CurrentIdentity;recoveryEpoch=ports.CurrentEpoch;
         host.SuspendForInventorySync();session.ResumeWorkflow();
         if(refreshCommand!=Volatile.Read(ref commandRevision)){session.Pause("manual");throw new InvalidOperationException("库存刷新已取消");}
-        ports.BeginPrivateTheaterRefresh(DateTimeOffset.UtcNow);resumeAfterRecovery=automatic;refreshingInventory=true;Status=host.Status with{Running=false,ActivePhase="private_theater_refresh",Message="私人剧场刷新已开始"};
+        ports.BeginQuickReentry(DateTimeOffset.UtcNow);resumeAfterRecovery=automatic;refreshingInventory=true;Status=host.Status with{Running=false,ActivePhase="quick_reentry",Message="快速重进已开始"};
     }
-    private static string PrivateTheaterStepLabel(string? step)=>step switch
-    {"open_bag"=>"打开背包","bag_ready"=>"等待背包","tools_tab"=>"工具标签","tools_selected"=>"等待工具标签切换","game_tab"=>"游戏标签","game_tab_selected"=>"等待游戏分类","private_theater_item"=>"私人剧场道具","use_item"=>"使用道具","create_ready"=>"等待剧场创建页","leader_review"=>"设置队长审核","create"=>"建立剧场","map_loaded"=>"等待剧场地图加载","map_exit"=>"退出剧场","leave"=>"确认离开","returned"=>"等待返回场景",_=>step??"等待库存"};
+    private static string QuickReentryStepLabel(string? step)=>step switch
+    {"escape_menu"=>"按 ESC 打开菜单","menu_ready"=>"等待菜单出现","appearance"=>"点击變更外貌/重生","rebirth_ready"=>"等待重生页加载","escape_exit"=>"按 ESC 打开退出菜单","exit_menu_ready"=>"等待退出菜单","exit"=>"空格退出",_=>step??"等待库存"};
     internal static AutomationStatus RecoveryStatus(AutomationStatus prior,JsonObject recovery,string? pauseReason)
     {
         var state=recovery["status"]?.GetValue<string>();var phase=recovery["phase"]?.GetValue<string>();
@@ -322,7 +329,8 @@ public sealed partial class AutomationService:IAsyncDisposable
     private void DestroyHost(){host?.Dispose();host=null;session=null;ports=null;hostWindow=null;hostInput=null;recovering=false;refreshingInventory=false;}
     public Task StopAllAsync()
     {
-        Interlocked.Increment(ref commandRevision);session?.Guard.RequestPause();wake.Signal();
+        Interlocked.Increment(ref commandRevision);session?.Guard.RequestPause();
+        lock(lifecycle){executionLifetime.Cancel();workbenchCancellation?.Cancel();}wake.Signal();
         return Task.Run(async()=>
         {
             await activity.AcquireAsync(gate,"停止全部",lifetime.Token).ConfigureAwait(false);
@@ -331,6 +339,7 @@ public sealed partial class AutomationService:IAsyncDisposable
                 resumeAfterRecovery=false;ports?.CancelInventorySync();DestroyHost();
                 Status=new(false,"正在清除全部执行状态",null,new Dictionary<string,string>(),0);
                 new RuntimeQueue(workspace.DataPath).ResetAllExecution();
+                lock(lifecycle)executionLifetime=new();
                 Status=new(false,"已停止全部，执行进度与核账已清除；再次开始将重新规划",null,new Dictionary<string,string>(),0);
             }
             catch(Exception error){Status=Status with{Message="停止重置未完成，请重试停止全部",Fault=error.ToString()};throw;}
@@ -339,10 +348,10 @@ public sealed partial class AutomationService:IAsyncDisposable
     }
     public async ValueTask DisposeAsync()
     {
-        lock(lifecycle){if(disposed)return;disposed=true;Interlocked.Increment(ref commandRevision);lifetime.Cancel();captureLifetime?.Cancel();captureEnabled=false;}
+        lock(lifecycle){if(disposed)return;disposed=true;Interlocked.Increment(ref commandRevision);lifetime.Cancel();executionLifetime.Cancel();workbenchCancellation?.Cancel();captureLifetime?.Cancel();captureEnabled=false;}
         selection.Changed-=SelectionChanged;Repository.CatalogChanged-=CatalogChanged;workspace.Changed-=NotifyRuntimeChanged;if(capture is not null)capture.Changed-=NotifyRuntimeChanged;session?.Guard.Pause("closed");
         if(worker is not null)await worker.ConfigureAwait(false);await gate.WaitAsync().ConfigureAwait(false);try{DestroyHost();lock(ocrGate){ocr?.Dispose();ocr=null;}}finally{gate.Release();}
-        if(capture is not null)await capture.DisposeAsync();if(captureTask is not null)await captureTask.ConfigureAwait(false);captureLifetime?.Dispose();lifetime.Dispose();
+        if(capture is not null)await capture.DisposeAsync();if(captureTask is not null)await captureTask.ConfigureAwait(false);captureLifetime?.Dispose();executionLifetime.Dispose();lifetime.Dispose();
     }
 }
 
@@ -361,8 +370,7 @@ internal sealed class DesktopPorts:IAutomationPorts
         session.SetVerifiedOwnerResolver(()=>VerifiedCapture()?.Scope is{} s?new SessionScope(s.SessionId,s.AccountId,s.CharacterId):null);
         session.SetPacketGoldProvider(()=>VerifiedCapture() is{Gold:>=0,GoldAt:{} at,Scope:{} scope} raw?new PacketGoldObservation(raw.Gold.Value,scope.SessionId+":"+raw.FullSyncRevision,at):null);
         _=IdentityChanged();
-        var bottle=catalog.Names.Where(p=>p.Value=="空瓶").Select(p=>p.Key).ToArray();
-        if(bottle.Length==1){var rules=catalog.Gathering.Values.Where(r=>catalog.Names.GetValueOrDefault(r.TargetItemId) is "水" or "牛奶" or "裝水的瓶子").ToDictionary(r=>r.Key,r=>new GatheringConsumableRule(bottle[0],"空瓶"));GatheringConsumables=new GatheringConsumables(rules,Inventory,()=>PurchasePreferences);}
+        GatheringConsumables=new GatheringConsumables(MabiAgent.Workflows.GatheringConsumables.RulesFor(catalog),Inventory,()=>PurchasePreferences);
     }
     internal MabiAgent.Capture.InventorySnapshot? VerifiedCapture()=>VerifiedCapture(capture(),window);
     internal static MabiAgent.Capture.InventorySnapshot? VerifiedCapture(CaptureStatus status,NativeWindowState window)
@@ -388,14 +396,14 @@ internal sealed class DesktopPorts:IAutomationPorts
         if(mapped.Inventory is not null)foreach(var (scope,values) in mapped.Inventory.Storage)result.SetStorage(scope,values);return result;
     }
     public bool PreferBulkInventorySync=>capture().State==CaptureState.Listening;
-    public PrivateTheaterRefreshStatus PrivateTheaterRefreshStatus=>refresh?.Status??PrivateTheaterRefreshStatus.Idle;
-    public string? PrivateTheaterRefreshFailure=>refresh?.Failure;
-    public string? PrivateTheaterRefreshStep=>refresh?.CurrentStep;
+    public QuickReentryStatus QuickReentryStatus=>refresh?.Status??QuickReentryStatus.Idle;
+    public string? QuickReentryFailure=>refresh?.Failure;
+    public string? QuickReentryStep=>refresh?.CurrentStep;
     public bool InventorySyncRequested{get;set;}
     public void RequestInventorySync(){InventorySyncRequested=true;}
-    private ScreenPrivateTheaterRefresh? refresh;
-    public void BeginPrivateTheaterRefresh(DateTimeOffset now){refresh=new ScreenPrivateTheaterRefresh(session);refresh.Start(now);}
-    public bool TickPrivateTheaterRefresh(DateTimeOffset now)
+    private ScreenQuickReentry? refresh;
+    public void BeginQuickReentry(DateTimeOffset now){refresh=new ScreenQuickReentry(session);refresh.Start(now);}
+    public bool TickQuickReentry(DateTimeOffset now)
     {
         if(refresh is null)return false;
         return refresh.Tick(now);

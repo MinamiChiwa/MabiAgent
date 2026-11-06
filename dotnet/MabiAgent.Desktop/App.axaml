@@ -3,6 +3,7 @@
     <semi:SemiTheme Locale="zh-CN"/>
     <semi:UrsaSemiTheme Locale="zh-CN"/>
     <semi:DataGridSemiTheme/>
+    <StyleInclude Source="avares://MarkView.Avalonia/Themes/MarkdownTheme.axaml"/>
     <StyleInclude Source="/Styles/Workspace.axaml"/>
   </Application.Styles>
 </Application>

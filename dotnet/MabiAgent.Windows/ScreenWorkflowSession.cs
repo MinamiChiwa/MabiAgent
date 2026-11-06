@@ -70,8 +70,9 @@ public sealed class ScreenWorkflowSession : IDisposable
     public string? OnsiteDevice=>LastCapture is{} capture&&LastObservation is{Stable:true} observation&&!observation.View.NeedsDeviceArrival
         ?Routes.Devices.Values.FirstOrDefault(d=>d.QueuePage==CurrentPage&&All(capture,d.ArrivalAnchors))?.Key:null;
     private string? navigationId;private double navigationDeadline;
+    internal long LocationRevision {get;private set;}
     public string? CurrentNavigationId=>navigationId is not null&&DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()/1000d<=navigationDeadline?navigationId:null;
-    internal void BeginNavigation(string id,double seconds=120){navigationId=id;navigationDeadline=DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()/1000d+seconds;}
+    internal void BeginNavigation(string id,double seconds=120){LocationRevision++;navigationId=id;navigationDeadline=DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()/1000d+seconds;}
     internal void EndNavigation(string id){if(navigationId==id)navigationId=null;}
     public bool TryTravel()=>CurrentNavigationId is {} id&&Travel?.TryUse(id)==true;
     public event Action? Changed;
@@ -118,10 +119,10 @@ public sealed class ScreenWorkflowSession : IDisposable
         {page=RemoveTarget(page,"page.close");page=AddTarget(page,"page.close",back);}
         return page;
     }
-    public bool DismissNotice()
+    public bool DismissNotice(bool notificationsOnly=false)
     {
         var o=Observe();if(!o.Stable||!InputAvailable||Guard.Paused)return false;
-        var target=o.View.Page.StartsWith("notification_",StringComparison.Ordinal)?"notification.close":o.View.Page=="production_complete"?"completion.confirm":null;if(target is null)return false;
+        var target=o.View.Page.StartsWith("notification_",StringComparison.Ordinal)?"notification.close":!notificationsOnly&&o.View.Page=="production_complete"?"completion.confirm":null;if(target is null)return false;
         try{NavigateTarget(target);return true;}
         catch(InputBlockedException)when(!Guard.Paused&&LastObservation is{IdentityVerified:true} fresh&&(fresh.View.Page!=o.View.Page||!fresh.Stable))
         {
@@ -133,7 +134,7 @@ public sealed class ScreenWorkflowSession : IDisposable
     public ScreenTravelWings ConfigureTravel(IWorkflowStore store,Func<JsonObject> settings)=>Travel=new(this,store,settings);
     internal PageView RecognizeDeclaredPages(ClientCapture capture,IReadOnlySet<string> pages)=>recognizer.Recognize(capture.Image,pages);
     public ScreenRelogin ConfigureRelogin(IWorkflowStore store,TimeProvider? time=null)=>Relogin=new(this,store,time);
-    internal void BeginRecoveryRecognition(){decorate=null;navigationId=null;observationContexts=new();observer=CreateObserver();}
+    internal void BeginRecoveryRecognition(){LocationRevision++;decorate=null;focusedRecognition=null;navigationId=null;observationContexts=new();observer=CreateObserver();}
     public void Start(){if(started)throw new InputBlockedException("已开始，请显式继续");if(Guard.RequiresForeground)activateOnce?.Invoke();observer.Reset();Guard.Start();started=true;}
     public void ResumeExplicit(){if(Guard.RequiresForeground)activateOnce?.Invoke();Resume();}
     public void Resume(){InputEpoch++;observer.Reset();if(started)Guard.Resume();else{Guard.Start();started=true;}}
@@ -152,7 +153,7 @@ public sealed class ScreenWorkflowSession : IDisposable
         {
             var observation=Observe();var page=observation.View.Page;
             return !Guard.Paused&&InputAvailable&&observation.Stable&&!observation.View.Modal&&
-                (page is "scene" or "bag" or "skills" or "category_page" or "recipe_detail"||Routes.Devices.Values.Any(d=>d.QueuePage==page));
+                (page is "scene" or "bag" or "repair_tools" or "skills" or "category_page" or "recipe_detail"||Routes.Devices.Values.Any(d=>d.QueuePage==page));
         }catch(Exception error)when(error is not OutOfMemoryException){return false;}
     }
     public void ResumeWorkflow(){Guard.ResumeWorkflow();InputEpoch++;observer.Reset();}
@@ -183,6 +184,15 @@ public sealed class ScreenWorkflowSession : IDisposable
     private ClientGeometry CurrentGeometry=>LastCapture?.Native.Geometry??window.Geometry;
     internal PixelBox Box(JsonNode node)=>Box(NavigationProfile.ReadBox(node));
     internal PixelBox Box(PixelBox box)=>ReviewedLayout.For(CurrentGeometry.Width,CurrentGeometry.Height,CurrentGeometry.Dpi).SearchBox(box);
+    internal PixelBox? AnchoredBox(string template,TemplateHit icon,PixelBox reference)
+    {
+        var geometry=CurrentGeometry;var layout=ReviewedLayout.For(geometry.Width,geometry.Height,geometry.Dpi);
+        if(!Routes.Profile.Templates.TryGetValue(template,out var spec)||!reference.IsInside(layout.ReferenceWidth,layout.ReferenceHeight))return null;
+        var box=layout.SearchBox(reference);var expected=layout.SearchBox(spec.Box);var hit=icon.MatchBox??icon.Box;
+        var dx=hit.Left-expected.Left;var dy=hit.Top-expected.Top;
+        var shifted=new PixelBox(box.Left+dx,box.Top+dy,box.Right+dx,box.Bottom+dy);
+        return shifted.IsInside(geometry.Width,geometry.Height)?shifted:null;
+    }
     internal bool Hit(ClientCapture c,string? anchor)=>anchor is not null&&Matcher.Anchor(c.Image,anchor) is not null;
     internal bool All(ClientCapture c,IEnumerable<string> names){var a=names.ToArray();return a.Length>0&&a.All(n=>Hit(c,n));}
     internal static string? S(JsonNode? node,string key)=>node?[key]?.GetValue<string>();
@@ -206,8 +216,14 @@ public sealed class ScreenWorkflowSession : IDisposable
     internal void NavigateTarget(string target,MouseButton button=MouseButton.Left)
     {var proof=Guard.ObserveCurrentTarget(target,lastObservationContext==observer?LastObservation:null);if(button==MouseButton.Left&&TryNavigationShortcut(proof))return;Guard.ClickReviewedNavigation(proof,proof.Page,button);}
     public void RunNavigationTarget(string target)=>NavigateTarget(target);
-    internal void ScrollListDown(UiObservation observation,string target="list.scroll")
-        =>Guard.Scroll(Guard.ObserveCurrentTarget(target,observation),-3);
+    internal const int ListSearchPassLength=12, ListSearchLimit=ListSearchPassLength*3;
+    internal void ScrollListSearch(UiObservation observation,int attempt,string target="list.scroll",int passLength=ListSearchPassLength)
+    {
+        if(passLength is <1 or >33||attempt<0||attempt>=passLength*3)throw new InputBlockedException("列表搜索已到上限");
+        // Lists retain their previous offset. Search down first, then twice as
+        // far upward to cover both sides of that starting position.
+        Guard.Scroll(Guard.ObserveCurrentTarget(target,observation),attempt<passLength?-3:3);
+    }
     private bool TryNavigationShortcut(TargetProof proof)
     {
         ushort key=(proof.Page,proof.Name) switch{("scene","scene.open_bag") or ("bag" or "repair_tools","bag.close")=>73,("scene","scene.open_skills") or ("skills","skills.close")=>75,("repair_dialog" or "shop_dialog","dialog.end") or ("notification_news","notification.close")=>27,_=>0};
@@ -224,7 +240,7 @@ public sealed class ScreenWorkflowSession : IDisposable
         else if(kind=="drag"){var a=step["destination"]!.AsArray();var p=Box(new PixelBox(a[0]!.GetValue<int>(),a[1]!.GetValue<int>(),a[0]!.GetValue<int>()+1,a[1]!.GetValue<int>()+1)).Center;Guard.Drag(proof,p,validate:Validate);}
         else throw new InputBlockedException("未审核的导航操作");
     }
-    internal void Consume(string target,string batch,IWorkflowStore state,string kind,Func<UiObservation,bool> validate,Func<ClientCapture,bool>? beforeDelivery=null)
+    internal void Consume(string target,string batch,IWorkflowStore state,string kind,Func<UiObservation,bool> validate,Func<ClientCapture,bool>? beforeDelivery=null,ushort? movementKey=null)
     {
         var snapshot=state.Read()??throw new InputBlockedException("缺少已落盘流程");
         var pending=snapshot["pending"] as JsonObject??throw new InputBlockedException("缺少已落盘意图");
@@ -233,7 +249,8 @@ public sealed class ScreenWorkflowSession : IDisposable
         var id=batch+":"+hash;TargetProof proof;
         try{proof=Guard.ObserveCurrentTarget(target,lastObservationContext==observer?LastObservation:null);}
         catch(InputBlockedException e){ReportWarning("consume_not_dispatched",e.Message,batch);throw new InputRejectedBeforeDispatchException(e.Message);}
-        Guard.Consume(proof,id,new DurableAuthority(journal,state,Scope,batch,hash,kind,validate),beforeDelivery:beforeDelivery,key:target=="production.craft"?(ushort)32:null);
+        if(movementKey is not null&&target!="fishing.start")throw new InputBlockedException("移动抛竿仅用于已声明钓鱼步骤");
+        Guard.Consume(proof,id,new DurableAuthority(journal,state,Scope,batch,hash,kind,validate),beforeDelivery:beforeDelivery,key:target is "production.craft" or "fishing.start"?(ushort)32:null,movementKey:movementKey);
     }
     internal sealed class DurableAuthority(IWorkflowStore journal,IWorkflowStore workflow,SessionScope scope,string batch,string pendingHash,string kind,Func<UiObservation,bool> validate):IProcessScopedConsumptionAuthorization
     {
@@ -301,7 +318,7 @@ public abstract class ScreenWorkflowPort(ScreenWorkflowSession session,string ba
     public void PauseLocal(string reason){}
     public virtual bool CanReleaseForeground()=>Session.CanReleaseForeground();
     public void Resume()=>Session.ResumePort();
-    protected void Consume(string target,string kind,Func<UiObservation,bool> check,Func<ClientCapture,bool>? beforeDelivery=null)=>Session.Consume(target,BatchId,Store,kind,check,beforeDelivery);
+    protected void Consume(string target,string kind,Func<UiObservation,bool> check,Func<ClientCapture,bool>? beforeDelivery=null,ushort? movementKey=null)=>Session.Consume(target,BatchId,Store,kind,check,beforeDelivery,movementKey);
     protected static string? S(JsonNode? node,string key)=>ScreenWorkflowSession.S(node,key);
     protected static string[] Names(JsonNode? node)=>ScreenWorkflowSession.Names(node);
 }

@@ -26,6 +26,9 @@ public static class AccountItemsSelfCheck
             Check(vm.CharacterColumns.Select(c=>c.Id).SequenceEqual(new[]{"two","one"})&&vm.CharacterColumns[0].Label=="1号 · 角色two"&&vm.CharacterColumns[1].Label=="3号 · 角色one","账户角色列按已确认槽位排序并显示抓包名称");
             Check(vm.Items[0].AccountTotal == 24 && vm.Items[0].SharedStorage == 10, "共有仓只汇总一次");
             var grid=panel.FindControl<DataGrid>("ItemsGrid")!;
+            var updateButton = panel.FindControl<Button>("UpdateAssociationsButton")!;
+            Check(Avalonia.Automation.AutomationProperties.GetName(updateButton) == "更新物品关联" && updateButton.Command == vm.UpdateAssociationsCommand,
+                "仓库更新物品关联按钮绑定异步命令");
             Avalonia.Controls.DataGridColumn NumberColumn()=>grid.Columns.Single(c=>Equals(c.Header,"道具编号"));
             uint[] VisibleIds()=>vm.ItemsView.Cast<AccountItemEditRow>().Select(r=>r.ItemId).ToArray();
             panel.SortColumn(NumberColumn());panel.SortColumn(NumberColumn());

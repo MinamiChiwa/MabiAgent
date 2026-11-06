@@ -47,7 +47,7 @@ public partial class QueuePanel:UserControl
     private void UpdateListHeight()
     {
         if (Bounds.Height <= 0) return;
-        var available = Bounds.Height - 56 - (model?.AutomaticCount > 0 ? 48 : 0) - (model?.HasQueueSelection == true ? 56 : 0);
+        var available = Bounds.Height - 80 - (model?.AutomaticCount > 0 ? 48 : 0) - (model?.HasQueueSelection == true ? 56 : 0);
         // The list grows with its rows up to the page height; a short queue leaves no blank panel below it.
         ManualCard.MaxHeight = Math.Clamp(available, 200, 900);
     }
@@ -92,7 +92,7 @@ public partial class QueuePanel:UserControl
         Add("恢复所选",model.ControlSelectedCommand,"continue",model.HasQueueSelection);
         menu.Items.Add(new Separator());
         Add("上移",model.MoveCommand,"up",model.QueueSelectionCount==1);Add("下移",model.MoveCommand,"down",model.QueueSelectionCount==1);
-        Add("恢复执行顺序显示",model.ResetSortCommand);
+        Add("重置列表排序",model.ResetSortCommand);
         if(model.SelectedJob is{} row&&model.QueueSelectionCount==1)menu.Items.Add(new MenuItem{Header=row.DependencyLabel,IsEnabled=false});
         menu.Items.Add(new Separator());Add("删除所选（Delete）",model.DeleteSelectedCommand,null,model.HasQueueSelection);
     }
@@ -103,12 +103,15 @@ public partial class QueuePanel:UserControl
         else if(e.Key==Key.A&&e.KeyModifiers.HasFlag(KeyModifiers.Control)&&sender is DataGrid grid)
         {foreach(var row in grid.ItemsSource.Cast<JobRow>())if(!grid.SelectedItems.Contains(row))grid.SelectedItems.Add(row);e.Handled=true;}
     }
-    private async void TargetKeyDown(object? sender,KeyEventArgs e)
+    private void TargetCellDoubleTapped(object? sender,RoutedEventArgs e)
     {
-        if(sender is not TextBox{DataContext:JobRow row} box||model is null)return;
-        if(e.Key==Key.Escape){row.ResetTargetDraft();e.Handled=true;}
-        else if(e.Key==Key.Enter){e.Handled=true;await model.SaveRowTargetAsync(row);}
+        if(sender is not Control{DataContext:JobRow row})return;
+        if(!row.BeginTargetEdit())return;
+        e.Handled=true;
     }
-    private async void TargetLostFocus(object? sender,RoutedEventArgs e)
-    {if(sender is TextBox{DataContext:JobRow row}&&model is not null&&!model.IsApplyingQueue&&!model.IsBusy)await model.SaveRowTargetAsync(row);}
+    internal async void CommitRow(JobRow row)
+    {
+        if(model is null||model.IsApplyingQueue||model.IsBusy)return;
+        await model.SaveRowTargetAsync(row);
+    }
 }

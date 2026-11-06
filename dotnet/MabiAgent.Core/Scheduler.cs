@@ -14,7 +14,7 @@ public sealed class Scheduler
         bool Production(WorkCandidate r)=>r.Kind=="production" && r.FreeSlots>0;
         return eligible.Where(r=>Production(r) && r.Device==state.CurrentDevice).OrderBy(r=>r.UserOrder).FirstOrDefault()
             ?? eligible.Where(r=>r.Collectible).OrderBy(r=>r.UserOrder).FirstOrDefault()
-            ?? eligible.Where(Production).OrderByDescending(r=>r.FreeSlots).ThenBy(r=>r.UserOrder).FirstOrDefault()
+            ?? eligible.Where(Production).OrderBy(r=>r.UserOrder).FirstOrDefault()
             ?? (state.BackpackRelief ? null : eligible.Where(r=>r.Kind=="withdrawal").OrderBy(r=>r.UserOrder).FirstOrDefault()
                 ?? eligible.Where(r=>r.Kind=="purchase").OrderBy(r=>r.UserOrder).FirstOrDefault()
                 ?? eligible.Where(r=>r.Kind=="gathering").OrderBy(r=>r.Coverage).ThenBy(r=>r.UserOrder).FirstOrDefault()

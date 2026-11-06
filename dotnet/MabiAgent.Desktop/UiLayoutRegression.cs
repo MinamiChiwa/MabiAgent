@@ -41,7 +41,7 @@ internal static class UiLayoutRegression
                 {
                     var offscreen = NeedsOffscreen(window, size);
                     if (!offscreen) await ResizeClient(window, size);
-                    foreach (var page in Enumerable.Range(0, 6))
+                    foreach (var page in Enumerable.Range(0, 3))
                     {
                         model.SelectedPage = page;
                         await Settle(window);
@@ -82,8 +82,8 @@ internal static class UiLayoutRegression
             AssertScene(window, "长中文状态、异常与展开告警 最小客户区", checks);
             (model.RuntimeTask, model.RuntimeProgress, model.RuntimeHealth, model.RuntimeIssues, model.Error) = runtime;
             await CheckRenderScales(window, "主界面", checks);
-            if (model.Workbench?.Document.ToJson().ToJsonString() != workbenchJson) throw new InvalidOperationException("主导航自动打开工作台时改写了任务链配置");
-            checks.Add("主导航打开工作台不改写配置，布局回归不写任务队列");
+            if (model.Workbench?.Document.ToJson().ToJsonString() != workbenchJson) throw new InvalidOperationException("布局回归打开配置工作台时改写了任务链配置");
+            checks.Add("配置工作台入口不改写工作台配置，布局回归不写任务队列");
             return checks.ToArray();
         }
         finally
@@ -224,7 +224,7 @@ internal static class UiLayoutRegression
             if (control is Button button && button.GetType() == typeof(Button) && (button.Bounds.Width < 28 || button.Bounds.Height < 28))
                 failures.Add(Label(control) + " 操作区域过小 " + control.Bounds);
             if (!control.UseLayoutRounding) failures.Add(Label(control) + " 未启用像素布局取整");
-            if (control is Button or TextBox or ComboBox || control is Border card && card.Classes.Contains("card"))
+            if (control is Button or TextBox or ComboBox || control is Border step && step.Classes.Contains("step"))
             {
                 var transitions = control.Transitions?.OfType<TransitionBase>().ToArray();
                 if (transitions is not { Length: > 0 } || transitions.Any(t => t.Duration <= TimeSpan.Zero || t.Duration > TimeSpan.FromMilliseconds(250)))

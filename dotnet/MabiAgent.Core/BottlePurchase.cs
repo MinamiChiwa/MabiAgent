@@ -5,7 +5,7 @@ public enum PurchaseStage { Idle, UnknownStock, Navigate, Confirm, Reconcile, Ex
 public sealed record ShopObservation(bool Foreground,string Page,bool BottleNameVerified,bool ButtonVerified,
     long? Bottles,long? Gold,long? Quantity,long? TotalPrice,bool DirectPurchase=false);
 public sealed record PurchaseIntent(Guid Id,long Quantity,long BeforeBottles,long BeforeGold,long Price,DateTimeOffset CreatedAt);
-public sealed record PurchaseState(PurchaseStage Stage,long Quantity=0,long Reserve=40000,PurchaseIntent? Intent=null,string? Reason=null,DateTimeOffset? Deadline=null,bool PaymentConfirmed=false,long TargetStock=10);
+public sealed record PurchaseState(PurchaseStage Stage,long Quantity=0,long Reserve=40000,PurchaseIntent? Intent=null,string? Reason=null,DateTimeOffset? Deadline=null,bool PaymentConfirmed=false,long TargetStock=10,double? CompletedThrough=null);
 public interface IPurchasePort
 {
     ShopObservation Observe();
@@ -21,12 +21,13 @@ public sealed class BottlePurchase
 {
     private readonly string path;private readonly IPurchasePort port;private readonly TimeProvider time;
     private readonly Func<MaintenancePreferences>? preferences;
+    private readonly Func<double?>? coverage;
     private DateTimeOffset? exitDeadline;
     public PurchaseState State {get;private set;}
-    public BottlePurchase(string path,IPurchasePort port,TimeProvider? time=null,Func<MaintenancePreferences>? preferences=null)
+    public BottlePurchase(string path,IPurchasePort port,TimeProvider? time=null,Func<MaintenancePreferences>? preferences=null,Func<double?>? coverage=null)
     {
         this.path=path;this.port=port;this.time=time??TimeProvider.System;
-        this.preferences=preferences;
+        this.preferences=preferences;this.coverage=coverage;
         State=File.Exists(path)?JsonSerializer.Deserialize<PurchaseState>(File.ReadAllText(path))??throw new InvalidDataException("采购记录损坏"):new(PurchaseStage.Idle);
         // Exit is persisted only after reconciliation; dialogue pages no longer expose balances.
         if(State.Intent is not null && State.Stage is not (PurchaseStage.Exit or PurchaseStage.Complete))
@@ -56,7 +57,11 @@ public sealed class BottlePurchase
         var f=port.Observe();if(!f.Foreground)return;
         if(State.Stage==PurchaseStage.Exit||State.PaymentConfirmed)
         {
-            if(f.Page=="scene"){Save(State with{Stage=PurchaseStage.Complete,Reason=null,PaymentConfirmed=true});return;}
+            if(f.Page=="scene")
+            {
+                var observed=coverage?.Invoke();
+                Save(State with{Stage=PurchaseStage.Complete,Reason=null,PaymentConfirmed=true,CompletedThrough=observed is{} through&&double.IsFinite(through)?through:null});return;
+            }
             if(!allowInput||State.Stage==PurchaseStage.Blocked)return;
             exitDeadline??=time.GetUtcNow().AddSeconds(120);
             if(time.GetUtcNow()>=exitDeadline){Save(State with{Stage=PurchaseStage.Blocked,Reason="采购退出超时，保留已核对付款记录"});return;}

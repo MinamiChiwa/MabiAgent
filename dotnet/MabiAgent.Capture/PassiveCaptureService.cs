@@ -4,7 +4,10 @@ using System.Net;
 namespace MabiAgent.Capture;
 
 public sealed record TcpEndpoint(string SourceAddress, ushort SourcePort, string DestinationAddress, ushort DestinationPort);
-public sealed record TcpPacket(TcpEndpoint Endpoint, uint Sequence, byte[] Payload, bool Syn, bool Fin, bool Reset, double ReceivedAt, string CaptureSource="");
+public sealed record TcpPacket(TcpEndpoint Endpoint, uint Sequence, byte[] Payload, bool Syn, bool Fin, bool Reset, double ReceivedAt, string CaptureSource="")
+{
+    public bool Acknowledgement { get; init; }
+}
 public sealed record CaptureMetrics(long Packets=0,long PayloadBytes=0,long DecodedFrames=0,int Connections=0,int BufferedBytes=0,long Invalidations=0)
 {
     public const int ConnectionLimit=64,BufferLimit=48*1024*1024;
@@ -62,12 +65,13 @@ public static class TcpPacketDecoder
         if (tcp.Length < 20) return null;
         var tcpHeader = (tcp[12] >> 4) * 4; if (tcpHeader < 20 || tcpHeader > tcp.Length) return null;
         return new(new(source, BinaryPrimitives.ReadUInt16BigEndian(tcp), destination, BinaryPrimitives.ReadUInt16BigEndian(tcp[2..])),
-            BinaryPrimitives.ReadUInt32BigEndian(tcp[4..]), tcp[tcpHeader..].ToArray(), (tcp[13] & 2) != 0, (tcp[13] & 1) != 0, (tcp[13] & 4) != 0, receivedAt);
+            BinaryPrimitives.ReadUInt32BigEndian(tcp[4..]), tcp[tcpHeader..].ToArray(), (tcp[13] & 2) != 0, (tcp[13] & 1) != 0, (tcp[13] & 4) != 0, receivedAt)
+        { Acknowledgement = (tcp[13] & 0x10) != 0 };
     }
 }
 
-/// <summary>One capture worker, bounded live streams, no packet archives or output files.</summary>
-public sealed class PassiveCaptureService(StreamingInventory inventory, Func<IPassivePacketSource> sourceFactory, Func<TcpEndpoint,bool> allowServerEndpoint,Action<GameFrame,string,double>? observeFrame=null) : IDisposable
+/// <summary>One capture worker and bounded live streams. Raw diagnostics require an explicit trace opt-in.</summary>
+public sealed class PassiveCaptureService(StreamingInventory inventory, Func<IPassivePacketSource> sourceFactory, Func<TcpEndpoint,bool> allowServerEndpoint,Action<GameFrame,string,double>? observeFrame=null,CapturePacketTrace? packetTrace=null) : IDisposable
 {
     private sealed record Connection(RollingTcpStream Stream, string Id, double LastSeen, uint? SynSequence);
     private readonly object gate = new();
@@ -76,6 +80,7 @@ public sealed class PassiveCaptureService(StreamingInventory inventory, Func<IPa
     private bool disposed;
     private long lifetime;
     private long payloadBytes,decodedFrames,invalidations;
+    private readonly CapturePacketTrace? trace = packetTrace ?? CapturePacketTrace.FromEnvironment();
     public CaptureMetrics MetricsSnapshot()
     {lock(gate)return new(CapturedPackets,payloadBytes,decodedFrames,connections.Count,connections.Values.Sum(c=>c.Stream.BufferedBytes),invalidations);}
     public bool IsRunning { get { lock (gate) return cancellation is not null; } }
@@ -99,7 +104,7 @@ public sealed class PassiveCaptureService(StreamingInventory inventory, Func<IPa
             catch (Exception error) { Invalidate(error.Message); throw; }
             finally
             {
-                lock (gate) { connections.Clear(); inventory.Invalidate("Capture stopped"); cancellation = null; owned.Dispose(); }
+                lock (gate) { connections.Clear(); inventory.Invalidate("Capture stopped"); cancellation = null; owned.Dispose(); trace?.Dispose(); }
             }
         }, CancellationToken.None);
     }
@@ -113,18 +118,24 @@ public sealed class PassiveCaptureService(StreamingInventory inventory, Func<IPa
             foreach (var expired in connections.Where(p => packet.ReceivedAt - p.Value.LastSeen > 120).Select(p => p.Key).ToArray())
             { var prior = connections[expired]; connections.Remove(expired); InvalidateConnection(prior.Id, "Connection expired; full sync required"); }
             if (packet.Reset || packet.Fin)
-            { if (connections.Remove(streamKey, out var closed)) InvalidateConnection(closed.Id, "Connection closed"); return; }
+            {
+                if (connections.Remove(streamKey, out var closed))
+                { trace?.Record(packet, closed.Id, closed.Stream.TraceState(), null); InvalidateConnection(closed.Id, "Connection closed"); }
+                return;
+            }
             if (packet.Payload.Length == 0 && !packet.Syn) return;
             if (!connections.TryGetValue(streamKey, out var connection) || packet.Syn && connection.SynSequence != packet.Sequence)
             {
                 if (connection is not null) InvalidateConnection(connection.Id, "Connection replaced; full sync required");
                 if (connections.Count >= CaptureMetrics.ConnectionLimit) { connections.Clear(); inventory.Invalidate("Connection budget exceeded");invalidations++; }
-                connection = new(new RollingTcpStream(inventory.ValidateFullSync), (++lifetime).ToString(System.Globalization.CultureInfo.InvariantCulture), packet.ReceivedAt, packet.Syn ? packet.Sequence : null);
+                connection = new(new RollingTcpStream(inventory.ValidateFullSync,inventory.Protocol.Login), (++lifetime).ToString(System.Globalization.CultureInfo.InvariantCulture), packet.ReceivedAt, packet.Syn ? packet.Sequence : null);
                 connections[streamKey] = connection;
             }
+            var before = trace is null ? null : connection.Stream.TraceState();
+            string? traceError = null;
             try
             {
-                foreach (var frame in connection.Stream.Feed(packet.Sequence, packet.Payload, packet.Syn)){observeFrame?.Invoke(frame,connection.Id,packet.ReceivedAt);inventory.Accept(frame, connection.Id, packet.ReceivedAt);decodedFrames++;}
+                foreach (var frame in connection.Stream.Feed(packet.Sequence, packet.Payload, packet.Syn, packet.Acknowledgement)){observeFrame?.Invoke(frame,connection.Id,packet.ReceivedAt);inventory.Accept(frame, connection.Id, packet.ReceivedAt);decodedFrames++;}
                 connections[streamKey] = connection with { LastSeen = packet.ReceivedAt };
                 if (connections.Values.Sum(c => c.Stream.BufferedBytes) > CaptureMetrics.BufferLimit)
                     throw new InvalidDataException("Capture decoder byte budget exceeded");
@@ -132,7 +143,29 @@ public sealed class PassiveCaptureService(StreamingInventory inventory, Func<IPa
                     inventory.Advance(packet.ReceivedAt, connection.Stream.Healthy);
             }
             catch (Exception error) when (error is InvalidDataException or ArgumentException or OverflowException)
-            { connections.Remove(streamKey); InvalidateConnection(connection.Id, error.Message); LastError = error.Message;LastException=error; }
+            {
+                traceError = error.Message;
+                error.Data["capture_source"]=packet.CaptureSource;error.Data["endpoint"]=packet.Endpoint.ToString();
+                error.Data["sequence"]=packet.Sequence;error.Data["payload_bytes"]=packet.Payload.Length;error.Data["buffered_bytes"]=connection.Stream.BufferedBytes;
+                connections.Remove(streamKey);InvalidateConnection(connection.Id,error.Message);LastError=error.Message;LastException=error;
+                // A missed connection replacement can reuse the endpoint with a new sequence.
+                // Discard the damaged stream, but keep this packet: it can contain the map's
+                // only full sync. The fresh decoder accepts only a validated full-sync frame.
+                if(error.Message is "Conflicting TCP reorder" or "Conflicting TCP retransmit" or "TCP reorder budget exceeded")
+                {
+                    var replacement=new Connection(new RollingTcpStream(inventory.ValidateFullSync,inventory.Protocol.Login),(++lifetime).ToString(System.Globalization.CultureInfo.InvariantCulture),packet.ReceivedAt,null);
+                    try
+                    {
+                        foreach(var frame in replacement.Stream.Feed(packet.Sequence,packet.Payload))
+                        {observeFrame?.Invoke(frame,replacement.Id,packet.ReceivedAt);inventory.Accept(frame,replacement.Id,packet.ReceivedAt);decodedFrames++;}
+                        connections[streamKey]=replacement;
+                        if(replacement.Id==inventory.ActiveConnectionId)inventory.Advance(packet.ReceivedAt,replacement.Stream.Healthy);
+                    }
+                    catch(Exception recoveryError)when(recoveryError is InvalidDataException or ArgumentException or OverflowException)
+                    {InvalidateConnection(replacement.Id,recoveryError.Message);}
+                }
+            }
+            finally { trace?.Record(packet, connection.Id, before, connection.Stream.TraceState(), traceError); }
         }
     }
     private void InvalidateConnection(string connectionId, string reason)
@@ -140,6 +173,6 @@ public sealed class PassiveCaptureService(StreamingInventory inventory, Func<IPa
     private void Invalidate(string reason)
     { lock (gate) { connections.Clear(); inventory.Invalidate(reason); LastError = reason;invalidations++; } }
     public void Stop() { lock (gate) cancellation?.Cancel(); }
-    public void Dispose() { lock (gate) { disposed = true; cancellation?.Cancel(); } GC.SuppressFinalize(this); }
+    public void Dispose() { lock (gate) { disposed = true; cancellation?.Cancel(); if(cancellation is null)trace?.Dispose(); } GC.SuppressFinalize(this); }
 }
 

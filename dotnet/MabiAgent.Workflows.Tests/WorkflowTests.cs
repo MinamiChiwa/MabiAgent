@@ -126,11 +126,12 @@ internal sealed class ProductionPort : IProductionPort
 internal sealed class GatheringPort : IGatheringPort
 {
     public Exception? StartError;public int Pauses;public bool ReleaseAllowed;public bool CanReleaseForeground()=>ReleaseAllowed;
-    public GatheringFrame Frame = new("scene", RouteKey: "ore", StartAvailable: true); public int Starts;
-    public int ActiveReads,PassiveReads;
+    public GatheringFrame Frame = new("scene", RouteKey: "ore", StartAvailable: true); public int Starts, Navigations;
+    public int ActiveReads,PassiveReads,Dismissals;
+    public bool DismissMissingConsumables(){Dismissals++;return true;}
     public GatheringFrame Observe(GatheringRoute route, string actionId) {ActiveReads++;return Frame;}
     public GatheringFrame ObserveOnly(GatheringRoute route,string actionId){PassiveReads++;return Frame;}
-    public void Navigate(GatheringRoute route) { } public void Start(GatheringRoute route, string actionId) {if(StartError is{} error)throw error;Starts++;}
+    public void Navigate(GatheringRoute route) { Navigations++; } public void Start(GatheringRoute route, string actionId) {if(StartError is{} error)throw error;Starts++;}
     public void Pause(string reason) { Pauses++; } public void Resume() { }
 }
 

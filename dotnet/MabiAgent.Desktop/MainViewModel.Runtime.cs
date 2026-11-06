@@ -21,7 +21,7 @@ public partial class MainViewModel
         if(activity.DiagnosticWriteError is{} diagnosticError)RuntimeIssues+=(RuntimeIssues.Length==0?"":"\n")+"故障日志写入失败："+diagnosticError;
         RuntimeTask=active is null?"当前任务："+(IsRunning?"正在核验或等待":"无"):"当前任务："+active.Name;
         var goals=Jobs.Where(j=>!j.Automatic&&!j.Cancelled).ToArray();
-        RuntimeProgress=$"目标 {goals.Count(j=>j.Completed>=j.Target)}/{goals.Length} 已完成 · {Jobs.Count(j=>j.Pending)} 个活动批次 · {status?.ReconciliationCount??0} 项待核账"+(active is null?"":$" · 当前已确认 {(active.IsFishing?JobRow.Duration(active.Completed+(status?.ActiveConfirmed??0)):(active.Completed+(status?.ActiveConfirmed??0)).ToString())} / {active.TargetLabel}");
+        RuntimeProgress=$"目标 {goals.Count(j=>j.Completed>=j.Target)}/{goals.Length} 已完成 · {Jobs.Count(j=>j.Pending)} 个活动批次 · {status?.ReconciliationCount??0} 项待核账"+(active is null?"":$" · 当前已确认 {active.CompletedLabel} / {active.TargetLabel}");
         RuntimeHealth=automation is null?"等待启动":$"心跳 {automation.Heartbeat:HH:mm:ss} · {automation.ExecutionStage} · 计划 {status!.PlanRevision}"+(DateTimeOffset.Now-automation.Heartbeat>TimeSpan.FromSeconds(5)?" · 心跳延迟，请查看异常记录":"")+
             (status.PauseReason is null?"":" · 暂停："+(status.PauseReason=="fishing_result_pending"?"钓鱼动作结果待确认":PauseLabel(status.PauseReason)))+(status.RecoveryAttempt==0?"":$" · 自动重试 {status.RecoveryAttempt}/3");
         UpdateCompactSummary(active,status?.ActiveConfirmed??0,goals);
@@ -36,6 +36,6 @@ public partial class MainViewModel
         var view=source.Automatic?AutomaticView:QueueView;
         if(view.SortDescriptions.Count>0){OperationStatus="请先重置表头排序，再拖动任务";return Task.CompletedTask;}
         if(!view.Contains(source)||!view.Contains(target))return Task.CompletedTask;
-        return ChangeAsync(()=>workspace.EditQueue(q=>q.Move(source.Id,source.Order<target.Order?1:-1,target.Id)),"执行顺序已保存");
+        return ChangeAsync(()=>workspace.EditQueue(q=>q.Move(source.Id,source.Order<target.Order?1:-1,target.Id)),"列表位置已保存");
     }
 }

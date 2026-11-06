@@ -59,14 +59,14 @@ public sealed class WorkbenchRepository(EditorRepository repository)
         }
         foreach(var(prefix,extra)in extraProfiles)foreach(var(key,value)in extra["templates"]?.AsObject()??[])
         {
-            var name=prefix+key;var id="ui_profile:"+name;if(document.FindAnchor(id) is not null)continue;
+            var name=prefix+key;var id="ui_profile:"+name;if(document.FindAnchor(id) is not null)continue;var section=prefix switch{"purchase."=>"purchase","travel."=>"travel_wings","relogin."=>"relogin",_=>"notifications"};
             var spec=value!.DeepClone().AsObject();spec["id"]="default";spec["name"]="默认状态";spec["mode"]="image";spec["template_key"]=name;spec["box"]??=spec["crop_native"]?.DeepClone();spec["search"]??=spec["box"]?.DeepClone();spec["threshold"]??=JsonValue.Create(.97);
-            var anchor=new WorkbenchAnchor(new JsonObject{["id"]=id,["name"]=name,["in_library"]=true,["source_namespace"]="ui_profile"});anchor.States.Add(new(spec));document.Anchors.Add(anchor);
+            var anchor=new WorkbenchAnchor(new JsonObject{["id"]=id,["name"]=name,["in_library"]=true,["source_namespace"]=section,["source_path"]=new JsonArray(section,"templates",key)});anchor.States.Add(new(spec));document.Anchors.Add(anchor);
         }
         foreach(var(section,node)in routes["ui_profile"]!.AsObject().Where(p=>p.Key is "pages" or "page_variants"))foreach(var(key,page)in node!.AsObject())
         {
             var id=section=="pages"?key:"variant:"+key;var source=page!.AsObject();
-            var row=new WorkbenchPage(new JsonObject{["id"]=id,["name"]=EditorRepository.Text(source,"label",EditorRepository.Text(source,"name",WorkbenchLabels.Page(key))),["runtime_page"]=EditorRepository.Text(source,"page",key),["source_section"]=section,["source_key"]=key,["source"]=source.DeepClone(),["anchor_ids"]=string.Join(", ",(source["anchors"] as JsonArray??[]).Select(a=>"ui_profile:"+a!.GetValue<string>()))});
+            var row=new WorkbenchPage(new JsonObject{["id"]=id,["name"]=EditorRepository.Text(source,"label",EditorRepository.Text(source,"name",WorkbenchLabels.Page(key))),["runtime_page"]=EditorRepository.Text(source,"page",key),["source_section"]=section,["source_key"]=key,["source_path"]=new JsonArray(section,key),["in_library"]=true,["source"]=source.DeepClone(),["anchor_ids"]=string.Join(", ",(source["anchors"] as JsonArray??[]).Select(a=>"ui_profile:"+a!.GetValue<string>()))});
             foreach(var(target,value)in source["targets"]?.AsObject()??[])row.Transitions.Add(new(new JsonObject{["id"]="link_"+Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(id+"\n"+target)))[..20],["name"]=target,["anchor_id"]="ui_profile:"+value!.GetValue<string>(),["target"]=target,["imported"]=true}));
             foreach(var collection in new[]{"coordinate_targets","fixed_targets"})foreach(var(target,area)in source[collection]?.AsObject()??[])
             {if(area is null)continue;var anchor=ImportCoordinateAnchor(document,id,target,area);if(row.Transitions.Any(t=>t.Target==target))continue;row.Transitions.Add(new(new JsonObject{["id"]="link_"+Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(id+"\n"+target)))[..20],["name"]=target,["anchor_id"]=anchor.Id,["target"]=target,["imported"]=true}));}
@@ -96,6 +96,7 @@ public sealed class WorkbenchRepository(EditorRepository repository)
         var strategySources=(JsonObject)Editor.Catalog.DeepClone();strategySources["ui"]=routes["ui_profile"]!.DeepClone();strategySources["devices"]=routes["devices"]?.DeepClone();
         foreach(var(prefix,extra)in extraProfiles)
         {var section=prefix switch{"purchase."=>"purchase","travel."=>"travel_wings","relogin."=>"relogin",_=>"notifications"};strategySources[section]=strategySources[section] is JsonObject original?CatalogLoader.Merge(extra,original):extra.DeepClone();}
+        WorkbenchCompiler.RemoveRetiredPublicFlowSettings(strategySources);
         BindMapNavigation(strategySources);
         foreach(var(root,value)in strategySources.Where(x=>x.Key is "maintenance" or "quantity" or "fishing" or "travel_wings" or "relogin" or "purchase" or "notifications" or "scheduler" or "runtime" or "gathering_policy" or "devices" or "ui" or "gathering_observer" or "gathering_routes"))
         {
@@ -117,7 +118,7 @@ public sealed class WorkbenchRepository(EditorRepository repository)
         {
             if(obj["stages"] is JsonObject stages)
             {
-                var key=string.Join("/",path.Select(x=>x!.ToString()));var chain=new WorkbenchChain(new JsonObject{["id"]="route:"+key,["name"]=WorkbenchLabels.Category(category)+" · "+WorkbenchLabels.Page(path.Last()!.ToString()),["description"]=key,["kind"]=category,["runtime_key"]=key,["source_path"]=path.DeepClone(),["staged_route"]=true,["enabled"]=false});
+                var key=string.Join("/",path.Select(x=>x!.ToString()));var chain=new WorkbenchChain(new JsonObject{["id"]="route:"+key,["name"]=WorkbenchLabels.RouteChainName(category,path.Last()!.ToString()),["description"]=key,["kind"]=category,["runtime_key"]=key,["source_path"]=path.DeepClone(),["staged_route"]=true,["enabled"]=false});
                 foreach(var(stageName,stage)in stages)foreach(var collection in new[]{"choices","search"})foreach(var(step,i)in(stage?[collection] as JsonArray??[]).OfType<JsonObject>().Select((s,i)=>(s,i)))
                 {
                     var target=EditorRepository.Text(step,"target");var card=new WorkbenchCard(new JsonObject{["id"]=stageName+"_"+collection+"_"+i,["name"]=target,["action"]=EditorRepository.Text(step,"kind","click"),["page_id"]=path.Last()!.ToString(),["target"]=target,["source"]=step.DeepClone(),["stage"]=stageName,["stage_collection"]=collection,["role"]="navigation"});
@@ -127,27 +128,33 @@ public sealed class WorkbenchRepository(EditorRepository repository)
             }
             if(obj["steps"] is JsonArray steps&&steps.Any(x=>x?["target"] is not null))
             {
-                var key=string.Join("/",path.Select(x=>x!.ToString()));var chain=new WorkbenchChain(new JsonObject{["id"]="route:"+key,["name"]=WorkbenchLabels.Category(category)+" · "+WorkbenchLabels.Page(path.Last()!.ToString()),["description"]=key,["kind"]=category,["runtime_key"]=key,["source_path"]=path.DeepClone(),["enabled"]=false});
+                var key=string.Join("/",path.Select(x=>x!.ToString()));var chain=new WorkbenchChain(new JsonObject{["id"]="route:"+key,["name"]=WorkbenchLabels.RouteChainName(category,path.Last()!.ToString()),["description"]=key,["kind"]=category,["runtime_key"]=key,["source_path"]=path.DeepClone(),["enabled"]=false});
                 foreach(var(step,i)in steps.OfType<JsonObject>().Select((s,i)=>(s,i)))chain.Cards.Add(new(new JsonObject{["id"]="step_"+i,["name"]=EditorRepository.Text(step,"target","步骤 "+(i+1)),["action"]=EditorRepository.Text(step,"kind","click"),["page_id"]=EditorRepository.Text(step,"page"),["expected_page_id"]=EditorRepository.Text(step,"expected_page"),["target"]=EditorRepository.Text(step,"target"),["source"]=step.DeepClone()}));
                 document.Chains.Add(chain);
             }
             else if(obj["target"] is JsonValue&&path.Count>=3&&path.Any(p=>p?.ToString() is "navigation" or "exit_navigation"))
             {
-                var key=string.Join("/",path.Select(x=>x!.ToString()));var chain=new WorkbenchChain(new JsonObject{["id"]="route:"+key,["name"]=WorkbenchLabels.Category(category)+" · "+WorkbenchLabels.Page(path.Last()!.ToString()),["description"]=key,["kind"]=category,["runtime_key"]=key,["source_path"]=path.DeepClone(),["single_route"]=true,["enabled"]=false});
+                var key=string.Join("/",path.Select(x=>x!.ToString()));var chain=new WorkbenchChain(new JsonObject{["id"]="route:"+key,["name"]=WorkbenchLabels.RouteChainName(category,path.Last()!.ToString()),["description"]=key,["kind"]=category,["runtime_key"]=key,["source_path"]=path.DeepClone(),["single_route"]=true,["enabled"]=false});
                 chain.Cards.Add(new(new JsonObject{["id"]="step",["name"]=EditorRepository.Text(obj,"target"),["action"]=EditorRepository.Text(obj,"kind","click"),["page_id"]=path.Last()!.ToString(),["target"]=EditorRepository.Text(obj,"target"),["source"]=obj.DeepClone()}));document.Chains.Add(chain);return;
             }
             foreach(var(k,v)in obj){if(k is "templates" or "steps")continue;var p=(JsonArray)path.DeepClone();p.Add(k);ImportRoutes(document,v,p,category);}
         }
         else if(value is JsonArray array)for(int i=0;i<array.Count;i++){var p=(JsonArray)path.DeepClone();p.Add(i);ImportRoutes(document,array[i],p,category);}
     }
+    static readonly (string Destination,string Place,string Target,string Travel)[] MapDestinations=
+    [
+        ("repair_quote","map.blacksmith","map.repair_npc","repair_travel"),
+        ("purchase_shop","map.general_store","map.shop_npc","shop_travel"),
+        ("storage","map.inn","map.storage_box","storage_travel")
+    ];
     internal static void BindMapNavigation(JsonObject configuration)
     {
         if(configuration["maintenance"]?["map_navigation"] is not {} template)return;
-        JsonNode Bind(JsonNode node,string shop,string npc,string travel)=>node switch
-        {JsonObject obj=>new JsonObject(obj.Select(p=>KeyValuePair.Create(p.Key,p.Value is null?null:Bind(p.Value,shop,npc,travel)))),JsonArray array=>new JsonArray(array.Select(v=>v is null?null:Bind(v,shop,npc,travel)).ToArray()),JsonValue value when value.TryGetValue<string>(out var name)=>JsonValue.Create(name switch{"$shop"=>shop,"$npc"=>npc,"$travel"=>travel,_=>name})!,_=>node.DeepClone()};
+        JsonNode Bind(JsonNode node,string place,string target,string travel)=>node switch
+        {JsonObject obj=>new JsonObject(obj.Select(p=>KeyValuePair.Create(p.Key,p.Value is null?null:Bind(p.Value,place,target,travel)))),JsonArray array=>new JsonArray(array.Select(v=>v is null?null:Bind(v,place,target,travel)).ToArray()),JsonValue value when value.TryGetValue<string>(out var name)=>JsonValue.Create(name switch{"$shop"=>place,"$npc"=>target,"$travel"=>travel,_=>name})!,_=>node.DeepClone()};
         configuration["maintenance"]!["navigation"]??=new JsonObject();
-        foreach(var(destination,shop,npc,travel)in new[]{("repair_quote","map.blacksmith","map.repair_npc","repair_travel"),("purchase_shop","map.general_store","map.shop_npc","shop_travel")})
-        {configuration["maintenance"]!["navigation"]![destination]??=new JsonObject();configuration["maintenance"]!["navigation"]![destination]!["region_map"]=Bind(template,shop,npc,travel);}
+        foreach(var(destination,place,target,travel)in MapDestinations)
+        {configuration["maintenance"]!["navigation"]![destination]??=new JsonObject();configuration["maintenance"]!["navigation"]![destination]!["region_map"]=Bind(template,place,target,travel);}
     }
     static readonly HashSet<string> Protected=["templates","path","sha256","bytes","label_template","trusted_asset_roots","contract","source","root","coordinates_for_input"];
     static void ImportStrategies(WorkbenchDocument document,JsonNode? value,JsonArray path,string category)

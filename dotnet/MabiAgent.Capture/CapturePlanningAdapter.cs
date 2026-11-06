@@ -26,7 +26,7 @@ public sealed class CapturePlanningAdapter(AccountItemService accounts, IReadOnl
         var scopeKey = ScopeKey(scope); var inventory = new MabiAgent.Core.InventorySnapshot(scopeKey); var issues = new List<CaptureMappingIssue>();
         ItemNameRegistry registry;
         try { registry = accounts.ReadNames(scope.AccountId); }
-        catch (Exception error) when (error is IOException or UnauthorizedAccessException or JsonException or ArgumentException)
+        catch (Exception error) when (error is IOException or InvalidDataException or UnauthorizedAccessException or JsonException or ArgumentException)
         { return new(inventory, scopeKey, [new(null, "association_unavailable", "道具关联不可用：" + error.Message)]); }
         var duplicates = names.Where(p => p.Key > 0 && !string.IsNullOrWhiteSpace(p.Value)).GroupBy(p => ItemNameRegistry.Normalize(p.Value))
             .Where(g => g.Count() > 1).Select(g => g.Key).ToHashSet(StringComparer.Ordinal);

@@ -90,6 +90,16 @@ public sealed partial class AnchorWorkbenchViewModel:ObservableObject,IDisposabl
         document=repository.Load();baseline=Document.ToJson().ToJsonString();ResetViews();SelectDefaults();
         SelectedCards.CollectionChanged+=(_,_)=>OnPropertyChanged(nameof(SelectionText));
         Results.CollectionChanged+=(_,_)=>OnPropertyChanged(nameof(HasResults));
+        UiLanguageService.Shared.LanguageChanged+=LanguageChanged;
+    }
+    void LanguageChanged(object? sender,EventArgs e)
+    {
+        var models=Document.Chains.Cast<WorkbenchModel>().Concat(Document.Chains.SelectMany(c=>c.Cards))
+            .Concat(Document.Anchors).Concat(Document.Anchors.SelectMany(a=>a.States))
+            .Concat(Document.Pages).Concat(Document.Pages.SelectMany(p=>p.Transitions))
+            .Concat(Document.CardLibrary).Concat(Document.Strategies);
+        foreach(var model in models)model.RefreshDisplay();
+        foreach(var name in new[]{nameof(RuntimeChoices),nameof(TransitionChoices),nameof(ActionChoices),nameof(SemanticRoles),nameof(ChainHint)})OnPropertyChanged(name);
     }
     void SelectDefaults(){SelectedChain=Document.Chains.FirstOrDefault();SelectedPage=Document.Pages.FirstOrDefault();SelectedAnchor=Document.Anchors.FirstOrDefault();}
     void ResetViews()
@@ -213,5 +223,5 @@ public sealed partial class AnchorWorkbenchViewModel:ObservableObject,IDisposabl
     [RelayCommand] Task TestAllAsync()=>RunTestAsync(false);
     [RelayCommand] Task TestSelectedAsync()=>RunTestAsync(true);
     [RelayCommand] void StopTest()=>testCancellation?.Cancel();
-    public void Dispose(){testCancellation?.Cancel();testCancellation?.Dispose();}
+    public void Dispose(){UiLanguageService.Shared.LanguageChanged-=LanguageChanged;testCancellation?.Cancel();testCancellation?.Dispose();}
 }

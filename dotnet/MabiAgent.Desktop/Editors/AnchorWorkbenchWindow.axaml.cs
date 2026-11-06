@@ -96,7 +96,7 @@ public partial class AnchorWorkbenchWindow:UrsaWindow
         vm.EndEdit();
         if(vm.Testing){vm.StopTestCommand.Execute(null);vm.Status="正在停止测试，请稍后关闭。";return false;}
         if(!vm.HasUnsavedChanges)return true;
-        var answer=await MessageBox.ShowAsync(this,"保存工作台修改后关闭？","未保存修改",MessageBoxIcon.Warning,MessageBoxButton.YesNoCancel);
+        var answer=await MessageBox.ShowAsync(this,RuntimeLocalization.Translate("保存工作台修改后关闭？"),RuntimeLocalization.Translate("未保存修改"),MessageBoxIcon.Warning,MessageBoxButton.YesNoCancel);
         if(answer==MessageBoxResult.Cancel)return false;
         if(answer==MessageBoxResult.Yes)return vm.SaveNow();
         if(answer==MessageBoxResult.No){vm.ReloadNow();return true;}

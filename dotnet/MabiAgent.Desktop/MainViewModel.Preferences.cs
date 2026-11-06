@@ -16,9 +16,9 @@ public partial class MainViewModel
     [ObservableProperty] private bool lifeVip;
     partial void OnLifeVipChanged(bool value)
     {
-        var selected=SelectedRecipe?.Id;var catalogSelected=CatalogSelectedRecipe?.Id;
+        var selected=SelectedRecipe?.Id;
         for(var i=0;i<Recipes.Count;i++)Recipes[i]=Recipes[i] with{LifeVip=value};
-        SelectedRecipe=Recipes.FirstOrDefault(r=>r.Id==selected);CatalogSelectedRecipe=Recipes.FirstOrDefault(r=>r.Id==catalogSelected);
+        SelectedRecipe=Recipes.FirstOrDefault(r=>r.Id==selected);
         ScheduleSettings();
     }
     [ObservableProperty] private string inputScheme="touch";

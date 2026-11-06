@@ -10,7 +10,7 @@ public sealed class ScreenWorkbenchFlow
 {
     readonly ScreenWorkflowSession session;readonly JsonObject? definition;readonly JsonObject[] cards;readonly HashSet<string>? selection;
     readonly Dictionary<string,int> visits=[];readonly Dictionary<string,int> retries=[];readonly TimeProvider time;
-    int index,completed;double enteredAt;bool entered,dispatched,initialized,expectedBefore;string? fromPage;double dispatchedAt;
+    int index,completed;double enteredAt;bool entered,dispatched,initialized,expectedBefore,expectedBeforeKnown;string? fromPage;double dispatchedAt;
     public bool Available=>definition is not null;
     public bool HasDispatchedInput {get;private set;}
     public JsonObject? CurrentCard=>index<cards.Length?(JsonObject)cards[index].DeepClone():null;
@@ -42,7 +42,12 @@ public sealed class ScreenWorkbenchFlow
                 (fixedCard["condition_anchors"] as JsonArray??[]).Count==0&&S(fixedCard,"condition_operation","all")=="all")
             {
                 if(fixedCard["consumes_resources"]?.GetValue<bool>()==true)throw new InputBlockedException("消费动作必须落盘意图");
-                RunFixed(fixedCard,fixedAction);dispatched=true;HasDispatchedInput=true;dispatchedAt=now;
+                if(S(fixedCard,"expected_page_id").Length>0||(fixedCard["expected_anchors"] as JsonArray??[]).Count>0)
+                {
+                    observation??=session.Observe();
+                    if(!observation.Stable||!observation.IdentityVerified||observation.View.Modal)return Set(WorkbenchFlowState.Running,"等待操作前基线");
+                }
+                RememberExpected(fixedCard,observation);RunFixed(fixedCard,fixedAction);dispatched=true;HasDispatchedInput=true;dispatchedAt=now;
                 session.TraceNavigation("workbench",S(fixedCard,"id"),"dispatch");
                 if(S(fixedCard,"expected_page_id").Length==0&&(fixedCard["expected_anchors"] as JsonArray??[]).Count==0)Advance(fixedCard,true);
                 return Progress;
@@ -71,7 +76,7 @@ public sealed class ScreenWorkbenchFlow
             if(!dispatched&&(action is "key" or "text"||card["fixed_box"] is JsonArray))
             {
                 if(card["consumes_resources"]?.GetValue<bool>()==true)throw new InputBlockedException("消费动作必须落盘意图");
-                fromPage=o.View.Page;RunFixed(card,action);dispatched=true;HasDispatchedInput=true;dispatchedAt=now;
+                RememberExpected(card,o);RunFixed(card,action);dispatched=true;HasDispatchedInput=true;dispatchedAt=now;
                 if(S(card,"expected_page_id").Length==0&&(card["expected_anchors"] as JsonArray??[]).Count==0)Advance(card,true);
                 return Progress;
             }
@@ -79,8 +84,8 @@ public sealed class ScreenWorkbenchFlow
             {
                 var expected=S(card,"expected_page_id");var expectedAnchors=(card["expected_anchors"] as JsonArray??[]).Select(n=>n!.GetValue<string>()).ToArray();
                 var anchorsConfirmed=expectedAnchors.Length>0&&session.LastCapture is{} fresh&&expectedAnchors.All(name=>session.Matcher.Anchor(fresh.Image,name) is not null);
-                var pageConfirmed=expected.Length>0&&expected!=fromPage&&o.View.Page==expected;
-                var confirmed=pageConfirmed||!expectedBefore&&anchorsConfirmed&&(expected.Length==0||o.View.Page==expected);
+                var pageConfirmed=expected.Length>0&&fromPage is not null&&expected!=fromPage&&o.View.Page==expected;
+                var confirmed=pageConfirmed||expectedBeforeKnown&&!expectedBefore&&anchorsConfirmed&&(expected.Length==0||o.View.Page==expected);
                 if(now-dispatchedAt>=.12&&confirmed)Advance(card,true);else Set(WorkbenchFlowState.Running,"确认操作结果");
                 return Progress;
             }
@@ -88,10 +93,9 @@ public sealed class ScreenWorkbenchFlow
             if(action is not("click" or "right" or "scroll" or "zoom_max" or "drag"))throw new InputBlockedException("任务步骤类型未审核："+action);
             var target=S(card,"target");if(target.Length==0||!o.View.Targets.ContainsKey(target))return Set(WorkbenchFlowState.Running,"等待目标："+target);
             var step=card["source"]?.DeepClone()?.AsObject()??new JsonObject();step["kind"]=action;step["target"]=target;
-            var expectedNames=(card["expected_anchors"] as JsonArray??[]).Select(n=>n!.GetValue<string>()).ToArray();expectedBefore=expectedNames.Length>0&&session.LastCapture is{} before&&expectedNames.All(name=>session.Matcher.Anchor(before.Image,name) is not null);
-            fromPage=o.View.Page;session.Step(step);dispatched=true;HasDispatchedInput=true;dispatchedAt=now;
+            RememberExpected(card,o);session.Step(step);dispatched=true;HasDispatchedInput=true;dispatchedAt=now;
             session.TraceNavigation("workbench",id,"dispatch");
-            if(S(card,"expected_page_id").Length==0&&expectedNames.Length==0){Advance(card,true);return Progress;}
+            if(S(card,"expected_page_id").Length==0&&(card["expected_anchors"] as JsonArray??[]).Count==0){Advance(card,true);return Progress;}
             return Set(WorkbenchFlowState.Running,"等待声明的操作结果");
         }
         catch(Exception error)when(error is not OutOfMemoryException)
@@ -102,6 +106,13 @@ public sealed class ScreenWorkbenchFlow
         if(!Available)return false;var progress=Tick(observation);
         if(progress.State==WorkbenchFlowState.Failed)throw new InputBlockedException(progress.Message);
         return progress.State is WorkbenchFlowState.Running or WorkbenchFlowState.Idle;
+    }
+    void RememberExpected(JsonObject card,UiObservation? observation)
+    {
+        var before=observation??session.LastObservation;fromPage=before?.View.Page;
+        var names=(card["expected_anchors"] as JsonArray??[]).Select(n=>n!.GetValue<string>()).ToArray();
+        expectedBeforeKnown=names.Length>0&&session.LastCapture is not null;
+        expectedBefore=expectedBeforeKnown&&names.All(name=>session.Matcher.Anchor(session.LastCapture!.Image,name) is not null);
     }
     void RunFixed(JsonObject card,string action)
     {
@@ -148,7 +159,7 @@ public sealed class ScreenWorkbenchFlow
         var next=S(card,success?"success_id":"failure_id");
         var endConditionPath=!success&&S(card,"action")=="branch"&&next.Length==0;
         if(next.Length>0){var destination=Array.FindIndex(cards,c=>S(c,"id")==next);index=destination<0?cards.Length:destination;}else if(endConditionPath)index=cards.Length;else index++;
-        entered=dispatched=expectedBefore=false;fromPage=null;
+        entered=dispatched=expectedBefore=expectedBeforeKnown=false;fromPage=null;
         Set(index>=cards.Length?WorkbenchFlowState.Completed:WorkbenchFlowState.Running,endConditionPath?"条件未满足，当前路径结束":index>=cards.Length?"流程完成":"准备下一步");
     }
     WorkbenchFlowProgress Set(WorkbenchFlowState state,string message)=>Progress=new(state,index<cards.Length?S(cards[index],"id"):null,message,completed,cards.Length);

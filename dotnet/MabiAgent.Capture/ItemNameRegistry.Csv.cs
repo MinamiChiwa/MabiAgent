@@ -48,6 +48,51 @@ public sealed partial class ItemNameRegistry
             }
         }
     }
+    /// <summary>为抓包已出现的类型补名或刷新客户端自动名称，保留其他可信来源与用户清除。</summary>
+    public void LoadClientCatalog(JsonElement catalog)
+    {
+        if (catalog.GetProperty("schema_version").GetInt32() != 1 || catalog.GetProperty("table").GetString() != "Consumable")
+            throw new InvalidDataException("客户端物品名称表格式无效");
+        var items = catalog.GetProperty("items");
+        var fingerprint = catalog.GetProperty("index_sha256").GetString();
+        if (fingerprint is null || fingerprint.Length != 64 || fingerprint.Any(c => !char.IsAsciiHexDigit(c)))
+            throw new InvalidDataException("客户端物品名称表缺少文件指纹");
+        lock (gate)
+        {
+            foreach (var current in rows.Values.ToArray())
+            {
+                if (!current.Captured || !(current.Association is NameAssociation.Unknown or NameAssociation.Candidate ||
+                    current.Association == NameAssociation.BuiltinVerified && current.Source.StartsWith("client_resource:", StringComparison.Ordinal))) continue;
+                if (!items.TryGetProperty(current.ItemId.ToString(CultureInfo.InvariantCulture), out var item)) continue;
+                var name = item.GetProperty("name").GetString();
+                if (string.IsNullOrWhiteSpace(name)) throw new InvalidDataException("客户端物品名称为空");
+                _ = Normalize(name);
+                var row = item.GetProperty("row").GetInt32();
+                if (row < 0) throw new InvalidDataException("客户端物品行号无效");
+                Set(current with { Name = name, Association = NameAssociation.BuiltinVerified,
+                    Source = $"client_resource:{fingerprint}:Consumable:{row}" });
+            }
+        }
+    }
+    internal static void ValidateClientCatalog(JsonElement catalog)
+    {
+        if (catalog.GetProperty("schema_version").GetInt32() != 1 || catalog.GetProperty("table").GetString() != "Consumable")
+            throw new InvalidDataException("客户端物品名称表格式无效");
+        var fingerprint = catalog.GetProperty("index_sha256").GetString();
+        if (fingerprint is null || fingerprint.Length != 64 || fingerprint.Any(c => !char.IsAsciiHexDigit(c)))
+            throw new InvalidDataException("客户端物品名称表缺少文件指纹");
+        var ids = new HashSet<uint>();
+        foreach (var pair in catalog.GetProperty("items").EnumerateObject())
+        {
+            if (ids.Count >= 100000 || !uint.TryParse(pair.Name, NumberStyles.None, CultureInfo.InvariantCulture, out var id) || id == 0 || !ids.Add(id))
+                throw new InvalidDataException("客户端物品类型ID无效或重复");
+            var name = pair.Value.GetProperty("name").GetString();
+            if (string.IsNullOrWhiteSpace(name) || name.Length > 80 || name.Any(char.IsControl) || pair.Value.GetProperty("row").GetInt32() < 0)
+                throw new InvalidDataException("客户端物品名称或行号无效");
+            _ = Normalize(name);
+        }
+        if (ids.Count == 0) throw new InvalidDataException("客户端物品名称表为空");
+    }
     internal static IEnumerable<IReadOnlyList<string>> CsvRows(TextReader input)
     {
         var row = new List<string>(); var field = new StringBuilder(); var quoted = false; var afterQuote = false; var total = 0;

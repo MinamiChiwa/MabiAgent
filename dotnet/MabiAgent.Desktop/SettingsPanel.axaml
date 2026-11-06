@@ -1,174 +1,253 @@
-<UserControl xmlns="https://github.com/avaloniaui" xmlns:ui="clr-namespace:MabiAgent.Desktop.Controls" xmlns:u="https://irihi.tech/ursa" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" x:Class="MabiAgent.Desktop.SettingsPanel">
+<UserControl xmlns:local="clr-namespace:MabiAgent.Desktop" xmlns="https://github.com/avaloniaui" xmlns:ui="clr-namespace:MabiAgent.Desktop.Controls" xmlns:u="https://irihi.tech/ursa" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" x:Class="MabiAgent.Desktop.SettingsPanel" x:CompileBindings="True" x:DataType="local:MainViewModel">
+  <UserControl.Resources>
+    <DataTemplate x:Key="VipSettingsTemplate" x:DataType="local:MainViewModel">
+      <Border Classes="card section-settings" Padding="12">
+        <Grid ColumnDefinitions="*,Auto">
+          <StackPanel>
+            <TextBlock Text="生活 VIP · 加工时长减半" FontWeight="SemiBold"/>
+            <TextBlock Text="游戏内已生效时开启；与新建任务共用，已提交槽位不重算。" Classes="caption" TextWrapping="Wrap"/>
+          </StackPanel>
+          <CheckBox x:Name="MaintenanceVip" Grid.Column="1" IsChecked="{Binding LifeVip,Mode=TwoWay}" AutomationProperties.Name="生活VIP" Margin="12,0,0,0"/>
+        </Grid>
+      </Border>
+    </DataTemplate>
+
+    <DataTemplate x:Key="OperationSettingsTemplate" x:DataType="local:MainViewModel">
+      <Border Classes="card section-settings">
+        <StackPanel>
+          <Grid Classes="card-header" ColumnDefinitions="Auto,*,Auto">
+            <Border Classes="icon-tile"><ui:Icon Kind="touch"/></Border>
+            <TextBlock Grid.Column="1" Text="操作方案" Classes="heading" VerticalAlignment="Center" Margin="12,0"/>
+            <ui:HelpButton Grid.Column="2" Message="后台触控开始后保持当前前台窗口，切换应用可继续运行；游戏最小化时暂停，还原后点击继续。支持点击、长按、拖动、缩放、快捷键与文字输入。前台鼠标需游戏保持前台。切换方案后重新开始。"/>
+          </Grid>
+          <Grid Classes="setting-row" ColumnDefinitions="*,Auto">
+            <StackPanel><TextBlock Text="输入方式" Classes="setting-title"/><TextBlock Text="切换后需重新开始" Classes="caption"/></StackPanel>
+            <StackPanel x:Name="GlobalInputSchemePicker" Grid.Column="1" Orientation="Horizontal" Spacing="12" AutomationProperties.Name="全局操作方案">
+              <RadioButton x:Name="TouchInputChoice" GroupName="GlobalInputScheme" Content="后台触控" Tag="input:touch" IsChecked="{Binding IsTouchInput,Mode=OneWay}"/>
+              <RadioButton x:Name="MouseInputChoice" GroupName="GlobalInputScheme" Content="前台鼠标" Tag="input:mouse" IsChecked="{Binding !IsTouchInput,Mode=OneWay}"/>
+            </StackPanel>
+          </Grid>
+          <u:Divider/>
+          <Grid Classes="setting-row" ColumnDefinitions="*,Auto" IsEnabled="{Binding IsTouchInput}">
+            <StackPanel><TextBlock Text="触控点击中心偏移" Classes="setting-title"/><TextBlock Text="点击落在锚点中心附近并避开边缘；单点目标保持精确，右键为约2秒长按。" Classes="caption" TextWrapping="Wrap"/></StackPanel>
+            <CheckBox x:Name="GlobalTouchCenterToggle" Grid.Column="1" IsChecked="{Binding TouchCenterOffset}" AutomationProperties.Name="触控点击中心偏移"/>
+          </Grid>
+        </StackPanel>
+      </Border>
+    </DataTemplate>
+
+    <DataTemplate x:Key="AppearanceSettingsTemplate" x:DataType="local:MainViewModel">
+      <Border Classes="card section-settings">
+        <StackPanel>
+          <Grid Classes="card-header" ColumnDefinitions="Auto,*">
+            <Border Classes="icon-tile"><ui:Icon Kind="palette"/></Border>
+            <TextBlock Grid.Column="1" Text="外观与性能" Classes="heading" VerticalAlignment="Center" Margin="12,0"/>
+          </Grid>
+          <Grid Classes="setting-row" ColumnDefinitions="*,Auto">
+            <StackPanel><TextBlock Text="界面主题" Classes="setting-title"/><TextBlock Text="自动保存；跟随系统会随 Windows 外观切换" Classes="caption" TextWrapping="Wrap"/></StackPanel>
+            <StackPanel x:Name="ThemeSettingPicker" Grid.Column="1" Orientation="Horizontal" Spacing="12" AutomationProperties.Name="界面主题">
+              <RadioButton x:Name="ThemeSystemChoice" GroupName="ThemeSetting" Content="跟随系统" Tag="theme:system"/>
+              <RadioButton x:Name="ThemeLightChoice" GroupName="ThemeSetting" Content="浅色" Tag="theme:light"/>
+              <RadioButton x:Name="ThemeDarkChoice" GroupName="ThemeSetting" Content="深色" Tag="theme:dark"/>
+            </StackPanel>
+          </Grid>
+          <u:Divider/>
+          <Grid Classes="setting-row" ColumnDefinitions="*,Auto">
+            <StackPanel><TextBlock Text="识别低占用模式" Classes="setting-title"/><TextBlock Text="关闭推理线程空闲自旋，降低 CPU 占用，识别可能略慢；下次开始时生效。" Classes="caption" TextWrapping="Wrap"/></StackPanel>
+            <CheckBox x:Name="LowCpuRecognitionToggle" Grid.Column="1" IsChecked="{Binding RecognitionLowCpu}" AutomationProperties.Name="识别低占用模式"/>
+          </Grid>
+        </StackPanel>
+      </Border>
+    </DataTemplate>
+
+    <DataTemplate x:Key="DataSyncSettingsTemplate" x:DataType="local:MainViewModel">
+      <Border Classes="card section-settings">
+        <StackPanel>
+          <Grid Classes="card-header" ColumnDefinitions="Auto,*,Auto">
+            <Border Classes="icon-tile"><ui:Icon Kind="sync"/></Border>
+            <TextBlock Grid.Column="1" Text="数据同步" Classes="heading" VerticalAlignment="Center" Margin="12,0"/>
+            <ui:HelpButton Grid.Column="2" Message="监听用于同步当前角色的背包与仓库数量。停止只影响本次运行。重新登录前需核实当前角色，并结束运行任务、处理待核账记录。"/>
+          </Grid>
+          <TextBlock Text="{Binding CaptureStatus}" Classes="status-info" FontWeight="Medium" TextWrapping="Wrap"/>
+          <TextBlock Text="{Binding CaptureDetails}" Classes="muted" FontSize="12" Margin="0,4,0,8" TextWrapping="Wrap"/>
+          <WrapPanel x:Name="DataSyncActions" ItemSpacing="8" LineSpacing="8">
+            <Button Content="开始监听" Command="{Binding StartCaptureCommand}" ui:UiIcon.Kind="play"/>
+            <Button Content="停止监听" Command="{Binding StopCaptureCommand}" ui:UiIcon.Kind="pause"/>
+            <Button Content="重新登录" Command="{Binding ReloginCommand}" ui:UiIcon.Kind="refresh"/>
+            <Button Content="抓包设置…" Command="{Binding OpenCaptureSettingsCommand}" ui:UiIcon.Kind="settings" ToolTip.Tip="网卡、进程绑定、同步覆盖与诊断"/>
+          </WrapPanel>
+        </StackPanel>
+      </Border>
+    </DataTemplate>
+
+    <DataTemplate x:Key="RepairSettingsTemplate" x:DataType="local:MainViewModel">
+      <Border Classes="card section-settings">
+        <StackPanel>
+          <Grid Classes="card-header" ColumnDefinitions="Auto,*">
+            <Border Classes="icon-tile"><ui:Icon Kind="repair"/></Border>
+            <TextBlock Grid.Column="1" Text="修理" Classes="heading" VerticalAlignment="Center" Margin="12,0"/>
+          </Grid>
+          <Grid Classes="setting-row" ColumnDefinitions="*,Auto">
+            <StackPanel><TextBlock Text="自动修理" Classes="setting-title"/><TextBlock Text="定时检查装备，在当前任务结束后修理" Classes="caption" TextWrapping="Wrap"/></StackPanel>
+            <CheckBox Grid.Column="1" IsChecked="{Binding RepairEnabled}" AutomationProperties.Name="自动修理"/>
+          </Grid>
+          <Grid Classes="setting-row" ColumnDefinitions="*,Auto" IsEnabled="{Binding RepairEnabled}">
+            <StackPanel><TextBlock Text="修理间隔" Classes="setting-title"/></StackPanel>
+            <TextBox Grid.Column="1" Width="160" Text="{Binding RepairMinutes,UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="修理间隔（分钟）"><TextBox.InnerRightContent><TextBlock Classes="suffix" Text="分钟"/></TextBox.InnerRightContent></TextBox>
+          </Grid>
+          <Grid Classes="setting-row" ColumnDefinitions="*,Auto">
+            <StackPanel><TextBlock Text="金币留存" Classes="setting-title"/><TextBlock Text="修理和购买后至少保留" Classes="caption"/></StackPanel>
+            <TextBox Grid.Column="1" Width="160" Text="{Binding GoldReserve,UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="修理／购买后金币留存"/>
+          </Grid>
+        </StackPanel>
+      </Border>
+    </DataTemplate>
+
+    <DataTemplate x:Key="PurchaseSettingsTemplate" x:DataType="local:MainViewModel">
+      <Border Classes="card section-settings">
+        <StackPanel>
+          <Grid Classes="card-header" ColumnDefinitions="Auto,*">
+            <Border Classes="icon-tile"><ui:Icon Kind="cart"/></Border>
+            <StackPanel Grid.Column="1" Margin="12,0" VerticalAlignment="Center" Spacing="2">
+              <TextBlock Text="自动购买" Classes="heading"/>
+              <TextBlock Text="与修理共用金币留存" Classes="caption"/>
+            </StackPanel>
+          </Grid>
+          <Grid Classes="setting-row" ColumnDefinitions="*,Auto">
+            <StackPanel><TextBlock Text="空瓶和纸" Classes="setting-title"/><TextBlock Text="先取仓库，仓库不足才购买" Classes="caption"/></StackPanel>
+            <CheckBox Grid.Column="1" IsChecked="{Binding AutoBuyBottles}" AutomationProperties.Name="自动购买空瓶和纸"/>
+          </Grid>
+        </StackPanel>
+      </Border>
+    </DataTemplate>
+    <DataTemplate x:Key="BackpackSettingsTemplate" x:DataType="local:MainViewModel">
+      <Border Classes="card section-settings">
+        <StackPanel>
+          <Grid Classes="card-header" ColumnDefinitions="Auto,*">
+            <Border Classes="icon-tile"><ui:Icon Kind="bag"/></Border>
+            <TextBlock Grid.Column="1" Text="背包整理" Classes="heading" VerticalAlignment="Center" Margin="12,0"/>
+          </Grid>
+          <Grid Classes="setting-row" ColumnDefinitions="*,Auto">
+            <StackPanel><TextBlock Text="自动整理背包" Classes="setting-title"/><TextBlock Text="先执行整理；仍超重时尝试生产减重或出售余料" Classes="caption" TextWrapping="Wrap"/></StackPanel>
+            <CheckBox Grid.Column="1" IsChecked="{Binding BackpackEnabled}" AutomationProperties.Name="自动整理背包"/>
+          </Grid>
+          <Grid Classes="setting-row" ColumnDefinitions="*,Auto" IsEnabled="{Binding BackpackEnabled}">
+            <StackPanel><TextBlock Text="触发容量" Classes="setting-title"/></StackPanel>
+            <TextBox x:Name="BackpackThresholdEditor" Grid.Column="1" Width="160" Text="{Binding BackpackThreshold,UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="触发容量（%）"><TextBox.InnerRightContent><TextBlock Classes="suffix" Text="%"/></TextBox.InnerRightContent></TextBox>
+          </Grid>
+          <Grid Classes="setting-row" ColumnDefinitions="*,Auto">
+            <StackPanel><TextBlock Text="默认留存" Classes="setting-title"/><TextBlock Text="各材料默认保留数量，个别留存优先" Classes="caption" TextWrapping="Wrap"/></StackPanel>
+            <TextBox Grid.Column="1" Width="160" Text="{Binding MaterialReserve,UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="各材料默认留存数量"/>
+          </Grid>
+          <Grid Classes="setting-row" ColumnDefinitions="*,Auto">
+            <StackPanel><TextBlock Text="贩售余料" Classes="setting-title"/><TextBlock Text="仅当前采集目标与下方指定材料；保留需求量和下限" Classes="caption" TextWrapping="Wrap"/></StackPanel>
+            <CheckBox Grid.Column="1" IsChecked="{Binding SellSurplus}" AutomationProperties.Name="贩售超出需求与留存量的材料"/>
+          </Grid>
+        </StackPanel>
+      </Border>
+    </DataTemplate>
+
+    <DataTemplate x:Key="ReserveSettingsTemplate" x:DataType="local:MainViewModel">
+      <Border Classes="card section-settings">
+        <StackPanel>
+          <Grid Classes="card-header" ColumnDefinitions="Auto,*">
+            <Border Classes="icon-tile"><ui:Icon Kind="cart"/></Border>
+            <TextBlock Grid.Column="1" Text="指定贩售材料与留存" Classes="heading" VerticalAlignment="Center" Margin="12,0"/>
+          </Grid>
+          <TextBlock Text="加入此列表即允许贩售该材料的余量；移除后仅采集目标可售。无法贩售或生产减重时暂停，交由玩家处理。" Classes="caption" TextWrapping="Wrap"/>
+          <Border Classes="card flush" Padding="0" MaxHeight="220">
+            <DataGrid ItemsSource="{Binding MaterialReserves}" SelectedItem="{Binding SelectedReserve}" MaxHeight="220" AutoGenerateColumns="False" IsReadOnly="True" AutomationProperties.Name="个别材料留存">
+              <DataGrid.Columns>
+                <DataGridTextColumn Header="材料" Binding="{Binding Name,Mode=OneWay}" Width="*"/>
+                <DataGridTextColumn Header="留存" Binding="{Binding Quantity,Mode=OneWay}" Width="Auto"/>
+              </DataGrid.Columns>
+            </DataGrid>
+          </Border>
+          <WrapPanel Margin="0,8,0,0">
+            <AutoCompleteBox x:Name="ReservePicker" Initialized="ReservePickerInitialized" Width="220" Margin="0,4,8,4" ItemsSource="{Binding ReserveChoices}" SelectedItem="{Binding SelectedReserveItem,Mode=TwoWay}" ValueMemberBinding="{ReflectionBinding Name}" FilterMode="Contains" MinimumPrefixLength="0" MaxDropDownHeight="280" PlaceholderText="搜索并选择材料" AutomationProperties.Name="选择留存材料">
+              <AutoCompleteBox.ItemTemplate><DataTemplate x:DataType="local:ReserveChoice"><TextBlock Text="{Binding Name}"/></DataTemplate></AutoCompleteBox.ItemTemplate>
+            </AutoCompleteBox>
+            <TextBox Width="110" Margin="0,4,8,4" Text="{Binding ReserveQuantity,UpdateSourceTrigger=PropertyChanged}" PlaceholderText="留存数量" ToolTip.Tip="留存数量"/>
+            <Button Content="添加／更新" Command="{Binding SetMaterialReserveCommand}" ui:UiIcon.Kind="check"/>
+            <Button Content="移除" Command="{Binding RemoveMaterialReserveCommand}" ui:UiIcon.Kind="trash" Classes="danger"/>
+          </WrapPanel>
+        </StackPanel>
+      </Border>
+    </DataTemplate>
+
+    <DataTemplate x:Key="WingSettingsTemplate" x:DataType="local:MainViewModel">
+      <Border Classes="card section-settings">
+        <StackPanel>
+          <Grid Classes="card-header" ColumnDefinitions="Auto,*">
+            <Border Classes="icon-tile"><ui:Icon Kind="wing"/></Border>
+            <TextBlock Grid.Column="1" Text="移动与精灵之翼" Classes="heading" VerticalAlignment="Center" Margin="12,0"/>
+          </Grid>
+          <Grid Classes="setting-row" ColumnDefinitions="*,Auto">
+            <StackPanel><TextBlock Text="自动使用精灵之翼" Classes="setting-title"/><TextBlock Text="远距离移动时使用" Classes="caption"/></StackPanel>
+            <CheckBox Grid.Column="1" IsChecked="{Binding AutoUseWings}" AutomationProperties.Name="自动使用精灵之翼"/>
+          </Grid>
+          <Grid Classes="setting-row" ColumnDefinitions="*,Auto" IsEnabled="{Binding AutoUseWings}">
+            <StackPanel><TextBlock Text="留存数量" Classes="setting-title"/><TextBlock Text="使用后至少保留" Classes="caption"/></StackPanel>
+            <TextBox Grid.Column="1" Width="160" Text="{Binding WingReserve,UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="精灵之翼留存数量"/>
+          </Grid>
+        </StackPanel>
+      </Border>
+    </DataTemplate>
+
+    <DataTemplate x:Key="UpdateSettingsTemplate" x:DataType="local:MainViewModel">
+      <Border Classes="card section-settings" x:Name="UpdateCard">
+        <StackPanel>
+          <Grid Classes="card-header" ColumnDefinitions="Auto,*">
+            <Border Classes="icon-tile"><ui:Icon Kind="refresh"/></Border>
+            <TextBlock Grid.Column="1" Text="版本更新" Classes="heading" VerticalAlignment="Center" Margin="12,0"/>
+          </Grid>
+          <Grid Classes="setting-row" ColumnDefinitions="*,Auto">
+            <StackPanel><TextBlock Text="启动时检查更新" Classes="setting-title"/><TextBlock Text="只检查版本，不会自动下载或替换文件" Classes="caption"/></StackPanel>
+            <CheckBox Grid.Column="1" IsChecked="{Binding AutoCheckUpdates,Mode=TwoWay}" AutomationProperties.Name="启动时检查更新"/>
+          </Grid>
+          <TextBlock Text="{Binding UpdateStatus}" Classes="caption" TextWrapping="Wrap" Margin="0,2,0,6" AutomationProperties.Name="更新状态"/>
+          <ProgressBar IsVisible="{Binding UpdateBusy}" Minimum="0" Maximum="1" Value="{Binding UpdateProgress}" Margin="0,0,0,6"/>
+          <WrapPanel>
+            <Button Content="检查更新" Command="{Binding CheckUpdateCommand}" IsEnabled="{Binding !UpdateBusy}" ui:UiIcon.Kind="refresh" Margin="0,0,8,0" AutomationProperties.Name="检查更新"/>
+            <Button Content="下载更新" Command="{Binding DownloadUpdateCommand}" IsVisible="{Binding UpdateAvailable}" IsEnabled="{Binding !UpdateBusy}" ui:UiIcon.Kind="down" Margin="0,0,8,0" AutomationProperties.Name="下载更新"/>
+            <Button Content="安装并重启" Command="{Binding ApplyUpdateCommand}" IsVisible="{Binding UpdateReady}" Classes="Primary" Theme="{DynamicResource SolidButton}" ui:UiIcon.Kind="check" AutomationProperties.Name="安装并重启"/>
+          </WrapPanel>
+        </StackPanel>
+      </Border>
+    </DataTemplate>
+  </UserControl.Resources>
+
   <DockPanel>
     <StackPanel DockPanel.Dock="Bottom" Margin="0,12,0,0" Spacing="8">
       <u:Banner Type="Error" IsVisible="{Binding HasSettingsError}"><ScrollViewer MaxHeight="64" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><TextBlock Text="{Binding SettingsError}" TextWrapping="Wrap"/></ScrollViewer></u:Banner>
       <Grid ColumnDefinitions="*,Auto">
         <TextBlock Text="{Binding SettingsStatus}" Classes="status-info" FontSize="12" VerticalAlignment="Center" TextWrapping="Wrap" Margin="0,0,12,0" IsVisible="{Binding HasSettingsStatus}"/>
-        <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" IsVisible="{Binding SettingsDirty}">
-          <Button Content="重试保存" ui:UiIcon.Kind="save" Command="{Binding RetrySettingsCommand}"/>
-          <Button Content="放弃并重读" ui:UiIcon.Kind="refresh" Command="{Binding ReloadSettingsCommand}"/>
+        <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+          <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding SettingsDirty}">
+            <Button Content="重试保存" ui:UiIcon.Kind="save" Command="{Binding RetrySettingsCommand}"/>
+            <Button Content="放弃并重读" ui:UiIcon.Kind="refresh" Command="{Binding ReloadSettingsCommand}"/>
+          </StackPanel>
+          <Button x:Name="OpenWorkbenchButton" Content="配置工作台…" Click="OpenWorkbench" ui:UiIcon.Kind="external" AutomationProperties.Name="打开配置工作台" ToolTip.Tip="编辑任务链、页面与识别锚点"/>
         </StackPanel>
       </Grid>
     </StackPanel>
+
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
       <Grid x:Name="SettingsColumns" ColumnDefinitions="*,16,*" RowDefinitions="Auto,Auto" Margin="0,0,10,0">
-
-        <!-- Left column: how the tool runs -->
         <StackPanel x:Name="RunColumn" Spacing="16">
-          <Border Classes="card section-settings" Padding="12"><Grid ColumnDefinitions="*,Auto"><StackPanel><TextBlock Text="生活 VIP · 加工时长减半" FontWeight="SemiBold"/><TextBlock Text="游戏内已生效时开启；与新建任务共用，已提交槽位不重算。" Classes="caption" TextWrapping="Wrap"/></StackPanel><ToggleSwitch x:Name="MaintenanceVip" Grid.Column="1" IsChecked="{Binding LifeVip,Mode=TwoWay}" OnContent="{x:Null}" OffContent="{x:Null}" AutomationProperties.Name="生活VIP" Margin="12,0,0,0"/></Grid></Border>
-          <Border Classes="card section-settings">
-            <StackPanel>
-              <Grid Classes="card-header" ColumnDefinitions="Auto,*,Auto">
-                <Border Classes="icon-tile"><ui:Icon Kind="touch"/></Border>
-                <TextBlock Grid.Column="1" Text="操作方案" Classes="heading" VerticalAlignment="Center" Margin="12,0"/>
-                <ui:HelpButton Grid.Column="2" Message="后台触控开始后保持当前前台窗口，切换应用可继续运行；游戏最小化时暂停，还原后点击继续。支持点击、长按、拖动、缩放、快捷键与文字输入。前台鼠标需游戏保持前台。切换方案后重新开始。"/>
-              </Grid>
-              <Grid Classes="setting-row" ColumnDefinitions="*,Auto">
-                <StackPanel><TextBlock Text="输入方式" Classes="setting-title"/><TextBlock Text="切换后需重新开始" Classes="caption"/></StackPanel>
-                <ComboBox x:Name="GlobalInputSchemePicker" Grid.Column="1" Width="200" ItemsSource="{Binding InputChoices}" SelectedValueBinding="{Binding Key}" SelectedValue="{Binding InputScheme}" DisplayMemberBinding="{Binding Label}" AutomationProperties.Name="全局操作方案"/>
-              </Grid>
-              <u:Divider/>
-              <Grid Classes="setting-row" ColumnDefinitions="*,Auto" IsEnabled="{Binding IsTouchInput}">
-                <StackPanel><TextBlock Text="触控点击中心偏移" Classes="setting-title"/><TextBlock Text="点击落在锚点中心附近并避开边缘；单点目标保持精确，右键为约2秒长按。" Classes="caption" TextWrapping="Wrap"/></StackPanel>
-                <ToggleSwitch x:Name="GlobalTouchCenterToggle" Grid.Column="1" IsChecked="{Binding TouchCenterOffset}" OnContent="{x:Null}" OffContent="{x:Null}" AutomationProperties.Name="触控点击中心偏移"/>
-              </Grid>
-            </StackPanel>
-          </Border>
-
-          <Border Classes="card section-settings">
-            <StackPanel>
-              <Grid Classes="card-header" ColumnDefinitions="Auto,*">
-                <Border Classes="icon-tile"><ui:Icon Kind="palette"/></Border>
-                <TextBlock Grid.Column="1" Text="外观与性能" Classes="heading" VerticalAlignment="Center" Margin="12,0"/>
-              </Grid>
-              <Grid Classes="setting-row" ColumnDefinitions="*,Auto">
-                <StackPanel><TextBlock Text="界面主题" Classes="setting-title"/><TextBlock Text="自动保存；跟随系统会随 Windows 外观切换" Classes="caption" TextWrapping="Wrap"/></StackPanel>
-                <ComboBox Grid.Column="1" Width="200" ItemsSource="{Binding ThemeChoices}" SelectedValueBinding="{Binding Key}" SelectedValue="{Binding ThemeKey}" DisplayMemberBinding="{Binding Label}" PlaceholderText="主题" AutomationProperties.Name="界面主题"/>
-              </Grid>
-              <u:Divider/>
-              <Grid Classes="setting-row" ColumnDefinitions="*,Auto">
-                <StackPanel><TextBlock Text="识别低占用模式" Classes="setting-title"/><TextBlock Text="关闭推理线程空闲自旋，降低 CPU 占用，识别可能略慢；下次开始时生效。" Classes="caption" TextWrapping="Wrap"/></StackPanel>
-                <ToggleSwitch x:Name="LowCpuRecognitionToggle" Grid.Column="1" IsChecked="{Binding RecognitionLowCpu}" OnContent="{x:Null}" OffContent="{x:Null}" AutomationProperties.Name="识别低占用模式"/>
-              </Grid>
-            </StackPanel>
-          </Border>
-
-          <Border Classes="card section-settings">
-            <StackPanel>
-              <Grid Classes="card-header" ColumnDefinitions="Auto,*,Auto">
-                <Border Classes="icon-tile"><ui:Icon Kind="sync"/></Border>
-                <TextBlock Grid.Column="1" Text="数据同步" Classes="heading" VerticalAlignment="Center" Margin="12,0"/>
-                <ui:HelpButton Grid.Column="2" Message="监听用于同步当前角色的背包与仓库数量。停止只影响本次运行。重新登录前需核实当前角色，并结束运行任务、处理待核账记录。"/>
-              </Grid>
-              <TextBlock Text="{Binding CaptureStatus}" Classes="status-info" FontWeight="Medium" TextWrapping="Wrap"/>
-              <TextBlock Text="{Binding CaptureDetails}" Classes="muted" FontSize="12" Margin="0,4,0,8"/>
-              <WrapPanel>
-                <Button Content="开始监听" Command="{Binding StartCaptureCommand}" ui:UiIcon.Kind="play"/>
-                <Button Content="停止监听" Command="{Binding StopCaptureCommand}" ui:UiIcon.Kind="pause"/>
-                <Button Content="重新登录" Command="{Binding ReloginCommand}" ui:UiIcon.Kind="refresh"/>
-                <Button Content="抓包设置…" Command="{Binding OpenCaptureSettingsCommand}" ui:UiIcon.Kind="settings" ToolTip.Tip="网卡、进程绑定、同步覆盖与诊断"/>
-              </WrapPanel>
-            </StackPanel>
-          </Border>
+          <ui:DeferredSettingsSection x:Name="VipSettingsSection" SectionTemplate="{StaticResource VipSettingsTemplate}" EstimatedHeight="96" PlaceholderTitle="生活 VIP" PlaceholderCaption="加工时长设置" />
+          <ui:DeferredSettingsSection x:Name="OperationSettingsSection" SectionTemplate="{StaticResource OperationSettingsTemplate}" EstimatedHeight="220" PlaceholderTitle="操作方案" PlaceholderCaption="输入方式与触控设置" />
+          <ui:DeferredSettingsSection x:Name="AppearanceSettingsSection" SectionTemplate="{StaticResource AppearanceSettingsTemplate}" EstimatedHeight="174" PlaceholderTitle="外观与性能" PlaceholderCaption="主题与识别资源设置" />
+          <ui:DeferredSettingsSection x:Name="DataSyncSettingsSection" SectionTemplate="{StaticResource DataSyncSettingsTemplate}" EstimatedHeight="224" PlaceholderTitle="数据同步" PlaceholderCaption="监听、重新登录与抓包设置" />
         </StackPanel>
 
-        <!-- Right column: automatic maintenance -->
         <StackPanel x:Name="MaintenanceColumn" Grid.Column="2" Spacing="16">
-          <Border Classes="card section-settings">
-            <StackPanel>
-              <Grid Classes="card-header" ColumnDefinitions="Auto,*">
-                <Border Classes="icon-tile"><ui:Icon Kind="repair"/></Border>
-                <TextBlock Grid.Column="1" Text="修理" Classes="heading" VerticalAlignment="Center" Margin="12,0"/>
-              </Grid>
-              <Grid Classes="setting-row" ColumnDefinitions="*,Auto">
-                <StackPanel><TextBlock Text="自动修理" Classes="setting-title"/><TextBlock Text="定时检查装备，在当前任务结束后修理" Classes="caption" TextWrapping="Wrap"/></StackPanel>
-                <ToggleSwitch Grid.Column="1" IsChecked="{Binding RepairEnabled}" OnContent="{x:Null}" OffContent="{x:Null}" AutomationProperties.Name="自动修理"/>
-              </Grid>
-              <Grid Classes="setting-row" ColumnDefinitions="*,Auto" IsEnabled="{Binding RepairEnabled}">
-                <StackPanel><TextBlock Text="修理间隔" Classes="setting-title"/></StackPanel>
-                <TextBox Grid.Column="1" Width="160" Text="{Binding RepairMinutes,UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="修理间隔（分钟）"><TextBox.InnerRightContent><TextBlock Classes="suffix" Text="分钟"/></TextBox.InnerRightContent></TextBox>
-              </Grid>
-              <Grid Classes="setting-row" ColumnDefinitions="*,Auto">
-                <StackPanel><TextBlock Text="金币留存" Classes="setting-title"/><TextBlock Text="修理和购买后至少保留" Classes="caption"/></StackPanel>
-                <TextBox Grid.Column="1" Width="160" Text="{Binding GoldReserve,UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="修理／购买后金币留存"/>
-              </Grid>
-            </StackPanel>
-          </Border>
-
-          <!-- Purchases: bottles are the first item; later purchase items join this card. -->
-          <Border Classes="card section-settings">
-            <StackPanel>
-              <Grid Classes="card-header" ColumnDefinitions="Auto,*">
-                <Border Classes="icon-tile"><ui:Icon Kind="cart"/></Border>
-                <StackPanel Grid.Column="1" Margin="12,0" VerticalAlignment="Center" Spacing="2"><TextBlock Text="自动购买" Classes="heading"/><TextBlock Text="与修理共用金币留存" Classes="caption"/></StackPanel>
-              </Grid>
-              <Grid Classes="setting-row" ColumnDefinitions="*,Auto">
-                <StackPanel><TextBlock Text="空瓶和纸" Classes="setting-title"/><TextBlock Text="先取仓库，仓库不足才购买" Classes="caption"/></StackPanel>
-                <ToggleSwitch Grid.Column="1" IsChecked="{Binding AutoBuyBottles}" OnContent="{x:Null}" OffContent="{x:Null}" AutomationProperties.Name="自动购买空瓶和纸"/>
-              </Grid>
-            </StackPanel>
-          </Border>
-
-          <Border Classes="card section-settings">
-            <StackPanel>
-              <Grid Classes="card-header" ColumnDefinitions="Auto,*">
-                <Border Classes="icon-tile"><ui:Icon Kind="bag"/></Border>
-                <TextBlock Grid.Column="1" Text="背包整理" Classes="heading" VerticalAlignment="Center" Margin="12,0"/>
-              </Grid>
-              <Grid Classes="setting-row" ColumnDefinitions="*,Auto">
-                <StackPanel><TextBlock Text="自动整理背包" Classes="setting-title"/><TextBlock Text="达到容量阈值后优先消耗材料生产，再整理或出售余料" Classes="caption" TextWrapping="Wrap"/></StackPanel>
-                <ToggleSwitch Grid.Column="1" IsChecked="{Binding BackpackEnabled}" OnContent="{x:Null}" OffContent="{x:Null}" AutomationProperties.Name="自动整理背包"/>
-              </Grid>
-              <Grid Classes="setting-row" ColumnDefinitions="*,Auto" IsEnabled="{Binding BackpackEnabled}">
-                <StackPanel><TextBlock Text="触发容量" Classes="setting-title"/></StackPanel>
-                <TextBox Grid.Column="1" Width="160" Text="{Binding BackpackThreshold,UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="触发容量（%）"><TextBox.InnerRightContent><TextBlock Classes="suffix" Text="%"/></TextBox.InnerRightContent></TextBox>
-              </Grid>
-              <Grid Classes="setting-row" ColumnDefinitions="*,Auto">
-                <StackPanel><TextBlock Text="默认留存" Classes="setting-title"/><TextBlock Text="各材料默认保留数量，个别留存优先" Classes="caption" TextWrapping="Wrap"/></StackPanel>
-                <TextBox Grid.Column="1" Width="160" Text="{Binding MaterialReserve,UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="各材料默认留存数量"/>
-              </Grid>
-              <Grid Classes="setting-row" ColumnDefinitions="*,Auto">
-                <StackPanel><TextBlock Text="贩售余料" Classes="setting-title"/><TextBlock Text="仅当前采集目标与下方指定材料；保留需求量和下限" Classes="caption" TextWrapping="Wrap"/></StackPanel>
-                <ToggleSwitch Grid.Column="1" IsChecked="{Binding SellSurplus}" OnContent="{x:Null}" OffContent="{x:Null}" AutomationProperties.Name="贩售超出需求与留存量的材料"/>
-              </Grid>
-              <u:Divider/>
-              <TextBlock Text="指定贩售材料与留存" Classes="setting-title" Margin="0,6,0,8"/>
-              <TextBlock Text="加入此列表即允许贩售该材料的余量；移除后仅采集目标可售。无法贩售或生产减重时暂停，交由玩家处理。" Classes="caption" TextWrapping="Wrap"/>
-              <Border Classes="card flush" Padding="0">
-                <DataGrid ItemsSource="{Binding MaterialReserves}" SelectedItem="{Binding SelectedReserve}" MaxHeight="160" AutoGenerateColumns="False" IsReadOnly="True" AutomationProperties.Name="个别材料留存">
-                  <DataGrid.Columns>
-                    <DataGridTextColumn Header="材料" Binding="{Binding Name}" Width="*"/>
-                    <DataGridTextColumn Header="留存" Binding="{Binding Quantity}" Width="Auto"/>
-                  </DataGrid.Columns>
-                </DataGrid>
-              </Border>
-              <WrapPanel Margin="0,8,0,0">
-                <AutoCompleteBox x:Name="ReservePicker" Width="220" Margin="0,4,8,4" ItemsSource="{Binding ReserveChoices}" SelectedItem="{Binding SelectedReserveItem,Mode=TwoWay}" ValueMemberBinding="{Binding Name}" FilterMode="Contains" MinimumPrefixLength="0" MaxDropDownHeight="280" PlaceholderText="搜索并选择材料" AutomationProperties.Name="选择留存材料">
-                  <AutoCompleteBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding Name}"/></DataTemplate></AutoCompleteBox.ItemTemplate>
-                </AutoCompleteBox>
-                <TextBox Width="110" Margin="0,4,8,4" Text="{Binding ReserveQuantity,UpdateSourceTrigger=PropertyChanged}" PlaceholderText="留存数量" ToolTip.Tip="留存数量"/>
-                <Button Content="添加／更新" Command="{Binding SetMaterialReserveCommand}" ui:UiIcon.Kind="check"/>
-                <Button Content="移除" Command="{Binding RemoveMaterialReserveCommand}" ui:UiIcon.Kind="trash" Classes="danger"/>
-              </WrapPanel>
-            </StackPanel>
-          </Border>
-
-          <Border Classes="card section-settings">
-            <StackPanel>
-              <Grid Classes="card-header" ColumnDefinitions="Auto,*">
-                <Border Classes="icon-tile"><ui:Icon Kind="wing"/></Border>
-                <TextBlock Grid.Column="1" Text="移动与精灵之翼" Classes="heading" VerticalAlignment="Center" Margin="12,0"/>
-              </Grid>
-              <Grid Classes="setting-row" ColumnDefinitions="*,Auto">
-                <StackPanel><TextBlock Text="自动使用精灵之翼" Classes="setting-title"/><TextBlock Text="远距离移动时使用" Classes="caption"/></StackPanel>
-                <ToggleSwitch Grid.Column="1" IsChecked="{Binding AutoUseWings}" OnContent="{x:Null}" OffContent="{x:Null}" AutomationProperties.Name="自动使用精灵之翼"/>
-              </Grid>
-              <Grid Classes="setting-row" ColumnDefinitions="*,Auto" IsEnabled="{Binding AutoUseWings}">
-                <StackPanel><TextBlock Text="留存数量" Classes="setting-title"/><TextBlock Text="使用后至少保留" Classes="caption"/></StackPanel>
-                <TextBox Grid.Column="1" Width="160" Text="{Binding WingReserve,UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="精灵之翼留存数量"/>
-              </Grid>
-            </StackPanel>
-          </Border>
+          <ui:DeferredSettingsSection x:Name="RepairSettingsSection" SectionTemplate="{StaticResource RepairSettingsTemplate}" EstimatedHeight="194" PlaceholderTitle="修理" PlaceholderCaption="自动修理与金币留存" />
+          <ui:DeferredSettingsSection x:Name="PurchaseSettingsSection" SectionTemplate="{StaticResource PurchaseSettingsTemplate}" EstimatedHeight="122" PlaceholderTitle="自动购买" PlaceholderCaption="空瓶、纸与金币留存" />
+          <ui:DeferredSettingsSection x:Name="BackpackSettingsSection" SectionTemplate="{StaticResource BackpackSettingsTemplate}" EstimatedHeight="300" PlaceholderTitle="背包整理" PlaceholderCaption="容量阈值、默认留存与余料处理" />
+          <ui:DeferredSettingsSection x:Name="ReserveSettingsSection" SectionTemplate="{StaticResource ReserveSettingsTemplate}" EstimatedHeight="330" PlaceholderTitle="指定贩售材料与留存" PlaceholderCaption="材料表按进入视口后加载" />
+          <ui:DeferredSettingsSection x:Name="WingSettingsSection" SectionTemplate="{StaticResource WingSettingsTemplate}" EstimatedHeight="196" PlaceholderTitle="移动与精灵之翼" PlaceholderCaption="自动使用与留存数量" />
+          <ui:DeferredSettingsSection x:Name="UpdateSettingsSection" SectionTemplate="{StaticResource UpdateSettingsTemplate}" EstimatedHeight="216" PlaceholderTitle="版本更新" PlaceholderCaption="版本检查与安装" />
         </StackPanel>
       </Grid>
     </ScrollViewer>

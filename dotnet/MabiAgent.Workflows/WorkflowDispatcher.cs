@@ -64,7 +64,19 @@ public sealed class WorkflowDispatcher(TimeProvider? time=null,Action<string,Exc
         var state=entry.Snapshot();
         if(state["status"]?.GetValue<string>()=="paused"&&state["pause_reason"]?.GetValue<string>() is not ("manual" or "focus_lost")&&entry.Safe())supplyChanged.Add(id);
     }
-    public void Continue(bool explicitRequest=true){if(explicitRequest)quarantined.Clear();paused=false;PauseReason=null;Status="等待可执行任务";foreach(var id in entries.Keys.Where(id=>!held.Contains(id)&&!quarantined.ContainsKey(id)))explicitlyResumable.Add(id);}
+    public void Continue(bool explicitRequest=true)
+    {
+        if(explicitRequest)quarantined.Clear();paused=false;PauseReason=null;Status="等待可执行任务";
+        foreach(var id in entries.Keys.Where(id=>!held.Contains(id)&&!quarantined.ContainsKey(id)))
+        {
+            var pauseReason=entries[id].Snapshot()["pause_reason"]?.GetValue<string>();
+            // A manual pause supersedes an earlier broad Continue marker. An
+            // inventory-sync suspension is the only paused state that a refresh
+            // completion may resume without a new explicit user request.
+            if(pauseReason=="manual")explicitlyResumable.Remove(id);
+            if(explicitRequest||pauseReason=="inventory_sync")explicitlyResumable.Add(id);
+        }
+    }
     public void Pause(string reason="manual"){paused=true;PauseReason=reason;Status="已暂停";if(ActiveId is not null&&entries.TryGetValue(ActiveId,out var active))active.Pause(reason);}
     public string? Tick(IEnumerable<WorkCandidate> planned,string? currentDevice,bool backpackRelief=false,string? onsiteDevice=null,bool locationVerified=false)
     {

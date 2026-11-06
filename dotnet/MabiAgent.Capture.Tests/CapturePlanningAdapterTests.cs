@@ -69,5 +69,13 @@ public sealed class CapturePlanningAdapterTests : IDisposable
         Assert.Equal(NameAssociation.UserConfirmed, row.Association);
         Assert.Equal(123u, accounts.ResolveVerified("a", "铁矿石"));
     }
+    [Fact] public void CorruptAssociationCsvReturnsAssociationUnavailableWithoutEscaping()
+    {
+        var adapter=Adapter();var accounts=new AccountItemService(directory);
+        File.WriteAllText(accounts.Files("a").Associations,"item_id,name\n\"unclosed,");
+        var result=adapter.Convert(Snapshot());
+        Assert.NotNull(result.Inventory);var issue=Assert.Single(result.Issues);
+        Assert.Equal("association_unavailable",issue.Kind);Assert.Equal(CapturePlanningAdapter.ScopeKey(Snapshot().Scope!),result.Scope);
+    }
     public void Dispose() { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
 }

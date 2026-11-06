@@ -14,48 +14,8 @@ import re
 from pathlib import PurePosixPath
 
 PROJECTS = ('MabiAgent.Core', 'MabiAgent.Workflows', 'MabiAgent.Windows', 'MabiAgent.Capture', 'MabiAgent.Desktop')
-CONFIGS = ('screen_catalog.1280x960.tw.json', 'screen_overlays.1280x960.tw.json', 'screen_travel.1280x960.tw.json', 'screen_relogin.1280x960.tw.json', 'session_notifications.1280x960.tw.json', 'screen_purchase.1280x960.tw.json', 'client-inventory-schema.disk.json', 'items.verified.tw.json', 'item-name-candidates.tw.json')
+CONFIGS = ('screen_catalog.1280x960.tw.json', 'screen_overlays.1280x960.tw.json', 'screen_travel.1280x960.tw.json', 'screen_relogin.1280x960.tw.json', 'session_notifications.1280x960.tw.json', 'screen_purchase.1280x960.tw.json', 'items.verified.tw.json', 'client-item-names.tw.json', 'item-name-candidates.tw.json')
 MODEL = 'ch_PP-OCRv5_rec_mobile.onnx'
-
-
-def user_instructions(version):
-    return f'''MabiAgent {version} 使用说明
-
-一、调整游戏画面
-进入游戏，打开“环境设定 → 图形”：
-1. 选择“视窗模式”。
-2. “解析度”选择 1280×960。
-3. “界面样式”选择 PC。
-4. “调整比例”设为 100%。
-应用设置后，让角色停在城镇等方便操作的位置。
-
-二、打开工具
-解压整个文件夹，双击 MabiAgent.exe。
-首次启动请阅读“使用前须知”。如果提示需要安装 Npcap，点击其中的官方下载按钮，安装完成后重新打开工具。
-Npcap 官方下载页：https://npcap.com/#download
-
-三、添加任务并开始
-工具会使用“私人剧场”道具主动换图抓包；若尚未获得该道具，请先完成照相任务解锁。
-
-1. 点击顶部“查找”，选择游戏窗口。
-2. 到“维护设置”查看修理、金币留存、背包整理和精灵之翼。有生活 VIP 时再打开对应开关。
-3. 回到“任务队列”，点击“新增目标”。生产填成品件数，采集填轮数，钓鱼填时长。1 轮为 10 次采集尝试。
-4. 点击“开始／继续”。当前任务和进度显示在窗口顶部。
-
-默认使用后台触控，运行后可以切到其他程序。请保持游戏窗口展开；最小化后任务会暂停，还原窗口再点击继续。
-想节省屏幕空间，可点“迷你窗口”。顶栏的主题按钮用于切换亮暗外观。
-
-四、暂停与停止
-临时离开或处理背包，请点“暂停”，回来后点“开始／继续”。
-“停止全部”适合从头重跑：执行进度会清空，手动任务和设置保留。游戏里已经完成的购买、出售和加工仍然有效，再次开始可能再次花费材料或金币。
-出现待处理提示时，点击消息按钮查看原因，处理后再继续。
-
-五、帮助与更新
-详细用法见 docs 文件夹中的“用户指南.md”。
-队列和设置保存在 data 文件夹，也可从顶栏“数据目录”打开。更新前退出程序并备份 data，再把它复制到新版本目录。
-
-本工具供个人研究和测试使用。使用自动化工具有账号受处罚或道具损失的风险，请自行决定是否使用。项目限非商业用途，完整许可见 docs/LICENSE.txt。
-'''
 
 
 def distribution_config(value):
@@ -102,7 +62,51 @@ INSTALL_FOLDERS = frozenset(('app', 'assets', 'config', 'models', 'docs', 'licen
 INSTALL_FILES = frozenset(('MabiAgent.exe', 'Start-MabiAgent.cmd', '使用说明.txt'))
 
 
-def update_destination(root, output=None):
+def user_instructions(version):
+    return f'''MabiAgent {version} 使用说明
+
+一、调整游戏画面
+进入游戏，打开“环境设定 → 图形”：
+1. 选择“视窗模式”。
+2. “解析度”选择 1280×960。
+3. “界面样式”选择 PC。
+4. “调整比例”设为 100%。
+应用设置后，让角色停在城镇等方便操作的位置。
+
+二、打开工具
+解压整个文件夹，双击 MabiAgent.exe。
+首次启动请阅读“使用前须知”。如果提示需要安装 Npcap，点击其中的官方下载按钮，安装完成后重新打开工具。
+Npcap 官方下载页：https://npcap.com/#download
+
+三、添加任务并开始
+工具会通过“變更外貌/重生”进入重生页，按 ESC 取消并返回场景，刷新背包和仓库数据。
+游戏更新后会自动读取所选游戏进程对应的客户端文件。读取失败时，请在抓包设置中填写游戏程序所在目录，再点击重新解析。
+
+1. 点击顶部“查找”，选择游戏窗口。
+2. 到“维护设置”查看修理、金币留存、背包整理和精灵之翼。有生活 VIP 时再打开对应开关。
+3. 回到“任务队列”，点击“新增目标”。生产填成品件数，采集填轮数，钓鱼填时长。1 轮为 10 次采集尝试。
+4. 点击“开始／继续”。当前任务和进度显示在窗口顶部。
+
+任务会根据材料、加工时间和当前状态自动安排。拖动任务仅整理列表。
+启用钓鱼任务时，请尽量关闭所有玩家昵称显示，减少识别干扰。
+
+默认使用后台触控，运行后可以切到其他程序。请保持游戏窗口展开；最小化后任务会暂停，还原窗口再点击继续。
+想节省屏幕空间，可点“迷你窗口”。顶栏的主题按钮用于切换亮暗外观。
+
+四、暂停与停止
+临时离开或处理背包，请点“暂停”，回来后点“开始／继续”。
+“停止全部”适合从头重跑：执行进度会清空，手动任务和设置保留。游戏里已经完成的购买、出售和加工仍然有效，再次开始可能再次花费材料或金币。
+出现待处理提示时，点击消息按钮查看原因，处理后再继续。
+
+五、帮助与更新
+详细用法见 docs 文件夹中的“用户指南.md”。
+队列和设置保存在 data 文件夹，也可从顶栏“数据目录”打开。程序内更新会保留 data；仍建议定期备份。
+
+本工具供个人研究和测试使用。使用自动化工具有账号受处罚或道具损失的风险，请自行决定是否使用。项目限非商业用途，完整许可见 docs/LICENSE.txt。
+'''
+
+
+def update_destination(root, output=None, *, require_manifest=True):
     root = clean_path(root)
     output = clean_path(output or root/'发布包/MabiAgent-NET验收版')
     destination = clean_path(output/'MabiAgent')
@@ -110,7 +114,7 @@ def update_destination(root, output=None):
         raise ValueError('原位更新仅允许当前项目 dist、build 或发布包中的明确目录')
     if any(part.casefold() in ('data', '用户数据', '清理待删', '待清理') for part in destination.relative_to(root).parts):
         raise ValueError('原位更新不能进入用户数据或待删目录')
-    if not destination.is_dir() or not (destination/'release-manifest.json').is_file():
+    if not destination.is_dir() or require_manifest and not (destination/'release-manifest.json').is_file():
         raise ValueError('原位更新要求已有安装清单')
     return destination
 
@@ -319,6 +323,146 @@ def update_native(root, output=None, reviewed_receipt=None, **options):
             handle.close();lock.unlink()
 
 
+def _update_lock_active(lock):
+    raw = clean_path(lock).read_text(encoding='ascii')
+    if not raw.isdigit() or len(raw) > 10 or str(int(raw)) != raw or int(raw) <= 0:
+        raise ValueError('更新锁内容无效，保留人工核查')
+    pid = int(raw)
+    if sys.platform == 'win32':
+        # Windows os.kill(pid, 0) may terminate; query without changing the process.
+        import ctypes
+        kernel32 = ctypes.WinDLL('kernel32', use_last_error=True)
+        kernel32.OpenProcess.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_uint32]
+        kernel32.OpenProcess.restype = ctypes.c_void_p
+        kernel32.GetExitCodeProcess.argtypes = [ctypes.c_uint32, ctypes.POINTER(ctypes.c_uint32)]
+        kernel32.GetExitCodeProcess.restype = ctypes.c_int
+        kernel32.CloseHandle.argtypes = [ctypes.c_void_p]
+        kernel32.CloseHandle.restype = ctypes.c_int
+        process = kernel32.OpenProcess(0x1000, False, pid)
+        if not process:
+            return ctypes.get_last_error() != 87
+        try:
+            code = ctypes.c_uint32()
+            return not kernel32.GetExitCodeProcess(process, ctypes.byref(code)) or code.value == 259
+        finally:
+            kernel32.CloseHandle(process)
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except (PermissionError, OSError):
+        return True
+    return True
+
+
+def recover_native_update(root, output=None):
+    """Recover one retained rollback; never remove unverified or unknown files."""
+    destination = update_destination(root, output, require_manifest=False)
+    lock = clean_path(destination.parent/'.mabi-update.lock')
+    if lock.exists():
+        if not lock.is_file() or _update_lock_active(lock):
+            raise RuntimeError('原位更新仍在执行，不能恢复或清除更新锁')
+        lock.unlink()
+    with lock.open('x', encoding='utf-8') as handle:
+        handle.write(str(os.getpid()));handle.flush()
+        try:
+            retained = [path for path in destination.parent.glob('.mabi-update-*') if (path/'rollback').exists()]
+            if len(retained) > 1:
+                raise RuntimeError('存在多个未完成回退，保留人工核查')
+            if not retained:
+                return destination
+            staging = clean_path(retained[0])
+            rollback = clean_path(staging/'rollback')
+            staged = clean_path(staging/'MabiAgent')
+            new = _manifest_files(staged, verify=True)
+            old = _manifest_files(rollback)
+            actual = []
+            for path in staging.rglob('*'):
+                clean_path(path)
+                if path.is_file():
+                    actual.append(path.relative_to(staging).as_posix())
+                    if len(actual) > len(new)+len(old)+2:
+                        raise ValueError('回退目录文件数量越界')
+            expected = {'MabiAgent/release-manifest.json', 'rollback/release-manifest.json'}
+            expected.update('MabiAgent/'+name for name in new)
+            backups = set()
+            for relative in actual:
+                if relative.startswith('rollback/') and relative != 'rollback/release-manifest.json':
+                    name = relative[len('rollback/'):]
+                    _install_relative(name)
+                    if name not in old:
+                        raise ValueError('回退目录含未知文件：'+relative)
+                    backups.add(name)
+                elif relative not in expected:
+                    raise ValueError('回退暂存目录含未知文件：'+relative)
+            for name in backups:
+                backup = clean_path(rollback/name)
+                if not backup.is_file() or backup.stat().st_size != old[name]['bytes'] or _file_hash(backup) != old[name]['sha256']:
+                    raise ValueError('回退备份校验失败：'+name)
+
+            actions = []
+            def digest(path):
+                if not path.exists():
+                    return None
+                if not path.is_file():
+                    raise ValueError('恢复目标不是普通文件：'+str(path))
+                return _file_hash(path)
+            for name in sorted(set(old)|set(new)):
+                target = clean_path(destination/_install_relative(name))
+                if not target.is_relative_to(destination):
+                    raise ValueError('恢复目标路径越界')
+                current = digest(target)
+                if name in old:
+                    old_hash = old[name]['sha256']
+                    new_hash = new.get(name, {}).get('sha256')
+                    if name in backups:
+                        if current not in (None, old_hash, new_hash):
+                            raise ValueError('恢复前目标已变化，拒绝覆盖：'+name)
+                        if current != old_hash:
+                            actions.append(('restore', name, target, old_hash, new_hash))
+                    elif current != old_hash:
+                        raise ValueError('未备份安装文件校验失败：'+name)
+                elif current is not None:
+                    new_hash = new[name]['sha256']
+                    if current != new_hash:
+                        raise ValueError('拒绝删除非本次更新产生的文件：'+name)
+                    actions.append(('remove', name, target, None, new_hash))
+
+            old_manifest = clean_path(rollback/'release-manifest.json')
+            new_manifest = clean_path(staged/'release-manifest.json')
+            manifest = clean_path(destination/'release-manifest.json')
+            old_hash, new_hash = _file_hash(old_manifest), _file_hash(new_manifest)
+            current = digest(manifest)
+            if current not in (None, old_hash, new_hash):
+                raise ValueError('安装清单已变化，拒绝覆盖')
+            if current != old_hash:
+                actions.append(('restore', 'release-manifest.json', manifest, old_hash, new_hash))
+
+            for action, name, target, old_hash, new_hash in actions:
+                current = digest(target)
+                if current not in (None, old_hash, new_hash):
+                    raise ValueError('恢复期间目标发生变化：'+name)
+                if action == 'remove':
+                    if current is not None:
+                        if current != new_hash:
+                            raise ValueError('恢复期间目标发生变化：'+name)
+                        target.unlink()
+                else:
+                    source = old_manifest if name == 'release-manifest.json' else clean_path(rollback/name)
+                    if _file_hash(source) != old_hash:
+                        raise ValueError('恢复期间备份发生变化：'+name)
+                    _replace_install_file(source, target)
+            for relative in actual:
+                clean_path(staging/relative).unlink()
+            directories = [path for path in staging.rglob('*') if path.is_dir()]
+            for path in sorted(directories, key=lambda item: len(item.parts), reverse=True):
+                path.rmdir()
+            staging.rmdir()
+            return destination
+        finally:
+            handle.close();lock.unlink()
+
+
 def clean_path(path):
     """Refuse junctions before resolving; output must never point at user data."""
     path = Path(os.path.abspath(path))
@@ -405,8 +549,11 @@ def plan_native(root, output, *, model=None, model_license=None, nuget_cache=Non
     if chosen_model is None or not chosen_model.is_file():
         raise FileNotFoundError('缺少 OCR 模型，请用 --model 指定')
     files['models/' + MODEL] = clean_path(chosen_model)
+    generated = {}
     source_notice = root/'models/ocr-model.source.json'
-    if source_notice.is_file():
+    if model:
+        generated['models/ocr-model.source.json'] = json.dumps(dict(model=MODEL, source='custom', sha256=_file_hash(chosen_model)), ensure_ascii=False, indent=2)+'\n'
+    elif source_notice.is_file():
         files['models/ocr-model.source.json'] = source_notice
     for name in ('global.json', 'Directory.Build.props'):
         files['build-locks/' + name] = source_file(root, 'dotnet/' + name)
@@ -440,16 +587,29 @@ def plan_native(root, output, *, model=None, model_license=None, nuget_cache=Non
         for path in folder.rglob('*'):
             if path.is_file() and any(word in path.name.lower() for word in ('license', 'notice', 'copying')):
                 files[f'licenses/nuget/{name}/{version}/' + path.relative_to(folder).as_posix()] = clean_path(path)
-    license_path = clean_path(model_license) if model_license else root/'models'/(MODEL+'.LICENSE')
-    if license_path.is_file():
+    license_path = clean_path(model_license) if model_license else None if model else root/'models'/(MODEL+'.LICENSE')
+    if license_path is not None and license_path.is_file():
         files['licenses/ocr-model.LICENSE'] = license_path
     else:
         missing.append('OCR 模型许可及来源说明：请用 --model-license 指定文件')
-    files['docs/用户指南.md'] = source_file(root, 'README.md')
-    files['docs/开发指南.md'] = source_file(root, 'docs/DEVELOPMENT.md')
+    for output_name, source_name in (
+        ('用户指南.md', 'README.md'),
+        ('使用指南.zh-TW.md', 'README.zh-TW.md'),
+        ('开发指南.md', 'docs/DEVELOPMENT.md'),
+    ):
+        document = source_file(root, source_name).read_text(encoding='utf-8-sig')
+        if re.search(r'(?<![A-Za-z])[A-Za-z]:[\\/]|/(?:Users|home)/', document):
+            raise ValueError('公开文档包含本机绝对路径：' + source_name)
+        for old, new in (('README.zh-TW.md', '使用指南.zh-TW.md'), ('README.md', '用户指南.md'),
+                         ('docs/DEVELOPMENT.md', '开发指南.md'), ('../README.md', '用户指南.md'),
+                         ('../LICENSE', 'LICENSE.txt'), ('LICENSE', 'LICENSE.txt')):
+            document = document.replace('](' + old + ')', '](' + new + ')')
+        generated['docs/' + output_name] = document
     files['docs/LICENSE.txt'] = source_file(root, 'LICENSE')
     files['licenses/fonts/NotoSansSC-OFL.txt'] = source_file(root, 'dotnet/MabiAgent.Desktop/Assets/Fonts/OFL.txt')
     rows = [dict(source=str(source), path=relative, bytes=source.stat().st_size) for relative, source in sorted(files.items())]
+    rows.extend(dict(path=relative, bytes=len(content.encode('utf-8')), generated=content) for relative, content in sorted(generated.items()))
+    rows.sort(key=lambda row: row['path'])
     return dict(schema_version=1, runtime='win-x64', self_contained=True, destination=str(destination), project=str(root/'dotnet/MabiAgent.Desktop/MabiAgent.Desktop.csproj'), files=rows, packages=licenses, missing=missing, bytes=sum(r['bytes'] for r in rows), user_data_copied=False, pointer_changed=False, nuget_cache=str(cache))
 
 
@@ -459,6 +619,17 @@ def verify_restore(root):
         folder = Path(root)/'dotnet'/project
         original = json.loads((folder/'packages.lock.json').read_text(encoding='utf-8-sig'))['dependencies']
         generated = json.loads((folder/'obj/native-packages.lock.json').read_text(encoding='utf-8-sig'))['dependencies']
+        reviewed = {package: (entry.get('resolved'), entry.get('contentHash'))
+                    for group in original.values() for package, entry in group.items()
+                    if entry.get('type', '').lower() != 'project'}
+        for target in sorted(set(generated)-set(original)):
+            for package, entry in generated[target].items():
+                if entry.get('type', '').lower() == 'project':
+                    continue
+                if package not in reviewed:
+                    raise RuntimeError('原生还原增加未审阅包：' + project + '/' + target + '/' + package)
+                if (entry.get('resolved'), entry.get('contentHash')) != reviewed[package]:
+                    raise RuntimeError('原生还原偏离已审阅锁文件：' + project + '/' + target + '/' + package)
         for framework, group in original.items():
             actual = generated.get(framework)
             if actual is None:
@@ -480,7 +651,8 @@ def copy_planned(plan):
         relative = Path(row['path'])
         if relative.is_absolute() or '..' in relative.parts or relative.parts[0].lower() == 'data':
             raise ValueError('发布清单含不安全路径')
-        clean_path(row['source'])
+        if 'generated' not in row:
+            clean_path(row['source'])
     clean_path(destination)
     destination.mkdir(parents=True, exist_ok=False)
     for row in plan['files']:
@@ -489,6 +661,10 @@ def copy_planned(plan):
             raise ValueError('发布清单含不安全路径')
         target = destination / relative
         target.parent.mkdir(parents=True, exist_ok=True)
+        if 'generated' in row:
+            with target.open('x', encoding='utf-8', newline='\n') as output:
+                output.write(row['generated'])
+            continue
         source_path=clean_path(row['source'])
         if row['path'].startswith('config/') and source_path.suffix == '.json':
             target.write_text(json.dumps(distribution_config(json.loads(source_path.read_text(encoding='utf-8-sig'))),ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
@@ -510,7 +686,7 @@ def build_native(root, output, **options):
     subprocess.run(restore, cwd=root/'dotnet', check=True)
     verify_restore(root)
     destination = copy_planned(plan)
-    command = ['dotnet', 'publish', plan['project'], '-c', 'Release', '-r', 'win-x64', '--self-contained', 'true', '--no-restore', '-p:PublishSingleFile=false', '-p:PublishTrimmed=false', '-p:NuGetLockFilePath=obj/native-packages.lock.json', '-p:PortableEntryPath='+str(destination/'MabiAgent.exe'), '-o', str(destination/'app')]
+    command = ['dotnet', 'publish', plan['project'], '-c', 'Release', '-r', 'win-x64', '--self-contained', 'true', '--no-restore', '-p:PublishSingleFile=false', '-p:PublishTrimmed=false', '-p:CopyOutputSymbolsToPublishDirectory=false', '-p:DebugType=None', '-p:DebugSymbols=false', '-p:PathMap='+str(root)+'=/src', '-p:NuGetLockFilePath=obj/native-packages.lock.json', '-p:PortableEntryPath='+str(destination/'MabiAgent.exe'), '-o', str(destination/'app')]
     subprocess.run(command, cwd=root/'dotnet', check=True)
     for project in PROJECTS:
         target=destination/'build-locks'/project/'native-packages.lock.json'
@@ -558,12 +734,3 @@ def finish_native(root, destination, plan):
             rows.append(dict(path=path.relative_to(destination).as_posix(), bytes=path.stat().st_size, sha256=digest))
     (destination/'release-manifest.json').write_text(json.dumps(dict(schema_version=1, built_at=int(time.time()), entry='Start-MabiAgent.cmd', runtime='win-x64', self_contained=True, game_input=False, pointer_changed=False, files=rows), ensure_ascii=False, indent=2), encoding='utf-8')
     return destination
-
-
-
-
-
-
-
-
-

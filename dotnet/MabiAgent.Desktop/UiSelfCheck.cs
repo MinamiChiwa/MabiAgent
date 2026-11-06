@@ -1,5 +1,6 @@
 using MabiAgent.Core;
 using Avalonia.Controls;
+using MabiAgent.Desktop.Controls;
 using Avalonia.VisualTree;
 using System.IO;
 using System.Text.Json.Nodes;
@@ -10,6 +11,7 @@ internal static class UiSelfCheck
     private static async Task<string[]> CheckSearchablePickers(MainWindow window,MainViewModel model)
     {
         var passed=new List<string>();
+        void Need(bool condition,string label){if(!condition)throw new InvalidOperationException(label);passed.Add(label);}
         async Task CheckPicker(AutoCompleteBox picker,object[] choices,Func<object,string> label,string title)
         {
             object[] rows=[];
@@ -38,9 +40,94 @@ internal static class UiSelfCheck
             var picker=window.FindControl<AutoCompleteBox>("GatheringPicker")!;
             await CheckPicker(picker,model.GatheringChoices.Cast<object>().ToArray(),o=>((GatheringChoice)o).Name,kind+"地点下拉");
         }
-        model.CloseAddCommand.Execute(null);model.SelectedPage=2;window.UpdateLayout();await Task.Delay(40);
-        var reserve=window.GetVisualDescendants().OfType<AutoCompleteBox>().Single(c=>c.Name=="ReservePicker");
-        await CheckPicker(reserve,model.ReserveChoices.Cast<object>().ToArray(),o=>((ReserveChoice)o).Name,"材料留存下拉");
+        try
+        {
+            model.TaskKind="生产";window.UpdateLayout();await Task.Delay(40);
+            var productionCategories=model.GoalCategories.ToArray();
+            var productionLabels=productionCategories.Select(category=>category.Label).ToArray();
+            Need(model.GoalCategoryLabel=="生产设施"&&model.ShowGoalCategory&&productionCategories.Length>0&&productionCategories[0].Label=="全部设施","生产目标显示设施分类并以“全部设施”恢复全量");
+            var woodCategory=Array.IndexOf(productionLabels,"木材加工");var metalCategory=Array.IndexOf(productionLabels,"金属加工");var foodCategory=Array.IndexOf(productionLabels,"食材加工");
+            Need(woodCategory>0&&metalCategory>woodCategory&&foodCategory>metalCategory,"生产设施分类包含已知的木材、金属和食材组并保持排序");
+
+            model.SelectedGoalCategory=productionCategories.Single(category=>category.Label=="金属加工");window.UpdateLayout();await Task.Delay(40);
+            var metalRecipes=model.RecipeChoices.Cast<RecipeRow>().ToArray();
+            var iron=metalRecipes.Single(recipe=>recipe.Id=="iron_ingot_from_iron_ore");var steel=metalRecipes.Single(recipe=>recipe.Id=="metal_steel");
+            Need(metalRecipes.Length>=2&&metalRecipes.All(recipe=>recipe.Device=="金属加工"),"选择金属设施后配方视图只保留金属加工配方");
+            Need(Array.IndexOf(metalRecipes,steel)<Array.IndexOf(metalRecipes,iron),"金属加工组内钢锭排在铁锭之前，已知配方排序生效");
+
+            model.SelectedRecipe=iron;model.RecipeSearch=iron.Name;window.UpdateLayout();await Task.Delay(40);
+            var recipePicker=window.FindControl<ComboBox>("RecipePicker")!;
+            Need(model.RecipeChoices.Contains(iron)&&model.SelectedRecipe?.Id==iron.Id&&Equals(recipePicker.SelectedItem,iron),"配方名称精确搜索保留当前选择");
+            model.RecipeSearch="";model.SelectedGoalCategory=productionCategories[0];window.UpdateLayout();await Task.Delay(40);
+            Need(model.RecipeChoices.Count==model.Recipes.Count&&model.RecipeChoices.Cast<RecipeRow>().Any(recipe=>recipe.Device=="木材加工")&&model.RecipeChoices.Cast<RecipeRow>().Contains(iron),"切换“全部设施”恢复木质与金属全部配方");
+
+            model.TaskKind="采集";window.UpdateLayout();await Task.Delay(40);
+            var allHarvest=model.GatheringChoices.Cast<GatheringChoice>().ToArray();
+            var skillCategories=model.GoalCategories.ToArray();var skillLabels=skillCategories.Select(category=>category.Label).ToArray();
+            Need(model.GoalCategoryLabel=="采集技能"&&model.ShowGoalCategory&&skillCategories.Length>0&&skillCategories[0].Label=="全部技能","采集目标显示技能分类并以“全部技能”恢复全量");
+            var loggingSkill=Array.IndexOf(skillLabels,"伐木");var miningSkill=Array.IndexOf(skillLabels,"采矿");var herbSkill=Array.IndexOf(skillLabels,"采药草");
+            Need(loggingSkill>0&&miningSkill>loggingSkill&&herbSkill>miningSkill,"采集技能分类包含伐木、采矿和采药草并保持已知顺序："+string.Join("、",skillLabels));
+
+            var miningCategory=skillCategories.Single(category=>category.Label=="采矿");model.SelectedGoalCategory=miningCategory;window.UpdateLayout();await Task.Delay(40);
+            var mining=model.GatheringChoices.Cast<GatheringChoice>().ToArray();
+            var ironRoute=mining.Single(route=>route.Id=="iron_ore_nearby");var coalRoute=mining.Single(route=>route.Id=="point_mining_03");
+            Need(mining.All(route=>!route.Fishing)&&mining.Any(route=>route.Id=="iron_ore_nearby")&&!mining.Any(route=>route.Name=="樹木"),"采矿技能只保留非钓鱼采矿点并包含铁矿脉");
+            Need(Array.IndexOf(mining,coalRoute)<Array.IndexOf(mining,ironRoute),"采矿组内煤炭矿脉排在铁矿脉之前，地点排序生效");
+
+            var gatheringPicker=window.FindControl<AutoCompleteBox>("GatheringPicker")!;gatheringPicker.SelectedItem=ironRoute;model.SelectedGathering=ironRoute;gatheringPicker.Text=ironRoute.Name;gatheringPicker.IsDropDownOpen=true;await Task.Delay(80);
+            Need(Equals(gatheringPicker.SelectedItem,ironRoute)&&model.SelectedGathering?.Id==ironRoute.Id,"采集地点精确搜索保留当前选择");
+            gatheringPicker.IsDropDownOpen=false;
+            model.SelectedGoalCategory=skillCategories[0];window.UpdateLayout();await Task.Delay(40);
+            Need(model.GatheringChoices.Select(route=>route.Id).SequenceEqual(allHarvest.Select(route=>route.Id)),"切换“全部技能”恢复全部非钓鱼采集点");
+
+            model.TaskKind="挂机钓鱼";window.UpdateLayout();await Task.Delay(40);
+            Need(model.GoalCategoryLabel=="采集技能"&&model.ShowGoalCategory&&model.GoalCategories.Count>0&&model.GoalCategories[0].Label=="全部技能"&&model.GatheringChoices.Count>0&&model.GatheringChoices.All(route=>route.Fishing),"挂机钓鱼保留技能分类并只显示钓鱼场");
+            model.TaskKind="原地钓鱼";window.UpdateLayout();await Task.Delay(40);
+            Need(!model.ShowGoalCategory&&model.GatheringChoices.Count==0&&model.SelectedGathering is null,"原地钓鱼保留无需地点和技能分类的模式");
+        }
+        finally
+        {
+            // Later interaction checks consume the gathering picker immediately after this helper.
+            // Leave an explicit, non-empty gathering fixture instead of inheriting production state.
+            model.TaskKind="采集";
+            model.SelectedGoalCategory=model.GoalCategories.FirstOrDefault(category=>category.Key=="all");
+            model.SelectedGathering=model.GatheringChoices.FirstOrDefault();
+            window.UpdateLayout();await Task.Delay(40);
+        }
+        model.CloseAddCommand.Execute(null);
+        var previousPage=model.SelectedPage;
+        ScrollViewer? settingsViewer=null;
+        Avalonia.Vector previousOffset=default;
+        try
+        {
+            model.SelectedPage=2;window.UpdateLayout();await Task.Delay(40);
+            var settings=window.FindControl<SettingsPanel>("SettingsPage")!;
+            var settingsColumns=settings.FindControl<Grid>("SettingsColumns")
+                ?? throw new InvalidOperationException("设置页缺少 SettingsColumns 网格");
+            settingsViewer=settingsColumns.GetVisualAncestors().OfType<ScrollViewer>().First();
+            previousOffset=settingsViewer.Offset;
+            var reserveSection=settings.FindControl<DeferredSettingsSection>("ReserveSettingsSection")
+                ?? throw new InvalidOperationException("设置页缺少延迟材料留存卡");
+            for(var attempt=0;attempt<50&&!reserveSection.IsBuilt;attempt++){reserveSection.BringIntoView();window.UpdateLayout();await Task.Delay(20);}
+            if(!reserveSection.IsBuilt&&!window.IsVisible){reserveSection.EnsureBuilt();window.UpdateLayout();}
+            if(!reserveSection.IsBuilt)throw new InvalidOperationException("滚到材料留存卡后未实现其设置模板");
+            reserveSection.BringIntoView();window.UpdateLayout();await Task.Delay(40);
+            var reserve=reserveSection.GetVisualDescendants().OfType<AutoCompleteBox>().Single(c=>c.Name=="ReservePicker");
+            for(var attempt=0;attempt<20&&!reserve.IsEffectivelyVisible;attempt++)
+            {
+                reserve.BringIntoView();
+                window.UpdateLayout();
+                await Task.Delay(20);
+            }
+            window.UpdateLayout();
+            if(window.IsActive&&!reserve.IsEffectivelyVisible)throw new InvalidOperationException("背包卡实现后材料留存下拉不在设置视口内");
+            await CheckPicker(reserve,model.ReserveChoices.Cast<object>().ToArray(),o=>((ReserveChoice)o).Name,"材料留存下拉");
+        }
+        finally
+        {
+            if(settingsViewer is not null)settingsViewer.Offset=previousOffset;window.UpdateLayout();await Task.Delay(40);
+            model.SelectedPage=previousPage;window.UpdateLayout();await Task.Delay(40);
+        }
         return passed.ToArray();
     }
     // Independent state directory: no game input and no writes to player data.
@@ -49,7 +136,6 @@ internal static class UiSelfCheck
         var directory=Path.Combine(Path.GetTempPath(),"mabi-ui-check-"+Guid.NewGuid().ToString("N"));
         var w=new Workspace(root,directory);var vm=new MainViewModel(w,new GameWindowSelection(()=>[]));
         var passed=new List<string>();
-
         void Check(bool condition,string label){if(!condition)throw new InvalidOperationException(label);passed.Add(label);}
         try
         {
@@ -67,7 +153,7 @@ internal static class UiSelfCheck
                 var pauseModel=new MainViewModel(refreshWorkspace,new GameWindowSelection(()=>[]));
                 typeof(MainViewModel).GetField("automation",flags)!.SetValue(pauseModel,refreshService);
                 refreshing.SetValue(refreshService,true);autoResume.SetValue(refreshService,true);
-                Check(!refreshService.Status.Running&&refreshService.IsRunning&&pauseModel.CanPause,"私人剧场刷新属于活动执行且暂停入口可用");
+                Check(!refreshService.Status.Running&&refreshService.IsRunning&&pauseModel.CanPause,"快速重进刷新属于活动执行且暂停入口可用");
                 await serviceGate.WaitAsync();Task pause;
                 try
                 {
@@ -79,11 +165,26 @@ internal static class UiSelfCheck
                 Check(!refreshService.IsRunning&&!(bool)autoResume.GetValue(refreshService)!&&!pauseModel.CanPause,"刷新暂停完成后清除执行与自动恢复状态");
                 refreshWorkspace.EditQueue(q=>q.Add("stop-check","production",1156816717,3,"iron_ingot_from_iron_ore",[]));
                 File.WriteAllText(Path.Combine(refreshWorkspace.DataPath,"native-input-intents.json"),"{}");
-                refreshing.SetValue(refreshService,true);autoResume.SetValue(refreshService,true);
-                await refreshService.StopAllAsync().WaitAsync(TimeSpan.FromSeconds(3));
+                refreshing.SetValue(refreshService,false);autoResume.SetValue(refreshService,true);
+                Task stop,start,workbench;await serviceGate.WaitAsync();
+                try
+                {
+                    start=refreshService.StartAsync();workbench=refreshService.RunWorkbenchTestAsync(new(new JsonObject()),new(new JsonObject()),null,false,new Progress<Editors.WorkbenchRunRow>(),CancellationToken.None);refreshing.SetValue(refreshService,true);stop=refreshService.StopAllAsync();
+                    static async Task<bool> Cancelled(Task task){try{await task.WaitAsync(TimeSpan.FromSeconds(3));return false;}catch(OperationCanceledException){return true;}}
+                    Check(await Cancelled(start)&&await Cancelled(workbench)&&!stop.IsCompleted,"停止全部先取消共享及工作台等待，再等待调度锁");
+                }
+                finally{serviceGate.Release();}
+                await stop.WaitAsync(TimeSpan.FromSeconds(3));
                 Check(!refreshService.IsRunning&&!(bool)autoResume.GetValue(refreshService)!&&refreshService.Status.ReconciliationCount==0,"停止全部终止刷新和自动恢复并清空核账状态");
                 Check(!File.Exists(Path.Combine(refreshWorkspace.DataPath,"native-input-intents.json"))&&refreshWorkspace.Read().Jobs.Single().Target==3,"停止全部清除消费意图并保留用户目标");
-                pauseModel.PrepareClose();
+                File.WriteAllText(Path.Combine(refreshWorkspace.DataPath,"stop-reset.json"),"{}");
+                static async Task<string> Failure(Func<Task> action){try{await action().WaitAsync(TimeSpan.FromSeconds(3));return "";}catch(Exception error){return error.Message;}}
+                var startReset=await Failure(refreshService.StartAsync);var reloginReset=await Failure(refreshService.ReloginAsync);var refreshReset=await Failure(refreshService.RefreshInventoryAsync);
+                var workbenchReset=await Failure(()=>refreshService.RunWorkbenchTestAsync(new(new JsonObject()),new(new JsonObject()),null,false,new Progress<Editors.WorkbenchRunRow>(),CancellationToken.None));
+                Check(new[]{startReset,reloginReset,refreshReset,workbenchReset}.All(message=>message.Contains("停止重置未完成")),"停止重置标记在会话构建和输入前阻断开始、重登、刷新及输入测试");
+                var readOnlyReset=await Failure(()=>refreshService.RunWorkbenchTestAsync(new(new JsonObject()),new(new JsonObject()),null,true,new Progress<Editors.WorkbenchRunRow>(),CancellationToken.None));
+                Check(!readOnlyReset.Contains("停止重置未完成"),"停止重置期间仅允许不激活窗口且不发送输入的识别测试");
+                await refreshService.StopAllAsync().WaitAsync(TimeSpan.FromSeconds(3));pauseModel.PrepareClose();
             }
             var batchRow=new JobRow("old","铁锭","生产",20,0,"批次进行中",false,1,true,false,false,ActionId:"batch-old");
             Check(!batchRow.IsWarningState,"已分配批次不冒充结果待确认");
@@ -100,11 +201,11 @@ internal static class UiSelfCheck
             vm.RecipeSearch="不存在的配方";
             Check(vm.SelectedRecipe is null&&!vm.AddProductionCommand.CanExecute(null),"无匹配配方不能提交隐藏选择");
             vm.RecipeSearch="";vm.SelectedRecipe=vm.Recipes.First();
-            vm.SelectedPage=1;vm.CatalogSelectedRecipe=vm.Recipes.First();
-            vm.CreateRecipeGoalCommand.Execute(null);
-            Check(vm.AddDialogOpen&&vm.SelectedRecipe==vm.CatalogSelectedRecipe,"配方目录可直接创建所选任务");vm.CloseAddCommand.Execute(null);
-            vm.Search="不存在的目录项";Check(vm.CatalogSelectedRecipe is null&&!vm.CreateRecipeGoalCommand.CanExecute(null),"配方筛选隐藏选择后禁用创建");vm.Search="";
-            vm.OpenAddCommand.Execute(null);vm.TargetQuantity="错字";
+            vm.TaskKind="生产";vm.SelectedRecipe=vm.Recipes.First();vm.TargetQuantity="1";vm.OpenAddCommand.Execute(null);
+            Check(vm.AddDialogOpen&&vm.CanAddGoal&&vm.AddGoalCommand.CanExecute(null),"已选配方与合法数量可通过新增目标提交");
+            vm.CloseAddCommand.Execute(null);
+            vm.RecipeSearch="不存在的配方";Check(vm.SelectedRecipe is null&&!vm.AddGoalCommand.CanExecute(null),"配方筛选隐藏选择后禁用新增目标");
+            vm.RecipeSearch="";vm.SelectedRecipe=vm.Recipes.First();            vm.OpenAddCommand.Execute(null);vm.TargetQuantity="错字";
             vm.TaskKind="采集";Check(vm.GoalQuantityLabel=="采集轮数"&&vm.GoalQuantityUnit=="轮","新增采集目标显示轮数单位");vm.TaskKind="生产";
             Check(vm.GoalQuantityLabel=="目标产物数量"&&vm.GoalQuantityUnit=="件","新增生产目标显示产物件数单位");
             Check(!vm.AddProductionCommand.CanExecute(null),"非法数量不能提交旧值");
@@ -117,7 +218,7 @@ internal static class UiSelfCheck
             Check(vm.Jobs[0].Target==15,"修改数量写入原格式队列");
             await vm.ControlCommand.ExecuteAsync("pause");
             Check(!vm.ControlCommand.CanExecute("pause")&&vm.ControlCommand.CanExecute("continue"),"操作按钮随目标状态变化");
-            vm.Search="不存在的目标";Check(vm.SelectedJob is null&&!vm.MoveCommand.CanExecute("up"),"过滤隐藏后清除操作目标");
+            vm.Search="不存在的目标";Check(vm.SelectedJob is null&&!vm.MoveCommand.CanExecute("up"),"过滤隐藏后清除操作目标");vm.Search="";
             vm.BackpackThreshold="101";Check(!vm.SaveSettings(),"拒绝超范围阈值");
             await vm.RefreshAsync();Check(vm.BackpackThreshold=="101"&&vm.SettingsDirty,"刷新保留未保存输入");
             vm.BackpackThreshold="85";Check(vm.SaveSettings(),"修正后可保存");
@@ -130,6 +231,8 @@ internal static class UiSelfCheck
             passed.AddRange(Accounts.AccountItemsSelfCheck.Run());
             var repository=new Editors.EditorRepository(root,Path.Combine(directory,"editor-check"));
             vm.InitializeEditorSelfCheck(repository,new MabiAgent.Capture.AccountItemService(Path.Combine(directory,"account-check")));
+            var gatheringSkills=GoalChoices.LoadGatheringSkills(root,()=>Editors.PublishedCatalogCompiler.CompileAvailable(repository));
+            Check(gatheringSkills.GetValueOrDefault("iron_ore_nearby")=="采矿","发布目录中的铁矿别名继承采矿分类："+gatheringSkills.GetValueOrDefault("iron_ore_nearby","未映射"));
             passed.AddRange(await Editors.AnchorWorkbenchSelfCheck.Run(vm,new Editors.EditorRepository(root,Path.Combine(directory,"workbench-check"))));
             var gatheringChoices=new Workspace(root,Path.Combine(directory,"gathering-choices")).Read().Gathering!;
             Check(gatheringChoices.Single(c=>c.Id=="iron_ore_nearby").Name=="鐵礦脈"&&!gatheringChoices.Any(c=>c.Id=="point_mining_01"),"铁矿采集显示游戏名称并隐藏重复新建入口");
@@ -139,7 +242,7 @@ internal static class UiSelfCheck
             vm.ChainEditor.SelectedTemplate=vm.ChainEditor.Templates.First(t=>Editors.EditorRepository.Text(t.Document,"template_key")=="production:iron_ingot_from_iron_ore");vm.ChainEditor.NewDraftCommand.Execute(null);vm.ChainEditor.Name="自检任务链";vm.ChainEditor.Hours="1";vm.ChainEditor.Minutes="2";vm.ChainEditor.Seconds="3";vm.ChainEditor.SaveCommand.Execute(null);
             Check(repository.List().Count==1&&repository.List()[0]["parameters"]!["duration_s"]!.GetFiniteDouble()==3723,"编辑任务链小时分秒并保存草稿");
             vm.ChainEditor.PublishCommand.Execute(null);Check(repository.List()[0]["status"]!.GetValue<string>()=="published","发布任务链先校验后落盘");await vm.RefreshAsync();Check(vm.Recipes.Any(r=>r.Duration==3723),"发布后重新加载下拉配方");
-            var previewWindow=new MainWindow(vm){Width=1120,Height=800};var content=previewWindow;vm.SelectedPage=4;content.Measure(new Avalonia.Size(1120,800));content.Arrange(new Avalonia.Rect(0,0,1120,800));content.UpdateLayout();Check(Avalonia.Application.Current!.Styles.Count>=3,"Semi 与 Ursa 主题资源已加载");using var preview=new Avalonia.Media.Imaging.RenderTargetBitmap(new Avalonia.PixelSize(1120,800));preview.Render(content);Check(preview.PixelSize.Width==1120,"任务链编辑页离屏布局可渲染");
+            var previewWindow=new MainWindow(vm){Width=1120,Height=800};var content=previewWindow;vm.SelectedPage=2;content.Measure(new Avalonia.Size(1120,800));content.Arrange(new Avalonia.Rect(0,0,1120,800));content.UpdateLayout();Check(Avalonia.Application.Current!.Styles.Count>=3,"Semi 与 Ursa 主题资源已加载");using var preview=new Avalonia.Media.Imaging.RenderTargetBitmap(new Avalonia.PixelSize(1120,800));preview.Render(content);Check(preview.PixelSize.Width==1120,"设置页离屏布局可渲染");
 
             vm.TaskKind="采集";Check(vm.GatheringChoices.Count>0,"新增目标支持采集点");vm.TargetQuantity="2";await vm.AddGoalCommand.ExecuteAsync(null);Check(vm.Jobs.Any(j=>j.Kind=="采集"),"采集目标写入原队列");
             vm.TaskKind="挂机钓鱼";vm.FishingHours="0";vm.FishingMinutes="1";vm.FishingSeconds="5";Check(vm.GatheringChoices.Count>0&&vm.CanAddGoal,"钓鱼点与时分秒有效");await vm.AddGoalCommand.ExecuteAsync(null);Check(vm.Jobs.Any(j=>j.Kind=="挂机钓鱼"&&j.Target==65),"钓鱼时分秒写入秒数目标");
@@ -157,7 +260,7 @@ internal static class UiSelfCheck
             vm.AnchorEditor.SpecJson+=" ";vm.AnchorEditor.ConfirmDiscard=()=>false;vm.AnchorEditor.ReloadCommand.Execute(null);Check(vm.AnchorEditor.HasUnsavedChanges,"完整参数草稿受刷新保护");vm.AnchorEditor.ConfirmDiscard=()=>true;vm.AnchorEditor.ReloadCommand.Execute(null);
             vm.AnchorEditor.Search="不存在的锚点";Check(vm.AnchorEditor.AnchorView.IsEmpty&&vm.AnchorEditor.Selected is null&&vm.AnchorEditor.Fields is null,"锚点筛选清除隐藏选择及表单");vm.AnchorEditor.Search="";
             vm.AnchorEditor.Selected=vm.AnchorEditor.Anchors.First();vm.AnchorEditor.Fields!.Threshold="0.92";vm.AnchorEditor.ConfirmDiscard=()=>false;vm.AnchorEditor.Search="不存在的锚点";Check(vm.AnchorEditor.Search==""&&vm.AnchorEditor.HasUnsavedChanges,"锚点筛选先保护未保存修改");vm.AnchorEditor.ConfirmDiscard=()=>true;vm.AnchorEditor.ReloadCommand.Execute(null);
-            foreach(var page in Enumerable.Range(0,6)){vm.SelectedPage=page;content.Measure(new Avalonia.Size(1120,800));content.Arrange(new Avalonia.Rect(0,0,1120,800));content.UpdateLayout();Check(content.Bounds.Width>0&&vm.PageDescription.Length>0,$"页面 {page+1} 可布局且有操作说明");}
+            foreach(var page in Enumerable.Range(0,3)){vm.SelectedPage=page;content.Measure(new Avalonia.Size(1120,800));content.Arrange(new Avalonia.Rect(0,0,1120,800));content.UpdateLayout();Check(content.Bounds.Width>0&&vm.PageDescription.Length>0,$"页面 {page+1} 可布局且有操作说明");}
             _=new SponsorWindow();Check(SponsorWindow.AfdianUrl.EndsWith("/minamichiwa")&&SponsorWindow.PatreonUrl.EndsWith("/chiwaminami"),"赞助沿用原作者页面且无支付动作");
             Check(Avalonia.Application.Current!.TryGetResource("CardBorder",Avalonia.Styling.ThemeVariant.Dark,out var card)&&card is Avalonia.Styling.ControlTheme,"Semi 卡片主题可解析");
             var native=Editors.CropSelectionWindow.NativeSelection(new Avalonia.Point(100,125),new Avalonia.Point(300,225),new Avalonia.Size(1000,800),new Avalonia.PixelSize(1280,960));
@@ -187,14 +290,29 @@ internal static class UiSelfCheck
             vm.QueueView.SortDescriptions.Add(Avalonia.Collections.DataGridSortDescription.FromPath(nameof(JobRow.Name)));
             var order=w.Read().Jobs.Select(j=>j.Id).ToArray();await vm.ReorderAsync(vm.Jobs.Last(),vm.Jobs.First());
             Check(w.Read().Jobs.Select(j=>j.Id).SequenceEqual(order),"表头排序时拒绝拖拽改执行顺序");vm.ResetSortCommand.Execute(null);
+            passed.AddRange(await CheckSearchablePickers(previewWindow,vm));
             var gathering=vm.GatheringChoices.First();
             w.EditQueue(q=>q.Add("auto-material:self-check","gathering",gathering.ItemId,10,gathering.Id,[]));await vm.RefreshLiveQueueAsync();
             vm.Search="";vm.SelectedPage=0;previewWindow.Show();await Task.Delay(80);previewWindow.UpdateLayout();
-            passed.AddRange(await CheckSearchablePickers(previewWindow,vm));
             Check(previewWindow.Title==ProductInfo.Title,"标题包含产品名及版本");
             Check(previewWindow.FindControl<TextBlock>("AppName")!.Text==ProductInfo.Title,"顶栏响应式布局保持产品名及版本");
+            async Task<T> WaitForDeferredControl<T>(string sectionName,string controlName) where T:Control
+            {
+                vm.SelectedPage=2;
+                var section=previewWindow.FindControl<SettingsPanel>("SettingsPage")!.FindControl<DeferredSettingsSection>(sectionName)
+                    ??throw new InvalidOperationException("设置页缺少延迟卡："+sectionName);
+                for(var attempt=0;attempt<100;attempt++)
+                {
+                    section.BringIntoView();previewWindow.UpdateLayout();
+                    var control=section.GetVisualDescendants().OfType<T>().FirstOrDefault(candidate=>candidate.Name==controlName&&candidate.IsEffectivelyVisible);
+                    if(control is not null)return control;
+                    await Task.Delay(20);
+                }
+                throw new InvalidOperationException($"设置卡 {sectionName} 未实现可见控件 {controlName}");
+            }
             var newVip=previewWindow.FindControl<ToggleSwitch>("NewTaskVip")!;
-            var settingsVip=previewWindow.FindControl<SettingsPanel>("SettingsPage")!.FindControl<ToggleSwitch>("MaintenanceVip")!;
+            var settingsPage=previewWindow.FindControl<SettingsPanel>("SettingsPage")!;
+            var settingsVip=await WaitForDeferredControl<CheckBox>("VipSettingsSection","MaintenanceVip");
             Check(!vm.LifeVip,"生活VIP默认关闭");
             newVip.IsChecked=true;await Task.Delay(40);
             Check(vm.LifeVip&&settingsVip.IsChecked==true&&vm.Recipes.All(r=>r.LifeVip),"新建VIP同步维护与配方时长");
@@ -213,14 +331,7 @@ internal static class UiSelfCheck
             Check(!vm.LifeVip&&newVip.IsChecked==false&&vm.Recipes.All(r=>!r.LifeVip),"维护VIP关闭同步新建与配方时长");
             Check(vm.SaveSettings(),"生活VIP恢复默认");
             vm.SelectedPage=2;
-            ToggleSwitch? lowCpuToggle=null;var lowCpuLayoutDeadline=System.Diagnostics.Stopwatch.StartNew();
-            while(lowCpuToggle is null&&lowCpuLayoutDeadline.Elapsed<TimeSpan.FromSeconds(1))
-            {
-                previewWindow.UpdateLayout();
-                lowCpuToggle=previewWindow.GetVisualDescendants().OfType<ToggleSwitch>().SingleOrDefault(c=>c.Name=="LowCpuRecognitionToggle"&&c.IsEffectivelyVisible);
-                if(lowCpuToggle is null)await Task.Delay(20);
-            }
-            if(lowCpuToggle is null)throw new InvalidOperationException("设置页完成布局后未显示识别低占用开关");
+            var lowCpuToggle=await WaitForDeferredControl<CheckBox>("AppearanceSettingsSection","LowCpuRecognitionToggle");
             passed.Add("设置页完成布局并显示识别低占用开关");
             Check(lowCpuToggle.IsVisible&&lowCpuToggle.GetVisualAncestors().OfType<SettingsPanel>().Single().IsVisible&&lowCpuToggle.IsEnabled&&lowCpuToggle.IsChecked==vm.RecognitionLowCpu,"识别低占用开关可用且显示当前设置");
             lowCpuToggle.SetCurrentValue(Avalonia.Controls.Primitives.ToggleButton.IsCheckedProperty,true);await Task.Delay(20);
@@ -234,17 +345,22 @@ internal static class UiSelfCheck
             Check(!vm.RecognitionLowCpu&&vm.SettingsDirty&&vm.SaveSettings()&&!JsonNode.Parse(File.ReadAllText(path))!["recognition"]!["low_cpu"]!.GetValue<bool>(),"低占用模式关闭经界面绑定并保存");
             vm.ReloadSettingsCommand.Execute(null);await Task.Delay(20);
             Check(!vm.RecognitionLowCpu&&lowCpuToggle.IsChecked==false&&!vm.SettingsDirty,"关闭低占用模式重读后保持关闭");
-            var schemePicker=previewWindow.GetVisualDescendants().OfType<ComboBox>().Single(c=>c.Name=="GlobalInputSchemePicker");
-            var centerToggle=previewWindow.GetVisualDescendants().OfType<ToggleSwitch>().Single(c=>c.Name=="GlobalTouchCenterToggle");
-            Check(vm.InputScheme=="touch"&&vm.TouchCenterOffset&&centerToggle.IsChecked==true,"旧设置默认后台触控及全局中心偏移");
-            schemePicker.SetCurrentValue(ComboBox.SelectedValueProperty,"mouse");await Task.Delay(20);
+            var schemePicker=await WaitForDeferredControl<StackPanel>("OperationSettingsSection","GlobalInputSchemePicker");
+            var mouseInputChoice=schemePicker.GetVisualDescendants().OfType<RadioButton>().Single(c=>c.Name=="MouseInputChoice");
+            var touchInputChoice=schemePicker.GetVisualDescendants().OfType<RadioButton>().Single(c=>c.Name=="TouchInputChoice");
+            var centerToggle=await WaitForDeferredControl<CheckBox>("OperationSettingsSection","GlobalTouchCenterToggle");
+            Check(vm.InputScheme=="touch"&&vm.TouchCenterOffset&&centerToggle.IsChecked==true&&touchInputChoice.IsChecked==true,"旧设置默认后台触控及全局中心偏移");
+            mouseInputChoice.SetCurrentValue(Avalonia.Controls.Primitives.ToggleButton.IsCheckedProperty,true);await Task.Delay(20);
             Check(vm.InputScheme=="mouse"&&!vm.IsTouchInput&&vm.SettingsDirty&&vm.SaveSettings(),"切换前台鼠标通过实际控件保存");
             Check(JsonNode.Parse(File.ReadAllText(path))!["input"]!["scheme"]!.GetValue<string>()=="mouse","前台方案写入隔离设置");
-            schemePicker.SetCurrentValue(ComboBox.SelectedValueProperty,"touch");await Task.Delay(20);centerToggle.SetCurrentValue(Avalonia.Controls.Primitives.ToggleButton.IsCheckedProperty,false);await Task.Delay(20);
+            touchInputChoice.SetCurrentValue(Avalonia.Controls.Primitives.ToggleButton.IsCheckedProperty,true);await Task.Delay(20);centerToggle.SetCurrentValue(Avalonia.Controls.Primitives.ToggleButton.IsCheckedProperty,false);await Task.Delay(20);
             Check(vm.IsTouchInput&&!vm.TouchCenterOffset&&vm.SaveSettings(),"切回触控并保存中心偏移关闭");
             centerToggle.SetCurrentValue(Avalonia.Controls.Primitives.ToggleButton.IsCheckedProperty,true);await Task.Delay(20);Check(vm.TouchCenterOffset&&vm.SaveSettings(),"中心偏移开启写入全局设置");
             vm.ReloadSettingsCommand.Execute(null);await Task.Delay(20);
             Check(vm.InputScheme=="touch"&&vm.TouchCenterOffset&&centerToggle.IsChecked==true&&!vm.SettingsDirty,"方案及全局中心偏移重读一致");
+            settingsPage.ShowUpdateSection();await Task.Delay(80);previewWindow.UpdateLayout();
+            var updateSection=settingsPage.FindControl<DeferredSettingsSection>("UpdateSettingsSection")!;
+            Check(updateSection.IsBuilt&&updateSection.IsEffectivelyVisible&&updateSection.GetVisualDescendants().OfType<Border>().Any(c=>c.IsEffectivelyVisible&&c.Name=="UpdateCard"),"标题更新操作可靠实现并滚动到设置更新卡");
             vm.SelectedPage=0;content.UpdateLayout();
             var queuePanel=previewWindow.GetVisualDescendants().OfType<QueuePanel>().Single();
             foreach(var expander in queuePanel.GetVisualDescendants().OfType<Expander>())expander.IsExpanded=true;
@@ -291,7 +407,7 @@ internal static class UiSelfCheck
                 previewWindow.UpdateLayout();await Task.Delay(30);
                 Check(manualGrid.Bounds.Height>=160&&manualGrid.GetVisualDescendants().OfType<DataGridRow>().Any(r=>r.Bounds.Height>0),$"窗口 {size.Width}×{size.Height} 显示批量操作及自动任务时主列表保留高度");
             }
-            
+
             passed.AddRange(await PresentationSelfCheck.Run(previewWindow,vm));
             passed.AddRange(await ScrollUiSelfCheck.Run(root));
             passed.AddRange(await MemoryUiSelfCheck.Run(root));
