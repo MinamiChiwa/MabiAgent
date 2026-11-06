@@ -145,6 +145,7 @@ public sealed class UiIcon:AvaloniaObject
     private static void Apply(Control control)
     {
         if(GetKind(control) is not string kind||control is not ContentControl host||host.Content is not string label)return;
+        label=RuntimeLocalization.OriginalValue(host,ContentControl.ContentProperty,label);
         if(AutomationProperties.GetName(host) is null)AutomationProperties.SetName(host,label);
         host.Content=new StackPanel{Orientation=Orientation.Horizontal,Spacing=8,VerticalAlignment=VerticalAlignment.Center,Children={Create(kind),new TextBlock{Text=label,VerticalAlignment=VerticalAlignment.Center}}};
     }

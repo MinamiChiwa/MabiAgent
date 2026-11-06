@@ -91,6 +91,30 @@ public sealed class UiLanguageTests : IDisposable
     }
 
     [Fact]
+    public void ControlsCreatedInTraditionalRestoreTheirOriginalSimplifiedText()
+    {
+        RuntimeLocalization.Initialize();
+        UiLanguageService.Shared.SetLanguage(UiLanguageService.TraditionalChinese);
+        var label=new TextBlock{Text="钓鱼时长"};
+        var button=new Button();
+        TextBlock? child=null;
+        button.PropertyChanged+=(_,change)=>
+        {
+            if(change.Property==ContentControl.ContentProperty&&change.NewValue is string)
+                button.Content=child=new TextBlock{Text="采集技能"};
+        };
+        button.Content="更新物品关联";
+        var header=new DataGridTextColumn{Header="已确认"};
+        Assert.Equal("釣魚時間",label.Text);
+        Assert.Equal("採集技能",child!.Text);
+        UiLanguageService.Shared.SetLanguage(UiLanguageService.SimplifiedChinese);
+        RuntimeLocalization.RefreshAll();
+        Assert.Equal("钓鱼时长",label.Text);
+        Assert.Equal("采集技能",child.Text);
+        Assert.Equal("已确认",header.Header);
+    }
+
+    [Fact]
     public void RuntimeControlsCoverPagesDialogsDynamicStatesAndItemNames()
     {
         RuntimeLocalization.Initialize();

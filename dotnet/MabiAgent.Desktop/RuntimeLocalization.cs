@@ -15,6 +15,8 @@ public static class RuntimeLocalization
     private static readonly List<WeakReference<AvaloniaObject>> Tracked = [];
     private static readonly object Gate = new();
     private static bool applying;
+    private static bool renderingDocument;
+    private static readonly HashSet<(AvaloniaObject Target,AvaloniaProperty Property)> ApplyingProperties = [];
     private static bool initialized;
 
     public static void Initialize()
@@ -46,18 +48,19 @@ public static class RuntimeLocalization
         try
         {
             WeakReference<AvaloniaObject>[] snapshot;
-            lock (Gate) snapshot = Tracked.ToArray();
-            var live = new List<WeakReference<AvaloniaObject>>(snapshot.Length);
+            lock (Gate)
+            {
+                Tracked.RemoveAll(reference=>!reference.TryGetTarget(out _));
+                snapshot = Tracked.ToArray();
+            }
             foreach (var reference in snapshot)
             {
                 if (!reference.TryGetTarget(out var target)) continue;
-                live.Add(reference);
                 if (Sources.TryGetValue(target, out var values))
                 {
                     foreach (var pair in values.Values.ToArray()) Apply(target, pair.Key, pair.Value);
                 }
             }
-            lock (Gate) { Tracked.Clear(); Tracked.AddRange(live); }
         }
         finally { applying = false; }
     }
@@ -67,18 +70,21 @@ public static class RuntimeLocalization
             ? UiLanguageService.Shared.TranslateText(source)
             : target.GetValue(property)?.ToString() ?? "";
 
+    internal static string OriginalValue(AvaloniaObject target,AvaloniaProperty property,string fallback)
+        => Sources.TryGetValue(target,out var values)&&values.Values.TryGetValue(property,out var source)?source:fallback;
+
     // Markdown already has authored translations; retain its text verbatim.
     internal static void RenderOriginalDocument(Action render)
     {
-        var previous = applying;
-        applying = true;
+        var previous = renderingDocument;
+        renderingDocument = true;
         try { render(); }
-        finally { applying = previous; }
+        finally { renderingDocument = previous; }
     }
 
     private static void Observe(AvaloniaObject target, AvaloniaProperty property, object? value)
     {
-        if (applying || value is not string text) return;
+        if (renderingDocument || ApplyingProperties.Contains((target,property)) || value is not string text) return;
         if (!Sources.TryGetValue(target, out var values))
         {
             lock (Gate)
@@ -105,12 +111,11 @@ public static class RuntimeLocalization
         if (target.GetValue(property) is not string current) return;
         var translated = UiLanguageService.Shared.TranslateText(source);
         if (current == translated) return;
-        var wasApplying=applying;
+        if(!ApplyingProperties.Add((target,property)))return;
         try
         {
-            applying = true;
             target.SetCurrentValue(property, translated);
         }
-        finally { applying = wasApplying; }
+        finally { ApplyingProperties.Remove((target,property)); }
     }
 }

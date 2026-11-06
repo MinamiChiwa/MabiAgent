@@ -52,6 +52,7 @@ internal static class LanguageUiSelfCheck
             var document=model.Workbench.Document;
             var originalDocument=document.ToJson().ToJsonString();
             var simplifiedTexts=Texts(window).Concat(Texts(workbench)).Concat(headers.Values).Distinct().ToArray();
+            CheckTaskDialog(window,model);
 
             Check(HasText(window.QueuePage,"我的任务"),"队列简体文案");
             Check(HasText(window.AccountsPanel,"更新物品关联"),"仓库简体文案："+string.Join(" | ",Texts(window.AccountsPanel).Where(x=>x.Contains("物品")||x.Contains("关联"))));
@@ -64,6 +65,7 @@ internal static class LanguageUiSelfCheck
             language.SetLanguage(UiLanguageService.TraditionalChinese);
             RuntimeLocalization.RefreshAll();
             Layout(window);Layout(workbench);
+            CheckTaskDialog(window,model);
             Check(HasText(window.QueuePage,"我的任務"),"队列繁体文案");
             Check(HasText(window.AccountsPanel,"更新物品關聯"),"仓库繁体文案");
             Check(HasText(window.SettingsPage,"外觀與效能"),"设置繁体文案");
@@ -96,6 +98,7 @@ internal static class LanguageUiSelfCheck
             Check(HasText(window.SettingsPage,"外观与性能"),"设置切回简体");
             Check(HasText(workbench,"流程工作台"),"工作台切回简体");
             Check(model.ChainEditor?.HasUnsavedChanges==hadDraft,"草稿切回简体后保持");
+            CheckTaskDialog(window,model);
             language.SetLanguage(UiLanguageService.TraditionalChinese);
             RuntimeLocalization.RefreshAll();Layout(window);Layout(workbench);
             Check(HasText(window,"目前任務：铁矿石")&&model.ChainEditor?.HasUnsavedChanges==hadDraft,"再次切换保留物品名与草稿");
@@ -103,6 +106,7 @@ internal static class LanguageUiSelfCheck
             RuntimeLocalization.RefreshAll();Layout(window);Layout(workbench);
             Check(HasText(window.QueuePage,"我的任务")&&model.ChainEditor?.HasUnsavedChanges==hadDraft,"多轮双向切换稳定");
             checks.Add("真实窗口多轮双向切换、物品名与草稿保持");
+            checks.Add("四类新增任务的说明、分类、数量、时间单位与按钮逐项双向切换");
             return checks.ToArray();
         }
         finally
@@ -121,6 +125,26 @@ internal static class LanguageUiSelfCheck
             settings.BackpackSettingsSection,settings.ReserveSettingsSection,settings.WingSettingsSection,
             settings.UpdateSettingsSection
         })section.EnsureBuilt();
+    }
+
+    private static void CheckTaskDialog(MainWindow window,MainViewModel model)
+    {
+        var original=model.TaskKind;
+        var language=UiLanguageService.Shared;
+        try
+        {
+            foreach(var kind in model.TaskKinds)
+            {
+                model.TaskKind=kind;Layout(window);
+                string[] common=["新增任务","生产按件数，采集按轮数，钓鱼按时长。","生活 VIP · 加工时长减半","游戏内已生效时开启；全局共用，已提交槽位不重算。","取消","加入队列"];
+                var labels=common.Concat(model.IsFishingGoal?new[]{"钓鱼时长","小时","分钟","秒"}:new[]{model.GoalQuantityLabel,model.GoalQuantityUnit});
+                if(model.ShowGoalCategory)labels=labels.Append(model.GoalCategoryLabel);
+                foreach(var source in labels)
+                    Check(HasText(window.AddOverlay,language.TranslateText(source)),"新增任务 "+kind+" / "+language.Culture+"："+source+"，实际："+string.Join(" | ",Texts(window.AddOverlay)));
+                Check(model.TaskKind==kind,"语言显示保持任务类型内部标识");
+            }
+        }
+        finally{model.TaskKind=original;Layout(window);}
     }
 
     private static void Layout(Control control,double width=1340,double height=920)
