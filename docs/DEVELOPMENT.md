@@ -10,6 +10,8 @@
 
 NuGet 依赖版本写在各项目的 .csproj 中，packages.lock.json 记录还原结果。调整依赖后，请一起提交锁文件。
 
+桌面程序使用 `CETCompat=false` 生成 apphost，根目录便携入口的 `CreateAppHost` 同时设置 `DisableCetCompat=true`，减少硬件栈保护与旧系统环境的兼容冲突。更新进程复制同一入口。修改发布目标时应检查两个 EXE 的 PE 扩展 DLL 特性，防止自定义入口遗漏此设置。
+
 ## 编译与运行
 
 在仓库根目录执行：
