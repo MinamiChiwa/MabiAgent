@@ -24,6 +24,7 @@ public sealed class SchedulingWake
 public static class AutomationCadence
 {
     public static readonly TimeSpan Active=TimeSpan.FromMilliseconds(300);
+    public static readonly TimeSpan Fishing=TimeSpan.FromMilliseconds(100);
     public static readonly TimeSpan Health=TimeSpan.FromSeconds(5);
     public static TimeSpan Until(double now,double? due)
         =>due is{} at&&double.IsFinite(at)?TimeSpan.FromSeconds(Math.Clamp(at-now,0,Health.TotalSeconds)):Health;

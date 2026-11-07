@@ -3,6 +3,23 @@ using Xunit;
 namespace MabiAgent.Windows.Tests;
 public sealed class FishingGaugeTests
 {
+    [Theory][InlineData(0,0)][InlineData(2,.2)][InlineData(9,.9)][InlineData(10,1)]
+    public void AdjacentTrackRowsTakePriorityOverDarkBackground(int fill,double expected)
+    {
+        var pixels=new byte[10*20*3];
+        for(var y=0;y<20;y++)for(var x=0;x<10;x++)
+        {var rgb=y is >=8 and <13&&x<fill?new byte[]{10,200,30}:new byte[]{40,40,40};rgb.CopyTo(pixels,(y*10+x)*3);}
+        var config=Calibration();config["scan_rows"]=true;
+        Assert.Equal(expected,FishingGauge.Read(new(10,20,pixels),new(0,0,10,20),config));
+    }
+    [Fact] public void IsolatedGreenRowsDoNotEstablishATrack()
+    {
+        var pixels=new byte[10*7*3];
+        for(var y=0;y<7;y++)for(var x=0;x<10;x++)
+        {var rgb=y%2==0?(x<8?new byte[]{10,200,30}:new byte[]{40,40,40}):new byte[]{150,100,180};rgb.CopyTo(pixels,(y*10+x)*3);}
+        var config=Calibration();config["scan_rows"]=true;
+        Assert.Null(FishingGauge.Read(new(10,7,pixels),new(0,0,10,7),config));
+    }
     [Theory][InlineData(0,101)][InlineData(1,72)][InlineData(2,42)][InlineData(3,14)]
     public void LiveFloatingGaugeReadsCalibratedInterior(int sample,int fill)
     {

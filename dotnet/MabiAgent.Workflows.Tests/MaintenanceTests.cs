@@ -3,6 +3,31 @@ using Xunit;
 namespace MabiAgent.Workflows.Tests;
 public sealed class MaintenanceTests
 {
+    [Fact] public void RequestedFishingInspectionBypassesPeriodicDeferralAndFailureStaysLocal()
+    {
+        var time=new ManualTime();var port=new MaintenancePort{Frame=new("scene","scene")};
+        var runner=new MaintenanceRunner(port,new MemoryStore(),new(RepairEnabled:false,BackpackCheckIntervalSeconds:120),time);
+        runner.RequestBackpackInspection();Assert.True(runner.RequiresTurnFor(false,false));
+        runner.Tick(allowPeriodicBackpackCheck:false);Assert.Equal(1,port.Navigations);
+        for(var i=0;i<3;i++){port.Frame=new("unreadable-"+i,"backpack");runner.Tick(allowPeriodicBackpackCheck:false);}
+        Assert.Equal("backpack_weight_unknown",runner.Snapshot()["reason"]!.GetValue<string>());
+        Assert.False(runner.Snapshot()["global_pause_required"]!.GetValue<bool>());Assert.False(runner.Blocked("idle_fishing"));
+        port.Frame=new("closed","scene");Assert.False(runner.Tick()["navigation_reserved"]!.GetValue<bool>());
+    }
+    [Theory][InlineData("inspect")][InlineData("relief_weight")][InlineData("prepare")]
+    public void WeightReadSwitchesAwayFromPetTabBeforeCountingOcrFailures(string phase)
+    {
+        var store=new MemoryStore();var policy=new MaintenancePolicy(RepairEnabled:false,ReadAttempts:1);var time=new ManualTime();
+        var seed=new MaintenanceRunner(new MaintenancePort(),store,policy,time).Snapshot();
+        seed["active"]="backpack";seed["backpack"]!["phase"]=phase;seed["backpack"]!["status"]="running";
+        seed["backpack"]!["tidy_checked"]=true;seed["backpack"]!["surplus_checked"]=true;seed["backpack"]!["cleanup_after_relief"]=true;store.Flush(seed);
+        var port=new MaintenancePort{Frame=new("pet","backpack",WeightTabRequired:true)};
+        var runner=new MaintenanceRunner(port,store,policy,time);runner.Resume(true);runner.Tick();
+        Assert.Equal(1,port.Navigations);Assert.Equal(0,runner.Snapshot()["backpack"]!["reads"]!.GetValue<int>());
+        Assert.False(runner.Snapshot()["global_pause_required"]!.GetValue<bool>());Assert.Empty(port.Actions);
+        port.Frame=new("items","backpack",Weight:20,Capacity:100);runner.Tick();
+        Assert.Equal("idle",runner.Snapshot()["backpack"]!["phase"]!.GetValue<string>());Assert.Equal(20,runner.Snapshot()["backpack"]!["weight"]!.GetValue<long>());
+    }
     [Theory][InlineData(true)][InlineData(false)]
     public void LegacyBlockedBackpackPreservesOnlyObservedCapacityRestriction(bool overweight)
     {

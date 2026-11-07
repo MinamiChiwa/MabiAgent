@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using System.IO.Compression;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
@@ -206,8 +207,7 @@ public sealed class UpdateService : IDisposable
 
     private async Task<UpdateManifest> ReadManifestAsync(ReleaseAsset asset, CancellationToken token)
     {
-        // The manifest never goes through the mirror, and without a GitHub digest the only
-        // remaining anchor is the official HTTPS host itself.
+        // The manifest uses direct official HTTPS; verify the release-page digest when present.
         var expected = DigestValue(asset.Digest);
         if (expected is null) transport.Notes.Add("发布未提供清单摘要，仅依赖官方 HTTPS 通道");
         var temporary = Path.Combine(Path.GetTempPath(), "mabi-manifest-" + Guid.NewGuid().ToString("N") + ".json");
@@ -276,16 +276,33 @@ public sealed class UpdateService : IDisposable
                 .OrderBy(pair => pair.Key, StringComparer.OrdinalIgnoreCase)
                 .Select(pair => new ObsoleteFile(pair.Key, pair.Value)).ToList();
         var planned = new List<PlannedFile>();
+        var packCache = Path.Combine(staging, ".packs-" + Guid.NewGuid().ToString("N"));
+        var downloadedPacks = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         long bytes = 0;
+        try
+        {
         for (var i = 0; i < changed.Count; i++)
         {
             token.ThrowIfCancellationRequested();
             var file = changed[i];
-            var asset = release.Asset(file.Blob) ?? throw new InvalidDataException("发布缺少文件资产：" + file.Blob);
             if (!InstallPaths.TryResolve(staging, file.Path, out var staged, out var why))
                 throw new InvalidDataException("暂存路径被拒绝：" + file.Path + "（" + why + "）");
             progress?.Report(new UpdateProgress(i, changed.Count, bytes, file.Path));
-            await transport.DownloadVerifiedAsync(asset, file.Sha256, file.Size, staged, true, token).ConfigureAwait(false);
+            if (release.Asset(file.Blob) is { } asset)
+                await transport.DownloadVerifiedAsync(asset, file.Sha256, file.Size, staged, true, token).ConfigureAwait(false);
+            else
+            {
+                var pack = manifest.Packs?.SingleOrDefault(p => string.Equals(p.Asset, file.Pack, StringComparison.OrdinalIgnoreCase))
+                    ?? throw new InvalidDataException("发布缺少文件资产：" + file.Blob);
+                if (!downloadedPacks.TryGetValue(pack.Asset, out var archive))
+                {
+                    var packAsset = release.Asset(pack.Asset) ?? throw new InvalidDataException("发布缺少资源包：" + pack.Asset);
+                    archive = Path.Combine(packCache, pack.Asset);
+                    await transport.DownloadVerifiedAsync(packAsset, pack.Sha256, pack.Size, archive, true, token).ConfigureAwait(false);
+                    downloadedPacks.Add(pack.Asset, archive);
+                }
+                await ReadPackMemberAsync(archive, file, staged, token).ConfigureAwait(false);
+            }
             bytes += new FileInfo(staged).Length;
             planned.Add(new PlannedFile(file.Path, staged, file.Sha256, file.Size));
         }
@@ -293,6 +310,41 @@ public sealed class UpdateService : IDisposable
         if (planned.Count == 0 && obsolete.Count == 0 && conflicts.Count == 0) return null;
         await EnsureBaselineAsync(manifest, staging, planned, token).ConfigureAwait(false);
         return new UpdatePlan(manifest.Version, root, planned, false, null, conflicts, obsolete);
+        }
+        catch
+        {
+            if (!InstallLayout.AnyReparseBetween(root, staging) && Directory.Exists(staging)) Directory.Delete(staging, true);
+            throw;
+        }
+        finally
+        {
+            if (!InstallLayout.AnyReparseBetween(root, packCache) && Directory.Exists(packCache)) Directory.Delete(packCache, true);
+        }
+    }
+
+    private static async Task ReadPackMemberAsync(string archivePath, ManifestFile file, string target, CancellationToken token)
+    {
+        using var archive = ZipFile.OpenRead(archivePath);
+        var members = archive.Entries.Where(e => string.Equals(e.FullName, file.Blob, StringComparison.Ordinal)).ToArray();
+        if (members.Length != 1 || members[0].Length != file.Size)
+            throw new InvalidDataException("资源包成员缺失、重复或大小不符：" + file.Path);
+        Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+        using (var source = members[0].Open())
+        await using (var output = new FileStream(target, FileMode.CreateNew, FileAccess.Write, FileShare.None, 81920, true))
+        {
+            var buffer = new byte[81920];
+            long length = 0;
+            int read;
+            while ((read = await source.ReadAsync(buffer, token).ConfigureAwait(false)) > 0)
+            {
+                length += read;
+                if (length > file.Size) throw new InvalidDataException("资源包成员超出声明大小：" + file.Path);
+                await output.WriteAsync(buffer.AsMemory(0, read), token).ConfigureAwait(false);
+            }
+            if (length != file.Size) throw new InvalidDataException("资源包成员被截断：" + file.Path);
+        }
+        if (!string.Equals(await HashFileAsync(target, token).ConfigureAwait(false), file.Sha256, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidDataException("资源包成员哈希不符：" + file.Path);
     }
 
     /// <summary>

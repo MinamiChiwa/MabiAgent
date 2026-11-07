@@ -36,7 +36,7 @@ public sealed class AutomationCoordinator:IDisposable
     private MaintenancePreferences? purchasePreferences;
     private readonly Dictionary<string,PlannedTask> tasks=[];private readonly Dictionary<string,long> readyRounds=[];
     private readonly Func<MaintenancePolicy> preferences;private readonly MaintenanceRunner maintenance;
-    private InventorySnapshot current;private string? planFingerprint;private MaterialPlan? plan;private bool running,disposed,started,readyAtLastPlan=true;private int planRevision;
+    private InventorySnapshot current;private string? planFingerprint;private MaterialPlan? plan;private bool running,disposed,started,queueHadWork,readyAtLastPlan=true;private int planRevision;
     public AutomationStatus Status {get;private set;}=new(false,"尚未开始",null,new Dictionary<string,string>(),0);
     public bool SafeToSwitch
     {
@@ -71,6 +71,8 @@ public sealed class AutomationCoordinator:IDisposable
             var retry=AutomationCadence.Until(Now,(retryAfter-DateTimeOffset.UnixEpoch).TotalSeconds);
             return retry<=TimeSpan.Zero?AutomationCadence.Active:retry;
         }
+        if(running&&dispatcher.ActiveId is{} active&&runs.TryGetValue(active,out var currentRun)
+            &&currentRun.Runner is IdleFishingRunner {NeedsRapidObservation:true})return AutomationCadence.Fishing;
         var auxiliary=maintenance.StatusSnapshot();
         if(!SafeToSwitch||auxiliary["surplus"]?["pending"] is not null||withdrawal is not null||purchase is not null||inventorySyncRequested)
             return AutomationCadence.Active;
@@ -123,7 +125,7 @@ public sealed class AutomationCoordinator:IDisposable
     private void OnRunnerFault(string job,Exception error,string boundary)
     {issues[job]="任务异常："+error.Message;Record("error","workflow",boundary,boundary=="task"?"explicit_continue":"observe_then_explicit_continue",error.Message,error,job);}
     private void StartMaintenanceSchedule()
-    {maintenance.RestartRepairSchedule();maintenance.RestartBackpackSchedule();started=true;}
+    {maintenance.RestartRepairSchedule();maintenance.RestartBackpackSchedule();queueHadWork=queue.Read().Jobs.Count>0;started=true;}
     public void Start()
     {ObjectDisposedException.ThrowIf(disposed,this);ports.Start();StartMaintenanceSchedule();ResetInventorySync(true);maintenanceFaulted=false;recoveryAttempt=0;pauseReason=null;retryAfter=DateTimeOffset.MinValue;running=true;ApplyQueueControls();dispatcher.Continue();withdrawal?.Resume(true);maintenance.Resume(true);Publish("正在核验任务与库存");}
     public void Continue()
@@ -292,11 +294,6 @@ public sealed class AutomationCoordinator:IDisposable
         .ToDictionary(r=>r.Batch["action_id"]!.GetValue<string>(),r=>r.Runner.Snapshot()["owned_slots"]!.AsArray().Select(s=>s!.GetValue<int>()).ToArray());
     private bool BackpackRelief()=>maintenance.StatusSnapshot()["backpack"]?["status"]?.GetValue<string>()=="production_relief";
     private static bool InPlaceFishing(JobView job)=>job.Kind=="idle_fishing"&&job.Recipe==FishingPlan.CurrentLocation;
-    private bool InPlaceFishingTurn(WorkCandidate[] candidates)
-    {
-        var selected=new Scheduler().Select(candidates,new(dispatcher.ActiveId,!dispatcher.SafeToSwitch,ports.CurrentDevice,BackpackRelief()));
-        return selected is not null&&queue.Read().Jobs.Any(j=>j.Id==selected.Id&&InPlaceFishing(j));
-    }
     private static string Hash(JsonNode value)=>Convert.ToHexStringLower(SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(value.ToJsonString())));
     private string Fingerprint(QueueDocument q,InventorySnapshot stock)
     {
@@ -493,10 +490,15 @@ public sealed class AutomationCoordinator:IDisposable
         var inputPhase=false;
         try
         {
-            stage="plan";ApplyQueueControls();Reconcile();Replan();var candidates=Candidates();readyAtLastPlan=candidates.Any(c=>c.Ready&&!c.Blocked);
+            stage="plan";ApplyQueueControls();Reconcile();if(TryCompleteQueue())return Status;Replan();if(TryCompleteQueue())return Status;var candidates=Candidates();readyAtLastPlan=candidates.Any(c=>c.Ready&&!c.Blocked);
             var latestPolicy=preferences();if(latestPolicy!=appliedPolicy){maintenance.Configure(latestPolicy);appliedPolicy=latestPolicy;}
-            var inPlace=InPlaceFishingTurn(candidates);
-            var fishingYieldRequested=maintenance.RequiresTurnFor(!inPlace)||candidates.Any(c=>c.Kind!="idle_fishing"&&c.Ready&&!c.Blocked);
+            var selectedTurn=new Scheduler().Select(candidates,new(dispatcher.ActiveId,!dispatcher.SafeToSwitch,ports.CurrentDevice,BackpackRelief()));
+            var inPlace=selectedTurn is not null&&queue.Read().Jobs.Any(j=>j.Id==selectedTurn.Id&&InPlaceFishing(j));
+            var fishingTurn=selectedTurn?.Kind=="idle_fishing";
+            var selectedFishing=selectedTurn is not null&&runs.TryGetValue(selectedTurn.Id,out var selectedRun)?selectedRun.Runner as IdleFishingRunner:null;
+            if(selectedFishing?.NeedsBackpackCheck==true)maintenance.RequestBackpackInspection();
+            var periodicBackpack=!fishingTurn||selectedFishing?.PeriodicBackpackCheckAllowed==true&&maintenance.PeriodicBackpackCheckDue(600)||selectedFishing?.NeedsBackpackCheck==true;
+            var fishingYieldRequested=maintenance.RequiresTurnFor(!inPlace,periodicBackpack)||candidates.Any(c=>c.Kind!="idle_fishing"&&c.Ready&&!c.Blocked);
             foreach(var run in runs.Values)if(run.Runner is IdleFishingRunner fish)fish.RequestYield(fishingYieldRequested);
             var safeAuxiliary=SafeToSwitch;
             inputPhase=true;recoveryAttempt=0;
@@ -515,7 +517,7 @@ public sealed class AutomationCoordinator:IDisposable
                 &&(!withdrawal.SafeToSwitch||withdrawal.Snapshot()["pending"] is not null||withdrawal.Snapshot()["status"]?.GetValue<string>()=="complete"))
             {if(SupplyFromStorage())return Status;if(withdrawal is not null&&!withdrawal.SafeToSwitch){Publish("仓库取料结果待核实，仅观察，不派发新动作");return Status;}}
             stage="maintenance";JsonObject maintenanceState;
-            try{maintenanceState=maintenanceFaulted?maintenance.StatusSnapshot():maintenance.Tick(dispatcher.SafeToSwitch, true, deferIdleObservation:true,allowRepair:!inPlace);}
+            try{maintenanceState=maintenanceFaulted?maintenance.StatusSnapshot():maintenance.Tick(dispatcher.SafeToSwitch, periodicBackpack, deferIdleObservation:true,allowRepair:!inPlace);}
             catch(Exception error)when(error is not (IOException or UnauthorizedAccessException or OutOfMemoryException)&&maintenance.CanIsolateFault)
             {maintenanceFaulted=true;maintenance.Quarantine();issues["maintenance_fault"]="维护异常，独立任务继续："+error.Message;Record("error","maintenance","module","explicit_continue",error.Message,error);maintenanceState=maintenance.StatusSnapshot();}
             if(maintenanceState["paused"]?.GetValue<string>()=="resume_observation_timeout")issues["maintenance"]="维护等待画面超时，请核实页面后继续";
@@ -554,6 +556,7 @@ public sealed class AutomationCoordinator:IDisposable
             stage="reconcile";Reconcile();
             inventory.Compact(runs.Values.Select(r=>r.Batch["action_id"]!.GetValue<string>()).ToHashSet(StringComparer.Ordinal));
             ReconcileReservations();
+            if(TryCompleteQueue())return Status;
             if(dispatcher.ActiveId is null&&dispatcher.SafeToSwitch)
             {
                 if(BackpackRelief()&&!candidates.Any(c=>c.Ready&&c.Kind=="production"))
@@ -600,6 +603,18 @@ public sealed class AutomationCoordinator:IDisposable
         var syncKey=string.Join("|",unknown.Order().Select(item=>item+":"+current.Query(item).Source+":"+current.Query(item).Version));
         if(!SafeToSwitch||Candidates().Any(c=>c.Ready&&!c.Blocked&&c.Kind!="idle_fishing")||inventorySyncKey==syncKey)return;
         inventorySyncKey=syncKey;inventorySyncRequested=true;ports.RequestInventorySync();
+    }
+    private bool TryCompleteQueue()
+    {
+        var jobs=queue.Read().Jobs;queueHadWork|=jobs.Count>0;
+        if(!queueHadWork||jobs.Any(j=>!j.Cancelled&&j.Completed<j.Target||j.Pending)||runs.Count>0||!SafeToSwitch)return false;
+        var auxiliary=maintenance.StatusSnapshot();
+        if(auxiliary["active"] is not null||auxiliary["navigation_cleanup"]?.GetValue<bool>()==true
+            ||auxiliary["surplus"]?["pending"] is not null||withdrawal?.Snapshot()["pending"] is not null
+            ||decomposition?.Snapshot()["pending"] is not null)return false;
+        ResetInventorySync();running=false;pauseReason=null;
+        ports.Pause("queue_completed");dispatcher.Pause("queue_completed");maintenance.Pause("queue_completed");
+        Publish("全部任务已完成，已自动停止");return true;
     }
     private void ResetInventorySync(bool explicitRetry=false)
     {inventorySyncRequested=false;ports.CancelInventorySync();if(explicitRetry){inventorySyncKey=null;inventorySyncFailed=false;}issues.Remove("inventory_sync");}
@@ -794,7 +809,7 @@ public sealed class AutomationCoordinator:IDisposable
                 // and never fabricates an item quantity.
                 var automaticGathering=run.Runner is GatheringRunner;
                 var quantity=automaticGathering?state["completed"]!.GetValue<int>():run.Runner switch{ProductionRunner=>state["completed"]!.GetValue<int>()*run.Batch["output_per_round"]!.GetValue<long>(),IdleFishingRunner=>(long)Math.Floor(state["elapsed_s"]!.GetFiniteDouble()),_=>0};
-                if(quantity==0&&(run.Runner is not GatheringRunner||state["submitted"]!.GetValue<int>()==0))queue.Release(run.Batch);else queue.Finish(run.Batch,quantity,automaticGathering?"native_gathering_round:"+run.Batch["action_id"]!.GetValue<string>():"screen_confirmed_native_batch:"+run.Batch["action_id"]!.GetValue<string>());
+                if(quantity==0&&(run.Runner is not GatheringRunner||state["submitted"]!.GetValue<int>()==0))queue.Release(run.Batch);else queue.Finish(run.Batch,quantity,(automaticGathering?"native_gathering_round:":run.Runner is IdleFishingRunner?"timed_fishing:":"screen_confirmed_native_batch:")+run.Batch["action_id"]!.GetValue<string>());
                 dispatcher.Remove(id);runs.Remove(id);planFingerprint=null;continue;
             }
             if(run.Runner is ProductionRunner production&&state["pending"] is null&&status=="paused"&&state["pause_reason"]?.GetValue<string>() is "craft_unavailable" or "materials_unknown" or "device_full" or "device_batch_not_ready")

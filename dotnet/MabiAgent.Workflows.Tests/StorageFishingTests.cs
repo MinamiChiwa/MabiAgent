@@ -110,7 +110,7 @@ public sealed class StorageFishingTests
         port.Frame=new(3,"ended",Compass:true);runner.Tick();Assert.Equal("yielded",runner.Snapshot()["status"]!.GetValue<string>());
         runner.Resume();Assert.Equal("refresh",runner.Snapshot()["phase"]!.GetValue<string>());
         port.Frames.Enqueue(new(4,"scene-after-tidy",Compass:true));port.Frames.Enqueue(new(4.1,"tap-after-tidy","fishing",FishingButton:true));runner.Tick();
-        Assert.Equal(new[]{"move","start","move","start"},port.Actions.Select(a=>a.Kind));
+        Assert.Equal(new[]{"move","start","leave","move","start"},port.Actions.Select(a=>a.Kind));
         var pending=runner.Snapshot()["pending"]!.ToJsonString();runner.Pause();runner=new(plan,port,store);runner.Resume();port.Frame=new(10,"unchanged",Compass:true);runner.Tick();
         Assert.Equal(pending,runner.Snapshot()["pending"]!.ToJsonString());Assert.DoesNotContain(port.Actions,a=>a.Kind=="navigate");
     }
@@ -248,8 +248,9 @@ public sealed class StorageFishingTests
         runner=new(plan,port,store);runner.Resume();
         port.Frame=new(1,"active","fishing",RoundActive:active,ModeConfirm:confirm,PreparationComplete:false);
         runner.Tick();
-        Assert.Empty(port.Actions);
-        Assert.Null(runner.Snapshot()["pending"]);
+        if(confirm)
+        {Assert.Equal("confirm_mode",Assert.Single(port.Actions).Kind);Assert.Equal("confirm_mode",runner.Snapshot()["pending"]!["kind"]!.GetValue<string>());}
+        else{Assert.Empty(port.Actions);Assert.Null(runner.Snapshot()["pending"]);}
     }
     [Fact] public void LegacyPreparationFlagDoesNotDelayTravelAfterMaintenanceYield()
     {
@@ -347,7 +348,7 @@ public sealed class StorageFishingTests
         port.Frame=new(20,"6","fishing",RoundActive:true,LeisureMode:false);runner.ObserveOnly();
         Assert.Null(runner.Snapshot()["pending"]);Assert.Equal("paused",runner.Snapshot()["status"]!.GetValue<string>());
         port.Frame=new(25,"7",Compass:true);runner.ObserveOnly();
-        Assert.True(runner.SafeToSwitch);Assert.Equal(1,runner.Snapshot()["completed"]!.GetValue<int>());Assert.Equal(0,runner.Snapshot()["elapsed_s"]!.GetValue<double>());Assert.Equal(2,port.Actions.Count);
+        Assert.True(runner.SafeToSwitch);Assert.Equal(1,runner.Snapshot()["completed"]!.GetValue<int>());Assert.Equal(16,runner.Snapshot()["elapsed_s"]!.GetValue<double>());Assert.Equal(2,port.Actions.Count);
     }
     [Fact] public void FishingFocusReturnRequiresExplicitContinue()
     {
@@ -413,7 +414,7 @@ public sealed class StorageFishingTests
         Assert.Single(port.Actions); Assert.Equal("complete", runner.Snapshot()["status"]!.GetValue<string>());
     }
     [Fact]
-    public void FishingUsesFocusedActiveTimeAndWaitsForRoundBoundary()
+    public void FishingTimesFromFirstCastAndEndsDuringTheActiveRound()
     {
         var port = new FishingPort(); var store = new MemoryStore(); var runner = new IdleFishingRunner(new("lake", 2), port, store);
         runner.Tick(); port.Frame = new(1, "2", NavigationActive: true); runner.Tick();
@@ -422,7 +423,9 @@ public sealed class StorageFishingTests
         Assert.Equal("start", store.Value!["pending"]!["kind"]!.GetValue<string>());
         port.Frame = new(4, "5", "fishing", LeisureMode: false, RoundActive: true); runner.Tick();
         port.Frame = port.Frame with { At = 6, CaptureId = "6" }; runner.Tick();
-        Assert.NotEqual("complete", runner.Snapshot()["status"]!.GetValue<string>());
+        Assert.Equal("complete", runner.Snapshot()["status"]!.GetValue<string>());
+        Assert.Equal(2,runner.Snapshot()["elapsed_s"]!.GetValue<double>());
+        Assert.Null(runner.Snapshot()["pending"]);Assert.Equal("leave",port.Actions.Last().Kind);
         port.Frame = new(7, "7", FishingButton: true, Compass: true); runner.Tick();
         Assert.Equal("complete", runner.Snapshot()["status"]!.GetValue<string>());
         Assert.Equal(1, port.Actions.Count(x => x.Kind == "start"));
@@ -570,6 +573,7 @@ internal sealed class StoragePort : IStorageSupplyPort
 }
 internal sealed class FishingPort : IFishingPort
 {
+    public int BackpackExits;public void ReleaseBackpack()=>BackpackExits++;
     public bool Moving,CastDuringMovement;
     public bool ReleaseAllowed; public bool CanReleaseForeground()=>ReleaseAllowed;
     public bool CanResumeAtPoint {get;set;}=true;

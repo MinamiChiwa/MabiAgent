@@ -65,6 +65,9 @@ public partial class SettingsPanel : UserControl
             choice.IsCheckedChanged+=SettingChoiceChecked;
         SyncSettingChoices();
     }
+    private HotkeyRecorder? StopRecorder=>OperationSettingsSection.GetVisualDescendants().OfType<HotkeyRecorder>().FirstOrDefault();
+    private void BeginStopHotkeyRecording(object? sender,RoutedEventArgs e)=>StopRecorder?.BeginRecording();
+    private void CancelStopHotkeyRecording(object? sender,RoutedEventArgs e)=>StopRecorder?.CancelRecording();
     private void SettingChoiceChecked(object? sender,RoutedEventArgs e)
     {
         if(sender is not RadioButton { IsChecked:true } choice||choice.Tag is not string tag)return;

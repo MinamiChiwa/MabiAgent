@@ -9,6 +9,15 @@ public sealed record ReserveRow(string Id,string Name,long Quantity);
 public sealed record ThemeChoice(string Key,string Label);
 public partial class MainViewModel
 {
+    [ObservableProperty] private string stopHotkeyText=MabiAgent.Windows.StopHotkey.Default;
+    [ObservableProperty] private string stopHotkeyStatus="全局停止快捷键正在注册";
+    [RelayCommand] private async Task ApplyStopHotkeyAsync()
+    {
+        if(automation is null)return;
+        try{await automation.ApplyStopHotkeyAsync(StopHotkeyText);StopHotkeyText=automation.ActiveStopHotkey??StopHotkeyText;}
+        catch(Exception error){activity.Report(error);}
+        finally{StopHotkeyStatus=automation.StopHotkeyStatus;}
+    }
     public ObservableCollection<ReserveChoice> ReserveChoices {get;}=[];
     public ObservableCollection<ReserveRow> MaterialReserves {get;}=[];
     public ThemeChoice[] ThemeChoices {get;}=[new("system","跟随系统"),new("light","浅色"),new("dark","深色")];

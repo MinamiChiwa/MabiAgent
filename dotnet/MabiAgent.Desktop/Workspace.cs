@@ -54,6 +54,8 @@ public sealed class Workspace(string root,string? stateDirectory=null)
         =>SaveSettingsPatch(settings=>Section(settings,"capture")["devices"]=new JsonArray(devices.Where(d=>!string.IsNullOrWhiteSpace(d)).Distinct(StringComparer.Ordinal).Take(64).Select(d=>(JsonNode?)JsonValue.Create(d)).ToArray()));
     public void SaveUiLanguage(string language)
         =>SaveSettingsPatch(settings=>Section(settings,"ui")["language"]=UiLanguageService.Normalize(language)??throw new ArgumentException("界面语言无效"));
+    public void SaveStopHotkey(string hotkey)
+    {ArgumentException.ThrowIfNullOrWhiteSpace(hotkey);SaveSettingsPatch(settings=>Section(settings,"input")["stop_hotkey"]=hotkey);}
     private static JsonObject Section(JsonObject settings,string key)
     {if(settings[key] is not JsonObject)settings[key]=new JsonObject();return settings[key]!.AsObject();}
     private static void PatchRepair(JsonObject settings,bool enabled,int minutes,long reserve,bool bottles)

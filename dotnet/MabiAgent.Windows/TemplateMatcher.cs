@@ -42,11 +42,20 @@ public sealed class TemplateMatcher(NavigationProfile configuration):IDisposable
         });
         var reference=referenceLease.Value.Image;if(roi.Width<reference.Width||roi.Height<reference.Height||referenceLease.Value.Std<2)return null;
         using var regionLease=regions.Get(new RegionKey(roi,transform),()=>{using var source=image.ToMat(roi);return new Prepared(Transform(source,spec));});var gray=regionLease.Value.Image;if(regionLease.Value.Std<2)return null;nativeMatches++;
-        using var scores=new Mat();Cv2.MatchTemplate(gray,reference,scores,TemplateMatchModes.CCoeffNormed);Cv2.MinMaxLoc(scores,out _,out var score,out _,out var peak);using var selected=new Mat(gray,new Rect(peak.X,peak.Y,reference.Width,reference.Height));
+        using var scores=new Mat();Cv2.MatchTemplate(gray,reference,scores,TemplateMatchModes.CCoeffNormed);
+        if(spec.Mode=="list_name")
+        {
+            // 城墙点位只相差首字。完整名称及首字使用同一帧、同一位置的
+            // 相关度下限，避免共同后缀掩盖首字不符，并保留亮暗字形。
+            using var leading=new Mat(reference,new Rect(0,0,Math.Min(reference.Width,reference.Height),reference.Height));
+            using var leadingScores=new Mat();Cv2.MatchTemplate(gray,leading,leadingScores,TemplateMatchModes.CCoeffNormed);nativeMatches++;
+            using var aligned=new Mat(leadingScores,new Rect(0,0,scores.Width,scores.Height));Cv2.Min(scores,aligned,scores);
+        }
+        Cv2.MinMaxLoc(scores,out _,out var score,out _,out var peak);using var selected=new Mat(gray,new Rect(peak.X,peak.Y,reference.Width,reference.Height));
         var ratio=Cv2.Mean(selected).Val0/Math.Max(1,referenceLease.Value.Mean);var threshold=thresholdOverride??Math.Max(minimum,spec.Threshold);
-        if(spec.Mode=="list_label")threshold=spec.GlyphThreshold??threshold;
+        if(spec.Mode is "list_label" or "list_name")threshold=spec.GlyphThreshold??threshold;
         else if(spec.Mode is "light_text" or "bright_text" or "blue_text" or "color_glyph" or "yellow_text" or "red_glyph")threshold=spec.GlyphThreshold??Math.Min(threshold,.93);
-        if(!double.IsFinite(score)||score<threshold||ratio is <.65 or >1.5)return null;
+        if(!double.IsFinite(score)||score<threshold||spec.Mode!="list_name"&&(ratio is <.65 or >1.5))return null;
         if(unique){int l=Math.Max(0,peak.X-reference.Width/2),t=Math.Max(0,peak.Y-reference.Height/2),r=Math.Min(scores.Width,peak.X+reference.Width/2+1),b=Math.Min(scores.Height,peak.Y+reference.Height/2+1);using(var exclusion=new Mat(scores,new Rect(l,t,r-l,b-t)))exclusion.SetTo(-1);Cv2.MinMaxLoc(scores,out double _,out double runnerUp);if(runnerUp>=threshold)return null;}
         var box=new PixelBox(roi.Left+peak.X+labelInset,roi.Top+peak.Y,roi.Left+peak.X+reference.Width-labelInset,roi.Top+peak.Y+reference.Height);return new(spec.Name,score,box,spec.Sha256);
     }

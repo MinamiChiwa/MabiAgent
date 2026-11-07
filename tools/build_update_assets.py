@@ -1,20 +1,9 @@
-"""Build per-file update assets for a GitHub release.
+"""Generate self-contained update assets from the package's install allowlist.
 
-GitHub releases accept any number of assets, so a real per-file update needs no object
-storage: the release carries ``update-manifest.json`` plus one ``blob-<sha256>.bin`` per
-shipped file, and a client downloads only the blobs whose hash differs from its install.
-
-The file list comes from the package's own ``release-manifest.json`` (written by
-``tools/native_portable.py``), never from a directory walk: that keeps user data, private
-files and stray build leftovers out of the release.
-
-Every blob referenced by the manifest is written, even when ``--previous`` is given, so a
-release is always self-contained. ``--previous`` only annotates how many files are
-unchanged, which is useful when writing release notes.
-
-Usage:
-    python tools/build_update_assets.py --package 发布包/.../MabiAgent \
-        --version 0.6.0 --output build/update-assets --previous old/update-manifest.json
+Changed files for every --legacy-baseline remain standalone assets for older clients.
+Content shared by all those baselines is grouped into verified ZIP packs. The schema-1
+extension is optional: older clients skip matching files before resolving their assets.
+The z-update- prefix keeps the complete MabiAgent ZIP first in release asset ordering.
 """
 
 from __future__ import annotations
@@ -23,10 +12,13 @@ import argparse
 import hashlib
 import json
 import shutil
+import zipfile
 from pathlib import Path, PurePosixPath
 
 APP_ID = "MabiAgent"
 BASELINE = "release-manifest.json"
+ASSET_PREFIX = "z-update-"
+MANIFEST = "update-manifest.json"
 
 
 def sha256(path: Path) -> str:
@@ -96,12 +88,55 @@ def load_baseline(package: Path) -> list[dict]:
     return entries
 
 
+def load_hashes(path: Path) -> dict[str, str]:
+    rows = json.loads(path.read_text(encoding="utf-8-sig")).get("files")
+    if not isinstance(rows, list) or not rows:
+        raise SystemExit(f"基线没有文件列表：{path}")
+    result = {}
+    for row in rows:
+        name, digest = row.get("path"), row.get("sha256")
+        if not isinstance(name, str) or not isinstance(digest, str) or len(digest) != 64:
+            raise SystemExit(f"基线条目无效：{path}")
+        key = name.casefold()
+        if key in result:
+            raise SystemExit(f"基线路径重复：{name}")
+        result[key] = digest
+    return result
+
+
+def write_pack(package: Path, output: Path, group: list[dict], dry_run: bool) -> dict:
+    # Name from the ordered content list; fixed ZIP metadata makes retries reproducible.
+    identity = hashlib.sha256("\n".join(e["sha256"] for e in group).encode()).hexdigest()
+    name = f"{ASSET_PREFIX}pack-{identity}.zip"
+    for entry in group:
+        entry["pack"] = name
+    if dry_run:
+        return {"asset": name, "size": 0, "sha256": "0" * 64}
+    target = output / name
+    temporary = output / (name + ".tmp")
+    try:
+        with zipfile.ZipFile(temporary, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=6) as archive:
+            for entry in group:
+                info = zipfile.ZipInfo(entry["blob"], date_time=(2020, 1, 1, 0, 0, 0))
+                info.compress_type = zipfile.ZIP_DEFLATED
+                info.external_attr = 0o100644 << 16
+                with archive.open(info, "w") as member, (package / entry["path"]).open("rb") as source:
+                    shutil.copyfileobj(source, member)
+        temporary.replace(target)
+    finally:
+        if temporary.exists(): temporary.unlink()
+    return {"asset": name, "size": target.stat().st_size, "sha256": sha256(target)}
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--package", required=True, type=Path)
     parser.add_argument("--version", required=True)
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--previous", type=Path)
+    parser.add_argument("--legacy-baseline", action="append", type=Path, default=[])
+    parser.add_argument("--pack-bytes", type=int, default=16 << 20)
+    parser.add_argument("--max-assets", type=int, default=1000)
     parser.add_argument("--channel", default="stable")
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
@@ -110,6 +145,10 @@ def main() -> int:
     if not package.is_dir():
         raise SystemExit(f"package directory not found: {package}")
     output = args.output.resolve()
+    if output.is_relative_to(package):
+        raise SystemExit("更新资产目录必须位于安装目录外")
+    if args.pack_bytes <= 0 or args.max_assets < 4:
+        raise SystemExit("资源包大小或附件上限无效")
     if not args.dry_run:
         output.mkdir(parents=True, exist_ok=True)
 
@@ -117,17 +156,38 @@ def main() -> int:
     baseline = package / BASELINE
     entries.append({"path": BASELINE, "size": baseline.stat().st_size, "sha256": sha256(baseline)})
     for entry in entries:
-        entry["blob"] = f"blob-{entry['sha256']}.bin"
+        entry["blob"] = f"{ASSET_PREFIX}blob-{entry['sha256']}.bin"
 
     previous: dict[str, str] = {}
     if args.previous and args.previous.exists():
-        raw = json.loads(args.previous.read_text(encoding="utf-8"))
-        previous = {row["path"]: row["sha256"] for row in raw.get("files", [])}
+        previous = load_hashes(args.previous)
+
+    baselines = [load_hashes(path) for path in args.legacy_baseline]
+    direct_hashes = {e["sha256"] for e in entries if not baselines or
+                     any(b.get(e["path"].casefold()) != e["sha256"] for b in baselines)}
+    unique = {e["sha256"]: e for e in reversed(entries)}
+    groups, group, count = [], [], 0
+    for digest, entry in sorted(unique.items()):
+        if digest in direct_hashes: continue
+        if group and count + entry["size"] > args.pack_bytes:
+            groups.append(group); group, count = [], 0
+        group.append(entry); count += entry["size"]
+    if group: groups.append(group)
+    # Reserve the complete ZIP, checksum file and manifest before writing any assets.
+    asset_count = len(direct_hashes) + len(groups) + 3
+    if asset_count > args.max_assets:
+        raise SystemExit(f"发布附件{asset_count}个，超过上限{args.max_assets}；补充旧版基线以合并共同资源")
+
+    packs = [write_pack(package, output, group, args.dry_run) for group in groups]
+    packed = {e["sha256"]: e["pack"] for group in groups for e in group}
+    for entry in entries:
+        if entry["sha256"] in packed: entry["pack"] = packed[entry["sha256"]]
 
     written = reused = unchanged = 0
     for entry in entries:
-        if previous.get(entry["path"]) == entry["sha256"]:
+        if previous.get(entry["path"].casefold()) == entry["sha256"]:
             unchanged += 1
+        if "pack" in entry: continue
         target = output / entry["blob"]
         if target.exists():
             if sha256(target) != entry["sha256"]:
@@ -145,13 +205,18 @@ def main() -> int:
         "channel": args.channel,
         "files": entries,
     }
+    if packs: manifest["packs"] = packs
     if not args.dry_run:
-        (output / "update-manifest.json").write_text(
+        (output / MANIFEST).write_text(
             json.dumps(manifest, ensure_ascii=False, indent=1), encoding="utf-8"
         )
-        missing = [e["blob"] for e in entries if not (output / e["blob"]).is_file()]
+        missing = [e.get("pack", e["blob"]) for e in entries if not (output / e.get("pack", e["blob"])).is_file()]
         if missing:
             raise SystemExit(f"发布资产不自包含，缺少 {len(missing)} 个 blob：{missing[:3]}")
+        expected = {MANIFEST} | {e.get("pack", e["blob"]) for e in entries}
+        stale = {p.name for p in output.iterdir()} - expected
+        if stale:
+            raise SystemExit(f"资产目录含旧版或无关文件，请使用独立输出目录：{sorted(stale)[:3]}")
     summary = {
         "package": str(package),
         "version": args.version,
@@ -160,6 +225,9 @@ def main() -> int:
         "blobs_written": written,
         "blobs_reused": reused,
         "unchanged_since_previous": unchanged,
+        "packs": len(packs),
+        "release_asset_count": asset_count,
+        "legacy_baselines": len(baselines),
         "self_contained": not args.dry_run,
         "previous_manifest": str(args.previous) if args.previous else None,
         "dry_run": args.dry_run,

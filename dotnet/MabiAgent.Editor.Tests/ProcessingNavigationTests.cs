@@ -6,6 +6,24 @@ using Xunit;
 
 public sealed class ProcessingNavigationTests
 {
+    [Theory][InlineData(false)][InlineData(true)]
+    public void PublishedFishingNamesKeepLeadingGlyphMatchingAndVisibleRows(bool video)
+    {
+        var root=Path.GetFullPath(Path.Combine(AppContext.BaseDirectory,"../../../../../"));
+        var repository=new EditorRepository(root,Path.Combine(Path.GetTempPath(),"unused-fishing-names"));
+        var profile=ScreenRoutes.FromConfiguration(root,PublishedCatalogCompiler.CompileAvailable(repository),repository.UserAssetRoot).Profile;
+        using var bgr=OpenCvSharp.Cv2.ImRead(Path.Combine(root,"tests/fixtures/production",video?"fishing-nodes-video-current.jpg":"east-wall-fishing-list-current.jpg"));
+        using var rgb=new OpenCvSharp.Mat();OpenCvSharp.Cv2.CvtColor(bgr,rgb,OpenCvSharp.ColorConversionCodes.BGR2RGB);
+        var pixels=new byte[rgb.Width*rgb.Height*3];System.Runtime.InteropServices.Marshal.Copy(rgb.Data,pixels,0,pixels.Length);
+        using var recognizer=new ScreenPageRecognizer(profile);var view=recognizer.Recognize(new RgbImage(rgb.Width,rgb.Height,pixels));
+        Assert.Equal("fishing_nodes",view.Page);
+        for(var row=0;row<(video?4:6);row++)
+        {
+            var name=$"preset_catalog_point_fishing_{row:00}_node";Assert.Equal("list_name",profile.Templates[name].Mode);
+            Assert.Equal(.93,profile.Templates[name].GlyphThreshold);var top=(video?610:393)+96*row;
+            Assert.InRange(view.Targets[$"gathering.open_point_fishing_{row:00}"].Y,top,top+34);
+        }
+    }
     [Fact] public void EditedGatheringLabelKeepsItsRecognitionCalibrationWhenPublished()
     {
         var root=Path.GetFullPath(Path.Combine(AppContext.BaseDirectory,"../../../../../"));
@@ -41,8 +59,21 @@ public sealed class ProcessingNavigationTests
             if(step?["kind"]?.GetValue<string>()=="zoom_max")Assert.Equal("zoom",stage);
             if(step?["next"]?.GetValue<string>()!="zoom")continue;
             Assert.Equal("$shop",step["target"]!.GetValue<string>());Assert.Equal("drag",step["kind"]!.GetValue<string>());
+            Assert.Equal(new[]{"map.current_is_tir"},step["requires"]!.AsArray().Select(n=>n!.GetValue<string>()));
             Assert.Equal(new[]{625,450},step["destination"]!.AsArray().Select(n=>n!.GetValue<int>()));
         }
+    }
+    [Theory][InlineData("tir-inn-wide-current.png")][InlineData("tir-inn-player-covered-current.png")]
+    public void PublishedMapTitleSeparatesWhiteHeaderFromGrayMapLabels(string file)
+    {
+        var root=Path.GetFullPath(Path.Combine(AppContext.BaseDirectory,"../../../../../"));
+        var repository=new EditorRepository(root,Path.Combine(Path.GetTempPath(),"mabi-map-title-"+Guid.NewGuid().ToString("N")));
+        var routes=ScreenRoutes.FromConfiguration(root,PublishedCatalogCompiler.CompileAvailable(repository),repository.UserAssetRoot);
+        using var bgr=OpenCvSharp.Cv2.ImRead(Path.Combine(root,"tests/fixtures/production",file));using var rgb=new OpenCvSharp.Mat();
+        OpenCvSharp.Cv2.CvtColor(bgr,rgb,OpenCvSharp.ColorConversionCodes.BGR2RGB);
+        var pixels=new byte[rgb.Width*rgb.Height*3];System.Runtime.InteropServices.Marshal.Copy(rgb.Data,pixels,0,pixels.Length);
+        using var recognizer=new ScreenPageRecognizer(routes.Profile);var view=recognizer.Recognize(new RgbImage(rgb.Width,rgb.Height,pixels));
+        Assert.Equal("region_map",view.Page);Assert.Contains("map.current_is_tir",view.Targets.Keys);
     }
     [Fact] public void PublishedRuntimePreservesSharedMapGeometryAndSearch()
     {
@@ -54,6 +85,17 @@ public sealed class ProcessingNavigationTests
         foreach(var (key,page) in direct.Profile.Definition[section]!.AsObject().Where(p=>p.Key=="region_map"||p.Value?["page"]?.GetValue<string>()=="region_map"))
             Assert.True(JsonNode.DeepEquals(page,published.Profile.Definition[section]?[key]),section+":"+key+"\nexpected="+page+"\nactual="+published.Profile.Definition[section]?[key]);
         Assert.True(JsonNode.DeepEquals(direct.Configuration["maintenance"]!["map_navigation"],published.Configuration["maintenance"]!["map_navigation"]));
+        foreach(var destination in new[]{"storage","repair_quote","purchase_shop"})
+        {
+            Assert.True(JsonNode.DeepEquals(direct.Configuration["maintenance"]!["navigation"]![destination]!["region_map"],published.Configuration["maintenance"]!["navigation"]![destination]!["region_map"]),destination);
+            var route=published.Configuration["maintenance"]!["navigation"]![destination]!["region_map"]!;
+            var zoom=route["stages"]!["zoom"]!["search"]![0]!;
+            Assert.Equal(4,zoom["steps"]!.GetValue<int>());Assert.Equal(9,zoom["max_sweeps"]!.GetValue<int>());
+            Assert.DoesNotContain("$",zoom["center_target"]!.GetValue<string>());
+            Assert.Equal("recenter",zoom["recovery_stage"]!.GetValue<string>());
+            var recovery=route["stages"]!["portrait"]!["search"]![0]!;
+            Assert.True(recovery["zoom"]!.GetValue<bool>());Assert.True(recovery["map_recovery"]!.GetValue<bool>());Assert.Equal(-4,recovery["steps"]!.GetValue<int>());
+        }
     }
     [Theory]
     [InlineData("production/daily-nodes-current.jpg","preset_daily_title")]

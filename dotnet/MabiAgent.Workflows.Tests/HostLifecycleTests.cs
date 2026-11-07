@@ -6,6 +6,36 @@ namespace MabiAgent.Workflows.Tests;
 
 public sealed class HostLifecycleTests : IDisposable
 {
+    [Theory][InlineData(FishingPlan.CurrentLocation)][InlineData("lake")]
+    public void CompletedFishingAutomaticallyStopsAndKeepsTheResult(string point)
+    {
+        var config=Catalog().Configuration;config["gathering_routes"]!["lake"]=JsonNode.Parse("""{"target_item_id":1,"skill":"fishing","node":"lake","attempts_per_batch":1}""");
+        var queue=new RuntimeQueue(directory);queue.Edit(q=>q.Add("fish","idle_fishing",1,2,point,[]));
+        var ports=new Ports();var time=new ManualTime();using var host=new AutomationCoordinator(new(config),queue,ports,()=>new(RepairEnabled:false,BackpackEnabled:false),time);
+        host.Start();host.Tick();host.Tick();
+        if(point!="current_location")
+        {ports.Fish.Frame=new(1,"travel",NavigationActive:true);host.Tick();ports.Fish.Frame=new(2,"arrived",NavigationActive:false);host.Tick();}
+        ports.Fish.Frame=new(3,"cast","fishing",FishingButton:true);host.Tick();
+        ports.Fish.Frame=new(4,"hook","fishing",RoundActive:true,LeisureMode:false,Gauge:.6);host.Tick();
+        ports.Fish.Frame=new(6,"finished","fishing",RoundActive:true,LeisureMode:false,Gauge:.4);host.Tick();
+        Assert.False(host.Status.Running,host.Status.ToString());Assert.Contains("已自动停止",host.Status.Message);
+        Assert.Equal("queue_completed",ports.PauseReason);Assert.Equal(2,queue.Read().Jobs[0].Completed);Assert.False(queue.Read().Jobs[0].Pending);
+    }
+    [Fact] public void CancelledQueueStopsButPausedIncompleteQueueKeepsWaiting()
+    {
+        var queue=new RuntimeQueue(directory);queue.Edit(q=>{q.Add("iron","production",3,1,"iron",[]);q.Control("iron","pause");});
+        var ports=new Ports();using var host=Host(queue,ports,new ManualTime());host.Start();host.Tick();Assert.True(host.Status.Running);
+        queue.Edit(q=>q.Control("iron","cancel"));host.Tick();Assert.False(host.Status.Running,host.Status+"; "+queue.Read().ToJson()+"; "+File.ReadAllText(Path.Combine(directory,"maintenance.json")));Assert.Contains("已自动停止",host.Status.Message);
+    }
+    [Fact] public void CompletedQueueWaitsForUnresolvedMaintenanceConsumption()
+    {
+        var queue=new RuntimeQueue(directory);queue.Edit(q=>{q.Add("iron","production",3,1,"iron",[]);q.Control("iron","cancel");});
+        var ports=new Ports();var time=new ManualTime();var policy=new MaintenancePolicy();var store=new JsonWorkflowStore(Path.Combine(directory,"maintenance.json"));
+        var state=new MaintenanceRunner(ports.Maintain,store,policy,time).Snapshot();
+        state["pending"]=new JsonObject{["kind"]="repair",["capture_id"]="before",["deadline"]=200d};state["active"]="repair";store.Flush(state);
+        using var host=new AutomationCoordinator(Catalog(),queue,ports,()=>policy,time);host.Start();host.Tick();
+        Assert.True(host.Status.Running);Assert.NotNull(store.Read()!["pending"]);
+    }
     [Fact] public void BackpackRecognitionAndExitFailureDoNotStarveIndependentProduction()
     {
         var queue=new RuntimeQueue(directory);var ports=new Ports();var time=new ManualTime();
@@ -252,7 +282,7 @@ public sealed class HostLifecycleTests : IDisposable
         if(inPlace)
         {
             Assert.Empty(ports.Maintain.Actions);Assert.Equal(0,ports.Maintain.Navigations);Assert.DoesNotContain(ports.Fish.Actions,a=>a.Kind=="navigate");
-            queue.Edit(q=>q.Delete(["fish"]));host.SynchronizeQueue();
+            queue.Edit(q=>{q.Delete(["fish"]);q.Add("iron","production",3,1,"iron",[]);});host.SynchronizeQueue();
             ports.Maintain.Frame=new("2","scene");host.Tick();
             ports.Maintain.Frame=new("3","repair_quote",Gold:100000,Quote:1000,Currency:"gold",ConfirmAvailable:true);
             for(var i=0;i<3;i++)host.Tick();Assert.Contains("confirm_repair",ports.Maintain.Actions);

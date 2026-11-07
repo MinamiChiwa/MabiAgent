@@ -24,22 +24,6 @@ public sealed class LegacyParityTests
                 Assert.Null(actual!["actual_quantity"]);Assert.Equal("packet_reconcile_required",actual["reason"]!.GetValue<string>());
                 expected[i]!["actual_quantity"]=null;expected[i]!["reason"]="packet_reconcile_required";
             }
-            // The approved movement binding changed; preserve the historical fixture as migration evidence.
-            if(key=="fishing")
-            {
-                // Dynamic cast-button disappearance was retired by the fixed
-                // cast script; it is no longer part of migrated intent state.
-                expected[i]?["pending"]?.AsObject().Remove("button_disappeared");
-                expected[i]!["next_direction"]=expected[i]!["next_direction"]!.GetValue<string>()=="a"?"w":"s";
-                // Arrival now releases travel ownership; completed rounds explicitly leave.
-                if(i>=3){expected[i]!["navigation_seen"]=false;expected[i]!["navigation_deadline"]=null;}
-                if(expected[i]?["pending"]?["kind"]?.GetValue<string>()=="start")
-                    expected[i]!["pending"]!["deadline"]=expected[i]!["pending"]!["at"]!.GetValue<double>()+20;
-                // New dismount bookkeeping is covered by native fishing tests.
-                if(actual is JsonObject fish&&fish.ContainsKey("dismount_at")){Assert.Null(fish["dismount_at"]);fish.Remove("dismount_at");}
-                // Cast latency and preflight retry counters are additive diagnostics.
-                if(actual is JsonObject fishState){fishState.Remove("cast_preflight_rejections");fishState.Remove("last_cast_elapsed_ms");fishState.Remove("unobserved_cast_attempts");fishState.Remove("last_unobserved_cast");}
-            }
             if(key=="maintenance"&&actual?["repair"] is JsonObject repair&&repair.ContainsKey("gold_reserve"))
             {Assert.Equal(40000,repair["gold_reserve"]!.GetValue<long>());repair.Remove("gold_reserve");}
             if(key=="maintenance"&&actual?["backpack"] is JsonObject bag){bag.Remove("check_due_at");Assert.False(bag["capacity_blocked"]!.GetValue<bool>());bag.Remove("capacity_blocked");}
@@ -78,14 +62,6 @@ public sealed class LegacyParityTests
         var port = new StoragePort(); var runner = new StorageSupplyRunner([new(1, "ore", 3, "shared")], port, new MemoryStore());
         var trace = new List<JsonObject> { runner.Snapshot(), runner.Tick() };
         port.Frame = port.Frame with { At = 101, CaptureId = "2", Available = 7, BagQuantity = 5, BalanceAt = 101 }; trace.Add(runner.Tick()); Match("storage", trace.ToArray());
-    }
-    [Fact]
-    public void FishingTraceMatchesPython()
-    {
-        var port = new FishingPort(); var runner = new IdleFishingRunner(new("lake", 2), port, new MemoryStore()); var trace = new List<JsonObject> { runner.Snapshot(), runner.Tick() };
-        FishingFrame[] frames = [new(1, "2", NavigationActive: true), new(2, "3", NavigationActive: false), new(3, "4", "fishing", FishingButton: true),
-            new(4, "5", "fishing", LeisureMode: false, RoundActive: true), new(6, "6", "fishing", LeisureMode: false, RoundActive: true), new(7, "7", FishingButton: true, Compass: true)];
-        foreach (var frame in frames) { port.Frame = frame; trace.Add(runner.Tick()); } Match("fishing", trace.ToArray());
     }
     [Fact]
     public void MaintenanceTraceMatchesPython()

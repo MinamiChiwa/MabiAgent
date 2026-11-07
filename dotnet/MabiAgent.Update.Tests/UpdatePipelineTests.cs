@@ -1,5 +1,6 @@
 using MabiAgent.Update;
 using System.Diagnostics;
+using System.IO.Compression;
 using System.Net;
 using System.Net.Sockets;
 using System.Security.Cryptography;
@@ -66,7 +67,7 @@ public sealed class UpdatePipelineTests : IDisposable
         server = new LoopbackServer(path => Route(path, server, assets, manifestBytes));
         using var handle = server;
 
-        var options = new TransportOptions(null, ["127.0.0.1"], null, server.BaseUrl + "/api", true);
+        var options = new TransportOptions(null, ["127.0.0.1"], null, server.BaseUrl, true);
         using var service = new UpdateService(install, new HttpClientHandler(), options);
         var check = await service.CheckAsync("0.5.9");
         Assert.True(check.Available);
@@ -75,7 +76,7 @@ public sealed class UpdatePipelineTests : IDisposable
         var plan = await service.PrepareAsync(check);
         Assert.NotNull(plan);
         Assert.Equal(["app/MabiAgent.Desktop.dll"], plan!.Files.Where(f => !UpdateApplier.IsBaseline(f.RelativePath)).Select(f => f.RelativePath).ToArray());
-        var unchangedBlob = "/dl/blob-" + Sha(Encoding.UTF8.GetBytes("same")) + ".bin";
+        var unchangedBlob = "/MinamiChiwa/MabiAgent/releases/download/v0.6.0/z-update-blob-" + Sha(Encoding.UTF8.GetBytes("same")) + ".bin";
         Assert.DoesNotContain(server.Requests, url => url.EndsWith(unchangedBlob, StringComparison.Ordinal));
 
         var result = UpdateApplier.Apply(plan, Path.Combine(install, "updates", "backup", "0.6.0"));
@@ -95,11 +96,125 @@ public sealed class UpdatePipelineTests : IDisposable
         Assert.False(again.Available);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task GroupedReleaseDownloadsOnlyNeededAssetsAndReadsEachPackOnce(bool emptyInstall)
+    {
+        var package = Path.Combine(root, "package");
+        var install = Path.Combine(root, "install");
+        var assets = Path.Combine(root, "assets");
+        foreach (var name in new[] { "MabiAgent.exe", "Start-MabiAgent.cmd", "app/MabiAgent.Desktop.dll", "app/unchanged.dll" })
+        {
+            WriteFile(package, name, "same-" + name);
+            WriteFile(install, name, "same-" + name);
+        }
+        WriteInstallBaseline(install);
+        var legacy = Path.Combine(root, "legacy.json");
+        File.Copy(Path.Combine(install, InstallManifest.FileName), legacy);
+        WriteFile(package, "app/MabiAgent.Desktop.dll", "new-desktop");
+        WritePackageBaseline(package);
+        RunGenerator(package, assets, "0.6.0", "--legacy-baseline", legacy);
+        var manifestBytes = File.ReadAllBytes(Path.Combine(assets, UpdateManifest.FileName));
+        var manifest = UpdateManifest.Parse(Encoding.UTF8.GetString(manifestBytes));
+        var pack = Assert.Single(manifest.Packs!);
+        Assert.StartsWith("z-update-pack-", pack.Asset);
+        Assert.All(manifest.Files, f => Assert.StartsWith("z-update-blob-", f.Blob));
+        Assert.Null(manifest.Files.Single(f => f.Path == "app/MabiAgent.Desktop.dll").Pack);
+        Assert.NotNull(manifest.Files.Single(f => f.Path == "app/unchanged.dll").Pack);
+        if (emptyInstall) Directory.Delete(install, true);
+        WriteFile(install, "data/work-queue.json", "user queue");
+
+        LoopbackServer server = null!;
+        server = new LoopbackServer(path => Route(path, server, assets, manifestBytes));
+        using var handle = server;
+        using var service = new UpdateService(install, new HttpClientHandler(), new TransportOptions(null, ["127.0.0.1"], null, server.BaseUrl, true));
+        var check = await service.CheckAsync("0.5.9");
+        var plan = await service.PrepareAsync(check);
+        Assert.NotNull(plan);
+        Assert.False(plan.FullPackage);
+        Assert.Equal(emptyInstall ? 1 : 0, server.Requests.Count(p => p.EndsWith("/" + pack.Asset, StringComparison.Ordinal)));
+        Assert.False(Directory.EnumerateDirectories(Path.Combine(install, "updates/staging/0.6.0"), ".packs-*").Any());
+        var result = UpdateApplier.Apply(plan, Path.Combine(install, "updates/backup/0.6.0"));
+        Assert.True(result.Success, result.Error);
+        Assert.Equal("user queue", File.ReadAllText(Path.Combine(install, "data/work-queue.json")));
+        Assert.All(manifest.Files, f => Assert.Equal(f.Sha256, Sha(File.ReadAllBytes(Path.Combine(install, f.Path)))));
+    }
+
+    [Theory]
+    [InlineData("pack-hash")]
+    [InlineData("member-hash")]
+    [InlineData("missing-member")]
+    [InlineData("duplicate-member")]
+    public async Task InvalidPackOrMemberDiscardsStagingAndPreservesInstall(string fault)
+    {
+        var package = Path.Combine(root, "package");
+        var install = Path.Combine(root, "install");
+        var assets = Path.Combine(root, "assets");
+        foreach (var name in new[] { "MabiAgent.exe", "Start-MabiAgent.cmd", "app/MabiAgent.Desktop.dll", "app/unchanged.dll" })
+            WriteFile(package, name, "same-" + name);
+        WritePackageBaseline(package);
+        RunGenerator(package, assets, "0.6.0", "--legacy-baseline", Path.Combine(package, InstallManifest.FileName));
+        var node = JsonNode.Parse(File.ReadAllText(Path.Combine(assets, UpdateManifest.FileName)))!;
+        var pack = node["packs"]!.AsArray()[0]!;
+        var path = Path.Combine(assets, pack["asset"]!.GetValue<string>());
+        if (fault == "pack-hash") File.AppendAllText(path, "corrupt");
+        else
+        {
+            var file = node["files"]!.AsArray().First(f => f!["pack"] is not null)!;
+            var blob = file["blob"]!.GetValue<string>();
+            using (var zip = ZipFile.Open(path, ZipArchiveMode.Update))
+            {
+                if (fault != "duplicate-member") zip.GetEntry(blob)!.Delete();
+                if (fault != "missing-member")
+                {
+                    using var writer = new StreamWriter(zip.CreateEntry(blob).Open());
+                    writer.Write(new string('x', (int)file["size"]!.GetValue<long>()));
+                }
+            }
+            pack["size"] = new FileInfo(path).Length;
+            pack["sha256"] = Sha(File.ReadAllBytes(path));
+        }
+        File.WriteAllText(Path.Combine(assets, UpdateManifest.FileName), node.ToJsonString());
+        var manifestBytes = Encoding.UTF8.GetBytes(node.ToJsonString());
+        WriteFile(install, "data/work-queue.json", "user queue");
+        LoopbackServer server = null!;
+        server = new LoopbackServer(p => Route(p, server, assets, manifestBytes));
+        using var handle = server;
+        using var service = new UpdateService(install, new HttpClientHandler(), new TransportOptions(null, ["127.0.0.1"], null, server.BaseUrl, true));
+        var check = await service.CheckAsync("0.5.9");
+        await Assert.ThrowsAsync<InvalidDataException>(() => service.PrepareAsync(check));
+        Assert.False(Directory.Exists(Path.Combine(install, "updates/staging/0.6.0")));
+        Assert.Equal("user queue", File.ReadAllText(Path.Combine(install, "data/work-queue.json")));
+        Assert.False(File.Exists(Path.Combine(install, "MabiAgent.exe")));
+    }
+
+    [Theory]
+    [InlineData("unknown")]
+    [InlineData("duplicate")]
+    [InlineData("unsafe")]
+    [InlineData("bad-hash")]
+    public void InvalidPackManifestIsRejected(string fault)
+    {
+        var sha = new string('a', 64);
+        var manifest = new UpdateManifest("MabiAgent", "0.6.1", "stable",
+            [new ManifestFile("app/test.dll", 4, sha, "blob.bin", "pack.zip")], [new ManifestPack("pack.zip", 4, sha)]);
+        var node = JsonNode.Parse(manifest.ToJson())!;
+        if (fault == "unknown") node["files"]![0]!["pack"] = "missing.zip";
+        if (fault == "duplicate") node["packs"]!.AsArray().Add(node["packs"]![0]!.DeepClone());
+        if (fault == "unsafe") node["packs"]![0]!["asset"] = "../pack.zip";
+        if (fault == "bad-hash") node["packs"]![0]!["sha256"] = "abc";
+        Assert.Throws<InvalidDataException>(() => UpdateManifest.Parse(node.ToJsonString()));
+    }
+
     private static (int Status, byte[] Body) Route(string path, LoopbackServer server, string assets, byte[] manifestBytes)
     {
-        if (path == "/api/repos/MinamiChiwa/MabiAgent/releases/latest")
+        if (path == "/MinamiChiwa/MabiAgent/releases/latest")
+            return (302, Encoding.UTF8.GetBytes("/MinamiChiwa/MabiAgent/releases/tag/v0.6.0"));
+        if (path == "/MinamiChiwa/MabiAgent/releases/tag/v0.6.0") return (200, []);
+        if (path == "/MinamiChiwa/MabiAgent/releases/expanded_assets/v0.6.0")
             return (200, Encoding.UTF8.GetBytes(ReleaseJson(assets, server.BaseUrl, manifestBytes)));
-        const string prefix = "/dl/";
+        const string prefix = "/MinamiChiwa/MabiAgent/releases/download/v0.6.0/";
         if (!path.StartsWith(prefix, StringComparison.Ordinal)) return (404, []);
         var file = Path.Combine(assets, path[prefix.Length..]);
         return File.Exists(file) ? (200, File.ReadAllBytes(file)) : (404, []);
@@ -114,20 +229,25 @@ public sealed class UpdatePipelineTests : IDisposable
             {
                 ["name"] = "update-manifest.json", ["size"] = manifestBytes.LongLength,
                 ["digest"] = "sha256:" + Sha(manifestBytes),
-                ["browser_download_url"] = baseUrl + "/dl/update-manifest.json"
+                ["browser_download_url"] = baseUrl + "/MinamiChiwa/MabiAgent/releases/download/v0.6.0/update-manifest.json"
             }
         };
-        foreach (var file in manifest["files"]!.AsArray())
+        foreach (var path in Directory.EnumerateFiles(assets).Where(p => Path.GetFileName(p) != UpdateManifest.FileName))
         {
-            var blob = file!["blob"]!.GetValue<string>();
-            var bytes = File.ReadAllBytes(Path.Combine(assets, blob));
+            var blob = Path.GetFileName(path);
+            var bytes = File.ReadAllBytes(path);
             list.Add(new JsonObject
             {
                 ["name"] = blob, ["size"] = bytes.LongLength, ["digest"] = "sha256:" + Sha(bytes),
-                ["browser_download_url"] = baseUrl + "/dl/" + blob
+                ["browser_download_url"] = baseUrl + "/MinamiChiwa/MabiAgent/releases/download/v0.6.0/" + blob
             });
         }
-        return new JsonObject { ["tag_name"] = "v0.6.0", ["assets"] = list }.ToJsonString();
+        var html = new StringBuilder("<ul>");
+        foreach (var asset in list)
+            html.Append("<li><a href=\"").Append(asset!["browser_download_url"]!.GetValue<string>())
+                .Append("\">asset</a><span>").Append(asset["digest"]!.GetValue<string>()).Append("</span><span>")
+                .Append(asset["size"]!.GetValue<long>()).Append(" Bytes</span></li>");
+        return html.Append("</ul>").ToString();
     }
 
     private static void WritePackageBaseline(string package)
@@ -161,7 +281,7 @@ public sealed class UpdatePipelineTests : IDisposable
     }
 
     /// <summary>Runs the shipped generator, exactly as a release would.</summary>
-    private static void RunGenerator(string package, string assets, string version)
+    private static void RunGenerator(string package, string assets, string version, params string[] extra)
     {
         var script = FindGenerator();
         var start = new ProcessStartInfo(PythonExecutable())
@@ -173,6 +293,7 @@ public sealed class UpdatePipelineTests : IDisposable
         start.ArgumentList.Add("--package"); start.ArgumentList.Add(package);
         start.ArgumentList.Add("--version"); start.ArgumentList.Add(version);
         start.ArgumentList.Add("--output"); start.ArgumentList.Add(assets);
+        foreach (var argument in extra) start.ArgumentList.Add(argument);
         using var process = Process.Start(start) ?? throw new InvalidOperationException("无法启动 python");
         var output = process.StandardOutput.ReadToEnd();
         var error = process.StandardError.ReadToEnd();
@@ -256,7 +377,8 @@ public sealed class UpdatePipelineTests : IDisposable
                 var path = line.Length > 1 ? line[1] : "/";
                 lock (Requests) Requests.Add(path);
                 var (status, body) = handler(path);
-                var head = $"HTTP/1.1 {status} {(status == 200 ? "OK" : "Not Found")}\r\nContent-Length: {body.Length}\r\nConnection: close\r\n\r\n";
+                var location = status == 302 ? "Location: " + Encoding.UTF8.GetString(body) + "\r\n" : "";
+                var head = $"HTTP/1.1 {status} {(status == 200 ? "OK" : "Not Found")}\r\n{location}Content-Length: {body.Length}\r\nConnection: close\r\n\r\n";
                 await stream.WriteAsync(Encoding.ASCII.GetBytes(head), stop.Token).ConfigureAwait(false);
                 await stream.WriteAsync(body, stop.Token).ConfigureAwait(false);
                 await stream.FlushAsync(stop.Token).ConfigureAwait(false);

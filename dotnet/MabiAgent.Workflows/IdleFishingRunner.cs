@@ -9,15 +9,17 @@ public sealed record FishingPlan(string PointKey, double DurationSeconds)
 }
 public sealed record FishingFrame(double At, string CaptureId, string Page = "scene", bool Foreground = true, bool Stable = true,
     bool? NavigationActive = null, bool FishingButton = false, bool? LeisureMode = null, bool ModeConfirm = false, bool RoundActive = false,
-    bool HookVisible = false, double? Gauge = null, bool Compass = false, bool Mounted = false, bool PreparationComplete = true);
+    bool HookVisible = false, double? Gauge = null, bool Compass = false, bool Mounted = false, bool PreparationComplete = true, bool BackpackFull = false, bool LeisureConfirm = false);
 public sealed record FishingAction(string Kind, string? PointKey = null, string? Direction = null, double? DurationSeconds = null);
 public interface IFishingPort : IForegroundWorkflowPort
 {
     FishingFrame Observe();
     FishingFrame ObserveOnly() => Observe();
     void InvalidatePreparation(){}
+    void ReleaseBackpack(){}
     bool CanResumeAtPoint=>false;
-    /// <summary>Actions share system input boundaries; casting uses the fixed movement script.</summary>
+    bool ModePreparationRequired=>false;
+    /// <summary>Actions share system input boundaries; movement is only needed to activate or recover casting.</summary>
     void Perform(FishingAction action);
     void MoveWhileObserving(FishingAction action,Func<FishingFrame,bool> observe)
     {Perform(action);for(var i=0;i<2;i++)if(observe(Observe()))break;}
@@ -26,7 +28,10 @@ public sealed class IdleFishingRunner : PersistentWorkflow
 {
     private readonly FishingPlan plan; private readonly IFishingPort port;
     private readonly double navigationTimeout, actionTimeout, castObservationTimeout, reboundThreshold, lowWatermark;
-    private double? lastAt; private string? lastCapture; private bool wasActive, castWaitActive;
+    private double? lastAt; private string? lastCapture;
+    public bool NeedsBackpackCheck => B("backpack_check_requested");
+    public bool NeedsRapidObservation => S("status")=="running" && (B("round_seen") || Pending?["kind"]?.GetValue<string>() is "start" or "reel");
+    public bool PeriodicBackpackCheckAllowed => I("completed") - I("inspection_round") >= 20;
     public bool SafeToSwitch => S("status") is "complete" or "yielded" || S("status") == "paused" && Pending is null && !B("round_seen") && S("phase") == "refresh";
     public bool CanIsolateFault => Pending is null && !B("round_seen") && !B("navigation_seen") && port.CanReleaseForeground();
     public IdleFishingRunner(FishingPlan plan, IFishingPort port, IWorkflowStore store, double navigationTimeoutSeconds = 180,
@@ -42,12 +47,14 @@ public sealed class IdleFishingRunner : PersistentWorkflow
             ("target_s", plan.DurationSeconds), ("pending", null), ("owned_slots", new JsonArray()), ("submitted", 0), ("completed", 0),
             ("pause_reason", null), ("reason", null), ("navigation_seen", false), ("navigation_deadline", null), ("next_direction", "w"),
             ("last_move_at", null), ("sample_at", null), ("gauge_min", null), ("round_seen", false), ("yield_requested", false), ("stop_requested", false), ("hook_seen", false),
-            ("cast_preflight_rejections", 0), ("last_cast_elapsed_ms", null), ("unobserved_cast_attempts", 0), ("last_unobserved_cast", null));
+            ("cast_preflight_rejections", 0), ("last_cast_elapsed_ms", null), ("unobserved_cast_attempts", 0), ("last_unobserved_cast", null),
+            ("clock_started", false), ("inspection_round", 0), ("backpack_check_requested", false));
         if(plan.InPlace)State["phase"]="refresh";
         if (Load() is { } saved)
         {
             if (saved["schema_version"]?.GetValue<int>() != 1 || !JsonNode.DeepEquals(saved["plan"], serialized) || saved["target_s"]?.GetFiniteDouble() != plan.DurationSeconds || saved["owned_slots"] is not JsonArray { Count: 0 } || saved["elapsed_s"]?.GetFiniteDouble() is not { } elapsed || !double.IsFinite(elapsed) || elapsed < 0) throw new InvalidDataException("钓鱼记录不匹配，保留待核对");
             State = saved; if (I("completed") < 0 || I("completed") > I("submitted")) throw new InvalidDataException("钓鱼计数无效");
+            State["clock_started"] ??= I("submitted") > 0 || D("elapsed_s") > 0 || Pending?["kind"]?.GetValue<string>() == "start";
             if (S("next_direction") is "left" or "a") State["next_direction"] = "w";
             if (S("next_direction") is "right" or "d") State["next_direction"] = "s";
             if (S("next_direction") is not ("w" or "s")) throw new InvalidDataException("钓鱼移动方向无效");
@@ -55,7 +62,15 @@ public sealed class IdleFishingRunner : PersistentWorkflow
         }
         Save();
     }
-    private void ResetClock() { lastAt = null; wasActive = false; castWaitActive = false; }
+    private void ResetClock() => lastAt = null;
+    private void UpdateClock(FishingFrame f)
+    {
+        if (S("status") != "running" || !B("clock_started") || S("phase")=="navigate"
+            || S("phase")=="backpack_exit"&&f.Page is not ("scene" or "fishing" or "fishing_ui"))
+        { ResetClock(); return; }
+        if (lastAt is {} previous) State["elapsed_s"] = Math.Min(D("target_s"), D("elapsed_s") + Math.Max(0, f.At - previous));
+        lastAt = f.Page is "scene" or "fishing" or "fishing_ui" or "unknown" ? f.At : null;
+    }
     public void Pause(string reason = "manual")
     {
         port.Pause(reason); lock (Gate) { if (S("status") == "complete" || S("pause_reason") == "manual" && reason == "focus_lost") return; Set(("status", "paused"), ("pause_reason", reason)); ResetClock(); Save(); }
@@ -65,12 +80,12 @@ public sealed class IdleFishingRunner : PersistentWorkflow
         lock (Gate)
         {
             if (S("status") == "complete" || !explicitRequest && S("pause_reason") != "focus_lost") return;
-            if (S("status") == "yielded") {port.InvalidatePreparation();Set(("phase", plan.InPlace||port.CanResumeAtPoint?"refresh":"navigate"), ("navigation_seen", false), ("navigation_deadline", null), ("round_seen", false), ("yield_requested", false));}
+            if (S("status") == "yielded") {port.InvalidatePreparation();ResetRoundSamples();Set(("phase", plan.InPlace||port.CanResumeAtPoint?"refresh":"navigate"), ("navigation_seen", false), ("navigation_deadline", null), ("round_seen", false), ("yield_requested", false), ("inspection_round", I("completed")), ("backpack_check_requested", false));}
             // Recreate only reversible menu navigation after explicit resume/restart.
             // A witnessed native trip or unresolved fishing action remains observation-only.
             if(explicitRequest&&S("phase")=="navigate"&&!B("navigation_seen")&&Pending is null)State["navigation_deadline"]=null;
             if(explicitRequest&&Pending is null)State["cast_preflight_rejections"]=0;
-            Set(("status", "running"), ("pause_reason", null), ("reason", null)); ResetClock(); ResetPageWait(); port.Resume(); Save();
+            Set(("status", "running"), ("pause_reason", null), ("reason", null)); ResetClock(); ResetPageWait(); ResetProgressWait(); port.Resume(); Save();
         }
     }
     public void StopSubmitting() { lock (Gate) { State["stop_requested"] = true; Save(); } }
@@ -81,16 +96,22 @@ public sealed class IdleFishingRunner : PersistentWorkflow
     private static bool RoundEnded(FishingFrame f) => !f.RoundActive && !f.ModeConfirm && !f.HookVisible && f.Gauge is null && (f.Compass || f.FishingButton);
     private bool Perform(FishingAction action, FishingFrame f, bool pending = false)
     {
-        if (pending) State["pending"] = new JsonObject { ["kind"] = action.Kind, ["at"] = f.At, ["capture_id"] = f.CaptureId, ["deadline"] = f.At + (action.Kind == "start" ? castObservationTimeout : actionTimeout) };
+        if (pending)
+        {
+            State["pending"] = new JsonObject { ["kind"] = action.Kind, ["at"] = f.At, ["capture_id"] = f.CaptureId, ["deadline"] = f.At + (action.Kind == "start" ? castObservationTimeout : actionTimeout) };
+            if(action.Kind=="reel"){Pending!["gauge"]=f.Gauge;Pending["gauge_min"]=State["gauge_min"]?.DeepClone();}
+        }
         Save();
         try { port.Perform(action); return true; }
         catch (InputRejectedBeforeDispatchException) { Set(("pending", null), ("status", "running"), ("reason", action.Kind=="start"&&I("cast_preflight_rejections")>=2?"cast_preflight_retry_limit":"target_changed_before_input")); if(action.Kind=="start"){State["phase"]="refresh";State["cast_preflight_rejections"]=I("cast_preflight_rejections")+1;}if(action.Kind=="navigate")State["navigation_deadline"]=null;Save();return false; }
         catch (Exception error) { RememberFault(error,action.Kind); Unknown(pending ? "action_result_not_observed" : "input_interrupted"); throw; }
     }
+    private void ResetRoundSamples()=>Set(("gauge_min",null),("sample_at",null),("hook_seen",false));
     private void FinishRound()
     {
+            ResetRoundSamples();
             Set(("completed", I("completed") + 1), ("pending", null), ("phase", "refresh"), ("round_seen", false), ("cast_preflight_rejections", 0),
-            ("gauge_min", null), ("sample_at", null), ("hook_seen", false), ("status", "running"), ("reason", null)); wasActive = false;
+            ("status", "running"), ("reason", null));
     }
     private bool ReconcilePending(FishingFrame f, bool passive = false)
     {
@@ -101,12 +122,12 @@ public sealed class IdleFishingRunner : PersistentWorkflow
             case "start":
                 if (f.RoundActive)
                 {
-                    if (Focused(f)) State["elapsed_s"] = D("elapsed_s") + (pending["observed_wait_s"]?.GetFiniteDouble() ?? 0);
-                    Set(("submitted", I("submitted") + 1), ("round_seen", true), ("phase", "round")); confirmed = true;
+                    ResetRoundSamples();
+                    Set(("submitted", I("submitted") + 1), ("round_seen", true), ("phase", "round"), ("unobserved_cast_attempts",0)); confirmed = true;
                 }
                 break;
             case "switch_mode": confirmed = f.ModeConfirm || Focused(f); break;
-            case "confirm_mode": confirmed = Focused(f); break;
+            case "confirm_mode": confirmed = !f.ModeConfirm && (Focused(f) || f.Compass || f.FishingButton); break;
             case "reel": if (RoundEnded(f)) { FinishRound(); return true; } break;
         }
         if (confirmed) { Set(("pending", null), ("status", "running"), ("reason", null)); return true; }
@@ -120,19 +141,33 @@ public sealed class IdleFishingRunner : PersistentWorkflow
                 var attempt=pending.DeepClone().AsObject();attempt["ended_at"]=f.At;attempt["reason"]="no_round_after_20s";
                 Set(("last_unobserved_cast",attempt),("unobserved_cast_attempts",I("unobserved_cast_attempts")+1),
                     ("pending",null),("phase","refresh"),("reason","cast_retry_no_response"));
-                ResetClock();Save();return true;
+                if(I("unobserved_cast_attempts")>=2)State["backpack_check_requested"]=true;
+                Save();return true;
             }
-            if(kind!="start")Unknown(kind + "_result_not_observed");
+            if(kind!="start" && f.Page is "scene" or "fishing" or "fishing_ui")
+            {
+                // Fishing observations do not own material balances. Recover the
+                // current round without holding independent work on a missing receipt.
+                Set(("pending",null),("phase",f.RoundActive?"round":"refresh"),("gauge_min",null),("sample_at",null),
+                    ("round_seen",f.RoundActive),("reason",kind+"_observation_timeout"),("backpack_check_requested",true));
+                Save();return true;
+            }
         }
         return false;
     }
     private double PendingDeadline(JsonObject pending) => pending["kind"]?.GetValue<string>() == "start"
         ? pending["at"]!.GetFiniteDouble() + castObservationTimeout : pending["deadline"]!.GetFiniteDouble();
-    private bool Boundary(FishingFrame f, bool roundCompleted = false)
+    private bool Boundary(FishingFrame f)
     {
-        if (D("elapsed_s") >= D("target_s") || B("stop_requested")) Set(("status", "complete"), ("phase", "complete"), ("pause_reason", null));
-        else if (B("yield_requested")) Set(("status", "yielded"), ("phase", "yielded"), ("pause_reason", null));
-        else return false; ResetClock(); if(roundCompleted&&!plan.InPlace||FishingUi(f)||B("navigation_seen")||B("round_seen"))Perform(new("leave"), f);return true;
+        var status = D("elapsed_s") >= D("target_s") || B("stop_requested") ? "complete" : B("yield_requested") ? "yielded" : null;
+        if(status is null)return false;
+        if(f.ModeConfirm||f.LeisureConfirm){Perform(new("cancel_mode"),f);return true;}
+        if((FishingUi(f)||f.Page=="scene")&&(FishingUi(f)||B("round_seen")||Pending is not null||B("navigation_seen")))
+            if(!Perform(new("leave"),f))return false;
+        Set(("status",status),("phase",status),("pause_reason",null),("pending",null),("round_seen",false),
+            ("navigation_seen",false),("navigation_deadline",null));
+        ResetRoundSamples();
+        ResetClock();Save();return true;
     }
     public JsonObject Tick(bool higherPriority = false)
     { lock (Gate) { if (higherPriority) State["yield_requested"] = true; Step(); return Snapshot(); } }
@@ -156,25 +191,33 @@ public sealed class IdleFishingRunner : PersistentWorkflow
     private void Step()
     {
         if (S("status") is "complete" or "yielded") { Save(); return; }
+        if(S("status")=="running"&&S("phase")=="navigate")CheckProgress("navigate",navigationTimeout);
+        else if(S("status")=="running"&&S("phase")=="backpack_exit")CheckProgress("backpack_exit",actionTimeout);
+        else ResetProgressWait();
         var f = port.Observe(); if (!double.IsFinite(f.At) || string.IsNullOrWhiteSpace(f.CaptureId)) throw new ArgumentException("需要新截图与时间");
         if (!f.Foreground) { if (S("status") != "paused" || S("pause_reason") == "focus_lost") Pause("focus_lost"); return; }
+        UpdateClock(f);
         if (!PageReady(f.Page, f.Foreground, f.Stable, Pause, pauseOnUnrecognized: false))
         {
-            if(S("status") == "running" && Pending is {} waiting && waiting["kind"]?.GetValue<string>() != "start" && f.At >= PendingDeadline(waiting))Unknown(waiting["kind"]!.GetValue<string>() + "_result_not_observed");
-            else if(S("status") == "running" && S("phase") == "navigate" && State["navigation_deadline"] is not null && f.At >= D("navigation_deadline"))Unknown("navigation_not_observed");
-            ResetClock(); Save(); return;
+            if(S("status") == "running" && S("phase") == "navigate" && State["navigation_deadline"] is not null && f.At >= D("navigation_deadline"))Unknown("navigation_not_observed");
+            Save(); return;
         }
         if (S("status") == "paused") { ObserveOnly(); return; }
         if (S("status") == "unknown") { ObserveOnly(); return; }
         if (lastCapture == f.CaptureId) return; lastCapture = f.CaptureId;
-        var active = f.RoundActive && Focused(f) && S("status") != "unknown";
-        var castWait = Pending?["kind"]?.GetValue<string>() == "start" && (FishingUi(f) || f.Page == "scene") && f.LeisureMode != true && S("status") != "unknown";
-        if (castWait && castWaitActive && lastAt is not null) Pending!["observed_wait_s"] = (Pending["observed_wait_s"]?.GetFiniteDouble() ?? 0) + Math.Max(0, f.At - lastAt.Value);
-        castWaitActive = castWait; if (active && wasActive && lastAt is not null) State["elapsed_s"] = D("elapsed_s") + Math.Max(0, f.At - lastAt.Value);
-        lastAt = f.At; wasActive = active; var completedBefore=I("completed");
+        if(f.BackpackFull)State["backpack_check_requested"]=true;
+        if(Boundary(f))return;
+        if(f.Page is "backpack" or "bag" or "repair_tools")
+        {
+            Set(("pending",null),("round_seen",false),("phase","backpack_exit"));ResetRoundSamples();
+            port.InvalidatePreparation();Save();port.ReleaseBackpack();return;
+        }
+        if(S("phase")=="backpack_exit"){State["phase"]="refresh";ResetProgressWait();}
+        // 模式弹窗可以由初始悠闲状态或首次抛竿打开，先处理它再等待抛竿回执。
+        if(f.ModeConfirm && Pending?["kind"]?.GetValue<string>()!="confirm_mode")
+        {Set(("pending",null),("round_seen",false));ResetRoundSamples();Perform(new("confirm_mode"),f,true);return;}
+        if(f.LeisureConfirm){Perform(new("cancel_mode"),f);return;}
         if (!ReconcilePending(f)) { Save(); return; }
-        if(I("completed")!=completedBefore){Boundary(f, roundCompleted: true);Save();return;}
-        if(!f.RoundActive&&!f.ModeConfirm&&!B("round_seen")&&Pending is null&&Boundary(f)){Save();return;}
         if (S("phase") == "navigate")
         {
             if (Boundary(f)) return;
@@ -192,8 +235,14 @@ public sealed class IdleFishingRunner : PersistentWorkflow
             Save();
             return;
         }
-        if (B("round_seen") && RoundEnded(f)) { FinishRound(); Boundary(f, roundCompleted: true); Save(); return; }
-        if (!B("round_seen") && Boundary(f)) return;
+        if (B("round_seen") && RoundEnded(f)) FinishRound();
+        if(!B("round_seen")&&!f.RoundActive&&Pending is null&&!f.Mounted)
+        {
+            if(port.ModePreparationRequired)
+            {if(Perform(new("prepare_mode"),f))State["mode_probe_at"]=f.At;Save();return;}
+            if(State["mode_probe_at"] is not null&&f.At-D("mode_probe_at")<.5){Save();return;}
+            State["mode_probe_at"]=null;
+        }
         if(!B("round_seen")&&Pending is null)
         {
             if(f.Mounted)
@@ -210,7 +259,12 @@ public sealed class IdleFishingRunner : PersistentWorkflow
         if (f.ModeConfirm && B("round_seen")) { Perform(new("confirm_mode"), f, true); return; }
         if (f.RoundActive)
         {
-            if (!B("round_seen")) { Unknown("unowned_fishing_round"); return; }
+            if (!B("round_seen"))
+            {
+                ResetRoundSamples();
+                Set(("round_seen",true),("submitted",I("submitted")+1),("clock_started",true),("unobserved_cast_attempts",0));
+                lastAt??=f.At;
+            }
             if (f.ModeConfirm) Perform(new("confirm_mode"), f, true);
             else if (FishingUi(f) && f.LeisureMode == true) Perform(new("switch_mode"), f, true);
             else if (Focused(f)) { State["phase"] = "round"; if(f.HookVisible)State["hook_seen"]=true; if(f.HookVisible||f.Gauge is not null)SampleGauge(f); }
@@ -244,7 +298,8 @@ public sealed class IdleFishingRunner : PersistentWorkflow
     private void StartCast(FishingFrame f)
     {
         if(I("cast_preflight_rejections")>=3)return;
-        var elapsed=Stopwatch.StartNew();State["phase"]="confirm_start";Perform(new("start"),f,true);
+        var elapsed=Stopwatch.StartNew();State["phase"]="confirm_start";
+        if(Perform(new("start"),f,true)){ResetRoundSamples();State["clock_started"]=true;lastAt??=f.At;}
         State["last_cast_elapsed_ms"]=(long)Math.Ceiling(elapsed.Elapsed.TotalMilliseconds);
     }
     private void SampleGauge(FishingFrame f)

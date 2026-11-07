@@ -32,6 +32,19 @@
             <StackPanel><TextBlock Text="触控点击中心偏移" Classes="setting-title"/><TextBlock Text="点击落在锚点中心附近并避开边缘；单点目标保持精确，右键为约2秒长按。" Classes="caption" TextWrapping="Wrap"/></StackPanel>
             <CheckBox x:Name="GlobalTouchCenterToggle" Grid.Column="1" IsChecked="{Binding TouchCenterOffset}" AutomationProperties.Name="触控点击中心偏移"/>
           </Grid>
+          <u:Divider/>
+          <ui:HotkeySettingsRegion><StackPanel Classes="setting-row" Spacing="8">
+            <TextBlock Text="全局停止快捷键" Classes="setting-title"/>
+            <TextBlock Text="切换应用或操作等待时均可停止全部，清除执行进度与核账，保留任务定义和设置。组合被占用时更换快捷键。" Classes="caption" TextWrapping="Wrap"/>
+            <Grid ColumnDefinitions="*,Auto,Auto,Auto">
+              <ui:HotkeyRecorder x:Name="GlobalStopHotkeyInput" Text="{Binding StopHotkeyText,Mode=TwoWay}" AutomationProperties.Name="全局停止快捷键"/>
+              <Button x:Name="GlobalStopHotkeyRecord" Grid.Column="1" Content="录入" Click="BeginStopHotkeyRecording" Margin="8,0,0,0"/>
+              <Button Grid.Column="2" Content="取消录入" Click="CancelStopHotkeyRecording" IsVisible="{Binding #GlobalStopHotkeyInput.IsRecording}" Margin="8,0,0,0"/>
+              <Button x:Name="GlobalStopHotkeyApply" Grid.Column="3" Content="应用快捷键" Command="{Binding ApplyStopHotkeyCommand}" IsEnabled="{Binding !#GlobalStopHotkeyInput.IsRecording}" Margin="8,0,0,0"/>
+            </Grid>
+            <TextBlock Text="{Binding #GlobalStopHotkeyInput.CaptureMessage}" Classes="caption" TextWrapping="Wrap"/>
+            <TextBlock Text="{Binding StopHotkeyStatus}" Classes="caption" TextWrapping="Wrap"/>
+          </StackPanel></ui:HotkeySettingsRegion>
         </StackPanel>
       </Border>
     </DataTemplate>

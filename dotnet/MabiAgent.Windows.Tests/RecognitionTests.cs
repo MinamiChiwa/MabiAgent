@@ -11,6 +11,7 @@ public class RecognitionTests
         var pixels=new byte[rgb.Width*rgb.Height*3];System.Runtime.InteropServices.Marshal.Copy(rgb.Data,pixels,0,pixels.Length);
         using var recognizer=new ScreenPageRecognizer(routes.Profile);var view=recognizer.Recognize(new RgbImage(rgb.Width,rgb.Height,pixels));
         Assert.Equal(target=="storage.travel"?"storage_travel":"region_map",view.Page);Assert.Contains(target,view.Targets.Keys);
+        if(view.Page=="region_map")Assert.Contains("map.current_is_tir",view.Targets.Keys);
     }
     internal static MabiAgent.Capture.ClientCaptureLayout CurrentClientLayout()
     {

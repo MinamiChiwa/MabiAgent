@@ -7,6 +7,153 @@ namespace MabiAgent.Windows.Tests;
 
 public sealed class WorkbenchNavigationTests
 {
+    [Theory]
+    [InlineData("storage","map.inn","map.storage_box")]
+    [InlineData("repair_quote","map.blacksmith","map.repair_npc")]
+    [InlineData("purchase_shop","map.general_store","map.shop_npc")]
+    public void SameNamedShopInAnotherMapSwitchesToTirBeforeCentering(string destination,string shop,string npc)
+    {
+        var (session,ops)=CreateNamedMap();using(session)
+        {
+            var route=MapRoute(session,destination);var port=session.CreateMaintenancePort("named-map",new Store());
+            Assert.Null(port.TestNavigationRoute(route).Error);Assert.Equal("map.world",port.LastTestNavigationTrace?.Target);
+            Assert.Equal(0,ops.Wheels);
+            ops.Image=MapImage(session,"maint_tir_town");
+            Assert.Null(port.TestNavigationRoute(route).Error);Assert.Equal("map.tir_town",port.LastTestNavigationTrace?.Target);
+            var sent=ops.Clicks.Count;
+            Assert.Null(port.TestNavigationRoute(route).Error);Assert.Equal(sent,ops.Clicks.Count);Assert.Equal(0,ops.Wheels);
+            ops.Image=MapImage(session,"maint_tir_region_header");
+            Assert.Null(port.TestNavigationRoute(route).Error);Assert.Equal(shop,port.LastTestNavigationTrace?.Target);
+            Assert.Equal(0,ops.Wheels);
+            Assert.Null(port.TestNavigationRoute(route).Error);Assert.Equal("map.canvas",port.LastTestNavigationTrace?.Target);Assert.Equal(4,ops.Wheels);
+            Assert.Null(port.TestNavigationRoute(route).Error);Assert.Equal(shop,port.LastTestNavigationTrace?.Target);
+            Assert.Null(port.TestNavigationRoute(route).Error);Assert.Equal(npc,port.LastTestNavigationTrace?.Target);
+        }
+    }
+    [Theory]
+    [InlineData("storage","map.inn")]
+    [InlineData("repair_quote","map.blacksmith")]
+    [InlineData("purchase_shop","map.general_store")]
+    public void ConfirmedTirMapCentersTheVisibleShopDirectly(string destination,string shop)
+    {
+        var (session,ops)=CreateNamedMap();using(session)
+        {
+            ops.Image=MapImage(session,"maint_tir_region_header");
+            var port=session.CreateMaintenancePort("already-tir",new Store());
+            Assert.Null(port.TestNavigationRoute(MapRoute(session,destination)).Error);
+            Assert.Equal(shop,port.LastTestNavigationTrace?.Target);Assert.Equal(0,ops.Wheels);
+        }
+    }
+    [Theory]
+    [InlineData("storage","locate")][InlineData("repair_quote","locate")][InlineData("purchase_shop","locate")]
+    [InlineData("storage","world")][InlineData("repair_quote","world")][InlineData("purchase_shop","world")]
+    public void FailedTirSelectionEndsItsWaitWithoutUsingAnotherMapsShop(string destination,string stage)
+    {
+        var (session,ops)=CreateNamedMap();using(session)
+        {
+            ops.Image=MapImage(session,"maint_tir_town");var route=MapRoute(session,destination);route["start"]=stage;
+            foreach(var definition in route["stages"]!.AsObject())
+            foreach(var step in definition.Value?["choices"]?.AsArray()??new JsonArray())
+                if(step?["target"]?.GetValue<string>()=="map.tir_town")step["timeout_s"]=0;
+            var port=session.CreateMaintenancePort("tir-timeout",new Store());
+            Assert.Null(port.TestNavigationRoute(route).Error);Assert.Equal("map.tir_town",port.LastTestNavigationTrace?.Target);
+            var sent=ops.Clicks.Count;
+            Assert.Equal("navigation_result_not_observed:map.tir_town",port.TestNavigationRoute(route).Error);
+            Assert.Equal(sent,ops.Clicks.Count);Assert.Equal(0,ops.Wheels);Assert.Null(session.CurrentNavigationId);Assert.False(session.Guard.Paused);
+        }
+    }
+    [Theory]
+    [InlineData("locate")][InlineData("local")][InlineData("local_wide")][InlineData("label_search")][InlineData("label_search_final")]
+    public void EveryShopSearchStageRequiresTheTirHeader(string stage)
+    {
+        var (session,ops)=CreateNamedMap();using(session)
+        {
+            var route=MapRoute(session,"storage");route["start"]=stage;
+            var port=session.CreateMaintenancePort("wrong-map-stage",new Store());port.TestNavigationRoute(route);
+            Assert.NotEqual("map.inn",port.LastTestNavigationTrace?.Target);
+            Assert.DoesNotContain(new PixelPoint(501,401),ops.Clicks);
+        }
+    }
+    [Theory][InlineData("storage","map.inn","map.storage_box")][InlineData("repair_quote","map.blacksmith","map.repair_npc")][InlineData("purchase_shop","map.general_store","map.shop_npc")]
+    public void SharedMapZoomRecentersTheShopBeforeSelectingItsNpc(string destination,string shop,string npc)
+    {
+        var (session,ops)=CreateNamedMap();using(session)
+        {
+            ops.Image=MapImage(session,"maint_tir_region_header");var route=MapRoute(session,destination);route["start"]="zoom";
+            var port=session.CreateMaintenancePort("zoom-center",new Store());
+            Assert.Null(port.TestNavigationRoute(route).Error);Assert.Equal(4,ops.Wheels);
+            Assert.Null(port.TestNavigationRoute(route).Error);Assert.Equal(shop,port.LastTestNavigationTrace?.Target);Assert.Equal("zoom_recenter",port.LastTestNavigationTrace?.Phase);
+            var sent=ops.Clicks.Count;Assert.Null(port.TestNavigationRoute(route).Error);Assert.Equal(npc,port.LastTestNavigationTrace?.Target);
+            Assert.Equal(4,ops.Wheels);Assert.Equal(sent+1,ops.Clicks.Count);
+        }
+    }
+    [Fact]
+    public void ActualFailedMapZoomsOutToReacquireTheInnAndBoundsMissingLabels()
+    {
+        var routes=ScreenRoutes.Load(RecognitionTests.Root());routes.Configuration["notifications"]=new JsonObject();
+        var ops=new Ops(LoadMap("tir-inn-lost-after-zoom-current.png"));using var session=new ScreenWorkflowSession(routes,Window(),ops,new Ocr(),new Store());session.Start();
+        var route=MapRoute(session,"storage");route["start"]="portrait";var port=session.CreateMaintenancePort("lost-inn",new Store());
+        Assert.Null(port.TestNavigationRoute(route).Error);Assert.Equal(4,ops.Wheels);Assert.Equal("map.canvas",port.LastTestNavigationTrace?.Target);
+        // No label appears in this replay: the declared searches must finish.
+        NavigationTestProgress result=new(false,null);
+        for(var i=0;i<5&&result.Error is null;i++)result=port.TestNavigationRoute(route);
+        Assert.Equal("navigation_search_exhausted:workbench_route",result.Error);Assert.Equal(16,ops.Wheels);Assert.Empty(ops.Clicks);Assert.False(session.Guard.Paused);
+    }
+    [Fact]
+    public void MapRecoveryResumesOnTheVisibleInnAndLimitsRepeatedLostCenters()
+    {
+        var routes=ScreenRoutes.Load(RecognitionTests.Root());routes.Configuration["notifications"]=new JsonObject();
+        var lost=LoadMap("tir-inn-lost-after-zoom-current.png");var ops=new Ops(lost);using var session=new ScreenWorkflowSession(routes,Window(),ops,new Ocr(),new Store());session.Start();
+        var route=MapRoute(session,"storage");route["start"]="portrait";var port=session.CreateMaintenancePort("recover-inn",new Store());
+        Assert.Null(port.TestNavigationRoute(route).Error);Assert.Equal(4,ops.Wheels);
+        for(var attempt=0;attempt<2;attempt++)
+        {
+            ops.Image=LoadMap("tir-inn-wide-current.png");Assert.Null(port.TestNavigationRoute(route).Error);Assert.Equal("map.inn",port.LastTestNavigationTrace?.Target);
+            Assert.Null(port.TestNavigationRoute(route).Error);Assert.Equal("map.canvas",port.LastTestNavigationTrace?.Target);
+            ops.Image=lost;
+            var result=port.TestNavigationRoute(route);
+            if(attempt==0)Assert.Null(result.Error);else Assert.Equal("map_center_recovery_exhausted",result.Error);
+        }
+        Assert.False(session.Guard.Paused);Assert.Null(session.CurrentNavigationId);
+    }
+    [Fact] public void VisibleStorageBoxContinuesWhenTheInnLabelIsCovered()
+    {
+        var (session,ops)=CreateNamedMap();using(session)
+        {
+            ops.Image=MapImage(session,"maint_tir_region_header");var route=MapRoute(session,"storage");route["start"]="zoom";
+            session.Routes.Profile.Definition["pages"]!["region_map"]!["coordinate_targets"]!.AsObject().Remove("map.inn");
+            var port=session.CreateMaintenancePort("visible-box",new Store());Assert.Null(port.TestNavigationRoute(route).Error);Assert.Equal(4,ops.Wheels);
+            Assert.Null(port.TestNavigationRoute(route).Error);Assert.Equal("map.storage_box",port.LastTestNavigationTrace?.Target);Assert.Equal(4,ops.Wheels);Assert.Single(ops.Clicks);
+        }
+    }
+    static RgbImage LoadMap(string fixture)
+    {
+        using var bgr=OpenCvSharp.Cv2.ImRead(Path.Combine(RecognitionTests.Root(),"tests/fixtures/production",fixture));using var rgb=new OpenCvSharp.Mat();OpenCvSharp.Cv2.CvtColor(bgr,rgb,OpenCvSharp.ColorConversionCodes.BGR2RGB);
+        var pixels=new byte[rgb.Width*rgb.Height*3];System.Runtime.InteropServices.Marshal.Copy(rgb.Data,pixels,0,pixels.Length);return new(rgb.Width,rgb.Height,pixels);
+    }
+    static JsonObject MapRoute(ScreenWorkflowSession session,string destination)
+    {
+        var route=session.Routes.Configuration["maintenance"]!["navigation"]![destination]!["region_map"]!.DeepClone().AsObject();
+        foreach(var stage in route["stages"]!.AsObject())
+        foreach(var step in new[]{"choices","search"}.SelectMany(k=>stage.Value?[k]?.AsArray()??new JsonArray()))step!["settle_s"]=0;
+        return route;
+    }
+    static (ScreenWorkflowSession,Ops) CreateNamedMap()
+    {
+        var (session,ops)=Create();
+        session.Routes.Profile.Definition["pages"]=JsonNode.Parse("""{"region_map":{"anchors":["scene_bag"],"targets":{"map.current_is_tir":"maint_tir_region_header","map.tir_town":"maint_tir_town"},"coordinate_targets":{"map.canvas":[400,300,800,700],"map.world":[40,25,135,54],"map.current_region":[200,25,290,54],"map.inn":[500,400,502,402],"map.storage_box":[600,420,602,422],"map.blacksmith":[700,420,702,422],"map.repair_npc":[740,420,742,422],"map.general_store":[780,420,782,422],"map.shop_npc":[820,420,822,422]}}}""");
+        return(session,ops);
+    }
+    static RgbImage MapImage(ScreenWorkflowSession session,string anchor)
+    {
+        var pixels=new byte[1280*960*3];
+        foreach(var name in new[]{"scene_bag",anchor})
+        {
+            var template=session.Routes.Profile.Templates[name];var source=template.Image.CopyPixels();
+            for(var y=0;y<template.Image.Height;y++)Array.Copy(source,y*template.Image.Width*3,pixels,((template.Box.Top+y)*1280+template.Box.Left)*3,template.Image.Width*3);
+        }
+        return new(1280,960,pixels);
+    }
     [Fact] public void ZoomSettleIntervalStartsAfterTheSweepFinishes()
     {
         var (session,ops)=Create();using(session)

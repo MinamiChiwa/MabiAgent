@@ -1772,6 +1772,29 @@
           164,
           55
         ]
+      },
+      "maint_tir_region_header_white": {
+        "path": "assets/templates/maintenance_ui/maint_tir_region_header.png",
+        "bytes": 3822,
+        "sha256": "4fd75f8c5473724d0d4a8e3e3dc166f6782cc001a88e81ea9611dd60a1aaeb12",
+        "box": [
+          191,
+          26,
+          275,
+          49
+        ],
+        "search": [
+          175,
+          20,
+          320,
+          65
+        ],
+        "match_mode": "light_text",
+        "light_threshold": 245,
+        "glyph_threshold": 0.97,
+        "source": "native-client-capture",
+        "matching_notes": "白色固定地区页眉与底图灰色地名分离；复用原始标题裁图，保留0.97字形阈值。",
+        "source_notes": "原生客户区裁图保留于 path；原始位置见 box，临时全图不保留。"
       }
     },
     "pages": {
@@ -2042,7 +2065,8 @@
         "purchase.map_portrait_player_lowerface"
       ],
       "maint_tir_region_header": [
-        "maint_tir_world_header"
+        "maint_tir_world_header",
+        "maint_tir_region_header_white"
       ],
       "purchase.map_store_label": [
         "purchase.map_store_label_min",
@@ -2224,6 +2248,14 @@
         }
       },
       "backpack_weight": {
+        "bag": {
+          "target": "bag.open_items",
+          "wait_for_targets": [
+            "bag.items_selected"
+          ],
+          "timeout_s": 8,
+          "settle_s": 0.3
+        },
         "tidy": {
           "target": "tidy.cancel"
         },
@@ -2428,7 +2460,9 @@
     "exit_navigation": {
       "bag": {
         "target": "bag.close",
-        "expected_page": "scene"
+        "expected_page": "scene",
+        "timeout_s": 2,
+        "retry_delay_s": 0.3
       },
       "bag_search": {
         "target": "bag.close",
@@ -2472,7 +2506,9 @@
       },
       "repair_tools": {
         "target": "bag.close",
-        "expected_page": "scene"
+        "expected_page": "scene",
+        "timeout_s": 2,
+        "retry_delay_s": 0.3
       },
       "npc_dialogue": {
         "target": "dialog.advance"
@@ -2495,11 +2531,21 @@
                 450
               ],
               "next": "zoom",
-              "settle_s": 0.35
+              "settle_s": 0.35,
+              "requires": [
+                "map.current_is_tir"
+              ]
             },
             {
               "target": "map.tir_town",
-              "next": "local"
+              "next": "local",
+              "wait_for_pages": [
+                "region_map"
+              ],
+              "wait_for_targets": [
+                "map.current_is_tir"
+              ],
+              "timeout_s": 8
             },
             {
               "target": "map.world",
@@ -2529,7 +2575,14 @@
             },
             {
               "target": "map.tir_town",
-              "next": "local"
+              "next": "local",
+              "wait_for_pages": [
+                "region_map"
+              ],
+              "wait_for_targets": [
+                "map.current_is_tir"
+              ],
+              "timeout_s": 8
             }
           ],
           "search": [
@@ -2582,7 +2635,10 @@
                 450
               ],
               "next": "zoom",
-              "settle_s": 0.35
+              "settle_s": 0.35,
+              "requires": [
+                "map.current_is_tir"
+              ]
             }
           ],
           "search": [
@@ -2602,7 +2658,16 @@
               "target": "map.canvas",
               "kind": "zoom_max",
               "next": "portrait",
-              "settle_s": 0.4
+              "settle_s": 0.4,
+              "steps": 4,
+              "max_sweeps": 9,
+              "center_target": "$shop",
+              "center_destination": [
+                625,
+                450
+              ],
+              "recovery_stage": "recenter",
+              "destination_target": "$npc"
             }
           ]
         },
@@ -2616,6 +2681,17 @@
               ],
               "timeout_s": 8
             }
+          ],
+          "search": [
+            {
+              "target": "map.canvas",
+              "kind": "scroll",
+              "steps": -4,
+              "zoom": true,
+              "next": "recenter",
+              "map_recovery": true,
+              "settle_s": 0.4
+            }
           ]
         },
         "local_wide": {
@@ -2628,7 +2704,10 @@
                 450
               ],
               "next": "zoom",
-              "settle_s": 0.35
+              "settle_s": 0.35,
+              "requires": [
+                "map.current_is_tir"
+              ]
             }
           ],
           "search": [
@@ -2652,7 +2731,10 @@
                 450
               ],
               "next": "zoom",
-              "settle_s": 0.35
+              "settle_s": 0.35,
+              "requires": [
+                "map.current_is_tir"
+              ]
             }
           ],
           "search": [
@@ -2676,7 +2758,53 @@
                 450
               ],
               "next": "zoom",
-              "settle_s": 0.35
+              "settle_s": 0.35,
+              "requires": [
+                "map.current_is_tir"
+              ]
+            }
+          ]
+        },
+        "recenter": {
+          "choices": [
+            {
+              "target": "$shop",
+              "kind": "drag",
+              "destination": [
+                625,
+                450
+              ],
+              "next": "zoom",
+              "settle_s": 0.35,
+              "requires": [
+                "map.current_is_tir"
+              ]
+            }
+          ],
+          "search": [
+            {
+              "target": "map.canvas",
+              "kind": "scroll",
+              "steps": -4,
+              "zoom": true,
+              "settle_s": 0.4,
+              "search_only": true
+            },
+            {
+              "target": "map.canvas",
+              "kind": "scroll",
+              "steps": -4,
+              "zoom": true,
+              "settle_s": 0.4,
+              "search_only": true
+            },
+            {
+              "target": "map.canvas",
+              "kind": "scroll",
+              "steps": -4,
+              "zoom": true,
+              "settle_s": 0.4,
+              "search_only": true
             }
           ]
         }

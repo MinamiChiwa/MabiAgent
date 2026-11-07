@@ -76,6 +76,7 @@ public sealed partial class AutomationService:IAsyncDisposable
         try{capture=new(_=>throw new InvalidDataException("必须先解析当前客户端"),Accounts,diagnostics:new RuntimeDiagnostics(workspace.DataPath),resolveLayout:clientLayout.Resolve);capture.SelectProcess(selection.Selected?.State.ProcessId);capture.SelectDevices(CaptureDeviceSetting);}
         catch(Exception e)when(e is not OutOfMemoryException){captureUnavailable=captureUnavailable with{Message="抓包配置不可用："+e.Message};activity.Fault(e,"抓包配置",scope:"capture");}
         selection.Changed+=SelectionChanged;Repository.CatalogChanged+=CatalogChanged;workspace.Changed+=NotifyRuntimeChanged;if(capture is not null)capture.Changed+=NotifyRuntimeChanged;
+        _=InitializeStopHotkeyAsync();
     }
     private static bool SameWindow(NativeWindowState? a,NativeWindowState? b)=>a is not null&&b is not null&&a.WindowId==b.WindowId&&a.ProcessId==b.ProcessId&&a.ProcessStartUtcTicks==b.ProcessStartUtcTicks&&string.Equals(a.Executable,b.Executable,StringComparison.OrdinalIgnoreCase)&&a.Geometry==b.Geometry;
     private void SelectionChanged(GameWindow? game)
@@ -255,7 +256,7 @@ public sealed partial class AutomationService:IAsyncDisposable
                     }
                 }
                 delay=recovering||refreshingInventory||ports?.InventorySyncRequested==true?AutomationCadence.Active:host?.NextCheckDelay()??AutomationCadence.Health;
-                if(delay==AutomationCadence.Active)delay=TimeSpan.FromTicks(Math.Max(0,delay.Ticks-System.Diagnostics.Stopwatch.GetElapsedTime(tickStarted).Ticks));
+                if(delay==AutomationCadence.Active||delay==AutomationCadence.Fishing)delay=TimeSpan.FromTicks(Math.Max(0,delay.Ticks-System.Diagnostics.Stopwatch.GetElapsedTime(tickStarted).Ticks));
             }catch(Exception e)
             {
                 activity.Fault(e,"调度检查",session?.Scope.SessionId,Status.ActiveJob,Status.ActivePhase,session?.CurrentPage);
@@ -327,7 +328,18 @@ public sealed partial class AutomationService:IAsyncDisposable
     public Task PauseAsync()
     {Interlocked.Increment(ref commandRevision);session?.Guard.RequestPause();wake.Signal();return Task.Run(async()=>{await activity.AcquireAsync(gate,"暂停",lifetime.Token).ConfigureAwait(false);using var stage=activity.Enter("暂停并保存",true);try{recovering=false;refreshingInventory=false;resumeAfterRecovery=false;session?.Relogin?.Pause();ports?.CancelInventorySync();host?.Pause();if(host is not null)Status=host.Status;NotifyChanged();}finally{gate.Release();wake.Signal();}});}
     private void DestroyHost(){host?.Dispose();host=null;session=null;ports=null;hostWindow=null;hostInput=null;recovering=false;refreshingInventory=false;}
+    private Task? stopAllTask;
     public Task StopAllAsync()
+    {
+        session?.Guard.RequestPause();
+        lock(lifecycle)
+        {
+            ObjectDisposedException.ThrowIf(disposed,this);
+            if(stopAllTask is{IsCompleted:false})return stopAllTask;
+            return stopAllTask=StopAllCoreAsync();
+        }
+    }
+    private Task StopAllCoreAsync()
     {
         Interlocked.Increment(ref commandRevision);session?.Guard.RequestPause();
         lock(lifecycle){executionLifetime.Cancel();workbenchCancellation?.Cancel();}wake.Signal();
@@ -339,7 +351,7 @@ public sealed partial class AutomationService:IAsyncDisposable
                 resumeAfterRecovery=false;ports?.CancelInventorySync();DestroyHost();
                 Status=new(false,"正在清除全部执行状态",null,new Dictionary<string,string>(),0);
                 new RuntimeQueue(workspace.DataPath).ResetAllExecution();
-                lock(lifecycle)executionLifetime=new();
+                lock(lifecycle){executionLifetime.Dispose();executionLifetime=new();}
                 Status=new(false,"已停止全部，执行进度与核账已清除；再次开始将重新规划",null,new Dictionary<string,string>(),0);
             }
             catch(Exception error){Status=Status with{Message="停止重置未完成，请重试停止全部",Fault=error.ToString()};throw;}
@@ -348,6 +360,7 @@ public sealed partial class AutomationService:IAsyncDisposable
     }
     public async ValueTask DisposeAsync()
     {
+        stopHotkey?.Dispose();
         lock(lifecycle){if(disposed)return;disposed=true;Interlocked.Increment(ref commandRevision);lifetime.Cancel();executionLifetime.Cancel();workbenchCancellation?.Cancel();captureLifetime?.Cancel();captureEnabled=false;}
         selection.Changed-=SelectionChanged;Repository.CatalogChanged-=CatalogChanged;workspace.Changed-=NotifyRuntimeChanged;if(capture is not null)capture.Changed-=NotifyRuntimeChanged;session?.Guard.Pause("closed");
         if(worker is not null)await worker.ConfigureAwait(false);await gate.WaitAsync().ConfigureAwait(false);try{DestroyHost();lock(ocrGate){ocr?.Dispose();ocr=null;}}finally{gate.Release();}

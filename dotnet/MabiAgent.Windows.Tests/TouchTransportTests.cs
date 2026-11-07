@@ -147,12 +147,20 @@ public sealed class TouchTransportTests
             JsonObject? ready=null;Assert.True(SpinWait.SpinUntil(()=>{try{ready=JsonNode.Parse(File.ReadAllText(path))?.AsObject();return ready?["hwnd"] is not null;}catch{return false;}},25000));
             var hwnd=(nint)ready!["hwnd"]!.GetValue<long>();var native=new NativeWindowsOps();var state=native.ReadWindow(hwnd);
             Assert.NotEqual(Environment.ProcessId,state.ProcessId);Assert.Equal(ready["pid"]!.GetValue<int>(),state.ProcessId);
-            using var runner=new ForwardedTouchGestureRunner();var before=TouchCursorPresentation.Read();
+            using var mouse=new TouchMouseMonitor();
+            var reportRoot=Environment.GetEnvironmentVariable("MABI_TOUCH_DIAGNOSTIC_ROOT");
+            using var runner=new ForwardedTouchGestureRunner(diagnostics:reportRoot is null?null:new MabiAgent.Core.RuntimeDiagnostics(reportRoot));var before=TouchCursorPresentation.Read();
             runner.Execute(new("click",[[new(state.Geometry.X+80,state.Geometry.Y+60)]]),hwnd,40,()=>Assert.Equal(state.ProcessId,native.ReadWindow(hwnd).ProcessId),()=>{},()=>native.ReadWindow(hwnd));
             File.WriteAllText(path+".done","released");
             Assert.True(child.WaitForExit(20000));Assert.Equal(0,child.ExitCode);
             Assert.True(JsonNode.Parse(File.ReadAllText(path))!["decoded"]!.GetValue<bool>());
-            Assert.Equal(before.Foreground,TouchNative.Foreground);Assert.Equal(before.Position,TouchCursorPresentation.Read().Position);
+            var after=TouchCursorPresentation.Read();var physicalMoves=mouse.PhysicalMoves;
+            var observation=new JsonObject{["before"]=before.ToJson(),["after"]=after.ToJson(),["physical_moves"]=physicalMoves,["physical_downs"]=mouse.PhysicalDowns,["events"]=new JsonArray(mouse.Events.Select(e=>(JsonNode)e.ToJson()).ToArray())};
+            if(reportRoot is not null)File.WriteAllText(Path.Combine(reportRoot,"mouse-observation.json"),observation.ToJsonString());
+            Assert.Equal(before.Foreground,after.Foreground);
+            // Hardware movement is allowed throughout the test. Coordinate equality
+            // is meaningful only if the physical mouse stayed still.
+            if(physicalMoves==0)Assert.True(before.Position==after.Position,observation.ToJsonString());
         }
         finally{if(!child.HasExited)child.Kill(entireProcessTree:true);File.Delete(path);File.Delete(path+".done");}
     }

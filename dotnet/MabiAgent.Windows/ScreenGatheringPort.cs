@@ -127,6 +127,7 @@ public sealed class ScreenGatheringPort:ScreenWorkflowPort,IGatheringPort
         }
         if(o.View.Page!=S(nav,"detail_page")&&o.View.Page.StartsWith("point_detail_",StringComparison.Ordinal)&&o.View.Targets.ContainsKey("gathering.close"))
         {Session.NavigateTarget("gathering.close");WaitForNavigation(o,new JsonObject{["target"]="gathering.close"});return;}
+        if(releaseNavigation is not null){if(!releaseNavigation.ReleaseNavigation())return;releaseNavigation=null;}
         if(workbench.TryNavigate(o))return;
         var step=nav["steps"]!.AsArray().FirstOrDefault(s=>S(s,"page")==o.View.Page);
         if(step is null)
@@ -138,8 +139,8 @@ public sealed class ScreenGatheringPort:ScreenWorkflowPort,IGatheringPort
             {var close=o.View.Targets.ContainsKey("page.close")?"page.close":"recipe_detail.close";Session.NavigateTarget(close);WaitForNavigation(o,new JsonObject{["target"]=close});return;}
             if(o.View.Targets.ContainsKey("bag.close"))
             {Session.NavigateTarget("bag.close");WaitForNavigation(o,new JsonObject{["target"]="bag.close"});return;}
-            if(o.View.Page.StartsWith("storage_",StringComparison.Ordinal)||o.View.Page=="npc_dialogue")
-            {releaseNavigation??=Session.CreateMaintenancePort(BatchId+":release",Store);releaseNavigation.Observe();releaseNavigation.ReleaseNavigation();return;}
+            if(Session.Routes.Configuration["maintenance"]?["exit_navigation"]?[o.View.Page] is not null||o.View.Page.StartsWith("storage_",StringComparison.Ordinal)||o.View.Page=="npc_dialogue")
+            {releaseNavigation=Session.CreateMaintenancePort(BatchId+":release",Store);releaseNavigation.ReleaseNavigation();return;}
             throw new InputBlockedException("采集路线缺少当前页导航");
         }
         var target=S(step,"target");

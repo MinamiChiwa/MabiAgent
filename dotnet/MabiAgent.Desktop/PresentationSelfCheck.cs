@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Presenters;
 using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Styling;
@@ -15,6 +16,39 @@ internal static class PresentationSelfCheck
         model.SelectedPage=2;window.Show();await Task.Delay(100);window.UpdateLayout();
         var initialSettings=window.FindControl<SettingsPanel>("SettingsPage")!;var operationSection=initialSettings.FindControl<DeferredSettingsSection>("OperationSettingsSection")!;
         for(var attempt=0;attempt<50&&!operationSection.IsBuilt;attempt++){operationSection.BringIntoView();window.UpdateLayout();await Task.Delay(20);}
+        var hotkey=operationSection.GetVisualDescendants().OfType<HotkeyRecorder>().Single(b=>b.Name=="GlobalStopHotkeyInput");
+        var originalTheme=window.RequestedThemeVariant;
+        var applyHotkey=operationSection.GetVisualDescendants().OfType<Button>().Single(b=>b.Name=="GlobalStopHotkeyApply");
+        Check(hotkey.IsEffectivelyVisible&&hotkey.Bounds.Width>80&&hotkey.Text==model.StopHotkeyText&&applyHotkey.Command==model.ApplyStopHotkeyCommand,"全局停止快捷键输入与应用入口绑定可用");
+        foreach(var theme in new[]{ThemeVariant.Dark,ThemeVariant.Light})
+        {
+            window.RequestedThemeVariant=theme;window.UpdateLayout();await Task.Delay(220);
+            var presenter=hotkey.GetVisualDescendants().OfType<TextPresenter>().FirstOrDefault();
+            Check(hotkey.Template is not null&&presenter is {IsEffectivelyVisible:true}&&presenter.Bounds.Width>0&&presenter.Bounds.Height>0&&presenter.Text==model.StopHotkeyText,"快捷键录入框"+theme+"主题模板及可见文字完整");
+            if(Environment.GetEnvironmentVariable("MABI_HOTKEY_PREVIEW_DIR") is{} previewPath)
+            {
+                Directory.CreateDirectory(previewPath);
+                using var image=new Avalonia.Media.Imaging.RenderTargetBitmap(new PixelSize((int)operationSection.Bounds.Width,(int)operationSection.Bounds.Height));
+                image.Render(operationSection);image.Save(Path.Combine(previewPath,"hotkey-"+theme+".png"),Avalonia.Media.Imaging.PngBitmapEncoderOptions.Default);
+            }
+        }
+        window.RequestedThemeVariant=originalTheme;
+        var recorded=new KeyEventArgs{RoutedEvent=InputElement.KeyDownEvent,Key=Key.F11,KeyModifiers=KeyModifiers.Control|KeyModifiers.Shift};
+        var originalHotkey=model.StopHotkeyText;hotkey.BeginRecording();hotkey.RaiseEvent(recorded);
+        Check(hotkey.IsReadOnly&&recorded.Handled&&hotkey.Text=="Ctrl+Shift+F11"&&model.StopHotkeyText==hotkey.Text,"快捷键直接按键录入并同步设置草稿");
+        var draft=hotkey.Text;hotkey.RaiseEvent(new KeyEventArgs{RoutedEvent=InputElement.KeyDownEvent,Key=Key.F9});
+        Check(hotkey.Text==draft&&!hotkey.IsRecording,"未点击录入时普通按键不修改快捷键");
+        var recordButton=operationSection.GetVisualDescendants().OfType<Button>().Single(b=>b.Name=="GlobalStopHotkeyRecord");
+        typeof(Button).GetMethod("OnClick",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic)!.Invoke(recordButton,null);
+        window.UpdateLayout();Check(hotkey.IsRecording&&!applyHotkey.IsEnabled,"录入按钮进入捕获状态并阻止提前应用");
+        hotkey.RaiseEvent(new KeyEventArgs{RoutedEvent=InputElement.KeyDownEvent,Key=Key.F12});
+        Check(hotkey.Text=="F12"&&model.StopHotkeyText=="F12"&&!hotkey.IsRecording,"单键F12可录入且不要求修饰键");
+        hotkey.BeginRecording();
+        var mouse=new Pointer(44,PointerType.Mouse,true);
+        var click=new PointerPressedEventArgs(hotkey,mouse,window,default,0,new PointerPointProperties(RawInputModifiers.None,PointerUpdateKind.XButton2Pressed),KeyModifiers.Control,1);
+        hotkey.RaiseEvent(click);
+        Check(click.Handled&&hotkey.Text=="Ctrl+MouseX2"&&model.StopHotkeyText==hotkey.Text,"鼠标侧键与修饰键可录入并同步草稿");
+        model.StopHotkeyText=originalHotkey;
         var buttons=window.GetVisualDescendants().OfType<Button>().Where(b=>b.IsEffectivelyVisible&&b.Bounds.Width>0&&b.Focusable).ToArray();
         var help=window.GetVisualDescendants().OfType<HelpButton>().First(b=>b.IsEffectivelyVisible&&b.GetVisualAncestors().OfType<SettingsPanel>().Any());
         Check(!string.IsNullOrWhiteSpace(help.Message)&&Equals(ToolTip.GetTip(help),help.Message),"问号与帮助文案关联");

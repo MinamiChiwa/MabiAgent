@@ -4,6 +4,36 @@ using Xunit;
 namespace MabiAgent.Workflows.Tests;
 public sealed class RuntimeIntegrationTests
 {
+    [Theory][InlineData("point_fishing_lake")][InlineData(FishingPlan.CurrentLocation)]
+    public void FishingPeriodicBackpackCheckWaitsForTwentyRoundsAndTenMinutes(string point)
+    {
+        var dir=Path.Combine(Path.GetTempPath(),"mabi-fish-sparse-"+Guid.NewGuid().ToString("N"));
+        try
+        {
+            var config=Catalog().Configuration;config["gathering_routes"]![point]=JsonNode.Parse("""{"target_item_id":1,"skill":"fishing","node":"lake","attempts_per_batch":1}""");
+            var queue=new RuntimeQueue(dir);queue.Edit(q=>q.Add("fish","idle_fishing",1,1000,point,[]));
+            var ports=new RuntimePorts();var time=new ManualTime();
+            using var host=new AutomationCoordinator(new(config),queue,ports,()=>new(RepairEnabled:false,BackpackCheckIntervalSeconds:120),time);
+            host.Start();host.Tick();host.Tick();
+            if(point!=FishingPlan.CurrentLocation)
+            {ports.Fish.Frame=new(1,"travel",NavigationActive:true);host.Tick();ports.Fish.Frame=new(2,"arrived",NavigationActive:false);host.Tick();}
+            ports.Fish.Frame=new(3,"first","fishing",FishingButton:true);host.Tick();
+            Assert.Equal(AutomationCadence.Fishing,host.NextCheckDelay());time.Seconds+=121;
+            for(var round=0;round<20;round++)
+            {
+                ports.Fish.Frame=new(4+round*3,"hook-"+round,"fishing",RoundActive:true,LeisureMode:false);host.Tick();
+                Assert.Equal(AutomationCadence.Fishing,host.NextCheckDelay());
+                ports.Fish.Frame=new(5+round*3,"end-"+round,"fishing",FishingButton:true,Compass:true);host.Tick();
+                Assert.Equal(0,ports.Maintain.Navigations);
+            }
+            Assert.Equal(0,ports.Maintain.Navigations);time.Seconds+=480;
+            for(var i=0;i<5&&ports.Maintain.Navigations==0;i++)
+            {ports.Fish.Frame=new(65+i,"maintenance-"+i,Compass:true);host.Tick();}
+            Assert.True(ports.Maintain.Navigations>0);Assert.Contains(ports.Fish.Actions,a=>a.Kind=="leave");
+            Assert.True(host.Status.Running);Assert.Null(host.Status.Fault);
+        }
+        finally{if(Directory.Exists(dir))Directory.Delete(dir,true);}
+    }
     [Theory][InlineData("inventory_unknown")][InlineData("no_source")][InlineData("recipe_cycle")]
     public void SufficientMaterialWithdrawsUnsentSupplyDespiteIndependentBlockedMaterial(string issue)
     {
@@ -162,7 +192,7 @@ public sealed class RuntimeIntegrationTests
         }
         finally { if (Directory.Exists(dir)) Directory.Delete(dir, true); }
     }
-    [Fact] public void FishingFinishesRoundThenRepairsAndReturnsToSamePoint()
+    [Fact] public void FishingPausesItsClockForRepairAndReturnsToSamePoint()
     {
         var dir=Path.Combine(Path.GetTempPath(),"mabi-fish-repair-"+Guid.NewGuid().ToString("N"));
         try
@@ -174,7 +204,7 @@ public sealed class RuntimeIntegrationTests
             ports.Fish.Frame=new(3,"4","fishing",FishingButton:true);host.Tick();ports.Fish.Frame=new(4,"5","fishing",RoundActive:true,LeisureMode:false);host.Tick();
             time.Seconds+=11;ports.Fish.Frame=new(8,"6","fishing",RoundActive:true,LeisureMode:false);host.Tick();
             Assert.True(host.Status.Jobs["fish"].Confirmed>0);Assert.Equal(host.Status.ActiveConfirmed,host.Status.Jobs["fish"].Confirmed);
-            Assert.Empty(ports.Maintain.Actions);Assert.Equal(0,ports.Maintain.Navigations);Assert.DoesNotContain(ports.Fish.Actions,a=>a.Kind=="leave");
+            Assert.Empty(ports.Maintain.Actions);Assert.Equal(0,ports.Maintain.Navigations);Assert.Equal("leave",ports.Fish.Actions.Last().Kind);
             ports.Fish.Frame=new(9,"7",Compass:true);host.Tick();Assert.Equal("leave",ports.Fish.Actions.Last().Kind);
             ports.Fish.CanResumeAtPoint=false; // Maintenance navigation invalidates the prior fishing-point proof.
             ports.Maintain.Frame=new("quote","repair_quote",Gold:100000,Quote:1000,Currency:"gold",ConfirmAvailable:true);host.Tick();
@@ -185,7 +215,7 @@ public sealed class RuntimeIntegrationTests
             Assert.Equal(2,ports.Fish.Actions.Count(a=>a.Kind=="navigate"));Assert.All(ports.Fish.Actions.Where(a=>a.Kind=="navigate"),a=>Assert.Equal("point_fishing_lake",a.PointKey));
             Assert.Equal(1,ports.Fish.Actions.Count(a=>a.Kind=="start"));Assert.Null(host.Status.Fault);Assert.True(host.Status.Running);
             var state=JsonNode.Parse(File.ReadAllText(Directory.GetFiles(dir,"idle-fishing.json",SearchOption.AllDirectories).Single()))!;
-            Assert.Equal(4,state["elapsed_s"]!.GetValue<double>());Assert.Single(queue.Read().Jobs);Assert.Equal(0,ports.RefreshRequests);
+            Assert.Equal(5,state["elapsed_s"]!.GetValue<double>());Assert.Single(queue.Read().Jobs);Assert.Equal(0,ports.RefreshRequests);
         }
         finally{if(Directory.Exists(dir))Directory.Delete(dir,true);}
     }

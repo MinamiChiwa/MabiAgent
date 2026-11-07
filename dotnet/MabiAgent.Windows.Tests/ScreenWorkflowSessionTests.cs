@@ -7,6 +7,132 @@ namespace MabiAgent.Windows.Tests;
 public sealed class ScreenWorkflowSessionTests
 {
     private static readonly MabiAgent.Core.CharacterSlotIdentity TestWho=new("account","character","抓包名");
+    [Theory][InlineData(false,0)][InlineData(false,1)][InlineData(true,0)][InlineData(true,1)]
+    public void FishingNavigationClicksVisibleRowWithoutScrolling(bool video,int row)
+    {
+        var routes=ScreenRoutes.Load(RecognitionTests.Root());routes.Configuration["notifications"]=new JsonObject();
+        var frame=FishingFeedbackTests.ReadImage(Path.Combine(RecognitionTests.Root(),"tests/fixtures/production",video?"fishing-nodes-video-current.jpg":"east-wall-fishing-list-current.jpg"));
+        var clicks=new List<PixelPoint>();var native=new NoInputOps(frame,clicks);
+        using var session=new ScreenWorkflowSession(routes,Window(),native,new EmptyOcr(),new MemoryStore());session.Start();
+        var key=$"point_fishing_{row:00}";var port=session.CreateFishingPort(key,"visible",new MemoryStore(new JsonObject{["status"]="running"}));
+        port.Observe();port.Perform(new("navigate",key));
+        var top=(video?610:393)+96*row;var click=Assert.Single(clicks);Assert.InRange(click.X,799,984);Assert.InRange(click.Y,top,top+34);Assert.Empty(native.WheelDeltas);
+    }
+    [Theory][InlineData(false)][InlineData(true)]
+    public void FishingWrongPointClosesAndReselectsOrReleasesAtBound(bool repeated)
+    {
+        var routes=ScreenRoutes.Load(RecognitionTests.Root());routes.Configuration["notifications"]=new JsonObject();routes.Profile.Definition.Remove("page_variants");
+        routes.Profile.Definition["pages"]=JsonNode.Parse("""{"fishing_nodes":{"anchors":["scene_bag"],"coordinate_targets":{"gathering.open_point_fishing_01":[850,490,852,492]}},"point_detail_fishing_2":{"anchors":["scene_skills"],"coordinate_targets":{"gathering.close":[1200,30,1202,32],"gathering.start":[900,700,902,702]}},"point_detail_fishing_1":{"anchors":["maint_scene_map"],"coordinate_targets":{"gathering.start":[900,800,902,802]}}}""");
+        routes.Profile.Definition["idle_fishing"]=new JsonObject();
+        var list=Stamp(routes.Profile,"scene_bag");var wrong=Stamp(routes.Profile,"scene_skills");var correct=Stamp(routes.Profile,"maint_scene_map");
+        var clicks=new List<PixelPoint>();var native=new NoInputOps(list,clicks);var time=new RecoveryTime();
+        using var session=new ScreenWorkflowSession(routes,Window(),native,new EmptyOcr(),new MemoryStore());session.Start();
+        var workflow=new MemoryStore();var port=new ScreenFishingPort(session,"point_fishing_01","reselect",workflow,time);
+        var runner=new IdleFishingRunner(new("point_fishing_01",120),port,workflow);
+        port.Observe();port.Perform(new("navigate","point_fishing_01"));
+        for(var i=0;i<(repeated?3:1);i++)
+        {
+            native.CurrentImage=wrong;time.Seconds+=1;port.Observe();
+            Assert.Equal(new PixelPoint(1201,31),clicks[^1]);
+            native.CurrentImage=list;time.Seconds+=1;port.Observe();Assert.Equal(new PixelPoint(851,491),clicks[^1]);
+        }
+        if(repeated)
+        {
+            native.CurrentImage=wrong;time.Seconds+=1;
+            var peerPort=new IndependentFishingPort();var peer=new IdleFishingRunner(new(FishingPlan.CurrentLocation,120),peerPort,new MemoryStore());
+            var dispatcher=new WorkflowDispatcher();dispatcher.Register("reselect",runner);dispatcher.Register("peer",peer);dispatcher.RestoreOwnership("reselect");dispatcher.Continue();
+            MabiAgent.Core.WorkCandidate[] plan=[new("reselect","idle_fishing",null,true,0,0),new("peer","idle_fishing",null,true,0,1)];
+            dispatcher.Tick(plan,null);dispatcher.Tick(plan,null);
+            Assert.Contains("reselect",dispatcher.Faults.Keys);Assert.False(dispatcher.IsPaused);
+            Assert.True(port.CanReleaseForeground());Assert.Null(session.CurrentNavigationId);Assert.False(session.Guard.Paused);
+            var count=clicks.Count;port.Observe();Assert.Equal(count,clicks.Count);
+            dispatcher.Tick(plan,null);dispatcher.Tick(plan,null);Assert.Contains("start",peerPort.Actions);
+        }
+        else
+        {
+            native.CurrentImage=correct;time.Seconds+=1;port.Observe();Assert.Equal(new PixelPoint(901,801),clicks[^1]);Assert.Equal(4,clicks.Count);
+        }
+        Assert.DoesNotContain(new PixelPoint(901,701),clicks);
+    }
+    [Fact] public void FishingUnknownMenuHasOneTotalDeadlineAndReleasesTheVisibleList()
+    {
+        var routes=ScreenRoutes.Load(RecognitionTests.Root());routes.Configuration["notifications"]=new JsonObject();routes.Profile.Definition.Remove("page_variants");
+        routes.Profile.Definition["pages"]=JsonNode.Parse("""{"fishing_nodes":{"anchors":["scene_bag"]}}""");routes.Profile.Definition["idle_fishing"]=new JsonObject();
+        // 模拟没有派发步骤的稳定菜单，仍必须受整段期限限制。
+        routes.Configuration["gathering_routes"]!["point_fishing_01"]!["navigation"]!["steps"]=new JsonArray();
+        var native=new NoInputOps(Stamp(routes.Profile,"scene_bag"),[]);var time=new RecoveryTime();
+        using var session=new ScreenWorkflowSession(routes,Window(),native,new EmptyOcr(),new MemoryStore());session.Start();
+        var port=new ScreenFishingPort(session,"point_fishing_01","deadline",new MemoryStore(new JsonObject{["status"]="running"}),time);
+        port.Observe();port.Perform(new("navigate","point_fishing_01"));time.Seconds=91;
+        Assert.Throws<TimeoutException>(()=>port.Observe());Assert.True(port.CanReleaseForeground());Assert.Null(session.CurrentNavigationId);
+        Assert.False(session.Guard.Paused);
+    }
+    [Theory][InlineData(false)][InlineData(true)]
+    public void ModePreparationUsesFixedClickAndStableDialogThenRunsOnlyOnce(bool focused)
+    {
+        var routes=ScreenRoutes.Load(RecognitionTests.Root());routes.Configuration["notifications"]=new JsonObject();routes.Profile.Definition.Remove("page_variants");
+        routes.Profile.Definition["pages"]=JsonNode.Parse("""{"scene":{"anchors":["scene_bag","maint_scene_map"]}}""");
+        var scene=Stamp(routes.Profile,"scene_bag","maint_scene_map");var clicks=new List<PixelPoint>();var native=new NoInputOps(scene,clicks);
+        using var session=new ScreenWorkflowSession(routes,Window(),native,new EmptyOcr(),new MemoryStore());session.Start();
+        var store=new MemoryStore();var port=session.CreateFishingPort(FishingPlan.CurrentLocation,"mode",store);var runner=new IdleFishingRunner(new(FishingPlan.CurrentLocation,300),port,store);
+        runner.Tick();Assert.Single(clicks);Assert.False(port.ModePreparationRequired);
+        var title=focused?"fishing_leisure_dialog_title":"fishing_mode_confirm";
+        native.CurrentImage=Stamp(routes.Profile,title);runner.Tick();
+        Assert.Equal(2,clicks.Count);Assert.InRange(clicks[1].X,focused?484:729,focused?577:775);
+        native.CurrentImage=scene;runner.Tick();Assert.Equal(2,clicks.Count);Assert.False(port.ModePreparationRequired);
+    }
+    [Fact] public void UserFocusedDialogIsRecognizedDuringTheFirstCastWait()
+    {
+        var routes=ScreenRoutes.Load(RecognitionTests.Root());routes.Configuration["notifications"]=new JsonObject();
+        var image=FishingFeedbackTests.ReadImage(Path.Combine(RecognitionTests.Root(),"tests/fixtures/production/fishing-mode-confirm-user.png"));
+        var clicks=new List<PixelPoint>();var native=new NoInputOps(image,clicks);
+        using var session=new ScreenWorkflowSession(routes,Window(),native,new EmptyOcr(),new MemoryStore());session.Start();
+        var store=new MemoryStore(new JsonObject{["pending"]=new JsonObject{["kind"]="start"}});var port=session.CreateFishingPort(FishingPlan.CurrentLocation,"dialog",store);
+        var frame=port.Observe();Assert.True(frame.ModeConfirm);Assert.True(frame.Stable);
+        store.Flush(new JsonObject{["pending"]=new JsonObject{["kind"]="confirm_mode"}});port.Perform(new("confirm_mode"));
+        var click=Assert.Single(clicks);Assert.InRange(click.X,631,844);Assert.InRange(click.Y,829,892);
+    }
+    [Theory][InlineData("bag")][InlineData("repair_tools")]
+    public async Task RepeatedBagCleanupRetriesBeforeTheMaintenanceBudgetExpires(string page)
+    {
+        var routes=ScreenRoutes.Load(RecognitionTests.Root());routes.Configuration["notifications"]=new JsonObject();routes.Profile.Definition.Remove("page_variants");
+        routes.Profile.Definition["pages"]=JsonNode.Parse("""{"bag":{"anchors":["bag_close"],"targets":{"bag.close":"bag_close"}},"scene":{"anchors":["maint_scene_map"]}}""");
+        if(page!="bag"){var pages=routes.Profile.Definition["pages"]!.AsObject();pages[page]=pages["bag"]!.DeepClone();pages.Remove("bag");}
+        var bag=Stamp(routes.Profile,"bag_close");var scene=Stamp(routes.Profile,"maint_scene_map");
+        var native=new NoInputOps(bag);using var session=new ScreenWorkflowSession(routes,Window(),native,new EmptyOcr(),new MemoryStore());session.Start();
+        var port=session.CreateMaintenancePort("repeated-close",new MemoryStore());
+        for(var inspection=0;inspection<2;inspection++)
+        {
+            var attempts=0;native.CurrentImage=bag;
+            native.OnKeyDown=key=>{Assert.Equal((ushort)73,key);if(++attempts==2)native.CurrentImage=scene;};
+            var store=new MemoryStore();var policy=new MaintenancePolicy(RepairEnabled:false);
+            var seed=new MaintenanceRunner(port,store,policy).Snapshot();seed["navigation_cleanup"]=true;store.Flush(seed);
+            var runner=new MaintenanceRunner(port,store,policy);var elapsed=System.Diagnostics.Stopwatch.StartNew();
+            while(runner.StatusSnapshot()["navigation_reserved"]!.GetValue<bool>()&&elapsed.Elapsed.TotalSeconds<12)
+            {runner.Tick();await Task.Delay(40);}
+            Assert.False(runner.StatusSnapshot()["navigation_reserved"]!.GetValue<bool>());
+            Assert.Equal(2,attempts);Assert.Equal("scene",session.CurrentPage);Assert.Null(session.CurrentNavigationId);
+            Assert.True(elapsed.Elapsed.TotalSeconds<15);Assert.Null(runner.Snapshot()["pending"]);
+        }
+    }
+    [Fact] public void FishingClosesALeftoverBagUsingTheCurrentObservationAndResetsForTheNextCheck()
+    {
+        var routes=ScreenRoutes.Load(RecognitionTests.Root());routes.Configuration["notifications"]=new JsonObject();routes.Profile.Definition.Remove("page_variants");
+        routes.Profile.Definition["pages"]=JsonNode.Parse("""{"bag":{"anchors":["bag_close"],"targets":{"bag.close":"bag_close"}},"scene":{"anchors":["scene_bag","maint_scene_map"]}}""");
+        routes.Profile.Definition["idle_fishing"]=JsonNode.Parse("""{"anchors":{"hook":"fishing_hook"},"controls":{"start":[1175,860,1235,915],"move":[400,300,800,700]}}""");
+        var scene=Stamp(routes.Profile,"scene_bag","maint_scene_map");var native=new NoInputOps(Stamp(routes.Profile,"bag_close","bag_tools_tab"));
+        native.OnKeyDown=key=>{if(key==73)native.CurrentImage=scene;};
+        using var session=new ScreenWorkflowSession(routes,Window(),native,new EmptyOcr(),new MemoryStore());session.Start();
+        var store=new MemoryStore();var port=session.CreateFishingPort(FishingPlan.CurrentLocation,"bag-recovery",store);
+        var runner=new IdleFishingRunner(new(FishingPlan.CurrentLocation,300),port,store);
+        for(var inspection=0;inspection<2;inspection++)
+        {
+            native.CurrentImage=Stamp(routes.Profile,"bag_close","bag_tools_tab");var captures=native.Captures;runner.Tick();
+            Assert.Equal(captures+1,native.Captures);Assert.Equal(inspection+1,native.Keys.Count(k=>k==73));
+            runner.Tick();Assert.Equal("confirm_start",runner.Snapshot()["phase"]!.GetValue<string>());
+        }
+        Assert.Equal(2,native.Keys.Count(k=>k==32));Assert.Equal(2,native.Keys.Count(k=>k is 87 or 83));
+    }
     [Fact] public void DelayedBagCloseRetriesAreBoundedAndSuccessClearsNavigation()
     {
         var routes=ScreenRoutes.Load(RecognitionTests.Root());routes.Configuration["notifications"]=new JsonObject();routes.Profile.Definition.Remove("page_variants");
@@ -613,6 +739,26 @@ public sealed class ScreenWorkflowSessionTests
         port.ObserveOnly(route,"handoff");port.Navigate(route);Assert.Single(clicks);Assert.Equal(new PixelPoint(40,40),clicks[0]);
         port.ObserveOnly(route,"handoff");port.Navigate(route);Assert.Single(clicks);Assert.False(port.CanReleaseForeground());
     }
+    [Theory][InlineData("region_map",false)][InlineData("storage_travel",false)][InlineData("repair_travel",false)][InlineData("region_map",true)][InlineData("storage_travel",true)][InlineData("repair_travel",true)]
+    public void GatheringReleasesPreviousMapThroughSharedExitAndContinues(string page,bool production)
+    {
+        var routes=ScreenRoutes.Load(RecognitionTests.Root());routes.Configuration["notifications"]=new JsonObject();
+        routes.Profile.Definition.Remove("page_variants");routes.Profile.Definition.Remove("coordinate_control_targets");
+        routes.Profile.Definition["pages"]=new JsonObject{[page]=JsonNode.Parse("""{"anchors":["scene_skills"],"coordinate_targets":{"map.close":[1220,20,1260,58]}}"""),["scene"]=JsonNode.Parse("""{"anchors":["scene_bag"],"coordinate_targets":{"character.open":[20,20,60,60],"scene.open_skills":[20,20,60,60]}}""")};
+        routes.Configuration["maintenance"]!["exit_navigation"]![page]=JsonNode.Parse("""{"target":"map.close","expected_page":"scene","settle_s":0,"timeout_s":2}""");
+        var clicks=new List<PixelPoint>();var ops=new NoInputOps(Stamp(routes.Profile,"scene_skills"),clicks);
+        using var session=new ScreenWorkflowSession(routes,Window(),ops,new EmptyOcr(),new MemoryStore());session.Start();
+        var route=new RuntimeCatalog(routes.Configuration).Gathering["gathering_soft_log"];var port=session.CreateGatheringPort(route.Key,"map-handoff",new MemoryStore());
+        var recipe=routes.Recipes["iron_ingot_from_iron_ore"];var making=session.CreateProductionPort(recipe.Key,"map-handoff",new MemoryStore());
+        void Observe(){if(production)making.Observe();else port.ObserveOnly(route,"map-handoff");}
+        void Navigate(){if(production)making.Navigate("queue",new(recipe.Key,recipe.Device,recipe.DurationSeconds));else port.Navigate(route);}
+        Observe();var captures=ops.Captures;Navigate();Assert.Equal(captures,ops.Captures);
+        Assert.Equal(new PixelPoint(1240,39),Assert.Single(clicks));Observe();Navigate();Assert.Single(clicks);
+        ops.CurrentImage=Stamp(routes.Profile,"scene_bag");Observe();Navigate();
+        if(production){Assert.Equal(new ushort[]{75},ops.Keys);Assert.Single(clicks);}
+        else{Assert.Equal(new PixelPoint(40,40),clicks[1]);Assert.Equal(2,clicks.Count);}
+        Assert.Null(session.CurrentNavigationId);Assert.False(session.Guard.Paused);
+    }
     [Fact] public void DispatchedGatheringStillTravellingDoesNotReleaseOnOldIdleScene()
     {
         var routes=ScreenRoutes.Load(RecognitionTests.Root());var scope=ScreenWorkflowSession.ProcessScope(Window());
@@ -1084,7 +1230,17 @@ public sealed class ScreenWorkflowSessionTests
         native.CurrentImage=Stamp(routes.Profile,"scene_bag","maint_scene_map","fishing_hook");
         var hooked=port.ObserveOnly();Assert.True(hooked.HookVisible);Assert.True(hooked.RoundActive);
         native.CurrentImage=Stamp(routes.Profile,"scene_bag","maint_scene_map");Assert.True(port.ObserveOnly().RoundActive);
-        time.Seconds=1.1;Assert.False(port.ObserveOnly().RoundActive);
+        time.Seconds=2.9;Assert.True(port.ObserveOnly().RoundActive);
+        time.Seconds=3.05;var ended=port.ObserveOnly();Assert.False(ended.RoundActive);Assert.True(ended.FishingButton);
+        var captures=native.Captures;
+        store.Flush(new JsonObject{["pending"]=new JsonObject{["kind"]="start",["at"]=1}});port.Perform(new("start"));
+        Assert.Equal(new ushort[]{87,32,32},native.Keys);Assert.Equal(captures,native.Captures);
+        native.CurrentImage=Stamp(routes.Profile,"scene_bag","maint_scene_map","fishing_hook");time.Seconds=6;port.ObserveOnly();
+        native.CurrentImage=Stamp(routes.Profile,"scene_bag","maint_scene_map");port.ObserveOnly();
+        time.Seconds=11.1;Assert.False(port.ObserveOnly().FishingButton);
+        store.Flush(new JsonObject{["pending"]=new JsonObject{["kind"]="start",["at"]=2}});
+        Assert.Throws<InputRejectedBeforeDispatchException>(()=>port.Perform(new("start")));
+        Assert.Equal(new ushort[]{87,32,32},native.Keys);
     }
     [Theory][InlineData(true)][InlineData(false)]
     public void MidGaugeHookMissCannotEndRoundOrSendAnotherCast(bool firstHookVisible)
@@ -1115,8 +1271,78 @@ public sealed class ScreenWorkflowSessionTests
         native.CurrentImage=Frame(false,null);runner.Tick();Assert.True(port.LastFrame!.RoundActive);
         native.CurrentImage=new(1280,960,new byte[1280*960*3]);time.Seconds=4;runner.Tick();
         native.CurrentImage=Frame(false,null);time.Seconds=5;runner.Tick();Assert.True(port.LastFrame!.RoundActive);
-        time.Seconds=6.1;runner.Tick();Assert.Equal(1,runner.Snapshot()["completed"]!.GetValue<int>());Assert.Empty(clicks);Assert.Single(native.Keys,k=>k==32);
-        Assert.Equal("refresh",runner.Snapshot()["phase"]!.GetValue<string>());Assert.Null(runner.Snapshot()["pending"]);
+        time.Seconds=6.05;runner.Tick();Assert.Equal(1,runner.Snapshot()["completed"]!.GetValue<int>());Assert.Empty(clicks);Assert.Equal(2,native.Keys.Count(k=>k==32));
+        Assert.Equal("confirm_start",runner.Snapshot()["phase"]!.GetValue<string>());Assert.NotNull(runner.Snapshot()["pending"]);
+        Assert.Equal(1,native.Keys.Count(k=>k==87||k==83));
+    }
+    [Theory][InlineData(FishingPlan.CurrentLocation,false)][InlineData("point_fishing_00",false)]
+    [InlineData(FishingPlan.CurrentLocation,true)][InlineData("point_fishing_00",true)]
+    public void FishingRecastsImmediatelyWhenSceneHudReturnsAfterReelAnimation(string point,bool reel)
+    {
+        var routes=ScreenRoutes.Load(RecognitionTests.Root());routes.Configuration["notifications"]=new JsonObject();
+        routes.Profile.Definition.Remove("page_variants");routes.Profile.Definition.Remove("coordinate_control_targets");
+        routes.Profile.Definition["pages"]=JsonNode.Parse("""{"scene":{"anchors":["scene_bag","maint_scene_map"]}}""");
+        routes.Profile.Definition["idle_fishing"]=JsonNode.Parse("""{"anchors":{"hook":"fishing_hook"},"controls":{"start":[1175,860,1235,915],"move":[400,300,800,700]}}""");
+        var native=new NoInputOps(Stamp(routes.Profile,"scene_bag","maint_scene_map"),[]);var time=new RecoveryTime();
+        if(point!=FishingPlan.CurrentLocation)
+        {
+            routes.Configuration["gathering_routes"]![point]!["navigation"]=JsonNode.Parse("""{"detail_page":"scene","start_target":"gathering.start","steps":[]}""");
+            routes.Profile.Definition["pages"]!["scene"]!["coordinate_targets"]=JsonNode.Parse("""{"gathering.start":[100,100,140,140]}""");
+        }
+        using var session=new ScreenWorkflowSession(routes,Window(),native,new EmptyOcr(),new MemoryStore());session.Start();
+        var store=new MemoryStore();var plan=new FishingPlan(point,60);var port=new ScreenFishingPort(session,point,"hud-return",store,time);
+        if(point!=FishingPlan.CurrentLocation)
+        {port.ObserveOnly();port.Perform(new("navigate",point));time.Seconds=.1;port.ObserveOnly();time.Seconds=3.2;port.ObserveOnly();Assert.True(port.CanResumeAtPoint);}
+        var initial=new IdleFishingRunner(plan,port,store).Snapshot();initial["phase"]="round";initial["round_seen"]=true;initial["submitted"]=1;initial["clock_started"]=true;store.Flush(initial);
+        var runner=new IdleFishingRunner(plan,port,store);runner.Resume();
+        native.CurrentImage=Stamp(routes.Profile,"scene_bag","maint_scene_map","fishing_hook");time.Seconds=5;runner.Tick();
+        if(reel)
+        {
+            var checkpoint=runner.Snapshot();checkpoint["phase"]="confirm_reel";
+            checkpoint["pending"]=new JsonObject{["kind"]="reel",["at"]=5d,["capture_id"]="reel",["deadline"]=20d};store.Flush(checkpoint);
+            port.Perform(new("reel"));runner=new IdleFishingRunner(plan,port,store);runner.Resume();
+        }
+        var before=native.Keys.Count;native.CurrentImage=new(1280,960,new byte[1280*960*3]);
+        time.Seconds=6;runner.Tick();time.Seconds=7;runner.Tick();time.Seconds=8.9;runner.Tick();
+        Assert.Equal(before,native.Keys.Count);
+        time.Seconds=9.2;runner.Tick();Assert.Equal(before,native.Keys.Count);Assert.False(port.LastFrame!.Stable);
+        native.CurrentImage=Stamp(routes.Profile,"scene_bag","maint_scene_map");time.Seconds=9.3;
+        var captures=native.Captures;runner.Tick();
+        Assert.Equal(before+1,native.Keys.Count);Assert.Equal((ushort)32,native.Keys[^1]);Assert.Equal(captures+1,native.Captures);
+        Assert.DoesNotContain(native.Keys,k=>k is 87 or 83);Assert.Equal(1,runner.Snapshot()["completed"]!.GetValue<int>());
+        Assert.Equal("confirm_start",runner.Snapshot()["phase"]!.GetValue<string>());
+    }
+    [Fact] public void FishingReelWaitIncludesTimeSpentCapturingTheFirstAbsentFrame()
+    {
+        var routes=ScreenRoutes.Load(RecognitionTests.Root());routes.Configuration["notifications"]=new JsonObject();
+        routes.Profile.Definition.Remove("page_variants");routes.Profile.Definition.Remove("coordinate_control_targets");
+        routes.Profile.Definition["idle_fishing"]=JsonNode.Parse("""{"anchors":{"hook":"fishing_hook"},"controls":{"start":[1175,860,1235,915]}}""");
+        var native=new NoInputOps(Stamp(routes.Profile,"scene_bag","maint_scene_map","fishing_hook"));var time=new RecoveryTime();
+        using var session=new ScreenWorkflowSession(routes,Window(),native,new EmptyOcr(),new MemoryStore());session.Start();
+        var port=new ScreenFishingPort(session,FishingPlan.CurrentLocation,"frame-age",new MemoryStore(new JsonObject{["phase"]="round"}),time);
+        time.Seconds=1;Assert.True(port.ObserveOnly().RoundActive);
+        var scene=Stamp(routes.Profile,"scene_bag","maint_scene_map");
+        native.CaptureFrame=_=>{Thread.Sleep(250);return scene;};time.Seconds=2;Assert.True(port.ObserveOnly().RoundActive);
+        native.CaptureFrame=null;native.CurrentImage=scene;time.Seconds=4.8;
+        Assert.True(port.ObserveOnly().FishingButton);Assert.Empty(native.Keys);
+    }
+    [Fact] public void FishingBackpackInterruptionClearsTheDirectRecastWindow()
+    {
+        var routes=ScreenRoutes.Load(RecognitionTests.Root());routes.Configuration["notifications"]=new JsonObject();
+        routes.Profile.Definition.Remove("page_variants");routes.Profile.Definition.Remove("coordinate_control_targets");
+        routes.Profile.Definition["pages"]=JsonNode.Parse("""{"scene":{"anchors":["scene_bag","maint_scene_map"]},"backpack":{"anchors":["bag_close","bag_tools_tab"]}}""");
+        routes.Profile.Definition["idle_fishing"]=JsonNode.Parse("""{"anchors":{"hook":"fishing_hook"},"controls":{"start":[1175,860,1235,915],"move":[400,300,800,700]}}""");
+        var native=new NoInputOps(Stamp(routes.Profile,"scene_bag","maint_scene_map"),[]);var time=new RecoveryTime();
+        using var session=new ScreenWorkflowSession(routes,Window(),native,new EmptyOcr(),new MemoryStore());session.Start();
+        var store=new MemoryStore(new JsonObject{["phase"]="round"});var port=new ScreenFishingPort(session,FishingPlan.CurrentLocation,"bag-interrupt",store,time);
+        port.ObserveOnly();port.ObserveOnly();
+        native.CurrentImage=Stamp(routes.Profile,"scene_bag","maint_scene_map","fishing_hook");port.ObserveOnly();
+        native.CurrentImage=Stamp(routes.Profile,"scene_bag","maint_scene_map");port.ObserveOnly();time.Seconds=3.25;
+        Assert.True(port.ObserveOnly().FishingButton);
+        native.CurrentImage=Stamp(routes.Profile,"bag_close","bag_tools_tab");Assert.Equal("bag",port.ObserveOnly().Page);
+        native.CurrentImage=Stamp(routes.Profile,"scene_bag","maint_scene_map");time.Seconds=3.5;
+        var restored=port.ObserveOnly();Assert.False(restored.FishingButton);Assert.False(restored.RoundActive);
+        Assert.Empty(native.Keys);
     }
     [Fact] public void DispatchedFishingTravelDoesNotReopenNavigationBeforeTaskIsObserved()
     {
@@ -1135,6 +1361,19 @@ public sealed class ScreenWorkflowSessionTests
         native.CurrentImage=Stamp(routes.Profile,"scene_skills");time.Seconds=2;Assert.Null(port.Observe().NavigationActive);time.Seconds=5;Assert.False(port.Observe().NavigationActive);
         Assert.True(port.CanResumeAtPoint);Assert.Null(session.CurrentNavigationId);session.BeginNavigation("other");Assert.False(port.CanResumeAtPoint);
         Assert.Single(clicks);
+    }
+    [Fact] public void FishingUnsentNavigationEndsAfterFifteenSecondsWithoutPausingTheInputGuard()
+    {
+        var routes=ScreenRoutes.Load(RecognitionTests.Root());routes.Configuration["notifications"]=new JsonObject();
+        routes.Profile.Definition.Remove("page_variants");routes.Profile.Definition.Remove("coordinate_control_targets");
+        routes.Profile.Definition["pages"]=JsonNode.Parse("""{"character_menu":{"anchors":["scene_bag"],"coordinate_targets":{"character.open_life_skills":[60,560,61,561]}}}""");
+        routes.Profile.Definition["idle_fishing"]=new JsonObject();
+        var clicks=new List<PixelPoint>();var native=new NoInputOps(Stamp(routes.Profile,"scene_bag"),clicks){OnPointerDown=()=>throw new InputRejectedBeforeDispatchException("local frames missing")};
+        using var session=new ScreenWorkflowSession(routes,Window(),native,new EmptyOcr(),new MemoryStore());session.Start();
+        var time=new RecoveryTime();var port=new ScreenFishingPort(session,"point_fishing_00","unsent",new MemoryStore(new JsonObject{["status"]="running"}),time);
+        port.Observe();port.Observe();Assert.Throws<InputRejectedBeforeDispatchException>(()=>port.Perform(new("navigate","point_fishing_00")));
+        time.Seconds=8;port.Observe();time.Seconds=15;Assert.Throws<TimeoutException>(()=>port.Observe());
+        port.Observe();Assert.Empty(clicks);Assert.False(session.Guard.Paused);Assert.Null(session.CurrentNavigationId);
     }
     [Theory][InlineData(false)][InlineData(true)]
     public void FishingMenuWaitRetriesOnlyOriginalPageAndStopsAtBound(bool unexpectedPage)
@@ -1159,6 +1398,7 @@ public sealed class ScreenWorkflowSessionTests
         time.Seconds=40;var error=Assert.Throws<TimeoutException>(()=>port.Observe());
         Assert.Contains("character.open_life_skills",error.Message);Assert.Contains("expected=character_life_skills",error.Message);
         port.Observe();Assert.Equal(unexpectedPage?1:5,clicks.Count);Assert.False(session.Guard.Paused);
+        Assert.True(port.CanReleaseForeground());Assert.Null(session.CurrentNavigationId);
     }
     [Fact] public void FishingNavigationScrollsMissingSkillWithinBoundWithoutExtraCapture()
     {
@@ -1720,6 +1960,51 @@ public sealed class ScreenWorkflowSessionTests
         native.CurrentImage=Stamp(routes.Profile,"scene_skills");Thread.Sleep(320);port.Observe();Assert.False(port.ReleaseNavigation());Assert.Equal(2,clicks.Count);
         native.CurrentImage=Stamp(routes.Profile,"scene_bag");port.Observe();Assert.True(port.ReleaseNavigation());Assert.Equal(2,clicks.Count);Assert.Empty(native.Keys);
     }
+    [Fact] public void MaintenanceClosesAttendanceInterruptionAndResumesThePendingRoute()
+    {
+        var routes=ScreenRoutes.Load(RecognitionTests.Root());routes.Configuration["notifications"]=new JsonObject();
+        routes.Profile.Definition.Remove("page_variants");routes.Profile.Definition.Remove("coordinate_control_targets");
+        routes.Profile.Definition["pages"]=JsonNode.Parse("""{"region_map":{"anchors":["scene_bag"],"coordinate_targets":{"map.npc":[600,400,620,420]}},"notification_attendance_reward":{"anchors":["scene_skills"],"coordinate_targets":{"notification.close":[100,100,140,140]}},"npc_dialogue":{"anchors":["maint_scene_map"]}}""");
+        var clicks=new List<PixelPoint>();var ops=new NoInputOps(Stamp(routes.Profile,"scene_bag"),clicks);
+        using var session=new ScreenWorkflowSession(routes,Window(),ops,new EmptyOcr(),new MemoryStore());session.Start();
+        var port=session.CreateMaintenancePort("notice-repair",new MemoryStore());port.Observe();port.Observe();
+        var step=JsonNode.Parse("""{"target":"map.npc","expected_page":"npc_dialogue","settle_s":0}""")!.AsObject();
+        Assert.False(port.TestNavigationStep(step).Completed);Assert.Single(clicks);
+        ops.CurrentImage=Stamp(routes.Profile,"scene_skills");port.Observe();port.Observe();
+        var interrupted=port.TestNavigationStep(step);Assert.Null(interrupted.Error);Assert.False(interrupted.Completed);
+        Assert.Equal(2,clicks.Count);Assert.True(new PixelBox(100,100,140,140).Contains(clicks[1]));Assert.False(session.Guard.Paused);
+        ops.CurrentImage=Stamp(routes.Profile,"maint_scene_map");port.Observe();port.Observe();
+        Assert.True(port.TestNavigationStep(step).Completed);Assert.Equal(2,clicks.Count);
+    }
+    [Fact] public void MaintenanceWeightOnPetTabSelectsItemsOnceAndWaitsForSelectedTarget()
+    {
+        var routes=ScreenRoutes.Load(RecognitionTests.Root());routes.Configuration["notifications"]=new JsonObject();
+        routes.Profile.Definition.Remove("page_variants");routes.Profile.Definition.Remove("coordinate_control_targets");
+        routes.Profile.Definition["pages"]=JsonNode.Parse("""{"bag":{"anchors":["scene_bag"],"targets":{"bag.items_selected":"scene_skills"},"coordinate_targets":{"bag.open_items":[600,800,660,850]}}}""");
+        var clicks=new List<PixelPoint>();var ops=new NoInputOps(Stamp(routes.Profile,"scene_bag"),clicks);
+        using var session=new ScreenWorkflowSession(routes,Window(),ops,new EmptyOcr(),new MemoryStore());session.Start();
+        var port=session.CreateMaintenancePort("pet-weight",new MemoryStore());port.Observe();var frame=port.Observe();
+        Assert.Equal("backpack",frame.Page);Assert.True(frame.WeightTabRequired);Assert.Null(frame.Weight);
+        Assert.Null(port.Navigate("backpack_weight"));Assert.Single(clicks);
+        Thread.Sleep(340);port.Observe();Assert.Null(port.Navigate("backpack_weight"));Assert.Single(clicks);
+        ops.CurrentImage=Stamp(routes.Profile,"scene_bag","scene_skills");
+        port.Observe();var selected=port.Observe();Assert.False(selected.WeightTabRequired);
+        // Item-tab OCR failure remains an unknown weight; it does not reselect the tab.
+        Assert.Null(selected.Weight);Assert.Single(clicks);
+    }
+    [Fact] public void MaintenanceWeightTabHasBoundedWaitWhenSwitchDoesNotComplete()
+    {
+        var routes=ScreenRoutes.Load(RecognitionTests.Root());routes.Configuration["notifications"]=new JsonObject();
+        routes.Profile.Definition.Remove("page_variants");routes.Profile.Definition.Remove("coordinate_control_targets");
+        routes.Profile.Definition["pages"]=JsonNode.Parse("""{"bag":{"anchors":["scene_bag"],"coordinate_targets":{"bag.open_items":[600,800,660,850]}}}""");
+        routes.Configuration["maintenance"]!["navigation"]!["backpack_weight"]!["bag"]!["timeout_s"]=0;
+        routes.Configuration["maintenance"]!["navigation"]!["backpack_weight"]!["bag"]!["settle_s"]=0;
+        var clicks=new List<PixelPoint>();var ops=new NoInputOps(Stamp(routes.Profile,"scene_bag"),clicks);
+        using var session=new ScreenWorkflowSession(routes,Window(),ops,new EmptyOcr(),new MemoryStore());session.Start();
+        var port=session.CreateMaintenancePort("pet-tab-timeout",new MemoryStore());port.Observe();port.Observe();
+        Assert.Null(port.Navigate("backpack_weight"));port.Observe();
+        Assert.Equal("navigation_result_not_observed:bag.open_items",port.Navigate("backpack_weight"));Assert.Single(clicks);
+    }
     [Fact] public void SharedNavigatorHonorsExpectedPageBeforeCompletingStep()
     {
         var routes=ScreenRoutes.Load(RecognitionTests.Root());routes.Configuration["notifications"]=new JsonObject();
@@ -1913,6 +2198,13 @@ public sealed class ScreenWorkflowSessionTests
     }
     private sealed class MemoryStore(JsonObject? initial=null):IWorkflowStore
     {private JsonObject? value=initial;public int Writes;public bool Fail;public JsonObject? Read()=>value is null?null:(JsonObject)value.DeepClone();public void Flush(JsonObject state){if(Fail)throw new IOException("disk");Writes++;value=(JsonObject)state.DeepClone();}}
+    private sealed class IndependentFishingPort:IFishingPort
+    {
+        private int frame;public List<string> Actions=[];public bool CanResumeAtPoint=>true;
+        public FishingFrame Observe()=>new(++frame,frame.ToString(),"fishing",FishingButton:true,LeisureMode:false,Compass:true);
+        public void Perform(FishingAction action)=>Actions.Add(action.Kind);
+        public void Pause(string reason){}public void Resume(){}
+    }
     private sealed class NoInputOps(RgbImage? image=null,List<PixelPoint>? clicks=null):INativeWindowsOps,IGuardedWindowTransport
     {
         public RgbImage? CurrentImage;public Func<int,RgbImage>? CaptureFrame;public NativeWindowState? State;

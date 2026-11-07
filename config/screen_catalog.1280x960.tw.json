@@ -6397,6 +6397,63 @@
   },
   "ui": {
     "templates": {
+      "fishing_mode_confirm_current": {
+        "path": "assets/templates/screen_ui/fishing/focused_dialog_title_current.png",
+        "sha256": "a6fd13875fd4bbfcb3540c729d5270d0d27042a4bd3e403fab18bb85cfbac5fe",
+        "bytes": 3469,
+        "box": [
+          582,
+          689,
+          695,
+          718
+        ],
+        "search": [
+          400,
+          400,
+          900,
+          930
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "light_threshold": 200,
+        "glyph_threshold": 0.97,
+        "source": "tests/fixtures/production/fishing-mode-confirm-user.png",
+        "crop_native": [
+          582,
+          689,
+          695,
+          718
+        ],
+        "source_sha256": "62e4b4cb900b9c986bc7dfaafeb97a86400d2b141e8889f0dd72063af2b54452"
+      },
+      "fishing_south_wall_current": {
+        "path": "assets/templates/screen_ui/fishing/south_wall_list_current.png",
+        "sha256": "3951e4ffe404893634788c333f7047695d384366aa6bf73ddcc245664e6b610b",
+        "bytes": 11236,
+        "box": [
+          802,
+          706,
+          983,
+          740
+        ],
+        "search": [
+          799,
+          285,
+          988,
+          945
+        ],
+        "match_mode": "list_name",
+        "threshold": 0.93,
+        "glyph_threshold": 0.93,
+        "source": "tests/fixtures/production/fishing-nodes-video-current.jpg",
+        "source_sha256": "2462e7ff10d7db181d383475a04d84f6c72275995212fb0fb3cd994a56a9c9e4",
+        "crop_native": [
+          802,
+          706,
+          983,
+          740
+        ]
+      },
       "preset_category_title": {
         "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/title.png",
         "sha256": "d741f73800cf4700e060203174744fd17efd673c6754ed5931f001fbbc837b3f",
@@ -17486,25 +17543,32 @@
       },
       "preset_catalog_point_fishing_00_node": {
         "path": "assets/templates/screen_ui/catalog-2026-10-25/preset_catalog_point_fishing_00_node.png",
-        "sha256": "784f34b4adeeb97aacf876afd1be28872a03ee02d71d9ecf86bacb8c2efd5278",
-        "bytes": 2730,
+        "sha256": "e0a3a33f26dd01f5db9cce833a4fe04adda5e8818e635344e441d25d55a77632",
+        "bytes": 5761,
         "box": [
           803,
-          609,
+          393,
           909,
-          643
+          427
         ],
         "search": [
-          800,
+          799,
           285,
-          1100,
-          930
+          913,
+          945
         ],
-        "match_mode": "light_text",
-        "threshold": 0.95,
-        "relative_contrast": true,
+        "match_mode": "list_name",
+        "threshold": 0.93,
         "relative_contrast_threshold": 40,
-        "glyph_threshold": 0.97
+        "source": "tests/fixtures/production/east-wall-fishing-list-current.jpg",
+        "source_sha256": "b52ca644d1cbe35a6b3fdd07947eab6a459dc1d88c618cf792cffc31ed08a65e",
+        "crop_native": [
+          803,
+          393,
+          909,
+          427
+        ],
+        "glyph_threshold": 0.93
       },
       "preset_catalog_point_fishing_01_name": {
         "path": "assets/templates/screen_ui/catalog-2026-10-25/preset_catalog_point_fishing_01_name.png",
@@ -17546,25 +17610,32 @@
       },
       "preset_catalog_point_fishing_01_node": {
         "path": "assets/templates/screen_ui/catalog-2026-10-25/preset_catalog_point_fishing_01_node.png",
-        "sha256": "5d257fd304fe34ded9b6faf883725697467596f4084f113e28bbc3ffb17837da",
-        "bytes": 4589,
+        "sha256": "3127b0726d77c68f32fb5d0ad1a6ef39a791cf58bf4e2ecc6ba501da95651c18",
+        "bytes": 10765,
         "box": [
           803,
-          705,
+          489,
           984,
-          739
+          523
         ],
         "search": [
-          800,
+          799,
           285,
-          1100,
-          930
+          988,
+          945
         ],
-        "match_mode": "light_text",
-        "threshold": 0.95,
-        "relative_contrast": true,
+        "match_mode": "list_name",
+        "threshold": 0.93,
         "relative_contrast_threshold": 40,
-        "glyph_threshold": 0.97
+        "source": "tests/fixtures/production/east-wall-fishing-list-current.jpg",
+        "source_sha256": "b52ca644d1cbe35a6b3fdd07947eab6a459dc1d88c618cf792cffc31ed08a65e",
+        "crop_native": [
+          803,
+          489,
+          984,
+          523
+        ],
+        "glyph_threshold": 0.93
       },
       "preset_catalog_point_fishing_02_name": {
         "path": "assets/templates/screen_ui/catalog-2026-10-25/preset_catalog_point_fishing_02_name.png",
@@ -17606,31 +17677,32 @@
       },
       "preset_catalog_point_fishing_02_node": {
         "path": "assets/templates/screen_ui/catalog-2026-10-25/preset_catalog_point_fishing_02_node.png",
-        "sha256": "efbc521b83aac5a646a12be34d328ada8f683211daff9f04ec9608ec520c7091",
-        "bytes": 9131,
+        "sha256": "a81ac19474e8cabba096665a0e8d1000a7b02caa0c993ceb459abdbe3b488c09",
+        "bytes": 10699,
         "box": [
-          805,
-          589,
-          961,
-          615
+          803,
+          585,
+          984,
+          619
         ],
         "search": [
-          795,
-          345,
-          976,
-          915
+          799,
+          285,
+          988,
+          945
         ],
-        "match_mode": "grayscale",
-        "threshold": 0.95,
+        "match_mode": "list_name",
+        "threshold": 0.93,
         "relative_contrast_threshold": 40,
         "crop_native": [
-          805,
-          589,
-          961,
-          615
+          803,
+          585,
+          984,
+          619
         ],
         "source": "tests/fixtures/production/east-wall-fishing-list-current.jpg",
-        "source_sha256": "b52ca644d1cbe35a6b3fdd07947eab6a459dc1d88c618cf792cffc31ed08a65e"
+        "source_sha256": "b52ca644d1cbe35a6b3fdd07947eab6a459dc1d88c618cf792cffc31ed08a65e",
+        "glyph_threshold": 0.93
       },
       "preset_catalog_point_fishing_03_name": {
         "path": "assets/templates/screen_ui/catalog-2026-10-25/preset_catalog_point_fishing_03_name.png",
@@ -17672,8 +17744,8 @@
       },
       "preset_catalog_point_fishing_03_node": {
         "path": "assets/templates/screen_ui/catalog-2026-10-25/preset_catalog_point_fishing_03_node.png",
-        "sha256": "2ad713070e72167b97c2715cbdbfc936b3d9731c66d2449e8fe3519d020fdcb4",
-        "bytes": 3776,
+        "sha256": "8f84d0be5c23609c62a41e6fc5a030c9d448cf0cc6fcfca9e2f6ddb9ab7d9b93",
+        "bytes": 8189,
         "box": [
           803,
           681,
@@ -17681,16 +17753,23 @@
           715
         ],
         "search": [
-          800,
+          799,
           285,
-          1100,
-          930
+          938,
+          945
         ],
-        "match_mode": "light_text",
-        "threshold": 0.95,
-        "relative_contrast": true,
+        "match_mode": "list_name",
+        "threshold": 0.93,
         "relative_contrast_threshold": 40,
-        "glyph_threshold": 0.97
+        "source": "tests/fixtures/production/east-wall-fishing-list-current.jpg",
+        "source_sha256": "b52ca644d1cbe35a6b3fdd07947eab6a459dc1d88c618cf792cffc31ed08a65e",
+        "crop_native": [
+          803,
+          681,
+          934,
+          715
+        ],
+        "glyph_threshold": 0.93
       },
       "preset_catalog_point_fishing_04_name": {
         "path": "assets/templates/screen_ui/catalog-2026-10-25/preset_catalog_point_fishing_04_name.png",
@@ -17732,8 +17811,8 @@
       },
       "preset_catalog_point_fishing_04_node": {
         "path": "assets/templates/screen_ui/catalog-2026-10-25/preset_catalog_point_fishing_04_node.png",
-        "sha256": "63a4bbca19d4c41525146e7b61fddda7f9e21335e31a4664042df16bdf9bfb32",
-        "bytes": 2630,
+        "sha256": "d40ee2c287ace0c4cd10ded8a58aeca9fe2a07a30651cc55e5b803b5a853b6a3",
+        "bytes": 5789,
         "box": [
           803,
           777,
@@ -17741,16 +17820,23 @@
           811
         ],
         "search": [
-          800,
+          799,
           285,
-          1100,
-          930
+          913,
+          945
         ],
-        "match_mode": "light_text",
-        "threshold": 0.95,
-        "relative_contrast": true,
+        "match_mode": "list_name",
+        "threshold": 0.93,
         "relative_contrast_threshold": 40,
-        "glyph_threshold": 0.97
+        "source": "tests/fixtures/production/east-wall-fishing-list-current.jpg",
+        "source_sha256": "b52ca644d1cbe35a6b3fdd07947eab6a459dc1d88c618cf792cffc31ed08a65e",
+        "crop_native": [
+          803,
+          777,
+          909,
+          811
+        ],
+        "glyph_threshold": 0.93
       },
       "preset_catalog_point_fishing_05_name": {
         "path": "assets/templates/screen_ui/catalog-2026-10-25/preset_catalog_point_fishing_05_name.png",
@@ -17792,8 +17878,8 @@
       },
       "preset_catalog_point_fishing_05_node": {
         "path": "assets/templates/screen_ui/catalog-2026-10-25/preset_catalog_point_fishing_05_node.png",
-        "sha256": "6c6654c06c72ca849e73220c03f34faf4e82033512a5d104a4dafbbedb7780db",
-        "bytes": 2680,
+        "sha256": "fa0175ff6d20e4a5fdcd5dae19852f85840562b7a4fdf07abb09efb64e8ebdac",
+        "bytes": 7205,
         "box": [
           803,
           873,
@@ -17801,16 +17887,23 @@
           907
         ],
         "search": [
-          800,
+          799,
           285,
-          1100,
-          930
+          938,
+          945
         ],
-        "match_mode": "light_text",
-        "threshold": 0.95,
-        "relative_contrast": true,
+        "match_mode": "list_name",
+        "threshold": 0.93,
         "relative_contrast_threshold": 40,
-        "glyph_threshold": 0.97
+        "source": "tests/fixtures/production/east-wall-fishing-list-current.jpg",
+        "source_sha256": "b52ca644d1cbe35a6b3fdd07947eab6a459dc1d88c618cf792cffc31ed08a65e",
+        "crop_native": [
+          803,
+          873,
+          934,
+          907
+        ],
+        "glyph_threshold": 0.93
       },
       "detail_equipment_live_nav52": {
         "path": "assets/templates/screen_ui/catalog-2026-10-25/detail_equipment_live_nav52_stable.png",
@@ -20755,6 +20848,90 @@
         "match_mode": "light_text",
         "light_threshold": 180,
         "glyph_threshold": 0.93
+      },
+      "fishing_list_00_current": {
+        "path": "assets/templates/screen_ui/fishing/list_00_current.png",
+        "sha256": "7b1ae0950d66c8b8cabec9b70810a80719726c8d758ed1c0adb15a11f84520c2",
+        "bytes": 6555,
+        "box": [
+          802,
+          610,
+          908,
+          644
+        ],
+        "search": [
+          799,
+          285,
+          913,
+          945
+        ],
+        "match_mode": "list_name",
+        "threshold": 0.93,
+        "glyph_threshold": 0.93,
+        "source": "tests/fixtures/production/fishing-nodes-video-current.jpg",
+        "source_sha256": "2462e7ff10d7db181d383475a04d84f6c72275995212fb0fb3cd994a56a9c9e4",
+        "crop_native": [
+          802,
+          610,
+          908,
+          644
+        ]
+      },
+      "fishing_list_02_current": {
+        "path": "assets/templates/screen_ui/fishing/list_02_current.png",
+        "sha256": "07c4f5148ecf6c7378a20173b9252622d773c4eba713c7f680a6e67edf5ec5b4",
+        "bytes": 11863,
+        "box": [
+          802,
+          802,
+          983,
+          836
+        ],
+        "search": [
+          799,
+          285,
+          988,
+          945
+        ],
+        "match_mode": "list_name",
+        "threshold": 0.93,
+        "glyph_threshold": 0.93,
+        "source": "tests/fixtures/production/fishing-nodes-video-current.jpg",
+        "source_sha256": "2462e7ff10d7db181d383475a04d84f6c72275995212fb0fb3cd994a56a9c9e4",
+        "crop_native": [
+          802,
+          802,
+          983,
+          836
+        ]
+      },
+      "fishing_list_03_current": {
+        "path": "assets/templates/screen_ui/fishing/list_03_current.png",
+        "sha256": "9494ea4e952d37574a6748c6f7cff176b7d6f4ab01bd8489cb042ae9dd3deb63",
+        "bytes": 7637,
+        "box": [
+          802,
+          898,
+          933,
+          932
+        ],
+        "search": [
+          799,
+          285,
+          938,
+          945
+        ],
+        "match_mode": "list_name",
+        "threshold": 0.93,
+        "glyph_threshold": 0.93,
+        "source": "tests/fixtures/production/fishing-nodes-video-current.jpg",
+        "source_sha256": "2462e7ff10d7db181d383475a04d84f6c72275995212fb0fb3cd994a56a9c9e4",
+        "crop_native": [
+          802,
+          898,
+          933,
+          932
+        ]
       }
     },
     "pages": {
@@ -25320,6 +25497,12 @@
       }
     },
     "anchor_variants": {
+      "fishing_mode_confirm": [
+        "fishing_mode_confirm_current"
+      ],
+      "preset_catalog_point_fishing_01_node": [
+        "fishing_south_wall_current"
+      ],
       "scene_skills": [
         "scene_skills_no_compass"
       ],
@@ -25359,6 +25542,15 @@
       ],
       "map_storage_box": [
         "map_storage_box_selected"
+      ],
+      "preset_catalog_point_fishing_00_node": [
+        "fishing_list_00_current"
+      ],
+      "preset_catalog_point_fishing_02_node": [
+        "fishing_list_02_current"
+      ],
+      "preset_catalog_point_fishing_03_node": [
+        "fishing_list_03_current"
       ]
     },
     "idle_fishing": {

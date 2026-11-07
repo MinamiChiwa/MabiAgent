@@ -3,17 +3,20 @@ using System.Text.Json.Nodes;
 
 namespace MabiAgent.Update;
 
-public sealed record ManifestFile(string Path, long Size, string Sha256, string Blob)
+public sealed record ManifestFile(string Path, long Size, string Sha256, string Blob, string? Pack = null)
 {
     public string BlobSha256 => Sha256;
 }
+
+public sealed record ManifestPack(string Asset, long Size, string Sha256);
 
 /// <summary>
 /// Per-file release manifest. Every path is relative to the install root and every
 /// entry carries its own size and SHA-256, so a client can fetch only what changed
 /// and still verify each byte it writes.
 /// </summary>
-public sealed record UpdateManifest(string AppId, string Version, string Channel, IReadOnlyList<ManifestFile> Files)
+public sealed record UpdateManifest(string AppId, string Version, string Channel, IReadOnlyList<ManifestFile> Files,
+    IReadOnlyList<ManifestPack>? Packs = null)
 {
     public const string FileName = "update-manifest.json";
     public const string ExpectedAppId = "MabiAgent";
@@ -29,6 +32,22 @@ public sealed record UpdateManifest(string AppId, string Version, string Channel
         if (!UpdateVersion.TryParse(version, out _)) throw new InvalidDataException("更新清单版本号格式无效：" + version);
         var channel = node["channel"]?.GetValue<string>() ?? "stable";
         var files = new List<ManifestFile>();
+        var packs = new List<ManifestPack>();
+        var packNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (node["packs"] is { } packNode)
+        {
+            if (packNode is not JsonArray packArray) throw new InvalidDataException("更新清单资源包列表无效");
+            foreach (var entry in packArray)
+            {
+                if (entry is not JsonObject pack) throw new InvalidDataException("更新清单资源包条目无效");
+                var name = pack["asset"]?.GetValue<string>() ?? "";
+                var size = pack["size"]?.GetValue<long>() ?? -1;
+                var sha = (pack["sha256"]?.GetValue<string>() ?? "").ToLowerInvariant();
+                if (!IsAssetName(name) || !packNames.Add(name) || size < 0 || !IsSha256(sha))
+                    throw new InvalidDataException("更新清单资源包无效或重复：" + name);
+                packs.Add(new ManifestPack(name, size, sha));
+            }
+        }
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         if (node["files"] is not JsonArray array || array.Count == 0) throw new InvalidDataException("更新清单没有文件条目");
         foreach (var entry in array)
@@ -42,19 +61,27 @@ public sealed record UpdateManifest(string AppId, string Version, string Channel
             var sha = (file["sha256"]?.GetValue<string>() ?? "").ToLowerInvariant();
             if (!IsSha256(sha)) throw new InvalidDataException("更新清单文件哈希无效：" + path);
             var blob = file["blob"]?.GetValue<string>() ?? "blob-" + sha + ".bin";
-            if (blob.Contains('/') || blob.Contains('\\') || blob.Contains("..", StringComparison.Ordinal))
+            if (!IsAssetName(blob))
                 throw new InvalidDataException("更新清单资产名无效：" + blob);
-            files.Add(new ManifestFile(path.Replace('\\', '/'), size, sha, blob));
+            var pack = file["pack"]?.GetValue<string>();
+            if (pack is not null && !packNames.Contains(pack)) throw new InvalidDataException("更新清单缺少资源包：" + pack);
+            files.Add(new ManifestFile(path.Replace('\\', '/'), size, sha, blob, pack));
         }
-        return new UpdateManifest(app, UpdateVersion.Normalize(version), channel, files);
+        return new UpdateManifest(app, UpdateVersion.Normalize(version), channel, files, packs);
     }
+    private static bool IsAssetName(string name) => !name.Contains('/') && !name.Contains('\\')
+        && !name.Contains("..", StringComparison.Ordinal) && InstallPaths.IsSafeRelative(name, out _);
     public static bool IsSha256(string value) => value.Length == 64 && value.All(c => c is >= '0' and <= '9' or >= 'a' and <= 'f');
     public string ToJson() => new JsonObject
     {
         ["app_id"] = AppId, ["schema"] = Schema, ["version"] = Version, ["channel"] = Channel,
         ["files"] = new JsonArray(Files.Select(f => (JsonNode?)new JsonObject
         {
-            ["path"] = f.Path, ["size"] = f.Size, ["sha256"] = f.Sha256, ["blob"] = f.Blob
+            ["path"] = f.Path, ["size"] = f.Size, ["sha256"] = f.Sha256, ["blob"] = f.Blob, ["pack"] = f.Pack
+        }).ToArray()),
+        ["packs"] = new JsonArray((Packs ?? []).Select(p => (JsonNode?)new JsonObject
+        {
+            ["asset"] = p.Asset, ["size"] = p.Size, ["sha256"] = p.Sha256
         }).ToArray())
     }.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
 }

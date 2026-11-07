@@ -10,6 +10,7 @@ public sealed class ScreenProductionPort:ScreenWorkflowPort,IProductionPort
     private int[]? queueEmpty;private double queueAt;private long queueEpoch;private bool queueArrived;
     private string? pendingNavigation;private string? pendingFrom;private double navigationAt;private int scrollCount,navigationRetries;
     private readonly JsonObject navigationState;
+    private ScreenMaintenancePort? releaseNavigation;
     private readonly TimeProvider navigationClock;
     private double NavigationNow=>navigationClock.GetUtcNow().ToUnixTimeMilliseconds()/1000d;
     private bool DeviceTravel=>navigationState["device_travel"]?.GetValue<bool>()==true;
@@ -150,6 +151,7 @@ public sealed class ScreenProductionPort:ScreenWorkflowPort,IProductionPort
             }
             else if(NavigationNow-navigationAt>45)throw new InputBlockedException("导航结果未确认，请复核");else return;
         }
+        if(releaseNavigation is not null){if(!releaseNavigation.ReleaseNavigation())return;releaseNavigation=null;}
         if(destination!="leave"&&!(page==device.QueuePage&&(destination=="queue"||!arrived))&&workbench.TryNavigate(o))return;
         string? target=null;
         if(page=="production_complete")target="completion.confirm";
@@ -170,7 +172,12 @@ public sealed class ScreenProductionPort:ScreenWorkflowPort,IProductionPort
         else if(o.View.Targets.ContainsKey("bag.close"))target="bag.close";
         else if(o.View.Targets.ContainsKey("page.close"))target="page.close";
         else if(Session.Routes.Profile.Definition["travel_confirmations"]?[page] is {} confirm)target=confirm.GetValue<string>();
-        if(target is null)return;
+        if(target is null)
+        {
+            if(Session.Routes.Configuration["maintenance"]?["exit_navigation"]?[page] is not null||page.StartsWith("storage_",StringComparison.Ordinal))
+            {releaseNavigation=Session.CreateMaintenancePort(BatchId+":release",Store);releaseNavigation.ReleaseNavigation();}
+            return;
+        }
         if(Session.Routes.Configuration["custom_navigation_nodes"]?[recipe.Key] is {} configuredNodes)
         {
             var required=target=="scene.open_skills"?"scene":target=="skills.open_processing"?"skills":target==device.CategoryTarget?"category":target==recipe.OpenTarget?"open_recipe":null;

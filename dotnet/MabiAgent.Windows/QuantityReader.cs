@@ -174,16 +174,19 @@ public sealed class ScreenQuantityReader(IOcrEngine engine)
     }
     // A navigation quote changes while walking. Its first valid reading is a
     // budget decision, never an inventory quantity or a cross-frame stability test.
+    public ThresholdReading? LastNavigationQuoteReading {get;private set;}
     public QuantityValue? ReadNavigationQuoteOnce(RgbImage image,PixelBox region,int threshold,double minimum)
     {
         if(!region.IsInside(image.Width,image.Height)||threshold is <=0 or >=255||!double.IsFinite(minimum)||minimum is <=0 or >1)throw new ArgumentException("导航费用读取参数无效");
         try
         {
-            var bitmap=CreateBitmap(image.Crop(region),threshold,false,out var width,out var height);
+            var bitmap=CreateNavigationQuoteBitmap(image.Crop(region),threshold,out var width,out var height);
             var line=Recognize(image,width,height,bitmap);
-            return line is not null&&double.IsFinite(line.Confidence)&&line.Confidence>=minimum&&line.Confidence<=1?QuantityParser.Parse(line.Text,"cost_available"):null;
+            var value=line is not null&&double.IsFinite(line.Confidence)&&line.Confidence>=minimum&&line.Confidence<=1?QuantityParser.Parse(line.Text,"cost_available"):null;
+            LastNavigationQuoteReading=new(threshold,line?.Text,line?.Confidence,value);return value;
         }
-        catch(Exception e)when(e is IOException or InvalidOperationException or ArgumentException or TimeoutException){return null;}
+        catch(Exception e)when(e is IOException or InvalidOperationException or ArgumentException or TimeoutException)
+        {LastNavigationQuoteReading=new(threshold,null,null,null,e.GetType().Name);return null;}
     }
     public bool Exact(RgbImage image,PixelBox box,string expected,int[]? thresholds=null,double minimum=.75)
     {
@@ -191,6 +194,21 @@ public sealed class ScreenQuantityReader(IOcrEngine engine)
         if(thresholds.Length<2||thresholds.Distinct().Count()!=thresholds.Length||thresholds.Any(t=>t is <=0 or >=255)||!double.IsFinite(minimum)||minimum is <=0 or >1)throw new ArgumentException("需要独立文字阈值");
         var crop=image.Crop(box);
         foreach(var threshold in thresholds){try{var bitmap=CreateBitmap(crop,threshold,false,out var w,out var h);var line=Recognize(image,w,h,bitmap);if(line is null||!double.IsFinite(line.Confidence)||line.Confidence<minimum||line.Confidence>1||!string.Equals(line.Text.Normalize(NormalizationForm.FormKC).Trim(),expected.Normalize(NormalizationForm.FormKC).Trim(),StringComparison.OrdinalIgnoreCase))return false;}catch(Exception e)when(e is IOException or InvalidOperationException or ArgumentException or TimeoutException){return false;}}return true;
+    }
+    private static byte[] CreateNavigationQuoteBitmap(RgbImage crop,int threshold,out int width,out int height)
+    {
+        var pixels=crop.Pixels;var mask=Enumerable.Repeat((byte)255,crop.Width*crop.Height).ToArray();var right=-1;
+        for(var x=0;x<crop.Width;x++)
+        {
+            var ink=0;
+            for(var y=0;y<crop.Height;y++)
+            {var i=(y*crop.Width+x)*3;var low=Math.Min(pixels[i],Math.Min(pixels[i+1],pixels[i+2]));var high=Math.Max(pixels[i],Math.Max(pixels[i+1],pixels[i+2]));if(low>=threshold&&high-low<45){mask[y*crop.Width+x]=0;ink++;}}
+            // 费用黑底之外的明亮场景会成为整列墨块，不能交给文字识别。
+            if(ink>=crop.Height*.85)for(var y=0;y<crop.Height;y++)mask[y*crop.Width+x]=255;
+            else if(ink>0)right=x;
+        }
+        width=Math.Min(crop.Width,Math.Max(1,right+4));height=crop.Height;
+        var result=new byte[width*height];for(var y=0;y<height;y++)mask.AsSpan(y*crop.Width,width).CopyTo(result.AsSpan(y*width));return result;
     }
     private static byte[] CreateBitmap(RgbImage crop,int threshold,bool includeRed,out int width,out int height)
     {

@@ -236,7 +236,7 @@ public sealed class ScreenWorkflowSession : IDisposable
         var proof=Guard.ObserveCurrentTarget(target,lastObservationContext==observer?LastObservation:null);
         bool Validate(UiObservation fresh){navigationConsumption.Verify(target,fresh,Box);return true;}
         if(kind is "click" or "right"){if(kind=="click"&&TryNavigationShortcut(proof))return;Guard.ClickReviewedNavigation(proof,proof.Page,kind=="right"?MouseButton.Right:MouseButton.Left,Validate);return;}
-        if(kind is "scroll" or "zoom_max")Guard.Scroll(proof,kind=="zoom_max"?12:step["steps"]!.GetValue<int>(),zoom:kind=="zoom_max");
+        if(kind is "scroll" or "zoom_max")Guard.Scroll(proof,kind=="zoom_max"?step["steps"]?.GetValue<int>()??12:step["steps"]!.GetValue<int>(),zoom:kind=="zoom_max"||step["zoom"]?.GetValue<bool>()==true);
         else if(kind=="drag"){var a=step["destination"]!.AsArray();var p=Box(new PixelBox(a[0]!.GetValue<int>(),a[1]!.GetValue<int>(),a[0]!.GetValue<int>()+1,a[1]!.GetValue<int>()+1)).Center;Guard.Drag(proof,p,validate:Validate);}
         else throw new InputBlockedException("未审核的导航操作");
     }

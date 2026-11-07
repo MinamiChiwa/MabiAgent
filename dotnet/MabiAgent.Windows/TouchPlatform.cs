@@ -242,6 +242,15 @@ internal sealed class SyntheticTouchDevice:IDisposable
 
 internal static class PhysicalDesktop
 {
+    internal static PixelBox MonitorBounds(PixelPoint point)
+    {
+        using var dpi=TouchNative.PhysicalDpi();var monitor=MonitorFromPoint(new(point),0);var info=new MonitorInfo{Size=(uint)Marshal.SizeOf<MonitorInfo>()};
+        if(monitor==0||!GetMonitorInfo(monitor,ref info))throw new InputBlockedException("目标触点未落在可用显示器内");
+        return new(info.Monitor.Left,info.Monitor.Top,info.Monitor.Right,info.Monitor.Bottom);
+    }
+    [StructLayout(LayoutKind.Sequential)]private struct MonitorInfo{public uint Size;public TouchNative.Rect Monitor,Work;public uint Flags;}
+    [DllImport("user32.dll")]private static extern nint MonitorFromPoint(TouchNative.Point point,uint flags);
+    [DllImport("user32.dll",EntryPoint="GetMonitorInfoW")]private static extern bool GetMonitorInfo(nint monitor,ref MonitorInfo info);
     internal static PixelBox Bounds { get { using var dpi=TouchNative.PhysicalDpi();var x=GetSystemMetrics(76);var y=GetSystemMetrics(77);return new(x,y,x+GetSystemMetrics(78),y+GetSystemMetrics(79)); } }
     [DllImport("user32.dll")]private static extern int GetSystemMetrics(int index);
 }

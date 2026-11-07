@@ -116,16 +116,17 @@ internal sealed class ForwardedTouchGestureRunner(MabiAgent.Core.RuntimeDiagnost
     public void Execute(TouchGesturePlan screen,nint target,int holdMilliseconds,Action authorize,Action authorizeRelease,Func<NativeWindowState> verifyIdentity)
     {
         if(messages is not null)throw new InputBlockedException("前次触控尚未释放");this.target=target;
-        var desktop=PhysicalDesktop.Bounds;if(screen.Points.SelectMany(frame=>frame).Any(point=>!desktop.Contains(point)))throw new InputBlockedException("目标触点位于屏幕之外");
         gestureId=Guid.NewGuid().ToString("N");forwardAttempts=0;releaseIndex=0;stage="prepare";
-        var initial=verifyIdentity();
-        Trace("started",new(){["kind"]=screen.Kind,["target"]=(long)target,["process_id"]=initial.ProcessId,["geometry"]=new System.Text.Json.Nodes.JsonArray(initial.Geometry.X,initial.Geometry.Y,initial.Geometry.Width,initial.Geometry.Height,initial.Geometry.Dpi),["planned_messages"]=screen.MessageCount,["contacts"]=screen.ContactCount});FlushTraces();
         Exception? tracedFailure=null;
         try
         {
+        var monitorBounds=PhysicalDesktop.MonitorBounds(screen.Points[0][0]);
+        if(screen.Points.SelectMany(frame=>frame).Any(point=>!monitorBounds.Contains(point)))throw new InputBlockedException("触控轨迹必须位于同一显示器内部");
+        var initial=verifyIdentity();
+        Trace("started",new(){["kind"]=screen.Kind,["target"]=(long)target,["process_id"]=initial.ProcessId,["geometry"]=new System.Text.Json.Nodes.JsonArray(initial.Geometry.X,initial.Geometry.Y,initial.Geometry.Width,initial.Geometry.Height,initial.Geometry.Dpi),["monitor"]=new System.Text.Json.Nodes.JsonArray(monitorBounds.Left,monitorBounds.Top,monitorBounds.Right,monitorBounds.Bottom),["planned_messages"]=screen.MessageCount,["contacts"]=screen.ContactCount});FlushTraces();
         using var monitor=new TouchMouseMonitor();
         var cursor=TouchCursorPresentation.Read();
-        using var anchor=new TouchInputWindow(AnchorAwayFrom(screen.Bounds,cursor.Position),inputSurface:true);
+        using var anchor=new TouchInputWindow(AnchorAwayFrom(screen.Bounds,cursor.Position,monitorBounds),inputSurface:true);
         using var cover=new TouchInputWindow(screen.Bounds,legacyTouch:true,retainTouchHandles:true,inputSurface:true);
         cover.LimitContactRegion(screen.Points[0]);
         if(!SpinWait.SpinUntil(()=>TouchNative.At(anchor.Point)==anchor.Hwnd&&screen.Points[0].All(point=>TouchNative.At(point)==cover.Hwnd),150))
@@ -138,9 +139,8 @@ internal sealed class ForwardedTouchGestureRunner(MabiAgent.Core.RuntimeDiagnost
         System.Text.Json.Nodes.JsonObject? restoreTrace=null;
         void RestoreCursor()
         {
-            // Clear suppression caused by this touch even if the foreground app
-            // had hidden its cursor. The current-pixel notification never changes
-            // that app's ShowCursor count or forces a cursor image.
+            try
+            {
             if(!TouchCursorPresentation.Read().Suppressed)return;
             var activity=monitor.PhysicalMoves+monitor.PhysicalDowns+monitor.PhysicalUps;var wait=Stopwatch.StartNew();var idle=Stopwatch.StartNew();
             while(TouchCursorPresentation.Read().Suppressed&&wait.ElapsedMilliseconds<180)
@@ -149,12 +149,15 @@ internal sealed class ForwardedTouchGestureRunner(MabiAgent.Core.RuntimeDiagnost
                 if(next!=activity){activity=next;idle.Restart();}
                 if(idle.ElapsedMilliseconds>=40&&!new PhysicalInputReader().Read().ButtonsDown)
                 {
-                    try{restoreTrace=TouchCursorPresentation.Restore(true,()=>{verifyIdentity();authorizeRelease();if(monitor.PhysicalMoves+monitor.PhysicalDowns+monitor.PhysicalUps!=activity||new PhysicalInputReader().Read().ButtonsDown)throw new InputBlockedException("恢复光标前检测到用户活动");},"absolute_same_pixel");}
+                    try{restoreTrace=TouchCursorPresentation.Restore(true,()=>{verifyIdentity();authorizeRelease();if(monitor.PhysicalMoves+monitor.PhysicalDowns+monitor.PhysicalUps!=activity||new PhysicalInputReader().Read().ButtonsDown)throw new InputBlockedException("恢复光标前检测到用户活动");});}
                     catch(InputBlockedException)when(monitor.PhysicalMoves+monitor.PhysicalDowns+monitor.PhysicalUps!=activity||new PhysicalInputReader().Read().ButtonsDown){return;}
                     return;
                 }
                 Thread.Sleep(2);
             }
+            }
+            catch(Exception error)when(error is not OutOfMemoryException)
+            {restoreTrace=new(){["submitted"]=false,["reason"]="presentation_unavailable",["error"]=error.Message};Trace("cursor_presentation_skipped",restoreTrace);}
         }
         try
         {
@@ -188,7 +191,7 @@ internal sealed class ForwardedTouchGestureRunner(MabiAgent.Core.RuntimeDiagnost
         catch(Exception error)
         {
             if(!ReferenceEquals(tracedFailure,error))TraceFailure(error,stage);
-            if(error is InputBlockedException&&forwardAttempts==0)
+            if(error is not OutOfMemoryException&&forwardAttempts==0)
                 throw new MabiAgent.Workflows.InputRejectedBeforeDispatchException(error.Message+"；本次触控未向游戏转交");
             throw;
         }
@@ -200,11 +203,10 @@ internal sealed class ForwardedTouchGestureRunner(MabiAgent.Core.RuntimeDiagnost
     }
     private static void Wait(int milliseconds,Action check)
     {var timer=Stopwatch.StartNew();while(timer.ElapsedMilliseconds<milliseconds){check();Thread.Sleep(Math.Min(10,Math.Max(1,milliseconds-(int)timer.ElapsedMilliseconds)));}check();}
-    private static PixelBox AnchorAwayFrom(PixelBox bounds,PixelPoint cursor)
+    internal static PixelBox AnchorAwayFrom(PixelBox bounds,PixelPoint cursor,PixelBox desktop)
     {
-        var desktop=PhysicalDesktop.Bounds;
         foreach(var p in new[]{new PixelPoint(desktop.Left+40,desktop.Top+40),new PixelPoint(desktop.Right-40,desktop.Top+40),new PixelPoint(desktop.Left+40,desktop.Bottom-40),new PixelPoint(desktop.Right-40,desktop.Bottom-40)}.OrderByDescending(p=>Math.Pow(p.X-bounds.Center.X,2)+Math.Pow(p.Y-bounds.Center.Y,2)))
-        {var box=new PixelBox(p.X-12,p.Y-12,p.X+12,p.Y+12);if(!bounds.Contains(p)&&!box.Contains(cursor))return box;}
+        {var box=new PixelBox(p.X-12,p.Y-12,p.X+12,p.Y+12);if(desktop.Contains(new(box.Left,box.Top))&&desktop.Contains(new(box.Right-1,box.Bottom-1))&&(box.Right<=bounds.Left||box.Left>=bounds.Right||box.Bottom<=bounds.Top||box.Top>=bounds.Bottom)&&!box.Contains(cursor))return box;}
         throw new InputBlockedException("没有可用的本地触控锚定区域");
     }
     // Keep frame traces in memory; never insert diagnostic file I/O between touch delivery and cleanup.

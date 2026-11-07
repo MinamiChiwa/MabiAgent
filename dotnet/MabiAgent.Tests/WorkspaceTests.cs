@@ -5,6 +5,13 @@ using Xunit;
 namespace MabiAgent.Tests;
 public sealed class WorkspaceTests:IDisposable
 {
+    [Fact] public void StopHotkeyPersistsAcrossOtherPreferenceChanges()
+    {
+        var workspace=new Workspace(root,Data);var original=DesktopPreferences.FromJson(workspace.ReadSettings());
+        workspace.SaveStopHotkey("Ctrl+Shift+F11");workspace.SavePreferences(original with{LifeVip=true});
+        Assert.Equal("Ctrl+Shift+F11",workspace.ReadSettings()["input"]!["stop_hotkey"]!.GetValue<string>());
+        Assert.True(DesktopPreferences.FromJson(workspace.ReadSettings()).LifeVip);
+    }
     [Fact] public void DefaultFloorDoesNotAuthorizeUnrelatedMaterialSales()
     {
         var preferences=DesktopPreferences.FromJson(JsonNode.Parse("""{"backpack":{"material_reserve_min":300,"material_reserves":{"985189850":300}}}""")!.AsObject());

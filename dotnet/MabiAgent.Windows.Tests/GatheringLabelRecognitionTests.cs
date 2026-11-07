@@ -25,7 +25,7 @@ public sealed class GatheringLabelRecognitionTests
     }
 
     public static IEnumerable<object[]> Labels()=>ScreenRoutes.Load(RecognitionTests.Root()).Configuration["gathering_routes"]!.AsObject()
-        .Where(p=>p.Key.StartsWith("point_",StringComparison.Ordinal)&&!p.Key.StartsWith("point_fishing_",StringComparison.Ordinal)).Select(p=>new object[]{p.Key});
+        .Where(p=>p.Key.StartsWith("point_",StringComparison.Ordinal)).Select(p=>new object[]{p.Key});
 
     [Theory][MemberData(nameof(Labels))]
     public void CompleteNamesRemainDistinctFromOtherRowsAfterScrolling(string key)

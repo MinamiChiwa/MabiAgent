@@ -7,6 +7,15 @@ namespace MabiAgent.Workflows.Tests;
 
 public sealed class FishingRecoveryTests
 {
+    [Fact] public void RejectedNavigationCannotResetTheWallClockBudget()
+    {
+        var clock=new ManualTime();var port=new FishingPort{Error=new InputRejectedBeforeDispatchException("unsent")};
+        var runner=new IdleFishingRunner(new("river",120),port,new MemoryStore(),navigationTimeoutSeconds:10,time:clock);
+        for(var i=0;i<10;i++){port.Frame=new(clock.Seconds,i.ToString());runner.Tick();clock.Seconds++;}
+        Assert.Empty(port.Actions);Assert.Throws<TimeoutException>(()=>runner.Tick());
+        runner.Pause();clock.Seconds+=100;runner.Resume();port.Frame=new(clock.Seconds,"resumed");runner.Tick();
+        Assert.Equal("running",runner.Snapshot()["status"]!.GetValue<string>());
+    }
     private static (IdleFishingRunner Runner, FishingPort Port, MemoryStore Store) AtPoint()
     {
         var port = new FishingPort{ReleaseAllowed=true};
@@ -31,7 +40,7 @@ public sealed class FishingRecoveryTests
         Assert.Equal(1,state["unobserved_cast_attempts"]!.GetValue<int>());
         Assert.Equal(original["capture_id"]!.GetValue<string>(),state["last_unobserved_cast"]!["capture_id"]!.GetValue<string>());
         Assert.Equal("retry-cast",state["pending"]!["capture_id"]!.GetValue<string>());
-        Assert.Equal(0,state["elapsed_s"]!.GetValue<double>());
+        Assert.Equal(20,state["elapsed_s"]!.GetValue<double>());
         Assert.Equal(0,state["completed"]!.GetValue<int>());
     }
 
@@ -119,14 +128,15 @@ public sealed class FishingRecoveryTests
     }
 
     [Fact]
-    public void RepeatedNoResponseCastsKeepTheSameTargetAndConfirmedTime()
+    public void RepeatedNoResponseCastsKeepTheSameTargetAndContinueTheClock()
     {
         var (runner,port,_) = AtPoint();
         foreach(var at in new[]{1d,21d,41d})
         {port.Frame=new(at,"cast-"+at,"fishing",FishingButton:true);runner.Tick();}
         var state=runner.Snapshot();
         Assert.Equal(3,port.Actions.Count);Assert.Equal(2,state["unobserved_cast_attempts"]!.GetValue<int>());
-        Assert.Equal(120d,state["target_s"]!.GetValue<double>());Assert.Equal(0d,state["elapsed_s"]!.GetValue<double>());
+        Assert.Equal(120d,state["target_s"]!.GetValue<double>());Assert.Equal(40d,state["elapsed_s"]!.GetValue<double>());
+        Assert.True(runner.NeedsBackpackCheck);
         Assert.Equal("running",state["status"]!.GetValue<string>());
     }
 

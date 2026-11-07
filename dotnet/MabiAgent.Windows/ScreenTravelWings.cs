@@ -23,7 +23,7 @@ public sealed class ScreenTravelWings
     {
         var c=session.LastCapture;var cfg=session.Routes.Configuration["travel_wings"]?["quote"];if(c is null||cfg is null)return null;var icon=session.Matcher.Anchor(c.Image,"travel.wing_quote_icon");if(icon is null)return null;
         var a=cfg["offset"]!.AsArray();var scale=(double)c.Image.Width/session.Routes.Profile.Width;int X(int i)=>(int)Math.Round(a[i]!.GetValue<int>()*scale);
-        var box=new PixelBox(icon.Box.Right+X(0),icon.Box.Top+X(1),icon.Box.Right+X(2),icon.Box.Top+X(3));if(!box.IsInside(c.Image.Width,c.Image.Height))return null;
+        var box=new PixelBox(icon.Box.Right+X(0),icon.Box.Top+X(1),Math.Min(c.Image.Width,icon.Box.Right+X(2)),icon.Box.Top+X(3));if(!box.IsInside(c.Image.Width,c.Image.Height))return null;
         return session.QuantityReader.ReadNavigationQuoteOnce(c.Image,box,cfg["threshold"]?.GetValue<int>()??100,cfg["min_confidence"]?.GetFiniteDouble()??.85);
     }
     public JsonObject Snapshot()=>store.Read()??new JsonObject{["status"]="idle"};
@@ -54,9 +54,11 @@ public sealed class ScreenTravelWings
         var value=Quote();var at=session.LastCapture!.CapturedAt;
         state["attempts"]![instance]=at;state["decisions"]??=new JsonObject();
         var decision=new JsonObject{["at"]=at,["cost"]=value?.Quantity,["holding"]=value?.Capacity,["reserve"]=reserve,["use"]=value is{Quantity:>0,Capacity:not null}&&value.Capacity-value.Quantity>=reserve,["instance"]=instance};
+        var reading=session.QuantityReader.LastNavigationQuoteReading;
+        decision["quote_text"]=reading?.Text;decision["quote_confidence"]=reading?.Confidence;
         state["decisions"]![navigationId]=decision;state["status"]="walking";store.Flush(state);
         if(value is null||value.Quantity<=0||value.Capacity is null)
-        {session.ReportWarning("travel_wings","首次精灵之翼用量未识别，本次继续步行",navigationId);return false;}
+        {session.ReportWarning("travel_wings",$"首次精灵之翼用量未识别，本次继续步行；text={reading?.Text}; confidence={reading?.Confidence}; error={reading?.Error}",navigationId);return false;}
         if(value.Capacity-value.Quantity<reserve)
         {session.ReportWarning("travel_wings","精灵之翼使用后不足保留量，继续步行",navigationId);return false;}
         state["pending"]=new JsonObject{["kind"]="use_wings",["navigation_id"]=navigationId,["instance"]=instance,["cost"]=value.Quantity,["holding"]=value.Capacity,["exact"]=value.CapacityExact,["at"]=at};state["attempts"]![instance]=at;state["status"]="unknown";store.Flush(state);

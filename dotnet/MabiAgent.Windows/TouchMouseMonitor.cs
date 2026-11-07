@@ -30,7 +30,7 @@ internal sealed class TouchMouseMonitor:IDisposable
     {
         if(code>=0)try
         {
-            var value=Marshal.PtrToStructure<MouseHook>(data);var entry=new MouseEvent(Stopwatch.GetTimestamp(),(uint)message,new(value.Point.X,value.Point.Y),value.Flags,value.Extra,TouchCursorPresentation.Read().Flags);
+            var value=Marshal.PtrToStructure<MouseHook>(data);var entry=new MouseEvent(Stopwatch.GetTimestamp(),(uint)message,new(value.Point.X,value.Point.Y),value.Flags,value.Extra,0);
             if(entry.Physical){if(message==0x200){Interlocked.Increment(ref physicalMoves);if(leftHeld)Interlocked.Increment(ref physicalDragMoves);}if(message==0x201){leftHeld=true;}if(message==0x202){leftHeld=false;}if(message is 0x201 or 0x204 or 0x207 or 0x20b)Interlocked.Increment(ref physicalDowns);if(message is 0x202 or 0x205 or 0x208 or 0x20c)Interlocked.Increment(ref physicalUps);}else Interlocked.Increment(ref injected);
             Events.Enqueue(entry);while(Events.Count>1024)Events.TryDequeue(out _);
         }catch{/* Observation failure must never consume hardware input. */}

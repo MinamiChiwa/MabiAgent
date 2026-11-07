@@ -74,10 +74,67 @@ public sealed class UpdateTests : IDisposable
     }
 
     [Fact]
+    public async Task DirectReleasePageReadsRelativeLinksAndDigestsWithoutApiRequests()
+    {
+        var handler = new FakeHandler();
+        handler.Release(ReleaseJson("v0.6.0", ("MabiAgent-0.6.0-win-x64.zip", 1000, null)));
+        handler.Bytes("https://github.com/MinamiChiwa/MabiAgent/releases/expanded_assets/v0.6.0", Encoding.UTF8.GetBytes("""
+            <ul><li class="Box-row"><div><a rel="nofollow" href='/MinamiChiwa/MabiAgent/releases/download/v0.6.0/MabiAgent-0.6.0-win-x64.zip'>package</a></div>
+            <span class="Truncate-text">sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa</span><span>139 MB</span></li>
+            <li><a href="/MinamiChiwa/MabiAgent/archive/refs/tags/v0.6.0.zip">Source code</a></li></ul>
+            """));
+        using var transport = new UpdateTransport(handler, new TransportOptions("https://v6.gh-proxy.org/"));
+        var release = await transport.LatestReleaseAsync(UpdateService.Repository, default);
+        Assert.Equal("0.6.0", release.Version);
+        var asset = Assert.Single(release.Assets);
+        Assert.Equal(0, asset.Size);
+        Assert.Equal("sha256:" + new string('a', 64), asset.Digest);
+        Assert.Equal(Asset("v0.6.0", asset.Name), asset.Url.AbsoluteUri);
+        Assert.Equal(3, handler.Requests.Count);
+        Assert.All(handler.Requests, url => Assert.Equal("github.com", new Uri(url).Host));
+    }
+
+    [Theory]
+    [InlineData("https://api.github.com/repos/MinamiChiwa/MabiAgent/releases/latest")]
+    [InlineData("https://v6.gh-proxy.org/https://github.com/MinamiChiwa/MabiAgent/releases/latest")]
+    public async Task DirectReleaseCheckRejectsApiAndMirrorRedirects(string destination)
+    {
+        var handler = new FakeHandler();
+        handler.Redirect(Latest, destination);
+        using var transport = new UpdateTransport(handler, new TransportOptions("https://v6.gh-proxy.org/"));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => transport.LatestReleaseAsync(UpdateService.Repository, default));
+        Assert.Single(handler.Requests);
+    }
+
+    [Theory]
+    [InlineData("https://github.com/other/project/releases/tag/v0.6.0")]
+    [InlineData("https://github.com/login")]
+    public async Task DirectReleaseCheckRequiresTheRequestedRepositoryTag(string destination)
+    {
+        var handler = new FakeHandler();
+        handler.Redirect(Latest, destination);
+        handler.Bytes(destination, []);
+        using var transport = new UpdateTransport(handler);
+        await Assert.ThrowsAsync<InvalidDataException>(() => transport.LatestReleaseAsync(UpdateService.Repository, default));
+    }
+
+    [Theory]
+    [InlineData("<html>Sign in</html>")]
+    [InlineData("<ul><li><a href='/MinamiChiwa/MabiAgent/archive/refs/tags/v0.6.0.zip'>Source code</a></li></ul>")]
+    public async Task MissingDirectAssetsFailsInsteadOfClaimingAnUpdate(string html)
+    {
+        var handler = new FakeHandler();
+        handler.Release(ReleaseJson("v0.6.0", ("MabiAgent-0.6.0-win-x64.zip", 1000, null)));
+        handler.Bytes("https://github.com/MinamiChiwa/MabiAgent/releases/expanded_assets/v0.6.0", Encoding.UTF8.GetBytes(html));
+        using var transport = new UpdateTransport(handler);
+        await Assert.ThrowsAsync<InvalidDataException>(() => transport.LatestReleaseAsync(UpdateService.Repository, default));
+    }
+
+    [Fact]
     public async Task LocalVersionAboveThePublishedOneIsNotAnUpdate()
     {
         var handler = new FakeHandler();
-        handler.Json(Api, ReleaseJson("v0.5.4", ("MabiAgent-0.5.4-win-x64.zip", 1000, new string('b', 64))));
+        handler.Release(ReleaseJson("v0.5.4", ("MabiAgent-0.5.4-win-x64.zip", 1000, new string('b', 64))));
         using var service = new UpdateService(root, handler);
         var check = await service.CheckAsync("0.5.8");
         Assert.False(check.Available);
@@ -88,7 +145,7 @@ public sealed class UpdateTests : IDisposable
     public async Task ReleaseWithoutManifestIsReportedAsFullPackageOnly()
     {
         var handler = new FakeHandler();
-        handler.Json(Api, ReleaseJson("v0.6.0", ("MabiAgent-0.6.0-win-x64.zip", 1000, new string('b', 64))));
+        handler.Release(ReleaseJson("v0.6.0", ("MabiAgent-0.6.0-win-x64.zip", 1000, new string('b', 64))));
         using var service = new UpdateService(root, handler);
         var check = await service.CheckAsync("0.5.8");
         Assert.True(check.Available);
@@ -97,12 +154,12 @@ public sealed class UpdateTests : IDisposable
     }
 
     [Fact]
-    public async Task ManifestDigestFromTheApiIsEnforced()
+    public async Task ManifestDigestFromTheReleasePageIsEnforced()
     {
         var manifest = ManifestJson("0.6.0", ("app/a.dll", Encoding.UTF8.GetBytes("new")));
         var bytes = Encoding.UTF8.GetBytes(manifest);
         var handler = new FakeHandler();
-        handler.Json(Api, ReleaseJson("v0.6.0", (UpdateManifest.FileName, bytes.LongLength, new string('0', 64))));
+        handler.Release(ReleaseJson("v0.6.0", (UpdateManifest.FileName, bytes.LongLength, new string('0', 64))));
         handler.Bytes(Asset("v0.6.0", UpdateManifest.FileName), bytes);
         using var service = new UpdateService(root, handler);
         var error = await Assert.ThrowsAsync<InvalidDataException>(() => service.CheckAsync("0.5.8"));
@@ -115,7 +172,7 @@ public sealed class UpdateTests : IDisposable
         var manifest = ManifestJson("0.6.0", ("app/a.dll", Encoding.UTF8.GetBytes("new")));
         var bytes = Encoding.UTF8.GetBytes(manifest);
         var handler = new FakeHandler();
-        handler.Json(Api, ReleaseJson("v0.6.0", (UpdateManifest.FileName, bytes.LongLength, null)));
+        handler.Release(ReleaseJson("v0.6.0", (UpdateManifest.FileName, bytes.LongLength, null)));
         handler.Bytes(Asset("v0.6.0", UpdateManifest.FileName), bytes);
         using var service = new UpdateService(root, handler, new TransportOptions("https://v6.gh-proxy.org/"));
         var check = await service.CheckAsync("0.5.8");
@@ -130,7 +187,7 @@ public sealed class UpdateTests : IDisposable
         var manifest = ManifestJson("0.6.0", ("app/a.dll", Encoding.UTF8.GetBytes("new")));
         var bytes = Encoding.UTF8.GetBytes(manifest);
         var handler = new FakeHandler();
-        handler.Json(Api, ReleaseJson("v0.6.0", (UpdateManifest.FileName, bytes.LongLength, Sha(bytes))));
+        handler.Release(ReleaseJson("v0.6.0", (UpdateManifest.FileName, bytes.LongLength, Sha(bytes))));
         handler.Bytes(Asset("v0.6.0", UpdateManifest.FileName), bytes);
         using var service = new UpdateService(root, handler, new TransportOptions("https://v6.gh-proxy.org/"));
         _ = await service.CheckAsync("0.5.8");
@@ -141,7 +198,7 @@ public sealed class UpdateTests : IDisposable
     public async Task ManifestRedirectToTheMirrorIsRefused()
     {
         var handler = new FakeHandler();
-        handler.Json(Api, ReleaseJson("v0.6.0", (UpdateManifest.FileName, 10, new string('a', 64))));
+        handler.Release(ReleaseJson("v0.6.0", (UpdateManifest.FileName, 10, new string('a', 64))));
         handler.Redirect(Asset("v0.6.0", UpdateManifest.FileName), "https://v6.gh-proxy.org/https://github.com/x");
         using var service = new UpdateService(root, handler, new TransportOptions("https://v6.gh-proxy.org/"));
         var error = await Assert.ThrowsAsync<InvalidOperationException>(() => service.CheckAsync("0.5.8"));
@@ -164,13 +221,13 @@ public sealed class UpdateTests : IDisposable
     public async Task ForeignAssetHostIsRejected()
     {
         var handler = new FakeHandler();
-        handler.Json(Api, new JsonObject
+        handler.Release(new JsonObject
         {
             ["tag_name"] = "v0.6.0",
             ["assets"] = new JsonArray(new JsonObject
             {
                 ["name"] = UpdateManifest.FileName, ["size"] = 10, ["digest"] = "sha256:" + new string('a', 64),
-                ["browser_download_url"] = "https://evil.example.com/update-manifest.json"
+                ["browser_download_url"] = "https://evil.example.com/MinamiChiwa/MabiAgent/releases/download/v0.6.0/update-manifest.json"
             })
         }.ToJsonString());
         using var service = new UpdateService(root, handler);
@@ -189,7 +246,7 @@ public sealed class UpdateTests : IDisposable
         var manifestBytes = Encoding.UTF8.GetBytes(manifest);
         const string tag = "v0.6.0";
         var handler = new FakeHandler();
-        handler.Json(Api, ReleaseJson(tag,
+        handler.Release(ReleaseJson(tag,
             (UpdateManifest.FileName, manifestBytes.LongLength, Sha(manifestBytes)),
             ("blob-" + Sha(same) + ".bin", same.LongLength, Sha(same)),
             ("blob-" + Sha(changed) + ".bin", changed.LongLength, Sha(changed))));
@@ -217,7 +274,7 @@ public sealed class UpdateTests : IDisposable
         var manifest = ManifestJson("0.6.0", ("app/config.json", next));
         var manifestBytes = Encoding.UTF8.GetBytes(manifest);
         var handler = new FakeHandler();
-        handler.Json(Api, ReleaseJson("v0.6.0",
+        handler.Release(ReleaseJson("v0.6.0",
             (UpdateManifest.FileName, manifestBytes.LongLength, Sha(manifestBytes)),
             ("blob-" + Sha(next) + ".bin", next.LongLength, Sha(next))));
         handler.Bytes(Asset("v0.6.0", UpdateManifest.FileName), manifestBytes);
@@ -239,7 +296,7 @@ public sealed class UpdateTests : IDisposable
         var manifest = ManifestJson("0.6.0", ("app/keep.dll", next));
         var manifestBytes = Encoding.UTF8.GetBytes(manifest);
         var handler = new FakeHandler();
-        handler.Json(Api, ReleaseJson("v0.6.0",
+        handler.Release(ReleaseJson("v0.6.0",
             (UpdateManifest.FileName, manifestBytes.LongLength, Sha(manifestBytes)),
             ("blob-" + Sha(next) + ".bin", next.LongLength, Sha(next))));
         handler.Bytes(Asset("v0.6.0", UpdateManifest.FileName), manifestBytes);
@@ -259,7 +316,7 @@ public sealed class UpdateTests : IDisposable
         var manifest = ManifestJson("0.6.0", ("app/missing.dll", next), ("app/kept.dll", Encoding.UTF8.GetBytes("shipped2")));
         var manifestBytes = Encoding.UTF8.GetBytes(manifest);
         var handler = new FakeHandler();
-        handler.Json(Api, ReleaseJson("v0.6.0",
+        handler.Release(ReleaseJson("v0.6.0",
             (UpdateManifest.FileName, manifestBytes.LongLength, Sha(manifestBytes)),
             ("blob-" + Sha(next) + ".bin", next.LongLength, Sha(next))));
         handler.Bytes(Asset("v0.6.0", UpdateManifest.FileName), manifestBytes);
@@ -281,7 +338,7 @@ public sealed class UpdateTests : IDisposable
         var manifest = ManifestJson("0.6.0", ("app/new.dll", next));
         var manifestBytes = Encoding.UTF8.GetBytes(manifest);
         var handler = new FakeHandler();
-        handler.Json(Api, ReleaseJson("v0.6.0",
+        handler.Release(ReleaseJson("v0.6.0",
             (UpdateManifest.FileName, manifestBytes.LongLength, Sha(manifestBytes)),
             ("blob-" + Sha(next) + ".bin", next.LongLength, Sha(next))));
         handler.Bytes(Asset("v0.6.0", UpdateManifest.FileName), manifestBytes);
@@ -308,7 +365,7 @@ public sealed class UpdateTests : IDisposable
         var manifest = ManifestJson("0.6.0", ("app/new.dll", next));
         var manifestBytes = Encoding.UTF8.GetBytes(manifest);
         var handler = new FakeHandler();
-        handler.Json(Api, ReleaseJson("v0.6.0",
+        handler.Release(ReleaseJson("v0.6.0",
             (UpdateManifest.FileName, manifestBytes.LongLength, Sha(manifestBytes)),
             ("blob-" + Sha(next) + ".bin", next.LongLength, Sha(next))));
         handler.Bytes(Asset("v0.6.0", UpdateManifest.FileName), manifestBytes);
@@ -331,7 +388,7 @@ public sealed class UpdateTests : IDisposable
         var manifest = ManifestJson("0.6.0", ("app/same.dll", same));
         var manifestBytes = Encoding.UTF8.GetBytes(manifest);
         var handler = new FakeHandler();
-        handler.Json(Api, ReleaseJson("v0.6.0", (UpdateManifest.FileName, manifestBytes.LongLength, Sha(manifestBytes))));
+        handler.Release(ReleaseJson("v0.6.0", (UpdateManifest.FileName, manifestBytes.LongLength, Sha(manifestBytes))));
         handler.Bytes(Asset("v0.6.0", UpdateManifest.FileName), manifestBytes);
         // A second baseline entry keeps the first from being the only difference.
         File.WriteAllText(Path.Combine(root, InstallManifest.FileName),
@@ -358,7 +415,7 @@ public sealed class UpdateTests : IDisposable
         var manifest = ManifestJson("0.6.0", ("app/a.dll", v2));
         var manifestBytes = Encoding.UTF8.GetBytes(manifest);
         var handler = new FakeHandler();
-        handler.Json(Api, ReleaseJson("v0.6.0",
+        handler.Release(ReleaseJson("v0.6.0",
             (UpdateManifest.FileName, manifestBytes.LongLength, Sha(manifestBytes)),
             ("blob-" + Sha(v2) + ".bin", v2.LongLength, Sha(v2))));
         handler.Bytes(Asset("v0.6.0", UpdateManifest.FileName), manifestBytes);
@@ -377,7 +434,7 @@ public sealed class UpdateTests : IDisposable
         var v3 = Encoding.UTF8.GetBytes("v3");
         var manifest2 = ManifestJson("0.6.1", ("app/a.dll", v3));
         var bytes2 = Encoding.UTF8.GetBytes(manifest2);
-        handler2.Json(Api, ReleaseJson("v0.6.1",
+        handler2.Release(ReleaseJson("v0.6.1",
             (UpdateManifest.FileName, bytes2.LongLength, Sha(bytes2)),
             ("blob-" + Sha(v3) + ".bin", v3.LongLength, Sha(v3))));
         handler2.Bytes(Asset("v0.6.1", UpdateManifest.FileName), bytes2);
@@ -395,7 +452,7 @@ public sealed class UpdateTests : IDisposable
         var manifest = ManifestJson("..", ("app/a.dll", next));
         var manifestBytes = Encoding.UTF8.GetBytes(manifest);
         var handler = new FakeHandler();
-        handler.Json(Api, ReleaseJson("v..",
+        handler.Release(ReleaseJson("v..",
             (UpdateManifest.FileName, manifestBytes.LongLength, Sha(manifestBytes)),
             ("blob-" + Sha(next) + ".bin", next.LongLength, Sha(next))));
         handler.Bytes(Asset("v..", UpdateManifest.FileName), manifestBytes);
@@ -414,7 +471,7 @@ public sealed class UpdateTests : IDisposable
         var manifestBytes = Encoding.UTF8.GetBytes(manifest);
         const string tag = "v0.6.0";
         var handler = new FakeHandler();
-        handler.Json(Api, ReleaseJson(tag,
+        handler.Release(ReleaseJson(tag,
             (UpdateManifest.FileName, manifestBytes.LongLength, Sha(manifestBytes)),
             ("blob-" + Sha(payload) + ".bin", payload.LongLength, Sha(payload))));
         handler.Bytes(Asset(tag, UpdateManifest.FileName), manifestBytes);
@@ -435,7 +492,7 @@ public sealed class UpdateTests : IDisposable
         var manifestBytes = Encoding.UTF8.GetBytes(manifest);
         const string tag = "v0.6.0";
         var handler = new FakeHandler();
-        handler.Json(Api, ReleaseJson(tag,
+        handler.Release(ReleaseJson(tag,
             (UpdateManifest.FileName, manifestBytes.LongLength, Sha(manifestBytes)),
             ("blob-" + Sha(payload) + ".bin", payload.LongLength, Sha(payload))));
         handler.Bytes(Asset(tag, UpdateManifest.FileName), manifestBytes);
@@ -452,7 +509,7 @@ public sealed class UpdateTests : IDisposable
     public async Task FullPackageWithoutDigestOrChecksumFileIsRejected()
     {
         var handler = new FakeHandler();
-        handler.Json(Api, ReleaseJson("v0.6.0", ("MabiAgent-0.6.0-win-x64.zip", 1000, null)));
+        handler.Release(ReleaseJson("v0.6.0", ("MabiAgent-0.6.0-win-x64.zip", 1000, null)));
         using var service = new UpdateService(root, handler);
         var check = await service.CheckAsync("0.5.8");
         var error = await Assert.ThrowsAsync<InvalidDataException>(() => service.DownloadFullPackageAsync(check.Release!, Path.Combine(root, "updates")));
@@ -464,7 +521,7 @@ public sealed class UpdateTests : IDisposable
     {
         var zip = Encoding.UTF8.GetBytes("zip body");
         var handler = new FakeHandler();
-        handler.Json(Api, ReleaseJson("v0.6.0",
+        handler.Release(ReleaseJson("v0.6.0",
             ("MabiAgent-0.6.0-win-x64.zip", zip.LongLength, null),
             ("SHA256SUMS.txt", Len(Sha(zip) + "  MabiAgent-0.6.0-win-x64.zip\n"), null)));
         handler.Bytes(Asset("v0.6.0", "MabiAgent-0.6.0-win-x64.zip"), zip);
@@ -727,7 +784,7 @@ public sealed class UpdateTests : IDisposable
     public async Task NonSuccessResponseIsNotTreatedAsAssetContent()
     {
         var handler = new FakeHandler();
-        handler.Json(Api, ReleaseJson("v0.6.0", (UpdateManifest.FileName, 10, new string('a', 64))));
+        handler.Release(ReleaseJson("v0.6.0", (UpdateManifest.FileName, 10, new string('a', 64))));
         // No body registered for the manifest: the fake answers 404 with an error page.
         using var service = new UpdateService(root, handler);
         var error = await Assert.ThrowsAsync<HttpRequestException>(() => service.CheckAsync("0.5.8"));
@@ -742,7 +799,7 @@ public sealed class UpdateTests : IDisposable
         var manifestBytes = Encoding.UTF8.GetBytes(manifest);
         const string tag = "v0.6.0";
         var handler = new FakeHandler();
-        handler.Json(Api, ReleaseJson(tag,
+        handler.Release(ReleaseJson(tag,
             (UpdateManifest.FileName, manifestBytes.LongLength, Sha(manifestBytes)),
             ("blob-" + Sha(payload) + ".bin", payload.LongLength, Sha(payload))));
         handler.Bytes(Asset(tag, UpdateManifest.FileName), manifestBytes);
@@ -821,7 +878,7 @@ public sealed class UpdateTests : IDisposable
         Assert.Equal(Path.GetFullPath(root), InstallLayout.ResolveRoot(root));
     }
 
-    private const string Api = "https://api.github.com/repos/MinamiChiwa/MabiAgent/releases/latest";
+    private const string Latest = "https://github.com/MinamiChiwa/MabiAgent/releases/latest";
     private static string Asset(string tag, string name) => $"https://github.com/MinamiChiwa/MabiAgent/releases/download/{tag}/{name}";
 
     private static string ManifestJson(string version, params (string Path, byte[] Body)[] files)
@@ -861,7 +918,20 @@ public sealed class UpdateTests : IDisposable
         public Dictionary<string, byte[]> MirrorBytes { get; } = new(StringComparer.Ordinal);
         public bool BrokenMirror { get; set; }
 
-        public void Json(string url, string json) => content[url] = Encoding.UTF8.GetBytes(json);
+        public void Release(string json)
+        {
+            var release = JsonNode.Parse(json)!;
+            var tag = release["tag_name"]!.GetValue<string>();
+            Redirect(Latest, "https://github.com/MinamiChiwa/MabiAgent/releases/tag/" + Uri.EscapeDataString(tag));
+            Bytes("https://github.com/MinamiChiwa/MabiAgent/releases/tag/" + Uri.EscapeDataString(tag), []);
+            var html = new StringBuilder("<ul>");
+            foreach (var asset in release["assets"]!.AsArray())
+                html.Append("<li><a href=\"").Append(WebUtility.HtmlEncode(asset!["browser_download_url"]!.GetValue<string>()))
+                    .Append("\">asset</a><span>").Append(asset["digest"]?.GetValue<string>()).Append("</span><span>")
+                    .Append(asset["size"]!.GetValue<long>()).Append(" Bytes</span></li>");
+            html.Append("</ul>");
+            Bytes("https://github.com/MinamiChiwa/MabiAgent/releases/expanded_assets/" + Uri.EscapeDataString(tag), Encoding.UTF8.GetBytes(html.ToString()));
+        }
         public void Bytes(string url, byte[] bytes) => content[url] = bytes;
         public void Redirect(string url, string location) => redirects[url] = location;
 

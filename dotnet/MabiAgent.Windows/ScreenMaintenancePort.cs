@@ -13,6 +13,7 @@ public sealed class ScreenMaintenancePort:ScreenWorkflowPort,IMaintenancePort
     private readonly JsonNode config;private bool? bold,materials;private string? lastAction;
     private string? routeKey,stage;private int searches,zoomPasses;private double nextAt,dispatchedAt;private string? lastPage;private readonly HashSet<string> dispatched=[];
     private JsonNode? awaiting;private string? awaitingSignature;private byte[]? beforeMap;private RgbImage? beforeTerrain;private string? beforeTargets;private bool dispatchedSearch;
+    private bool zoomCentering,zoomScaleChanged;private int mapRecoveries;
     private int dialogueSteps,releaseRetries;
     private int releaseDialogueSteps;private double lastReleaseDialogueAt=-1;
     private long? previewQuote;private long previewEpoch;
@@ -62,7 +63,8 @@ public sealed class ScreenMaintenancePort:ScreenWorkflowPort,IMaintenancePort
         var notNeeded=page=="repair_dialog"&&o.View.Targets.ContainsKey("repair.not_needed")||page=="repair_equipment"&&o.View.Targets.ContainsKey("repair.tools_status")&&Pixels(Session.LastCapture!.Image,config["repair"]?["tools_label_region"],(r,g,b)=>r>190&&g>190&&b>190)<10;
         var resultVisible=page=="repair_result"||page=="npc_dialogue"&&Store.Read()?["pending"]?["action"]?.GetValue<string>()=="confirm_repair";
         var backpackFull=Session.Matcher.Anchor(Session.LastCapture!.Image,"overlay.backpack_full_toast") is not null;
-        return new(id,page,true,true,weight?.Quantity,weight?.Capacity,gold,quote.Item1,o.View.Targets.ContainsKey("repair.gold")?"gold":null,o.View.Targets.ContainsKey("tidy.confirm")||o.View.Targets.ContainsKey("repair.confirm"),bold,materials,count?.Quantity,resultVisible,page=="tidy_result",equipped,notNeeded,BackpackFull:backpackFull,QuoteIsUpperBound:quote.Item2);
+        return new(id,page,true,true,weight?.Quantity,weight?.Capacity,gold,quote.Item1,o.View.Targets.ContainsKey("repair.gold")?"gold":null,o.View.Targets.ContainsKey("tidy.confirm")||o.View.Targets.ContainsKey("repair.confirm"),bold,materials,count?.Quantity,resultVisible,page=="tidy_result",equipped,notNeeded,BackpackFull:backpackFull,QuoteIsUpperBound:quote.Item2,
+            WeightTabRequired:page=="backpack"&&weight is null&&!o.View.Targets.ContainsKey("bag.items_selected"));
     }
     internal static QuantityValue? ReadTidyCount(ScreenQuantityReader reader,RgbImage image,PixelBox region,JsonNode spec)
     {
@@ -114,7 +116,7 @@ public sealed class ScreenMaintenancePort:ScreenWorkflowPort,IMaintenancePort
         }
         return null;
     }
-    public void ResetNavigation(){previewQuote=null;routeKey=stage=lastPage=rejectedKey=awaitingSignature=null;awaiting=null;beforeMap=null;beforeTerrain=null;searches=zoomPasses=dialogueSteps=releaseDialogueSteps=releaseRetries=0;lastReleaseDialogueAt=-1;nextAt=0;dispatchedSearch=false;LastTestNavigationTrace=null;dispatched.Clear();Session.EndNavigation("maintenance:"+BatchId);}
+    public void ResetNavigation(){previewQuote=null;routeKey=stage=lastPage=rejectedKey=awaitingSignature=null;awaiting=null;beforeMap=null;beforeTerrain=null;searches=zoomPasses=mapRecoveries=dialogueSteps=releaseDialogueSteps=releaseRetries=0;zoomCentering=zoomScaleChanged=false;lastReleaseDialogueAt=-1;nextAt=0;dispatchedSearch=false;LastTestNavigationTrace=null;dispatched.Clear();Session.EndNavigation("maintenance:"+BatchId);}
     private RgbImage Terrain()=>Session.LastCapture!.Image.Crop(Session.Box(new PixelBox(200,150,1050,780)));
     private bool ZoomStillChangesScale()
     {
@@ -191,15 +193,45 @@ public sealed class ScreenMaintenancePort:ScreenWorkflowPort,IMaintenancePort
     private string? NavigateCore(string destination,JsonObject? testRoute,bool singleStep,bool singleRoute,UiObservation? observation=null)
     {
         var o=observation??Read();if(!o.Stable||!Session.InputAvailable)return null;var page=o.View.Page;var key=destination+":"+page;
+        // Notifications interrupt the current route; closing one is a shared reversible step.
+        if(page.StartsWith("notification_",StringComparison.Ordinal)){Session.DismissNotice(notificationsOnly:true);return null;}
         var now=Session.LastCapture!.CapturedAt;if(now<nextAt)return null;
         if(awaiting is {} sent)
         {
             if(S(sent,"kind")=="zoom_max")
             {
                 if(page!=lastPage)return "map_changed_during_zoom";
-                if(ZoomStillChangesScale())
+                var centered=zoomCentering;var scaleChanged=centered?zoomScaleChanged:ZoomStillChangesScale();var destinationVisible=false;zoomCentering=false;
+                if(S(sent,"center_target") is{} centerTarget)
                 {
-                    if(zoomPasses>=3)return "map_maximum_zoom_not_observed";
+                    if(!o.View.Targets.TryGetValue(centerTarget,out var shop))
+                    {
+                        if(S(sent,"destination_target") is{} visibleTarget&&o.View.Targets.ContainsKey(visibleTarget)){scaleChanged=false;destinationVisible=true;}
+                        else
+                        {
+                            // 在原缩放等待点丢失店名时，按声明路线缩小后重新定位。
+                            awaiting=null;beforeMap=null;beforeTerrain=null;Session.EndNavigation("maintenance:"+BatchId);
+                            if(++mapRecoveries>2)return "map_center_recovery_exhausted";
+                            stage=S(sent,"recovery_stage")!;searches=0;
+                            TraceNavigation(centerTarget,"zoom_center_lost");
+                        }
+                    }
+                    else if(!centered&&sent["center_destination"] is{} destinationPoint)
+                    {
+                        var x=destinationPoint[0]!.GetValue<int>();var y=destinationPoint[1]!.GetValue<int>();var center=Session.Box(new PixelBox(x,y,x+1,y+1)).Center;
+                        if(Math.Abs(shop.X-center.X)>24||Math.Abs(shop.Y-center.Y)>24)
+                        {
+                            var drag=new JsonObject{["target"]=centerTarget,["kind"]="drag",["destination"]=destinationPoint.DeepClone()};
+                            try{Session.Step(drag);}
+                            catch(Exception error) when(error is InputRejectedBeforeDispatchException or InputBlockedException{TargetChangedBeforeDispatch:true})
+                            {return ReobserveRejectedStep(key,centerTarget,now,error);}
+                            zoomCentering=true;zoomScaleChanged=scaleChanged;WaitAfterDispatch(sent);TraceNavigation(centerTarget,"zoom_recenter");return null;
+                        }
+                    }
+                }
+                if(awaiting is not null&&scaleChanged)
+                {
+                    if(zoomPasses>=(sent["max_sweeps"]?.GetValue<int>()??3))return "map_maximum_zoom_not_observed";
                     var map=MapSample(Session.LastCapture.Image);var terrain=Terrain();
                     try{Session.Step(sent);}
                     catch(Exception error) when(error is InputRejectedBeforeDispatchException or InputBlockedException{TargetChangedBeforeDispatch:true})
@@ -207,10 +239,13 @@ public sealed class ScreenMaintenancePort:ScreenWorkflowPort,IMaintenancePort
                     zoomPasses++;beforeMap=map;beforeTerrain=terrain;WaitAfterDispatch(sent);
                     rejectedKey=null;TraceNavigation(S(sent,"target")!,"zoom_max");return null;
                 }
-                // Saturation is observed after a full positive wheel sweep. An already maximal map is valid.
-                awaiting=null;beforeMap=null;beforeTerrain=null;stage=S(sent,"next")??stage;searches=0;
-                TraceNavigation(S(sent,"target")!,"maximum_observed");
-                if(singleStep||singleRoute&&!dispatchedSearch&&S(sent,"next") is null)return "workbench_navigation_complete";
+                // 最大比例或目标已可见时进入选择阶段。
+                if(awaiting is not null)
+                {
+                    awaiting=null;beforeMap=null;beforeTerrain=null;stage=S(sent,"next")??stage;searches=0;
+                    TraceNavigation(S(sent,"target")!,destinationVisible?"destination_visible":"maximum_observed");
+                    if(singleStep||singleRoute&&!dispatchedSearch&&S(sent,"next") is null)return "workbench_navigation_complete";
+                }
             }
             else
             {
@@ -218,6 +253,7 @@ public sealed class ScreenMaintenancePort:ScreenWorkflowPort,IMaintenancePort
             // Dialogue text is mutable content and cannot be a completion anchor.
             // Progress is driven by page/target transitions or declared map changes.
             var changed=expected.Length>0?expected.Contains(page):true;
+            if(sent["wait_for_targets"] is{} expectedTargets)changed=changed&&Names(expectedTargets).All(o.View.Targets.ContainsKey);
             if(testRoute is not null&&expected.Length>0&&page==lastPage)
                 changed=changed&&(beforeTargets!=TargetSignature(o.View)||beforeMap is not null&&MapChanged(beforeMap,MapSample(Session.LastCapture.Image)));
             // A bounded map search may hit an edge or an already open world view.
@@ -244,7 +280,7 @@ public sealed class ScreenMaintenancePort:ScreenWorkflowPort,IMaintenancePort
             if(key==routeKey&&S(sent,"next") is {} next){stage=next;searches=0;}
             }
         }
-        if(key!=routeKey){routeKey=key;stage=null;searches=dialogueSteps=0;dispatched.Clear();}
+        if(key!=routeKey){routeKey=key;stage=null;searches=dialogueSteps=mapRecoveries=0;dispatched.Clear();}
         var route=testRoute??config["navigation"]?[destination]?[page]??config["exit_navigation"]?[page]??(o.View.Targets.ContainsKey("page.close")?new JsonObject{["target"]="page.close"}:null);if(route is null)return "navigation_calibration_missing:"+destination+":"+page;
         if(testRoute is null&&destination=="backpack_tidy"&&page=="bag"&&!o.View.Targets.ContainsKey("bag.items_selected"))
             route=new JsonObject{["target"]="bag.open_items"};
@@ -256,8 +292,9 @@ public sealed class ScreenMaintenancePort:ScreenWorkflowPort,IMaintenancePort
             if(step is null){var search=current["search"]?.AsArray();if(search is null||searches>=search.Count)return "navigation_search_exhausted:"+destination;step=search[searches];}
         }
         if(step is null)return "navigation_calibration_missing:"+destination;
-        var target=S(step,"target")!;var signature=stage+":"+target+":"+searches;
+        var target=S(step,"target")!;var signature=stage+":"+target+":"+searches+":"+mapRecoveries;
         if(dispatched.Contains(signature)&&lastPage==page)return now-dispatchedAt>30?"navigation_result_not_observed":null;
+        if(step["map_recovery"]?.GetValue<bool>()==true&&++mapRecoveries>2){Session.EndNavigation("maintenance:"+BatchId);return "map_center_recovery_exhausted";}
         if(!o.View.Targets.ContainsKey(target))return null;
         dispatchedSearch=route["stages"]?[stage!]?["search"]?.AsArray().Any(s=>ReferenceEquals(s,step))==true;
         if(dispatchedSearch)searches++;

@@ -1,6 +1,6 @@
-using System.Net.Http.Headers;
+using System.Net;
 using System.Security.Cryptography;
-using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 
 namespace MabiAgent.Update;
 
@@ -11,12 +11,12 @@ public sealed record ReleaseInfo(string Tag, string Version, IReadOnlyList<Relea
 }
 
 /// <summary>
-/// <paramref name="ApiBase"/> and <paramref name="AllowPlaintextLoopback"/> exist only so an
+/// <paramref name="ReleaseBase"/> and <paramref name="AllowPlaintextLoopback"/> exist only so an
 /// integration test can point the client at a loopback server; the app never sets them, and
 /// plaintext is accepted for loopback hosts that were explicitly added to the allowlist.
 /// </summary>
 public sealed record TransportOptions(string? MirrorPrefix = null, string[]? ExtraHosts = null, TimeProvider? Time = null,
-    string? ApiBase = null, bool AllowPlaintextLoopback = false);
+    string? ReleaseBase = null, bool AllowPlaintextLoopback = false);
 
 /// <summary>
 /// Talks to the official release channel. The manifest channel and the blob channel
@@ -28,13 +28,13 @@ public sealed class UpdateTransport : IDisposable
 {
     public static readonly string[] OfficialHosts =
     [
-        "api.github.com", "github.com", "objects.githubusercontent.com",
+        "github.com", "objects.githubusercontent.com",
         "release-assets.githubusercontent.com", "github-releases.githubusercontent.com"
     ];
     public const double MirrorRetrySeconds = 600;
     private readonly HttpClient http;
     private readonly string mirror;
-    private readonly string apiBase;
+    private readonly string releaseBase;
     private readonly bool allowPlaintext;
     private readonly HashSet<string> officialHosts;
     private readonly HashSet<string> mirrorHosts = new(StringComparer.OrdinalIgnoreCase);
@@ -48,9 +48,8 @@ public sealed class UpdateTransport : IDisposable
         DisableRedirects(handler);
         http = new HttpClient(handler, true) { Timeout = TimeSpan.FromMinutes(10) };
         http.DefaultRequestHeaders.UserAgent.ParseAdd("MabiAgent-Updater/1.0");
-        http.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
         mirror = Normalize(options.MirrorPrefix, options.AllowPlaintextLoopback);
-        apiBase = string.IsNullOrWhiteSpace(options.ApiBase) ? "https://api.github.com" : options.ApiBase.TrimEnd('/');
+        releaseBase = string.IsNullOrWhiteSpace(options.ReleaseBase) ? "https://github.com" : options.ReleaseBase.TrimEnd('/');
         allowPlaintext = options.AllowPlaintextLoopback;
         officialHosts = new HashSet<string>(OfficialHosts, StringComparer.OrdinalIgnoreCase);
         // Test seam for a local HTTP server; production callers pass nothing.
@@ -83,22 +82,40 @@ public sealed class UpdateTransport : IDisposable
 
     public async Task<ReleaseInfo> LatestReleaseAsync(string repository, CancellationToken token)
     {
-        var uri = new Uri(apiBase + "/repos/" + repository + "/releases/latest");
-        var text = await GetStringAsync(uri, false, token).ConfigureAwait(false);
-        var node = JsonNode.Parse(text) as JsonObject ?? throw new InvalidDataException("发布接口返回的不是 JSON 对象");
-        var tag = node["tag_name"]?.GetValue<string>() ?? throw new InvalidDataException("发布接口缺少 tag");
+        var uri = new Uri(releaseBase + "/" + repository + "/releases/latest");
+        using var response = await FollowAsync(uri, HttpCompletionOption.ResponseHeadersRead, token, false).ConfigureAwait(false);
+        var resolved = response.RequestMessage!.RequestUri!;
+        var tagPrefix = new Uri(releaseBase + "/" + repository + "/releases/tag/").AbsolutePath;
+        if (resolved.GetLeftPart(UriPartial.Authority) != uri.GetLeftPart(UriPartial.Authority) ||
+            !resolved.AbsolutePath.StartsWith(tagPrefix, StringComparison.Ordinal))
+            throw new InvalidDataException("最新发布页未指向本仓库的版本标签");
+        var tag = Uri.UnescapeDataString(resolved.AbsolutePath[tagPrefix.Length..]);
+        if (string.IsNullOrWhiteSpace(tag) || tag.Contains('/') || tag.Contains('\\'))
+            throw new InvalidDataException("发布页版本标签无效");
+        var assetsUri = new Uri(releaseBase + "/" + repository + "/releases/expanded_assets/" + Uri.EscapeDataString(tag));
+        var text = await GetStringAsync(assetsUri, false, token).ConfigureAwait(false);
         var assets = new List<ReleaseAsset>();
-        if (node["assets"] is JsonArray array)
-            foreach (var item in array)
-            {
-                if (item is not JsonObject asset) continue;
-                var name = asset["name"]?.GetValue<string>() ?? "";
-                var size = asset["size"]?.GetValue<long>() ?? 0;
-                var digest = asset["digest"]?.GetValue<string>();
-                var url = asset["browser_download_url"]?.GetValue<string>() ?? "";
-                if (name.Length == 0 || !Uri.TryCreate(url, UriKind.Absolute, out var parsed)) continue;
-                assets.Add(new ReleaseAsset(name, size, digest, parsed));
-            }
+        var downloadPrefix = "/" + repository + "/releases/download/" + Uri.EscapeDataString(tag) + "/";
+        foreach (Match row in Regex.Matches(text, @"<li\b[^>]*>(.*?)</li\s*>", RegexOptions.Singleline | RegexOptions.IgnoreCase, TimeSpan.FromSeconds(2)))
+        {
+            var link = Regex.Match(row.Groups[1].Value, "<a\\b[^>]*\\bhref\\s*=\\s*[\"']([^\"']+)[\"']", RegexOptions.IgnoreCase, TimeSpan.FromSeconds(2));
+            if (!link.Success) continue;
+            var url = new Uri(assetsUri, WebUtility.HtmlDecode(link.Groups[1].Value));
+            if (!url.AbsolutePath.Contains("/releases/download/", StringComparison.Ordinal)) continue;
+            EnsureHost(url, false);
+            if (url.GetLeftPart(UriPartial.Authority) != uri.GetLeftPart(UriPartial.Authority) ||
+                !url.AbsolutePath.StartsWith(downloadPrefix, StringComparison.Ordinal))
+                throw new InvalidDataException("发布附件不属于当前仓库版本");
+            var name = Uri.UnescapeDataString(url.AbsolutePath[downloadPrefix.Length..]);
+            if (name.Length == 0 || name.Contains('/') || name.Contains('\\') || assets.Any(a => a.Name == name))
+                throw new InvalidDataException("发布附件名称无效或重复");
+            var digest = Regex.Match(row.Value, @"sha256:([0-9a-fA-F]{64})\b", RegexOptions.None, TimeSpan.FromSeconds(2));
+            // GitHub's rounded MB/KB display is not an exact byte count.
+            var size = Regex.Match(row.Value, @">\s*(\d+)\s+Bytes?\s*<", RegexOptions.IgnoreCase, TimeSpan.FromSeconds(2));
+            assets.Add(new ReleaseAsset(name, size.Success && long.TryParse(size.Groups[1].Value, out var bytes) ? bytes : 0,
+                digest.Success ? digest.Value : null, url));
+        }
+        if (assets.Count == 0) throw new InvalidDataException("发布页未找到可下载附件");
         return new ReleaseInfo(tag, UpdateVersion.Normalize(tag), assets);
     }
 
@@ -186,6 +203,7 @@ public sealed class UpdateTransport : IDisposable
                     response.Dispose();
                     throw new HttpRequestException("更新地址返回 HTTP " + status + "：" + current.AbsoluteUri);
                 }
+                response.RequestMessage ??= request;
                 return response;
             }
             var location = response.Headers.Location;

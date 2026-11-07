@@ -16,7 +16,7 @@ internal static class FishingGauge
         var reverse=calibration["direction"]?.GetValue<string>()=="right_to_left";
         if(calibration["scan_rows"]?.GetValue<bool>()==true)
         {
-            var readings=new List<double>();var pixelsByRow=image.Pixels;
+            var readings=new List<(int Y,int Count)>();var pixelsByRow=image.Pixels;
             for(var y=box.Top;y<box.Bottom;y++)
             {
                 var count=0;var emptySeen=false;var valid=true;
@@ -27,12 +27,14 @@ internal static class FishingGauge
                     else if(Match(pixelsByRow,offset,b,15))emptySeen=true;
                     else{valid=false;break;}
                 }
-                if(valid)readings.Add(count/(double)box.Width);
+                if(valid)readings.Add((y,count));
             }
             // The calibrated floating track moves vertically with the hook icon.
-            // Require several agreeing interior rows, excluding its dark outline.
-            var group=readings.GroupBy(v=>v).OrderByDescending(g=>g.Count()).FirstOrDefault();
-            return group is not null&&group.Count()>=3?group.Key:null;
+            // Prefer adjacent filled interior rows: the dark outline and surrounding
+            // background can otherwise outvote the track with false zero readings.
+            var groups=readings.GroupBy(r=>r.Count).Select(g=>new{Count=g.Key,Rows=ConsecutiveRows(g.Select(r=>r.Y))})
+                .Where(g=>g.Rows>=3).OrderByDescending(g=>g.Count>0).ThenByDescending(g=>g.Rows).ToArray();
+            return groups.FirstOrDefault() is{} group?group.Count/(double)box.Width:null;
         }
         var pixels=image.Pixels;var filled=0;var reachedEmpty=false;
         for(var column=0;column<box.Width;column++)
@@ -86,12 +88,14 @@ internal static class FishingGauge
         return new(new(leftBound,group.Min(r=>r.Y),rightBound,group.Max(r=>r.Y)+1),middle.Value);
     }
     private static int ConsecutiveRows((int Y,int Left,int Right,double Value)[] rows)
+        =>ConsecutiveRows(rows.Select(r=>r.Y));
+    private static int ConsecutiveRows(IEnumerable<int> rows)
     {
         var longest=0;var current=0;int? previous=null;
-        foreach(var row in rows)
+        foreach(var y in rows)
         {
-            current=previous is not null&&row.Y==previous+1?current+1:1;
-            longest=Math.Max(longest,current);previous=row.Y;
+            current=previous is not null&&y==previous+1?current+1:1;
+            longest=Math.Max(longest,current);previous=y;
         }
         return longest;
     }

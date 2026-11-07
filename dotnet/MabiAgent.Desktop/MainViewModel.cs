@@ -32,6 +32,7 @@ public partial class MainViewModel:ObservableObject
     public void AttachAutomation(AutomationService service)
     {
         automation=service;
+        StopHotkeyText=workspace.ReadSettings()["input"]?["stop_hotkey"]?.GetValue<string>()??StopHotkey.Default;StopHotkeyStatus=service.StopHotkeyStatus;
         var repository=service.Repository;workspace.CatalogProvider=()=>PublishedCatalogCompiler.CompileAvailable(repository);
         _=Task.Run(()=>{try{var cleaned=repository.CleanupStorage();if(cleaned.Revisions+cleaned.DeletedChains>0)activity.Log($"已自动清理 {cleaned.Revisions} 个旧任务链版本、{cleaned.DeletedChains} 个过期的已删除任务链");}catch(Exception e){activity.Report(e);}});
         IAnchorTextDetector? detector=null;try{detector=new OnnxLineAnchorTextDetector(service.GetOcr());}catch(Exception e){activity.Report(e);Error="文字检测未加载："+e.Message;}
@@ -43,7 +44,7 @@ public partial class MainViewModel:ObservableObject
         repository.CatalogChanged+=()=>{gatheringSkillsLoaded=false;Dispatcher.UIThread.InvokeAsync(async()=>await RefreshAsync());};
         OnPropertyChanged(nameof(ChainEditor));OnPropertyChanged(nameof(AnchorEditor));OnPropertyChanged(nameof(Workbench));OnPropertyChanged(nameof(AccountItems));StartCommand.NotifyCanExecuteChanged();liveTimer.Start();
         service.Changed+=()=>{if(Interlocked.Exchange(ref runtimeNotificationQueued,1)!=0)return;Dispatcher.UIThread.Post(()=>
-        {try{if(!closing){ExecutionStatus=service.Status.Message;IsRunning=service.IsRunning;CaptureStatus=service.CaptureStatus.Message;UpdateCaptureDetails(service.CaptureStatus);UpdateRuntime();}}catch(Exception error){activity.Report(error);Error="状态显示失败："+error.Message;}finally{Interlocked.Exchange(ref runtimeNotificationQueued,0);}},DispatcherPriority.Background);};
+        {try{if(!closing){StopHotkeyStatus=service.StopHotkeyStatus;ExecutionStatus=service.Status.Message;IsRunning=service.IsRunning;CaptureStatus=service.CaptureStatus.Message;UpdateCaptureDetails(service.CaptureStatus);UpdateRuntime();}}catch(Exception error){activity.Report(error);Error="状态显示失败："+error.Message;}finally{Interlocked.Exchange(ref runtimeNotificationQueued,0);}},DispatcherPriority.Background);};
     }
     [RelayCommand(CanExecute=nameof(CanStart))] private async Task StartAsync()
     {
