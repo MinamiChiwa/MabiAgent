@@ -5,6 +5,12 @@
 > [!WARNING]
 > 本工具仍處於測試階段，存在較多尚未發現的 Bug，且不保證長期維護或持續更新。
 
+> **☕ 支持作者**
+>
+> 如果你覺得本工具有幫助，不妨贊助作者一杯咖啡。所有功能對使用者同樣開放。
+>
+> 作者：**南千和** · [愛發電](https://afdian.com/a/minamichiwa) · [Patreon](https://patreon.com/chiwaminami)
+
 MabiAgent 可為《新瑪奇 Mobile》繁體中文伺服器安排製作、採集與釣魚任務，並在執行期間修理裝備、補充材料及整理背包。
 
 目前正式版本：0.6.2，可從 [Releases](https://github.com/MinamiChiwa/MabiAgent/releases) 下載。適用 Windows 10 / 11，64 位元。
@@ -131,9 +137,3 @@ MabiAgent 可為《新瑪奇 Mobile》繁體中文伺服器安排製作、採集
 
 第三方授權收錄於發行包 licenses 資料夾：Avalonia、Semi.Avalonia、Ursa.Avalonia、CommunityToolkit.Mvvm、MarkView.Avalonia、Markdig 與 ONNX Runtime 採用 MIT；OpenCvSharp、PP-OCRv5 模型及 Material Design Icons 採用 Apache-2.0；Noto Sans SC 字型採用 SIL OFL 1.1。Npcap 需另行安裝，適用其自身授權。
 
-## 贊助
-
-若覺得工具有幫助，可以自願贊助。所有功能對使用者同樣開放。
-
-- [愛發電](https://afdian.com/a/minamichiwa)
-- [Patreon](https://patreon.com/chiwaminami)

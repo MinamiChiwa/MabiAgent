@@ -5,6 +5,12 @@
 > [!WARNING]
 > 本工具仍处于测试阶段，存在较多尚未发现的 Bug，且不保证长期维护或持续更新。
 
+> **☕ 支持作者**
+>
+> 如果你觉得本工具有帮助，不妨赞助作者一杯咖啡。所有功能对使用者同样开放。
+>
+> 作者：**南千和** · [爱发电](https://afdian.com/a/minamichiwa) · [Patreon](https://patreon.com/chiwaminami)
+
 MabiAgent 可以为《洛奇 Mobile》繁体中文服安排生产、采集和钓鱼任务，并在运行期间修理装备、补充材料和整理背包。
 
 当前正式版本：0.6.2，可从 [Releases](https://github.com/MinamiChiwa/MabiAgent/releases) 下载。适用 Windows 10 / 11，64 位。
@@ -131,9 +137,3 @@ MabiAgent 可以为《洛奇 Mobile》繁体中文服安排生产、采集和钓
 
 第三方许可收在发布包 licenses 文件夹中：Avalonia、Semi.Avalonia、Ursa.Avalonia、CommunityToolkit.Mvvm、MarkView.Avalonia、Markdig 和 ONNX Runtime 采用 MIT；OpenCvSharp、PP-OCRv5 模型及 Material Design Icons 采用 Apache-2.0；Noto Sans SC 字体采用 SIL OFL 1.1。Npcap 单独安装，适用其自身许可。
 
-## 赞助
-
-如果觉得工具有帮助，可以自愿赞助。所有功能对使用者同样开放。
-
-- [爱发电](https://afdian.com/a/minamichiwa)
-- [Patreon](https://patreon.com/chiwaminami)
