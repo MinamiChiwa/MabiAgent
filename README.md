@@ -2,6 +2,9 @@
 
 # MabiAgent
 
+> [!WARNING]
+> 本工具仍处于测试阶段，存在较多尚未发现的 Bug，且不保证长期维护或持续更新。
+
 MabiAgent 可以为《洛奇 Mobile》繁体中文服安排生产、采集和钓鱼任务，并在运行期间修理装备、补充材料和整理背包。
 
 当前正式版本：0.6.2，可从 [Releases](https://github.com/MinamiChiwa/MabiAgent/releases) 下载。适用 Windows 10 / 11，64 位。

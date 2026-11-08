@@ -2,6 +2,9 @@
 
 # MabiAgent
 
+> [!WARNING]
+> 本工具仍處於測試階段，存在較多尚未發現的 Bug，且不保證長期維護或持續更新。
+
 MabiAgent 可為《新瑪奇 Mobile》繁體中文伺服器安排製作、採集與釣魚任務，並在執行期間修理裝備、補充材料及整理背包。
 
 目前正式版本：0.6.2，可從 [Releases](https://github.com/MinamiChiwa/MabiAgent/releases) 下載。適用 Windows 10 / 11，64 位元。
