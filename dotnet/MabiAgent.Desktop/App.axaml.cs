@@ -152,7 +152,8 @@ public partial class App:Application
             main.Closed+=(_,_)=>Shutdown();
             main.Show();
             if(e.Args.Contains("--mini"))model.IsMiniMode=true;
-            if(e.Args.Contains("--close-check"))Dispatcher.UIThread.Post(main.Close);
+            if(e.Args.Contains("--close-check"))
+                Dispatcher.UIThread.Post(()=>{if(e.Args.Contains("--via-update-close"))model.ShutdownRequested?.Invoke();else main.Close();});
         }
         catch(Exception error)
         {

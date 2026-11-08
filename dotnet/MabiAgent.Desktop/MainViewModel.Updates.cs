@@ -206,13 +206,14 @@ public partial class MainViewModel
                 return;
             }
             // 3. Start the runner from a copy so the files it replaces are not locked.
-            var runner = UpdateRunner.Stage(UpdateRoot);
+            var root = UpdateRoot;
+            var runner = await Task.Run(() => UpdateRunner.Stage(root), updateLifetime.Token);
+            if (updatesReleased) return;
             _ = UpdateRunner.Start(runner, stagedPlan, Environment.ProcessId, UpdateRoot);
-            // Destructive teardown only after the runner is actually running.
-            PrepareClose();
             UpdateStatus = "正在退出并安装更新";
             ShutdownRequested?.Invoke();
         }
+        catch (OperationCanceledException) when (updatesReleased) { }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException or System.ComponentModel.Win32Exception or InvalidOperationException)
         {
             UpdateStatus = "无法启动更新：" + error.Message;

@@ -24,7 +24,7 @@ public partial class MainWindow:UrsaWindow
         model.UpdateSectionRequested=RequestUpdateSection;
         Closed+=(_,_)=>{SettingsPage.OpenWorkbenchRequested-=HandleOpenWorkbenchRequested;SettingsPage.PageShown-=HandleSettingsPageShown;model.UpdateSectionRequested=null;guideWindow?.Close();miniWindow?.CloseWithOwner();workbenchWindow?.CloseWithOwner();model.PrepareClose();model.ReleaseUpdates();};
         model.LoadUpdatePreferences();
-        model.ShutdownRequested??=()=>Avalonia.Threading.Dispatcher.UIThread.Post(()=>_=CloseRequest?.Invoke()??Task.FromResult(false));
+        model.ShutdownRequested??=()=>Avalonia.Threading.Dispatcher.UIThread.Post(Close);
         if(model.AutoCheckUpdates)Avalonia.Threading.Dispatcher.UIThread.Post(async()=>await model.CheckUpdateAsync(),Avalonia.Threading.DispatcherPriority.Background);
     }
     internal void UpdateResponsiveLayout(Size? viewport=null)
