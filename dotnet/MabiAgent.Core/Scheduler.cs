@@ -1,6 +1,6 @@
 namespace MabiAgent.Core;
 public sealed record WorkCandidate(string Id,string Kind,string? Device,bool Ready,int FreeSlots,int UserOrder,
-    double Coverage=0,bool Collectible=false,bool Automatic=false,bool BufferSatisfied=false,bool Blocked=false);
+    double Coverage=0,bool Collectible=false,bool Automatic=false,bool BufferSatisfied=false,bool Blocked=false,bool ContinueGathering=false,int ProductionSupplyPriority=0);
 public sealed record SchedulingContext(string? ActiveId,bool NativeBatchOrTransaction,string? CurrentDevice,bool BackpackRelief=false);
 
 // Chooses work only. No input authority, screen observation or persistence.
@@ -16,9 +16,9 @@ public sealed class Scheduler
             ?? eligible.Where(r=>r.Collectible).OrderBy(r=>r.UserOrder).FirstOrDefault()
             ?? eligible.Where(Production).OrderBy(r=>r.UserOrder).FirstOrDefault()
             ?? (state.BackpackRelief ? null : eligible.Where(r=>r.Kind=="withdrawal").OrderBy(r=>r.UserOrder).FirstOrDefault()
-                ?? eligible.Where(r=>r.Kind=="purchase").OrderBy(r=>r.UserOrder).FirstOrDefault()
-                ?? eligible.Where(r=>r.Kind=="gathering").OrderBy(r=>r.Coverage).ThenBy(r=>r.UserOrder).FirstOrDefault()
-                ?? eligible.Where(r=>r.Kind=="idle_fishing").OrderBy(r=>r.UserOrder).FirstOrDefault());
+                ?? eligible.Where(r=>r.Kind=="purchase").OrderBy(r=>r.UserOrder).FirstOrDefault())
+            ?? eligible.Where(r=>r.Kind=="gathering").OrderByDescending(r=>r.ProductionSupplyPriority).ThenByDescending(r=>r.ContinueGathering).ThenBy(r=>r.Coverage).ThenBy(r=>r.UserOrder).FirstOrDefault()
+            ?? eligible.Where(r=>r.Kind=="idle_fishing").OrderBy(r=>r.UserOrder).FirstOrDefault();
     }
 }
 

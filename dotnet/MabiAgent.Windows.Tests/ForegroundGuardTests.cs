@@ -3,6 +3,19 @@ using Xunit;
 namespace MabiAgent.Windows.Tests;
 public class ForegroundGuardTests
 {
+    [Fact] public void BagSearchTextSurvivesFrameSampledReceiver()
+    {
+        var ops=new FakeOps();var scope=new SessionScope("search",null,null);
+        using var guard=new ForegroundInputGuard(ops.State,scope,ops,c=>new(c.Image.Sha256,c.CapturedAt,scope,new("bag_search",false,[],new Dictionary<string,PixelPoint>{{"bag.search_input",new(5,5)}},[]),true,true),()=>1);
+        var received=new System.Text.StringBuilder();var timer=System.Diagnostics.Stopwatch.StartNew();double last=-100;double entered=0;var enterHolds=new List<double>();
+        ops.OnKey=(key,down,unicode)=>
+        {
+            if(unicode&&down&&timer.Elapsed.TotalMilliseconds-last>=75){received.Append((char)key);last=timer.Elapsed.TotalMilliseconds;}
+            if(!unicode&&key==13){if(down)entered=timer.Elapsed.TotalMilliseconds;else enterHolds.Add(timer.Elapsed.TotalMilliseconds-entered);}
+        };
+        guard.Start();guard.EditBagSearch(guard.ObserveTarget("bag.search_input"),"高級原木樹液銀礦石");
+        Assert.Equal("高級原木樹液銀礦石",received.ToString());Assert.Equal(2,enterHolds.Count);Assert.All(enterHolds,value=>Assert.True(value>=60));
+    }
     [Theory][InlineData(1,true)][InlineData(double.NaN,false)][InlineData(-1,false)]
     public void CaptureTimeoutIsDistinctFromInvalidClockAndSendsNoInput(double elapsed,bool timeout)
     {
@@ -266,13 +279,13 @@ public class ForegroundGuardTests
     {
         public NativeWindowState State=new(1,3,42,@"C:\Games\mabinogimobile.exe","UnityWndClass",new(0,0,100,100,96),new(0,0,100,100),1,true,false,true,new(0,0));
         public List<string> Events=[];public List<int> Wheels=[];public List<PixelPoint> ClientPoints=[],ScreenPoints=[];public bool FailDown,KeyHeld;public Action? AfterMove,AfterDown,AfterWheel;
-        private System.Diagnostics.Stopwatch? held;public TimeSpan HeldFor;
+        private System.Diagnostics.Stopwatch? held;public TimeSpan HeldFor;public Action<ushort,bool,bool>? OnKey;
         public NativeWindowState ReadWindow(nint hwnd)=>State;
         public RgbImage CaptureClient(NativeWindowState state)=>new(state.Geometry.Width,state.Geometry.Height,new byte[state.Geometry.Width*state.Geometry.Height*3]);
         public void MoveClient(nint hwnd,PixelPoint point){Events.Add("move");ClientPoints.Add(point);ScreenPoints.Add(new(State.Geometry.X+point.X,State.Geometry.Y+point.Y));AfterMove?.Invoke();}
         public void MouseButton(MouseButton button,bool down){Events.Add($"{button.ToString().ToLowerInvariant()}:{down}");if(down){held=System.Diagnostics.Stopwatch.StartNew();AfterDown?.Invoke();}else HeldFor=held?.Elapsed??TimeSpan.Zero;if(down&&FailDown)throw new InputOutcomeUnknownException("unknown");}
         public void Wheel(int delta){Events.Add("wheel");Wheels.Add(delta);AfterWheel?.Invoke();}
-        public void Key(ushort key,bool down,bool unicode=false){Events.Add("key");if(!unicode&&key is 87 or 83)KeyHeld=down;}
+        public void Key(ushort key,bool down,bool unicode=false){Events.Add("key");if(!unicode&&key is 87 or 83)KeyHeld=down;OnKey?.Invoke(key,down,unicode);}
         public bool AnyPhysicalKeyDown()=>KeyHeld;
     }
 }

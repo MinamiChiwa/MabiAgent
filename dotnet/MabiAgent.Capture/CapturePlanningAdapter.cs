@@ -16,6 +16,11 @@ public sealed class CapturePlanningAdapter(AccountItemService accounts, IReadOnl
     private readonly Dictionary<long, (string Basis, long Revision)> versions = [];
     private readonly string instance = Guid.NewGuid().ToString("N");
     public static string ScopeKey(InventoryScope scope) => JsonSerializer.Serialize(new[] { scope.AccountId, scope.CharacterId, scope.SessionId });
+    public string? Name(long item,InventorySnapshot? capture)
+    {
+        if(capture?.Scope is not{} scope)return null;
+        return LinkedItemCatalog.Names(accounts.ReadNames(scope.AccountId),names).GetValueOrDefault(item);
+    }
     public CapturePlanningResult Convert(InventorySnapshot? capture)
     {
         if (capture?.Scope is not { } scope || capture.Identity is not { } identity || capture.VerifiedThrough is null || capture.Error is not null ||
@@ -28,10 +33,12 @@ public sealed class CapturePlanningAdapter(AccountItemService accounts, IReadOnl
         try { registry = accounts.ReadNames(scope.AccountId); }
         catch (Exception error) when (error is IOException or InvalidDataException or UnauthorizedAccessException or JsonException or ArgumentException)
         { return new(inventory, scopeKey, [new(null, "association_unavailable", "道具关联不可用：" + error.Message)]); }
-        var duplicates = names.Where(p => p.Key > 0 && !string.IsNullOrWhiteSpace(p.Value)).GroupBy(p => ItemNameRegistry.Normalize(p.Value))
+        var availableNames=new Dictionary<long,string>(names);
+        foreach(var pair in LinkedItemCatalog.Names(registry,names))availableNames.TryAdd(pair.Key,pair.Value);
+        var duplicates = availableNames.Where(p => p.Key > 0 && !string.IsNullOrWhiteSpace(p.Value)).GroupBy(p => ItemNameRegistry.Normalize(p.Value))
             .Where(g => g.Count() > 1).Select(g => g.Key).ToHashSet(StringComparer.Ordinal);
         var characterStorage = new Dictionary<long, long?>(); var accountStorage = new Dictionary<long, long?>();
-        foreach (var (catalogId, name) in names)
+        foreach (var (catalogId, name) in availableNames)
         {
             string? reason = null; uint? wire = null;
             if (catalogId <= 0 || string.IsNullOrWhiteSpace(name)) reason = "目录名称无效";

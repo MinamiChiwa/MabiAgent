@@ -5,6 +5,23 @@ namespace MabiAgent.Windows.Tests;
 [Collection("Native process metadata")]
 public sealed class TouchTransportTests
 {
+    [Theory][InlineData(1)][InlineData(2)][InlineData(3)]
+    public void EmptyLocalTouchFramesRebuildOnlyUntilTheThirdAttempt(int failures)
+    {
+        var calls=0;var reviews=0;var deliveries=0;
+        void Execute(){calls++;if(calls<=failures)throw new LocalTouchFramesUnavailableException("0/2");deliveries++;}
+        if(failures==3)Assert.Throws<MabiAgent.Workflows.InputRejectedBeforeDispatchException>(()=>TouchInputOps.ExecutePreparedGesture(Execute,()=>reviews++));
+        else TouchInputOps.ExecutePreparedGesture(Execute,()=>reviews++);
+        Assert.Equal(Math.Min(3,failures+1),calls);Assert.Equal(calls,reviews);Assert.Equal(failures==3?0:1,deliveries);
+    }
+    [Fact] public void LocalTouchRecoveryDoesNotRepeatUnknownDeliveryOrAChangedTarget()
+    {
+        var calls=0;
+        Assert.Throws<InputOutcomeUnknownException>(()=>TouchInputOps.ExecutePreparedGesture(()=>{calls++;throw new InputOutcomeUnknownException("已发送");},()=>{}));
+        Assert.Equal(1,calls);calls=0;var reviews=0;
+        Assert.Throws<InputBlockedException>(()=>TouchInputOps.ExecutePreparedGesture(()=>{calls++;throw new LocalTouchFramesUnavailableException("0/2");},()=>{if(++reviews>1)throw new InputBlockedException("暂停或窗口变化");}));
+        Assert.Equal(1,calls);
+    }
     [Fact] public void TouchDiagnosticsWritesCorrelatedStructuredEvent()
     {
         var directory=Path.Combine(Path.GetTempPath(),"mabi-touch-trace-"+Guid.NewGuid().ToString("N"));
@@ -123,23 +140,49 @@ public sealed class TouchTransportTests
         guard.Scroll(proof,12,zoom:true);Assert.Equal(3,runner.Deliveries);Assert.False(guard.Paused);
         Assert.Throws<InputBlockedException>(()=>guard.Scroll(proof,12,zoom:true));Assert.Equal(3,runner.Deliveries);
     }
+    [Theory][InlineData("before")][InlineData("after")][InlineData("pause")][InlineData("resources")]
+    public void PreparedGestureChecksSourceBeforeDeliveryAndSystemBoundariesUntilRelease(string change)
+    {
+        var runner=new Runner();var passive=new Passive();using var ops=new TouchInputOps(State,passive,passive,runner);
+        var scope=new SessionScope("test","account","character");double delay=0;var revision="a";
+        using var guard=new ForegroundInputGuard(State,scope,ops,c=>new(c.Image.Sha256,c.CapturedAt,scope,
+            new("scene",false,[],new Dictionary<string,PixelPoint>{{"scene.open_bag",new(50,50)}},[]),true,true),
+            ()=>System.Diagnostics.Stopwatch.GetTimestamp()/(double)System.Diagnostics.Stopwatch.Frequency+delay,
+            maxFrameAgeSeconds:5,resourceRevision:()=>revision,inputOptions:new("touch"));
+        guard.Start();var proof=guard.ObserveTarget("scene.open_bag");var authority=new TestAuthority();
+        if(change=="before")runner.OnPrepared=()=>delay+=6;
+        else runner.OnDelivered=()=>
+        {
+            delay+=6;
+            if(change=="pause")guard.RequestPause();
+            if(change=="resources")revision="b";
+        };
+        void Send()=>guard.Consume(proof,"bounded",authority);
+        if(change=="after"){Send();Assert.False(guard.Paused);}
+        else if(change=="before"){Assert.Throws<MabiAgent.Workflows.InputRejectedBeforeDispatchException>(Send);Assert.Equal(0,authority.Calls);Assert.Equal(0,runner.Deliveries);return;}
+        else Assert.Throws<InputBlockedException>(Send);
+        Assert.Equal(1,authority.Calls);Assert.Equal(1,runner.Deliveries);Assert.Equal(1,runner.Releases);
+        Assert.Throws<InputBlockedException>(()=>guard.Click(proof));Assert.Equal(1,runner.Deliveries);
+    }
     [Fact] public void ExplicitCrossProcessTouchReceiver()
     {
         if(Environment.GetEnvironmentVariable("MABI_TOUCH_RECEIVER_FILE") is not {} path)return;
-        using var receiver=new TouchInputWindow(new(500,300,660,420),legacyTouch:true);
+        var origin=Environment.GetEnvironmentVariable("MABI_TOUCH_RECEIVER_ORIGIN")?.Split(',').Select(int.Parse).ToArray()??[500,300];
+        using var receiver=new TouchInputWindow(new(origin[0],origin[1],origin[0]+400,origin[1]+240),legacyTouch:true);
         File.WriteAllText(path,new JsonObject{["hwnd"]=(long)receiver.Hwnd,["pid"]=Environment.ProcessId}.ToJsonString());
         Assert.True(SpinWait.SpinUntil(()=>receiver.Received.Any(m=>m["contacts"] is JsonArray contacts&&contacts.Any(c=>(c!["flags"]!.GetValue<uint>()&4)!=0)),15000),"跨进程接收窗未解码到释放帧");
+        Assert.True(SpinWait.SpinUntil(()=>File.Exists(path+".done"),10000),"发送方未完成触控资源释放");
         var contacts=receiver.Received.Where(m=>m["contacts"] is JsonArray).SelectMany(m=>m["contacts"]!.AsArray()).ToArray();
         Assert.Contains(contacts,c=>(c!["flags"]!.GetValue<uint>()&2)!=0);
         File.WriteAllText(path,new JsonObject{["decoded"]=true,["contacts"]=new JsonArray(contacts.Select(c=>c!.DeepClone()).ToArray())}.ToJsonString());
-        Assert.True(SpinWait.SpinUntil(()=>File.Exists(path+".done"),10000),"发送方未完成触控资源释放");
     }
     [Fact] public void ExplicitCrossProcessTouchDelivery()
     {
         if(Environment.GetEnvironmentVariable("MABI_TOUCH_CROSS_PROCESS")!="1")return;
         var path=Path.GetTempFileName();
         var start=new System.Diagnostics.ProcessStartInfo("dotnet"){WorkingDirectory=RecognitionTests.Root(),UseShellExecute=false,CreateNoWindow=true};
-        foreach(var arg in new[]{"test","dotnet/MabiAgent.Windows.Tests","--no-build","--no-restore","--filter","FullyQualifiedName~ExplicitCrossProcessTouchReceiver","--verbosity","quiet"})start.ArgumentList.Add(arg);
+        var configuration=typeof(TouchTransportTests).Assembly.GetCustomAttributes(typeof(System.Reflection.AssemblyConfigurationAttribute),false).Cast<System.Reflection.AssemblyConfigurationAttribute>().Single().Configuration;
+        foreach(var arg in new[]{"test","dotnet/MabiAgent.Windows.Tests","--configuration",configuration,"--no-build","--no-restore","--filter","FullyQualifiedName~ExplicitCrossProcessTouchReceiver","--verbosity","quiet"})start.ArgumentList.Add(arg);
         start.Environment["MABI_TOUCH_RECEIVER_FILE"]=path;
         using var child=System.Diagnostics.Process.Start(start)!;
         try
@@ -150,10 +193,16 @@ public sealed class TouchTransportTests
             using var mouse=new TouchMouseMonitor();
             var reportRoot=Environment.GetEnvironmentVariable("MABI_TOUCH_DIAGNOSTIC_ROOT");
             using var runner=new ForwardedTouchGestureRunner(diagnostics:reportRoot is null?null:new MabiAgent.Core.RuntimeDiagnostics(reportRoot));var before=TouchCursorPresentation.Read();
-            runner.Execute(new("click",[[new(state.Geometry.X+80,state.Geometry.Y+60)]]),hwnd,40,()=>Assert.Equal(state.ProcessId,native.ReadWindow(hwnd).ProcessId),()=>{},()=>native.ReadWindow(hwnd));
+            var kind=Environment.GetEnvironmentVariable("MABI_TOUCH_TEST_GESTURE")??"click";
+            var center=new PixelPoint(state.Geometry.X+200,state.Geometry.Y+120);
+            var plan=kind=="click"?new TouchGesturePlan("click",[[center]]):TouchGesturePlan.Create(kind,center);
+            runner.Execute(plan,hwnd,40,()=>Assert.Equal(state.ProcessId,native.ReadWindow(hwnd).ProcessId),()=>{},()=>native.ReadWindow(hwnd));
             File.WriteAllText(path+".done","released");
             Assert.True(child.WaitForExit(20000));Assert.Equal(0,child.ExitCode);
             Assert.True(JsonNode.Parse(File.ReadAllText(path))!["decoded"]!.GetValue<bool>());
+            var received=JsonNode.Parse(File.ReadAllText(path))!["contacts"]!.AsArray();
+            foreach(var point in plan.Points[0])Assert.Contains(received,c=>(c!["flags"]!.GetValue<uint>()&7)==2&&c["screen_hundredths"]![0]!.GetValue<int>()==point.X*100&&c["screen_hundredths"]![1]!.GetValue<int>()==point.Y*100);
+            foreach(var point in plan.Points[^1])Assert.Contains(received,c=>(c!["flags"]!.GetValue<uint>()&7)==4&&c["screen_hundredths"]![0]!.GetValue<int>()==point.X*100&&c["screen_hundredths"]![1]!.GetValue<int>()==point.Y*100);
             var after=TouchCursorPresentation.Read();var physicalMoves=mouse.PhysicalMoves;
             var observation=new JsonObject{["before"]=before.ToJson(),["after"]=after.ToJson(),["physical_moves"]=physicalMoves,["physical_downs"]=mouse.PhysicalDowns,["events"]=new JsonArray(mouse.Events.Select(e=>(JsonNode)e.ToJson()).ToArray())};
             if(reportRoot is not null)File.WriteAllText(Path.Combine(reportRoot,"mouse-observation.json"),observation.ToJsonString());
@@ -311,7 +360,7 @@ public sealed class TouchTransportTests
     private static ForegroundInputGuard Guard(INativeWindowsOps ops){var scope=new SessionScope("test",null,null);return new(State,scope,ops,c=>new(c.Image.Sha256,c.CapturedAt,scope,new("scene",false,[],new Dictionary<string,PixelPoint>{{"scene.open_bag",new(50,50)}},[],TargetRegions:new Dictionary<string,PixelBox>{{"scene.open_bag",new(10,10,90,90)}}),true,true),maxFrameAgeSeconds:5,inputOptions:new("touch"));}
     private sealed class FixedTime(DateTimeOffset value):TimeProvider{public override DateTimeOffset GetUtcNow()=>value;}
     private sealed class Runner:ITouchGestureRunner
-    {public TouchGesturePlan? Plan;public int Hold,Calls,Releases;public bool Fail;public int Deliveries;public Action? OnStart,OnPrepared;private Action? beforeDelivery;public bool SupportsPreparedReview=>true;public void SetBeforeDelivery(Action check)=>beforeDelivery=check;public void Execute(TouchGesturePlan p,nint target,int hold,Action check,Action release,Func<NativeWindowState> verify){Calls++;Plan=p;Hold=hold;OnStart?.Invoke();check();OnPrepared?.Invoke();beforeDelivery?.Invoke();Deliveries++;if(Fail)throw new InputOutcomeUnknownException("test");}public void Release(Func<NativeWindowState> verify){verify();Releases++;}public void Dispose(){}}
+    {public TouchGesturePlan? Plan;public int Hold,Calls,Releases;public bool Fail;public int Deliveries;public Action? OnStart,OnPrepared,OnDelivered;private Action? beforeDelivery;public bool SupportsPreparedReview=>true;public void SetBeforeDelivery(Action check)=>beforeDelivery=check;public void Execute(TouchGesturePlan p,nint target,int hold,Action check,Action release,Func<NativeWindowState> verify){Calls++;Plan=p;Hold=hold;OnStart?.Invoke();check();OnPrepared?.Invoke();beforeDelivery?.Invoke();Deliveries++;if(Fail)throw new InputOutcomeUnknownException("test");if(OnDelivered is not null){OnDelivered();check();release();}}public void Release(Func<NativeWindowState> verify){verify();Releases++;}public void Dispose(){}}
     private sealed class Passive:INativeWindowsOps,ICurrentClientFrameSource,IKeyboardPointerPreparation
     {private long sequence;public int Keys,MouseWrites;public Action<ushort,bool>? OnKey;public Action? OnPointerPreparation;public void PreparePointerInput()=>OnPointerPreparation?.Invoke();public NativeWindowState ReadWindow(nint hwnd)=>State;public RgbImage CaptureClient(NativeWindowState state)=>new(100,100,new byte[30000]);public CurrentClientFrame CaptureCurrentClientFrame(NativeWindowState state)=>new(CaptureClient(state),new("test",1,++sequence,System.Diagnostics.Stopwatch.GetTimestamp()/(double)System.Diagnostics.Stopwatch.Frequency));public void MoveClient(nint hwnd,PixelPoint p)=>MouseWrites++;public void MouseButton(MouseButton b,bool down)=>MouseWrites++;public void Wheel(int delta)=>MouseWrites++;public void Key(ushort key,bool down,bool unicode=false){Keys++;OnKey?.Invoke(key,down);}public bool AnyPhysicalKeyDown()=>false;}
 }

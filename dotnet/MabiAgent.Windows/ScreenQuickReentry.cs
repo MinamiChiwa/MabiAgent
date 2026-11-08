@@ -9,10 +9,12 @@ public sealed class ScreenQuickReentry
     readonly ScreenWorkflowSession session;readonly JsonObject configuration;readonly QuickReentryScript script;
     readonly Dictionary<string,JsonObject> steps;
     ScreenMaintenancePort? preparation;DateTimeOffset preparationDeadline;bool prepared;
+    DateTimeOffset preparationNextAt;int dismountAttempts,menuCloseAttempts,rebirthExitAttempts;
     readonly string fieldExitTarget;readonly string fieldExitPage;readonly TimeSpan fieldExitTimeout;
     DateTimeOffset? fieldExitStartedAt;bool fieldExitDispatched;
     int appearanceAttempts;DateTimeOffset appearanceRetryAt;DateTimeOffset appearanceClickedAt;DateTimeOffset? pendingClickAt;PixelPoint? stableAppearancePoint;
     string? dialogKind;
+    int menuOpenAttempts;DateTimeOffset menuRetryAt;
     (PixelBox Box,string Text,string Label,int Threshold)? menuEntry;
     internal PixelPoint? LastAppearancePoint{get;private set;}
     internal PixelBox? LastAppearanceBox{get;private set;}
@@ -46,12 +48,35 @@ public sealed class ScreenQuickReentry
         {if(session.DismissNotice(notificationsOnly:true))return false;}
         if(!prepared&&Status==QuickReentryStatus.Running)
         {
+            if(now<preparationNextAt)return false;
             var observed=session.Observe();
             if(observed.View.Page.StartsWith("notification_",StringComparison.Ordinal))
             {session.DismissNotice();return false;}
             var stableScene=observed.Stable&&observed.View.Page=="scene";
             var inField=stableScene&&observed.View.Targets.ContainsKey(fieldExitTarget);
             var onFieldExitPage=observed.Stable&&observed.View.Page==fieldExitPage;
+            if(stableScene&&!inField&&observed.View.Targets.ContainsKey("scene.dismount"))
+            {
+                if(++dismountAttempts>3){script.Fail("快速重进前下坐骑未生效");return false;}
+                session.NavigateTarget("scene.dismount");preparationNextAt=now.AddSeconds(1);
+                session.TraceNavigation("quick_reentry","scene.dismount","input_dispatched");return false;
+            }
+            if(!stableScene&&session.LastCapture is{} menuCapture&&MenuChromeVisible(menuCapture.Image))
+            {
+                if(++menuCloseAttempts>3){script.Fail("快速重进前菜单关闭未生效");return false;}
+                session.Guard.PressKey(0x1B,TimeSpan.FromMilliseconds(80));preparationNextAt=now.AddSeconds(1);
+                session.TraceNavigation("quick_reentry","existing_menu.close","input_dispatched");return false;
+            }
+            if(!stableScene&&session.LastCapture is{} recoveryCapture)
+            {
+                var cancel=TextVisible(recoveryCapture.Image,"cancel_search");
+                if(cancel||TextVisible(recoveryCapture.Image,"confirm_search")||TextVisible(recoveryCapture.Image,"rebirth_search"))
+                {
+                    if(++rebirthExitAttempts>3){script.Fail("快速重进前重生页面退出未生效");return false;}
+                    session.Guard.PressKey(cancel?(ushort)0x20:(ushort)0x1B,TimeSpan.FromMilliseconds(80));preparationNextAt=now.AddSeconds(1);
+                    session.TraceNavigation("quick_reentry",cancel?"existing_rebirth.cancel":"existing_rebirth.back","input_dispatched");return false;
+                }
+            }
             if(stableScene&&!inField)
             {
                 if(fieldExitStartedAt is not null)session.TraceNavigation("quick_reentry","town_ready; field_exit_cleared","wait");
@@ -159,6 +184,7 @@ public sealed class ScreenQuickReentry
                 var key=checked((ushort)source["key"]!.GetValue<int>());
                 var hold=Math.Clamp(source["hold_ms"]?.GetValue<int>()??80,20,500);
                 session.Guard.PressKey(key,TimeSpan.FromMilliseconds(hold));
+                if(step.Id=="escape_menu"){menuOpenAttempts=1;menuRetryAt=now+AppearanceRetryDelay;}
                 return true;
             }
             if(step.Kind==QuickReentryStepKind.Click)
@@ -170,7 +196,16 @@ public sealed class ScreenQuickReentry
             throw new InputBlockedException("未审核的快速重进动作");
         },target=>
         {
-            if(target=="loaded")return session.Observe().Stable&&session.CurrentPage=="scene";
+            if(target=="loaded")
+            {
+                var observed=session.Observe();
+                if(observed.Stable&&observed.View.Page=="npc_dialogue")
+                {
+                    preparation??=session.CreateMaintenancePort("quick-reentry-return",new PreparationStore());
+                    preparation.ReleaseNavigation();return false;
+                }
+                return observed.Stable&&observed.View.Page=="scene";
+            }
             ClientCapture capture;
             try{capture=session.Guard.Capture();}
             catch(InputBlockedException error)when(error.CaptureTimedOut)
@@ -182,7 +217,7 @@ public sealed class ScreenQuickReentry
             {
                 // The ESC overlay is often reported as an unknown, unstable page while its list is
                 // still settling. Readable menu text is stronger evidence than the page verdict.
-                "menu_ready"=>MenuVisible(capture.Image),
+                "menu_ready"=>MenuReady(now,capture.Image),
                 // The rebirth entry asks for confirmation first; sending the exit keys without
                 // waiting for it would leave the dialog open and the whole chain stuck.
                 "rebirth_ready"=>RebirthReady(now,capture),
@@ -202,6 +237,17 @@ public sealed class ScreenQuickReentry
     // Accept the logout anchors as well, but require the menu text itself for the in-game menu.
     private bool MenuVisible(RgbImage image)
         =>MenuChromeVisible(image)||MenuText(image) is not null;
+    private bool MenuReady(DateTimeOffset now,RgbImage image)
+    {
+        if(MenuVisible(image))return true;
+        if(menuOpenAttempts>0&&now>=menuRetryAt&&AtMainScene(image))
+        {
+            if(menuOpenAttempts>=3){script.Fail("快速重进菜单打开未生效");return false;}
+            session.Guard.PressKey(0x1B,TimeSpan.FromMilliseconds(80));menuOpenAttempts++;menuRetryAt=now+AppearanceRetryDelay;
+            session.TraceNavigation("quick_reentry","menu_reopen; attempt="+menuOpenAttempts,"input_dispatched");
+        }
+        return false;
+    }
     // The structural ESC-menu buttons survive while the animated entry text is unreadable.
     private bool MenuChromeVisible(RgbImage image)
         =>session.Matcher.Anchor(image,"relogin.menu_exit") is not null

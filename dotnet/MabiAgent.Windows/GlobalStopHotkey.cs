@@ -6,6 +6,7 @@ namespace MabiAgent.Windows;
 public sealed record StopHotkey(uint Modifiers,uint Key,string Text)
 {
     public const string Default="Ctrl+Alt+F10";
+    public const string PauseDefault="Ctrl+Alt+F9";
     public bool IsMouse=>Key is 1 or 2 or 4 or 5 or 6 or >=0x100 and <=0x103;
     public bool UsesRegistration=>!IsMouse&&Modifier(Key)==0&&Key!=0x7b;
     public static uint Modifier(uint key)=>key switch{0x10 or 0xa0 or 0xa1=>4,0x11 or 0xa2 or 0xa3=>2,0x12 or 0xa4 or 0xa5=>1,0x5b or 0x5c=>8,_=>0};
@@ -56,6 +57,8 @@ public sealed record StopHotkey(uint Modifiers,uint Key,string Text)
 // Register and receive on a dedicated message thread so UI and workflow waits cannot block stop.
 public sealed partial class GlobalStopHotkey:IDisposable
 {
+    private static readonly object bindingsGate=new();
+    private static readonly Dictionary<StopHotkey,GlobalStopHotkey> bindings=new();
     private const uint CommandMessage=0x8001;
     private readonly ConcurrentQueue<(Action Action,TaskCompletionSource Completion)> commands=new();
     private readonly TaskCompletionSource ready=new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -79,11 +82,17 @@ public sealed partial class GlobalStopHotkey:IDisposable
         return InvokeAsync(()=>
         {
             if(active==binding)return;
+            lock(bindingsGate)
+            {
+            if(bindings.ContainsKey(binding))throw new Win32Exception(1409,"该快捷键已用于其他操作，请更换快捷键");
             var id=++nextId;
             if(binding.UsesRegistration&&!RegisterHotKey(0,id,binding.Modifiers|0x4000,binding.Key))
                 throw new Win32Exception(Marshal.GetLastWin32Error(),"快捷键组合已被占用或无法注册，请更换组合");
             if(activeId!=0)UnregisterHotKey(0,activeId);
+            if(active is not null)bindings.Remove(active);
+            bindings[binding]=this;
             activeId=binding.UsesRegistration?id:0;active=binding;held.Clear();modifierCandidate=0;
+            }
         });
     }
     internal async Task InvokeAsync(Action action)
@@ -119,7 +128,8 @@ public sealed partial class GlobalStopHotkey:IDisposable
         {
             lock(commandGate)
             {
-                disposed=true;if(activeId!=0)UnregisterHotKey(0,activeId);RemoveHooks();active=null;
+                disposed=true;if(activeId!=0)UnregisterHotKey(0,activeId);RemoveHooks();
+                lock(bindingsGate){if(active is not null)bindings.Remove(active);active=null;}
                 while(commands.TryDequeue(out var command))command.Completion.TrySetException(new ObjectDisposedException(nameof(GlobalStopHotkey)));
             }
         }

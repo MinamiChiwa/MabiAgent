@@ -7,6 +7,31 @@ namespace MabiAgent.Windows.Tests;
 public sealed class GlobalStopHotkeyTests
 {
     [Theory]
+    [InlineData("MouseX2")][InlineData("F12")][InlineData("LeftCtrl")][InlineData("WheelDown")]
+    public async Task PauseAndStopRejectSharedBindingsAndKeepIndependentActions(string shared)
+    {
+        var paused=0;var stopped=0;
+        using(var pause=new GlobalStopHotkey(()=>paused++,_=>{}))
+        using(var stop=new GlobalStopHotkey(()=>stopped++,_=>{}))
+        {
+            await pause.ApplyAsync(shared);
+            await stop.ApplyAsync("Ctrl+Alt+Shift+F24");
+            await Assert.ThrowsAsync<Win32Exception>(()=>stop.ApplyAsync(shared));
+            Assert.Equal("Ctrl+Alt+Shift+F24",stop.Active);
+            var key=StopHotkey.Parse(shared);
+            void Press(GlobalStopHotkey receiver,bool editing=false)
+            {
+                if(key.IsMouse)receiver.HandlePhysicalMouse(key.Key,key.Modifiers,editing);
+                else{receiver.HandlePhysicalKey(key.Key,false,key.Modifiers,editing);receiver.HandlePhysicalKey(key.Key,true,key.Modifiers,editing);}
+            }
+            await pause.InvokeAsync(()=>Press(pause,true));Assert.Equal(0,paused);
+            await pause.InvokeAsync(()=>Press(pause));Assert.Equal(1,paused);Assert.Equal(0,stopped);
+            await stop.InvokeAsync(()=>stop.HandlePhysicalKey(0x87,false,7,false));Assert.Equal(1,stopped);
+        }
+        using var replacement=new GlobalStopHotkey(()=>{},_=>{});
+        await replacement.ApplyAsync(shared);
+    }
+    [Theory]
     [InlineData("alt + control + f10","Ctrl+Alt+F10")]
     [InlineData("SHIFT+ctrl+9","Ctrl+Shift+9")]
     [InlineData("Win+Pause","Win+Pause")]

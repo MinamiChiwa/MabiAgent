@@ -6,6 +6,24 @@ using Xunit;
 namespace MabiAgent.Windows.Tests;
 public sealed class ScreenWorkflowSessionTests
 {
+    [Theory][InlineData(false)][InlineData(true)]
+    public void SharedExitClosesExistingSkillsBeforeRefresh(bool reentry)
+    {
+        var root=RecognitionTests.Root();var routes=ScreenRoutes.Load(root);
+        var frame=FishingFeedbackTests.ReadImage(Path.Combine(root,"tests/fixtures/production/reentry-skills-current.jpg"));
+        var clicks=new List<PixelPoint>();var native=new NoInputOps(frame,clicks);
+        using var session=new ScreenWorkflowSession(routes,Window(),native,new EmptyOcr(),new MemoryStore());session.Start();
+        ScreenQuickReentry? refresh=null;var now=DateTimeOffset.UnixEpoch;
+        if(reentry){refresh=new(session,()=>now);refresh.Start(now);refresh.Tick(now);}
+        else{var port=session.CreateMaintenancePort("skills-exit",new MemoryStore());Assert.Equal("skills",port.Observe().Page);Assert.False(port.ReleaseNavigation());}
+        Assert.Equal("skills",session.CurrentPage);Assert.True(session.LastObservation!.View.Targets.ContainsKey("page.close"));
+        Assert.Equal((ushort)75,Assert.Single(native.Keys));Assert.Empty(clicks);
+        if(refresh is not null)
+        {
+            native.CurrentImage=Stamp(routes.Profile,"scene_bag","maint_scene_map");now=now.AddSeconds(3);refresh.Tick(now);
+            Assert.Equal("menu_ready",refresh.CurrentStep);Assert.Contains((ushort)27,native.Keys);
+        }
+    }
     private static readonly MabiAgent.Core.CharacterSlotIdentity TestWho=new("account","character","抓包名");
     [Theory][InlineData(false,0)][InlineData(false,1)][InlineData(true,0)][InlineData(true,1)]
     public void FishingNavigationClicksVisibleRowWithoutScrolling(bool video,int row)
@@ -193,13 +211,48 @@ public sealed class ScreenWorkflowSessionTests
         var native=new NoInputOps(Stamp(routes.Profile,"notification.news_tabs"));using var session=new ScreenWorkflowSession(routes,Window(),native,new EmptyOcr(),new MemoryStore());session.Start();
         Assert.Equal("notification_news",session.Observe().View.Page);Assert.True(session.DismissNotice());Assert.Equal(new ushort[]{27},native.Keys);
     }
-    [Fact] public void SurplusMissingItemSearchIsBoundedAndNeverConfirmsSale()
+    [Theory][InlineData(false)][InlineData(true)]
+    public void SurplusSearchUsesItemsTabAndSkipsMissingResultWithoutScrolling(bool selected)
     {
-        var routes=ScreenRoutes.Load(RecognitionTests.Root());routes.Configuration["notifications"]=new JsonObject();routes.Configuration["maintenance"]!["surplus"]!["selection_scroll_delay_s"]=0;
-        routes.Profile.Definition.Remove("page_variants");routes.Profile.Definition["pages"]=JsonNode.Parse("""{"bag":{"anchors":["scene_bag"],"targets":{"bag.items_selected":"scene_bag"}}}""");
-        var clicks=new List<PixelPoint>();var native=new NoInputOps(Stamp(routes.Profile,"scene_bag"),clicks);using var session=new ScreenWorkflowSession(routes,Window(),native,new EmptyOcr(),new MemoryStore());session.Start();
-        var store=new MemoryStore(new JsonObject{["status"]="running",["phase"]="select",["item_id"]=1L,["name"]="missing",["amount"]=1L});var port=session.CreateSurplusPort("bounded-find",store,_=>300);
-        for(var i=0;i<25;i++)port.Tick();Assert.Equal("plan",port.Snapshot()["phase"]!.GetValue<string>());Assert.Null(port.Snapshot()["pending"]);Assert.Empty(clicks);Assert.Empty(native.Keys);Assert.Equal(288,native.WheelDeltas.Count);Assert.Equal(-120,native.WheelDeltas[0]);Assert.Equal(120,native.WheelDeltas[^1]);
+        var routes=ScreenRoutes.Load(RecognitionTests.Root());routes.Configuration["notifications"]=new JsonObject();
+        routes.Profile.Definition.Remove("page_variants");routes.Profile.Definition["pages"]=JsonNode.Parse("""{"bag":{"anchors":["scene_bag"],"coordinate_targets":{"bag.open_items":[900,900,902,902],"bag.search_open":[715,135,717,137]}},"bag_search":{"anchors":["scene_skills"],"coordinate_targets":{"bag.search_input":[800,170,1100,200],"bag.search_reset":[810,890,850,920],"bag.search_apply":[1000,880,1200,920]}}}""");
+        if(selected)routes.Profile.Definition["pages"]!["bag"]!["coordinate_targets"]!["bag.items_selected"]=new JsonArray(950,900,952,902);
+        var clicks=new List<PixelPoint>();var native=new NoInputOps(Stamp(routes.Profile,"scene_bag"),clicks){Background=true};using var session=new ScreenWorkflowSession(routes,Window(),native,new EmptyOcr(),new MemoryStore());session.Start();
+        var store=new MemoryStore(new JsonObject{["status"]="running",["phase"]="select",["item_id"]=1L,["name"]="銀礦石",["amount"]=1L});var port=session.CreateSurplusPort("bounded-find",store,_=>300);
+        port.Tick();Assert.Empty(native.Keys);
+        if(!selected){Assert.Equal(new PixelPoint(901,901),clicks[0]);Assert.Equal("select",port.Snapshot()["phase"]!.GetValue<string>());Assert.Empty(native.WheelDeltas);return;}
+        port.Tick();port.Tick();Assert.Equal("select",port.Snapshot()["phase"]!.GetValue<string>());
+        native.CurrentImage=Stamp(routes.Profile,"scene_skills");port.Tick();port.Tick();
+        Assert.Contains((ushort)'銀',native.Keys);Assert.Equal(2,native.Keys.Count(k=>k==13));port.Tick();
+        native.CurrentImage=Stamp(routes.Profile,"scene_bag");port.Tick();Assert.Equal("plan",port.Snapshot()["phase"]!.GetValue<string>());
+        Assert.Null(port.Snapshot()["pending"]);Assert.Empty(native.WheelDeltas);
+    }
+    [Fact] public void SurplusSearchResultUsesVisibleNameWithoutReadingStock()
+    {
+        var root=RecognitionTests.Root();var frame=FishingFeedbackTests.ReadImage(Path.Combine(root,"tests/fixtures/production/surplus-search-silver-current.jpg"));
+        using var ocr=new OnnxTextRecognizer(Path.Combine(root,"models",OnnxTextRecognizer.DefaultModelFileName));
+        using var session=new ScreenWorkflowSession(ScreenRoutes.Load(root),Window(),new NoInputOps(frame),ocr,new MemoryStore());session.Start();session.Observe();
+        var item=session.FindBagItem("銀礦石");Assert.NotNull(item);Assert.InRange(item.Value.X,720,800);Assert.InRange(item.Value.Y,200,240);
+    }
+    [Theory][InlineData("bag")][InlineData("repair_tools")]
+    public void DecompositionSelectsItemsBeforeSearching(string page)
+    {
+        var routes=ScreenRoutes.Load(RecognitionTests.Root());routes.Configuration["notifications"]=new JsonObject();routes.Profile.Definition.Remove("page_variants");
+        routes.Profile.Definition["pages"]=JsonNode.Parse("{\""+page+"\":{\"anchors\":[\"scene_bag\"],\"coordinate_targets\":{\"bag.open_items\":[950,900,952,902],\"bag.search_open\":[715,135,717,137]}}}");
+        var clicks=new List<PixelPoint>();var native=new NoInputOps(Stamp(routes.Profile,"scene_bag"),clicks){Background=true};using var session=new ScreenWorkflowSession(routes,Window(),native,new EmptyOcr(),new MemoryStore());session.Start();
+        var stock=new MabiAgent.Core.InventorySnapshot(session.Scope.SessionId);stock.Set(new(985189850,10,stock.Scope,"packet_capture","input",true));stock.Set(new(4558467832867117L,4,stock.Scope,"packet_capture","output",true));
+        var port=new ScreenDecompositionPort(session,"search-branch",new MemoryStore(),()=>stock);Assert.True(port.Request(1));port.Tick();
+        Assert.Equal(new PixelPoint(951,901),Assert.Single(clicks));Assert.Empty(native.Keys);Assert.Empty(native.WheelDeltas);Assert.Null(port.Snapshot()["pending"]);
+    }
+    [Fact] public void SurplusFinishingClearsSearchAndWaitsForBackpack()
+    {
+        var routes=ScreenRoutes.Load(RecognitionTests.Root());routes.Configuration["notifications"]=new JsonObject();
+        routes.Profile.Definition.Remove("page_variants");routes.Profile.Definition["pages"]=JsonNode.Parse("""{"bag":{"anchors":["scene_bag"],"coordinate_targets":{"bag.items_selected":[950,900,952,902],"bag.search_open":[715,135,717,137]}},"bag_search":{"anchors":["scene_skills"],"coordinate_targets":{"bag.search_reset":[810,890,850,920],"bag.search_apply":[1000,880,1200,920]}}}""");
+        var clicks=new List<PixelPoint>();var native=new NoInputOps(Stamp(routes.Profile,"scene_bag"),clicks){Background=true};using var session=new ScreenWorkflowSession(routes,Window(),native,new EmptyOcr(),new MemoryStore());session.Start();
+        var store=new MemoryStore(new JsonObject{["status"]="running",["phase"]="plan",["item_id"]=1L,["search_dirty"]=true,["attempted"]=new JsonArray()});var port=session.CreateSurplusPort("clear-find",store,_=>0);
+        Assert.Equal("running",port.Tick());port.Tick();native.CurrentImage=Stamp(routes.Profile,"scene_skills");port.Tick();port.Tick();
+        Assert.Equal("search_cleared",port.Snapshot()["phase"]!.GetValue<string>());native.CurrentImage=Stamp(routes.Profile,"scene_bag");Assert.Equal("complete",port.Tick());
+        Assert.False(port.Snapshot()["search_dirty"]!.GetValue<bool>());Assert.Equal(3,clicks.Count);Assert.Empty(native.Keys);Assert.Empty(native.WheelDeltas);
     }
     [Theory][InlineData("gathering_soft_log",4744486152423685L)][InlineData("gathering_hard_log",4688397999765803L)]
     public void LogUsesUserCorrectedArmoredTreeRouteAndObserver(string key,long item)
@@ -254,6 +307,14 @@ public sealed class ScreenWorkflowSessionTests
         Assert.Equal(known?"complete":"unknown",port.Tick());Assert.Empty(native.Keys);
         Assert.Equal(!known,port.Snapshot()["pending"] is not null);
     }
+    [Fact] public void DecompositionAcceptsStockFromLateVerifiedOwner()
+    {
+        var routes=ScreenRoutes.Load(RecognitionTests.Root());using var session=new ScreenWorkflowSession(routes,Window(),new NoInputOps(),new EmptyOcr(),new MemoryStore());
+        var stock=new MabiAgent.Core.InventorySnapshot(session.Scope.SessionId+":owner:character");
+        stock.Set(new(985189850,10,stock.Scope,"packet_capture","input",true));stock.Set(new(4558467832867117L,4,stock.Scope,"packet_capture","output",true));
+        var port=new ScreenDecompositionPort(session,"late-owner-conversion",new MemoryStore(),()=>stock);
+        Assert.True(port.Request(1));Assert.Equal(stock.Scope,port.Snapshot()["scope"]!.GetValue<string>());Assert.Null(port.Snapshot()["pending"]);
+    }
     [Theory][InlineData(false)][InlineData(true)]
     public void QuickReentryClosesNewsDuringLoadAndWhileWaitingForCapture(bool complete)
     {
@@ -268,6 +329,29 @@ public sealed class ScreenWorkflowSessionTests
         Assert.Equal(new ushort[]{27},native.Keys);Assert.False(session.Guard.Paused);
         script.Pause();session.Pause("manual");script.Tick(now.AddSeconds(3));Assert.Single(native.Keys);
     }
+    [Theory][InlineData(false)][InlineData(true)]
+    public void QuickReentryLeavesExistingRebirthBeforeRestarting(bool unresponsive)
+    {
+        var routes=ScreenRoutes.Load(RecognitionTests.Root());routes.Configuration["notifications"]=new JsonObject();
+        routes.Profile.Definition.Remove("page_variants");routes.Profile.Definition["idle_fishing"]=new JsonObject();
+        routes.Profile.Definition["pages"]=JsonNode.Parse("""{"scene":{"anchors":["scene_bag"]}}""");
+        var pixels=new byte[1280*960*3];
+        foreach(var box in new[]{new PixelBox(560,900,730,925),new PixelBox(520,690,730,715)})
+            for(var y=box.Top;y<box.Bottom;y++)for(var x=box.Left;x<box.Right;x++)for(var c=0;c<3;c++)pixels[(y*1280+x)*3+c]=255;
+        var ocr=new RebirthPreparationOcr();var native=new NoInputOps(new(1280,960,pixels));
+        native.OnKeyDown=key=>{if(unresponsive)return;if(key==27){ocr.Text="取消重生";var changed=(byte[])pixels.Clone();changed[0]=1;native.CurrentImage=new(1280,960,changed);}if(key==32)native.CurrentImage=Stamp(routes.Profile,"scene_bag");};
+        using var session=new ScreenWorkflowSession(routes,Window(),native,ocr,new MemoryStore());session.Start();
+        var now=DateTimeOffset.UnixEpoch;var refresh=new ScreenQuickReentry(session,()=>now);refresh.Start(now);
+        refresh.Tick(now);Assert.Equal(new ushort[]{27},native.Keys);
+        refresh.Tick(now.AddMilliseconds(500));Assert.Single(native.Keys);
+        refresh.Tick(now.AddSeconds(1));
+        if(unresponsive)
+        {refresh.Tick(now.AddSeconds(2));refresh.Tick(now.AddSeconds(3));Assert.Equal(3,native.Keys.Count);Assert.Equal(QuickReentryStatus.Failed,refresh.Status);}
+        else
+        {Assert.Equal(new ushort[]{27,32},native.Keys);refresh.Tick(now.AddSeconds(2));Assert.Equal(new ushort[]{27,32,27},native.Keys);Assert.Equal("menu_ready",refresh.CurrentStep);}
+    }
+    private sealed class RebirthPreparationOcr:IColorOcrEngine
+    {public string Text="進行重生";public OcrLine? Recognize(int width,int height,byte[] pixels)=>new(Text,.99);public OcrLine? RecognizeRgb(RgbImage image)=>new(Text,.99);}
     [Fact] public void QuickReentryConfigContainsOnlyTheFastReentryChain()
     {
         var routes=ScreenRoutes.Load(RecognitionTests.Root());
@@ -360,6 +444,54 @@ public sealed class ScreenWorkflowSessionTests
         state="town";
         for(var attempt=0;attempt<5&&!native.Keys.Contains((ushort)27);attempt++){Thread.Sleep(400);now=now.AddSeconds(1);refresh.Tick(now);}
         Assert.Contains((ushort)27,native.Keys);Assert.Single(clicks);
+    }
+    [Fact] public void SharedExitCancelsAbandonedDeviceTravelBeforeReturningToScene()
+    {
+        var routes=ScreenRoutes.Load(RecognitionTests.Root());routes.Configuration["notifications"]=new JsonObject();
+        routes.Profile.Definition.Remove("page_variants");
+        routes.Profile.Definition["pages"]=JsonNode.Parse("""{"scene":{"anchors":["maint_scene_map"]},"wood_panel":{"anchors":["scene_bag"],"coordinate_targets":{"page.close":[20,20,60,60]}},"device_travel_confirm":{"anchors":["scene_skills"],"coordinate_targets":{"device.cancel_travel":[440,833,620,896]}}}""");
+        var clicks=new List<PixelPoint>();var native=new NoInputOps(Stamp(routes.Profile,"scene_skills"),clicks);
+        using var session=new ScreenWorkflowSession(routes,Window(),native,new EmptyOcr(),new MemoryStore());session.Start();
+        var port=session.CreateMaintenancePort("abandoned-device",new MemoryStore());port.Observe();Assert.False(port.ReleaseNavigation());
+        Assert.InRange(Assert.Single(clicks).X,440,620);
+        native.CurrentImage=Stamp(routes.Profile,"scene_bag");Thread.Sleep(600);port.Observe();Assert.False(port.ReleaseNavigation());
+        port.Observe();Assert.False(port.ReleaseNavigation());Assert.Equal(2,clicks.Count);Assert.InRange(clicks[1].X,20,60);
+        native.CurrentImage=Stamp(routes.Profile,"maint_scene_map");port.Observe();Assert.True(port.ReleaseNavigation());Assert.Empty(native.Keys);
+    }
+    [Theory][InlineData(false)][InlineData(true)]
+    public void QuickReentryRetriesDroppedMenuKeyOnlyWhileStillInScene(bool unresponsive)
+    {
+        var routes=ScreenRoutes.Load(RecognitionTests.Root());routes.Configuration["notifications"]=new JsonObject();
+        routes.Profile.Definition.Remove("page_variants");
+        routes.Profile.Definition["pages"]=JsonNode.Parse("""{"scene":{"anchors":["scene_bag"]}}""");
+        routes.Configuration["quick_reentry"]!["steps"]=JsonNode.Parse("""[{"id":"escape_menu","kind":"key","key":27,"delay_ms":0},{"id":"menu_ready","kind":"wait","delay_ms":0}]""");
+        var town=Stamp(routes.Profile,"scene_bag","scene_menu");var menu=Stamp(routes.Profile,"relogin.menu_exit");
+        var native=new NoInputOps(town);var attempts=0;
+        native.OnKeyDown=key=>{if(key==27&&++attempts==2&&!unresponsive)native.CurrentImage=menu;};
+        using var session=new ScreenWorkflowSession(routes,Window(),native,new EmptyOcr(),new MemoryStore());session.Start();
+        var now=DateTimeOffset.UnixEpoch;var refresh=new ScreenQuickReentry(session,()=>now);refresh.Start(now);refresh.Tick(now);
+        Assert.Single(native.Keys);refresh.Tick(now.AddSeconds(1));Assert.Single(native.Keys);
+        refresh.Tick(now.AddSeconds(3));Assert.Equal(2,native.Keys.Count);
+        refresh.Tick(now.AddSeconds(6));
+        if(unresponsive)
+        {Assert.Equal(3,native.Keys.Count);refresh.Tick(now.AddSeconds(9));Assert.Equal(QuickReentryStatus.Failed,refresh.Status);Assert.Contains("菜单打开未生效",refresh.Failure);}
+        else
+        {Assert.Equal(QuickReentryStatus.Complete,refresh.Status);refresh.Tick(now.AddSeconds(9));Assert.Equal(2,native.Keys.Count);}
+        Assert.False(session.Guard.Paused);
+    }
+    [Fact] public void QuickReentryDismountsInTownBeforeOpeningRebirthMenu()
+    {
+        var routes=ScreenRoutes.Load(RecognitionTests.Root());routes.Configuration["notifications"]=new JsonObject();
+        routes.Profile.Definition.Remove("page_variants");
+        routes.Profile.Definition["pages"]=JsonNode.Parse("""{"scene":{"anchors":["scene_bag","maint_scene_map"],"targets":{"scene.dismount":"maint_dismount"}}}""");
+        var mounted=Stamp(routes.Profile,"scene_bag","maint_scene_map","maint_dismount");
+        var town=Stamp(routes.Profile,"scene_bag","maint_scene_map");var clicks=new List<PixelPoint>();var riding=true;
+        var native=new NoInputOps(mounted,clicks){CaptureFrame=_=>riding?mounted:town,OnPointerDown=()=>riding=false};
+        using var session=new ScreenWorkflowSession(routes,Window(),native,new EmptyOcr(),new MemoryStore());session.Start();
+        var now=DateTimeOffset.UnixEpoch;var refresh=new ScreenQuickReentry(session,()=>now);refresh.Start(now);refresh.Tick(now);
+        Assert.Single(clicks);Assert.Empty(native.Keys);
+        refresh.Tick(now.AddMilliseconds(500));Assert.Empty(native.Keys);
+        refresh.Tick(now.AddSeconds(1));Assert.Equal(new ushort[]{27},native.Keys);Assert.Single(clicks);
     }
     [Fact] public void QuickReentrySkipsMapExitWhenAlreadyInTown()
     {
@@ -553,6 +685,28 @@ public sealed class ScreenWorkflowSessionTests
         if(sale>0){Assert.Equal(sale,port.Snapshot()["amount"]!.GetValue<long>());Assert.Equal(keep,port.Snapshot()["minimum_keep"]!.GetValue<long>());}
     }
     [Theory][InlineData(483,183)][InlineData(300,0)]
+    public void SurplusPlansStockAfterOwnerIdentityArrives(long stock,long sale)
+    {
+        var routes=ScreenRoutes.Load(RecognitionTests.Root());using var session=new ScreenWorkflowSession(routes,Window(),new NoInputOps(),new EmptyOcr(),new MemoryStore());
+        var inventory=new MabiAgent.Core.InventorySnapshot(session.Scope.SessionId+":owner:character");inventory.Set(new(198875762,stock,inventory.Scope,"packet_capture","owner-v1",true));
+        var store=new MemoryStore();var port=session.CreateSurplusPort("owner-floor",store,_=>300,()=>inventory);port.Begin();
+        Assert.Equal(sale==0?"complete":"running",port.Tick());
+        if(sale>0)Assert.Equal(sale,port.Snapshot()["amount"]!.GetValue<long>());
+    }
+    [Theory][InlineData(false,true)][InlineData(true,true)][InlineData(true,false)]
+    public void SurplusReceiptUsesCurrentInventoryOwner(bool savedScope,bool sameOwner)
+    {
+        var routes=ScreenRoutes.Load(RecognitionTests.Root());using var session=new ScreenWorkflowSession(routes,Window(),new NoInputOps(),new EmptyOcr(),new MemoryStore());
+        var scope=session.Scope.SessionId+":owner:character";
+        var inventory=new MabiAgent.Core.InventorySnapshot(scope);inventory.Set(new(198875762,100,scope,"packet_capture","after",true));
+        var pending=new JsonObject{["before"]=270L,["amount"]=170L,["before_version"]="before"};
+        if(savedScope)pending["inventory_scope"]=sameOwner?scope:scope+"-other";
+        var store=new MemoryStore(new JsonObject{["status"]="unknown",["phase"]="result",["item_id"]=198875762L,["amount"]=170L,["attempted"]=new JsonArray(),["receipts"]=new JsonArray(),["pending"]=pending});
+        var port=session.CreateSurplusPort("owner-receipt",store,_=>100,()=>inventory);port.ObserveOnly();
+        Assert.Equal(savedScope&&!sameOwner,port.Snapshot()["pending"] is not null);
+        Assert.Equal(savedScope&&!sameOwner?0:1,port.Snapshot()["receipts"]!.AsArray().Count);
+    }
+    [Theory][InlineData(483,183)][InlineData(300,0)]
     public void SurplusPlansVerifiedDecompositionInputByNameAboveDefaultFloor(long stock,long sale)
     {
         var routes=ScreenRoutes.Load(RecognitionTests.Root());using var session=new ScreenWorkflowSession(routes,Window(),new NoInputOps(),new EmptyOcr(),new MemoryStore());
@@ -560,6 +714,18 @@ public sealed class ScreenWorkflowSessionTests
         var store=new MemoryStore();var port=session.CreateSurplusPort("branch-floor",store,_=>300,()=>inventory);port.Begin();
         Assert.Equal(sale==0?"complete":"running",port.Tick());Assert.Null(port.Snapshot()["pending"]);
         if(sale>0){Assert.Equal("樹枝",port.Snapshot()["name"]!.GetValue<string>());Assert.Equal(sale,port.Snapshot()["amount"]!.GetValue<long>());Assert.Equal(300,port.Snapshot()["minimum_keep"]!.GetValue<long>());}
+    }
+    [Theory][InlineData("tidy")][InlineData("tidy_confirm")][InlineData("tidy_result")]
+    public void SurplusSelectionClosesTidyPagesThroughSharedNavigation(string page)
+    {
+        var routes=ScreenRoutes.Load(RecognitionTests.Root());routes.Configuration["notifications"]=new JsonObject();
+        routes.Profile.Definition.Remove("page_variants");routes.Profile.Definition["pages"]=new JsonObject{[page]=JsonNode.Parse("""{"anchors":["scene_bag"],"targets":{"page.close":"scene_bag"}}""")};
+        routes.Configuration["maintenance"]!["exit_navigation"]![page]=new JsonObject{["target"]="page.close",["expected_page"]="bag"};
+        var clicks=new List<PixelPoint>();var native=new NoInputOps(Stamp(routes.Profile,"scene_bag"),clicks);
+        var store=new MemoryStore(new JsonObject{["status"]="running",["phase"]="select",["item_id"]=1L,["name"]="ore",["amount"]=1L,["deadline"]=(DateTimeOffset.UtcNow-DateTimeOffset.UnixEpoch).TotalSeconds+60});
+        using var session=new ScreenWorkflowSession(routes,Window(),native,new EmptyOcr(),new MemoryStore());session.Start();
+        var port=session.CreateSurplusPort("tidy-sale",store,_=>1);Assert.Equal("running",port.Tick());Assert.True(clicks.Count==1,$"page={session.CurrentPage}; paused={session.Guard.Paused}; reason={session.Guard.PauseReason}; state={port.Snapshot()}");
+        port.Tick();Assert.Single(clicks);Assert.Equal(0,native.Wheels);Assert.Null(store.Read()!["pending"]);
     }
     [Theory][InlineData("repair_tools")][InlineData("bag")]
     public void SurplusSelectionSelectsItemsBeforeSearchingAnyBackpackTab(string page)
@@ -653,8 +819,9 @@ public sealed class ScreenWorkflowSessionTests
         using var rgb=new OpenCvSharp.Mat();OpenCvSharp.Cv2.CvtColor(bgr,rgb,OpenCvSharp.ColorConversionCodes.BGR2RGB);
         var pixels=new byte[rgb.Width*rgb.Height*3];System.Runtime.InteropServices.Marshal.Copy(rgb.Data,pixels,0,pixels.Length);
         var native=new NoInputOps(new(rgb.Width,rgb.Height,pixels));
-        var journal=new MemoryStore(new JsonObject{["ports"]=new JsonObject{["production:arrival"]=new JsonObject{["device_arrived"]=true}}});
+        var journal=new MemoryStore();
         using var session=new ScreenWorkflowSession(routes,Window(),native,new EmptyOcr(),journal);session.Start();
+        session.ConfirmDeviceArrival("fabric");
         var port=session.CreateProductionPort("catalog_fabric_04","arrival",new MemoryStore());
         var flags=System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic;
         typeof(ScreenProductionPort).GetField("queueArrived",flags)!.SetValue(port,true);
@@ -920,7 +1087,71 @@ public sealed class ScreenWorkflowSessionTests
             // Arrival uses the automatically reopened page alone: arrival anchors are absent.
             native.CurrentImage=Stamp(routes.Profile,"scene_bag");var frame=port.Observe();Assert.False(frame.NavigationActive);Assert.True(frame.AtDevice);
             port.Navigate("recipe",recipe);Assert.Equal(2,clicks.Count);Assert.NotEqual(clicks[0],clicks[1]);
+            // Another batch at the same physical device reuses this arrival.
+            var peer=session.CreateProductionPort(recipe.Key,"next-batch",new MemoryStore());
+            Assert.True(peer.Observe().AtDevice);Assert.Equal("metal",session.OnsiteDevice);
+            peer.Navigate("recipe",recipe);Assert.Equal(3,clicks.Count);Assert.Equal(clicks[1],clicks[2]);
+            session.BeginNavigation("gathering:elsewhere");
+            Assert.False(peer.Observe().AtDevice);Assert.False(port.Observe().AtDevice);Assert.Null(session.OnsiteDevice);
         }
+    }
+    [Fact] public void PersistedDeviceArrivalDoesNotConfirmTheCurrentPosition()
+    {
+        var routes=ScreenRoutes.Load(RecognitionTests.Root());routes.Profile.Definition.Remove("page_variants");routes.Profile.Definition.Remove("coordinate_control_targets");
+        routes.Profile.Definition["pages"]=JsonNode.Parse("""{"metal_panel":{"anchors":["scene_bag"]}}""");
+        var journal=new MemoryStore(new JsonObject{["ports"]=new JsonObject{["production:old-arrival"]=new JsonObject{["device_arrived"]=true}}});
+        using var session=new ScreenWorkflowSession(routes,Window(),new NoInputOps(Stamp(routes.Profile,"scene_bag")),new EmptyOcr(),journal);session.Start();
+        var frame=session.CreateProductionPort("iron_ingot_from_iron_ore","old-arrival",new MemoryStore()).Observe();
+        Assert.False(frame.AtDevice);Assert.False(frame.NavigationActive);Assert.Null(session.OnsiteDevice);
+    }
+    [Fact] public void CurrentWoodEquipmentPageDoesNotRequestAnotherTrip()
+    {
+        var root=RecognitionTests.Root();var routes=ScreenRoutes.Load(root);routes.Configuration.Remove("workbench_chains");
+        using var bgr=OpenCvSharp.Cv2.ImRead(Path.Combine(root,"tests/fixtures/production/wood-arrived-current.jpg"));
+        using var rgb=new OpenCvSharp.Mat();OpenCvSharp.Cv2.CvtColor(bgr,rgb,OpenCvSharp.ColorConversionCodes.BGR2RGB);
+        var pixels=new byte[rgb.Width*rgb.Height*3];System.Runtime.InteropServices.Marshal.Copy(rgb.Data,pixels,0,pixels.Length);
+        var clicks=new List<PixelPoint>();var native=new NoInputOps(new(rgb.Width,rgb.Height,pixels),clicks);
+        using var session=new ScreenWorkflowSession(routes,Window(),native,new EmptyOcr(),new MemoryStore());session.Start();
+        var port=session.CreateProductionPort("catalog_wood_01","current-wood",new MemoryStore());var frame=port.Observe();
+        Assert.Equal("wood_panel",frame.Page);Assert.True(frame.AtDevice,"needs="+session.LastObservation!.View.NeedsDeviceArrival+"; hits="+string.Join(",",session.LastObservation.View.Hits.Select(h=>h.Name)));
+        port.Navigate("queue",new("catalog_wood_01","wood",720));Assert.Empty(clicks);
+    }
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void QuickReentryReturnAdvancesObservedNpcDialogueThenWaitsForScene(bool returnsToScene)
+    {
+        var root=RecognitionTests.Root();var routes=ScreenRoutes.Load(root);
+        routes.Configuration["quick_reentry"]!["steps"]=JsonNode.Parse("""[{"id":"escape_menu","kind":"key","key":27,"delay_ms":0},{"id":"loaded","kind":"wait","delay_ms":0,"timeout_s":120}]""");
+        using var bgr=OpenCvSharp.Cv2.ImRead(Path.Combine(root,"tests/fixtures/production/reentry-return-dialog-current.jpg"));
+        using var rgb=new OpenCvSharp.Mat();OpenCvSharp.Cv2.CvtColor(bgr,rgb,OpenCvSharp.ColorConversionCodes.BGR2RGB);
+        var pixels=new byte[rgb.Width*rgb.Height*3];System.Runtime.InteropServices.Marshal.Copy(rgb.Data,pixels,0,pixels.Length);
+        var scene=Stamp(routes.Profile,"scene_bag","maint_scene_map");var clicks=new List<PixelPoint>();var native=new NoInputOps(scene,clicks);
+        using var session=new ScreenWorkflowSession(routes,Window(),native,new EmptyOcr(),new MemoryStore());session.Start();
+        var now=DateTimeOffset.UnixEpoch;var refresh=new ScreenQuickReentry(session,()=>now);refresh.Start(now);refresh.Tick(now);
+        Assert.Equal("loaded",refresh.CurrentStep);native.CurrentImage=new(rgb.Width,rgb.Height,pixels);now=now.AddSeconds(1);refresh.Tick(now);
+        Assert.Equal(QuickReentryStatus.Running,refresh.Status);Assert.Equal("npc_dialogue",session.CurrentPage);Assert.Single(clicks);
+        if(returnsToScene)
+        {
+            native.CurrentImage=scene;now=now.AddSeconds(1);refresh.Tick(now);Assert.Equal(QuickReentryStatus.Complete,refresh.Status);
+        }
+        else
+        {
+            now=now.AddSeconds(121);refresh.Tick(now);Assert.Equal(QuickReentryStatus.Failed,refresh.Status);
+        }
+        Assert.Single(clicks);
+    }
+    [Fact] public void AlreadyOnsitePageReleasesTravelWithoutAnObservedPanelClosure()
+    {
+        var root=RecognitionTests.Root();var routes=ScreenRoutes.Load(root);routes.Configuration.Remove("workbench_chains");
+        using var bgr=OpenCvSharp.Cv2.ImRead(Path.Combine(root,"tests/fixtures/production/wood-arrived-current.jpg"));
+        using var rgb=new OpenCvSharp.Mat();OpenCvSharp.Cv2.CvtColor(bgr,rgb,OpenCvSharp.ColorConversionCodes.BGR2RGB);
+        var pixels=new byte[rgb.Width*rgb.Height*3];System.Runtime.InteropServices.Marshal.Copy(rgb.Data,pixels,0,pixels.Length);
+        var clicks=new List<PixelPoint>();var native=new NoInputOps(new(rgb.Width,rgb.Height,pixels),clicks);
+        var journal=new MemoryStore(new JsonObject{["ports"]=new JsonObject{["production:onsite-travel"]=new JsonObject{["device_travel"]=true,["panel_closed"]=false,["travel_deadline"]=0d}}});
+        using var session=new ScreenWorkflowSession(routes,Window(),native,new EmptyOcr(),journal);session.Start();
+        var port=session.CreateProductionPort("catalog_wood_01","onsite-travel",new MemoryStore());var frame=port.Observe();
+        Assert.True(frame.AtDevice);Assert.False(frame.NavigationActive);Assert.True(session.HasDeviceArrival("wood"));Assert.Empty(clicks);
     }
     [Fact] public void DeviceTravelConfirmsCrossRegionPromptOnceAndKeepsWaitingAcrossRestart()
     {
@@ -935,6 +1166,8 @@ public sealed class ScreenWorkflowSessionTests
             native.CurrentImage=Stamp(routes.Profile,"scene_skills");Assert.True(port.Observe().NavigationActive);
             port.Navigate("queue",recipe);Assert.Equal(2,clicks.Count);Assert.True(new PixelBox(646,833,861,896).Contains(clicks[^1]));
             Assert.True(port.Observe().NavigationActive);port.Navigate("queue",recipe);Assert.Equal(2,clicks.Count);
+            native.CurrentImage=Stamp(routes.Profile,"scene_bag");Assert.True(port.Observe().NavigationActive);
+            native.CurrentImage=Stamp(routes.Profile,"scene_skills");Assert.True(port.Observe().NavigationActive);
         }
         using(var session=new ScreenWorkflowSession(routes,Window(),native,new EmptyOcr(),journal))
         {
@@ -1457,6 +1690,25 @@ public sealed class ScreenWorkflowSessionTests
         var port=session.CreateMaintenancePort("m",new MemoryStore());port.Observe();port.Observe();Assert.Null(port.Navigate("backpack_weight"));Assert.Single(clicks);
         Assert.Null(port.Navigate("backpack_weight"));Assert.Single(clicks);
     }
+    [Theory][InlineData("backpack_weight")][InlineData("backpack_tidy")][InlineData("repair_tools")][InlineData("backpack_weight","tidy")][InlineData("backpack_tidy","tidy")]
+    public void MaintenanceBagOpenWaitsThroughUnrelatedPage(string destination,string result="bag")
+    {
+        var routes=ScreenRoutes.Load(RecognitionTests.Root());routes.Configuration["notifications"]=new JsonObject();
+        routes.Profile.Definition.Remove("page_variants");routes.Profile.Definition.Remove("coordinate_control_targets");
+        routes.Profile.Definition["idle_fishing"]=new JsonObject();
+        routes.Profile.Definition["pages"]=JsonNode.Parse("""{"scene":{"anchors":["scene_bag"],"coordinate_targets":{"scene.open_bag":[100,100,140,140]}},"wood_panel":{"anchors":["scene_skills"]},"bag":{"anchors":["maint_scene_map"]}}""");
+        if(result=="tidy"){var pages=routes.Profile.Definition["pages"]!.AsObject();pages["tidy"]=pages["bag"]!.DeepClone();pages.Remove("bag");}
+        routes.Configuration["maintenance"]!["navigation"]![destination]!["scene"]!["settle_s"]=0;
+        var clicks=new List<PixelPoint>();var native=new NoInputOps(Stamp(routes.Profile,"scene_bag"),clicks);
+        using var session=new ScreenWorkflowSession(routes,Window(),native,new EmptyOcr(),new MemoryStore());session.Start();
+        var port=session.CreateMaintenancePort("bag-transition",new MemoryStore());port.Observe();port.Observe();
+        Assert.Equal("scene",session.CurrentPage);Assert.True(session.LastObservation!.Stable);Assert.Contains("scene.open_bag",session.LastObservation.View.Targets.Keys);
+        Assert.Null(port.Navigate(destination));Assert.Single(native.Keys);Assert.Equal("dispatch",port.LastTestNavigationTrace?.Phase);
+        native.CurrentImage=Stamp(routes.Profile,"scene_skills");port.Observe();port.Observe();
+        Assert.Null(port.Navigate(destination));Assert.Single(native.Keys);Assert.Equal("dispatch",port.LastTestNavigationTrace?.Phase);
+        native.CurrentImage=Stamp(routes.Profile,"maint_scene_map");port.Observe();port.Observe();
+        Assert.Null(port.Navigate(destination));Assert.Single(native.Keys);Assert.Equal("confirmed",port.LastTestNavigationTrace?.Phase);
+    }
     [Fact] public void MaintenanceAndFishingUseTheirCurrentFramesAfterExplicitResume()
     {
         var routes=ScreenRoutes.Load(RecognitionTests.Root());routes.Configuration["notifications"]=new JsonObject();
@@ -1687,7 +1939,10 @@ public sealed class ScreenWorkflowSessionTests
         foreach(var destination in new[]{"repair_quote","purchase_shop"})
         {
             var stages=nav[destination]!["region_map"]!["stages"]!;Assert.Equal("zoom_max",stages["zoom"]!["search"]![0]!["kind"]!.GetValue<string>());
-            Assert.Null(stages["portrait"]!["search"]);
+            var recovery=Assert.Single(stages["portrait"]!["search"]!.AsArray());
+            Assert.Equal("recenter",recovery!["next"]!.GetValue<string>());
+            Assert.True(recovery["map_recovery"]!.GetValue<bool>());
+            Assert.Equal(-4,recovery["steps"]!.GetValue<int>());
         }
     }
     [Fact] public void MaximumZoomMustSaturateBeforeNpcSelection()
@@ -1884,8 +2139,10 @@ public sealed class ScreenWorkflowSessionTests
     {
         var state=new MemoryStore(new JsonObject{["pending"]=new JsonObject{["kind"]="craft",["at"]=123d}});var journal=new MemoryStore();var scope=ScreenWorkflowSession.ProcessScope(Window());
         var (proof,view)=Evidence(scope);var hash=Hash(state.Read()!["pending"]!);
-        var authority=new ScreenWorkflowSession.DurableAuthority(journal,state,scope,"batch",hash,"craft",_=>true);
+        var authority=new ScreenWorkflowSession.DurableAuthority(journal,state,scope,"batch",hash,"craft",_=>true,new("verified-capture","account","character"));
         Assert.True(authority.AllowsProcessScope(scope));Assert.True(authority.VerifyPersistedIntent("batch:"+hash,proof,view));Assert.Equal(1,journal.Writes);
+        var saved=journal.Read()!["intents"]!["batch:"+hash]!;
+        Assert.Equal("account",saved["account_id"]!.GetValue<string>());Assert.Equal("character",saved["character_id"]!.GetValue<string>());
         var recreated=new ScreenWorkflowSession.DurableAuthority(journal,state,scope,"batch",hash,"craft",_=>true);Assert.False(recreated.VerifyPersistedIntent("batch:"+hash,proof,view));Assert.Equal(1,journal.Writes);
     }
     [Fact] public void JournalFailureAndChangedPendingCannotAuthorizeConsumption()
@@ -1931,6 +2188,71 @@ public sealed class ScreenWorkflowSessionTests
         if(quantity is null)Assert.True(frame.TransferAvailable);else {Assert.True(frame.TransferDialog);Assert.Equal(quantity,frame.DialogQuantity);}
         Assert.Null(frame.Available);Assert.Null(frame.BagQuantity);
     }
+    [Theory]
+    [InlineData("storage-raw-log-detail-current.jpg",true)]
+    [InlineData("storage-detail-current.jpg",false)]
+    public void CurrentPublicStorageRawLogDetailRetainsSelectedOwner(string fixture,bool publicSelected)
+    {
+        var root=RecognitionTests.Root();var routes=ScreenRoutes.Load(root);
+        using var bgr=OpenCvSharp.Cv2.ImRead(Path.Combine(root,"tests/fixtures/production",fixture));using var rgb=new OpenCvSharp.Mat();
+        OpenCvSharp.Cv2.CvtColor(bgr,rgb,OpenCvSharp.ColorConversionCodes.BGR2RGB);var pixels=new byte[rgb.Width*rgb.Height*3];System.Runtime.InteropServices.Marshal.Copy(rgb.Data,pixels,0,pixels.Length);
+        using var ocr=new OnnxTextRecognizer(Path.Combine(root,"models",OnnxTextRecognizer.DefaultModelFileName));
+        using var session=new ScreenWorkflowSession(routes,Window(),new NoInputOps(new RgbImage(rgb.Width,rgb.Height,pixels)),ocr,new MemoryStore());session.Start();
+        session.SetVerifiedOwnerResolver(()=>new("capture","24081432","25251211640832"));
+        var plan=new WithdrawalPlan(4639622494368896,"原木",35,"account:\"24081432\"");var frame=session.CreateStoragePort(plan,"detail",new MemoryStore()).Observe();
+        Assert.Equal("storage_detail",frame.Page);
+        if(!publicSelected){Assert.Null(frame.Scope);Assert.False(frame.TransferAvailable);return;}
+        Assert.True(frame.Scope==plan.Scope,"scope="+frame.Scope+"; anchor="+session.Matcher.Anchor(session.LastCapture!.Image,"storage_account_dim")?.Score);
+        Assert.Equal(plan.ItemId,frame.ItemId);Assert.True(frame.TransferAvailable);
+    }
+    [Theory][InlineData("高級原木",true)][InlineData("高級原木+",false)]
+    public void StorageSelectionFindsShiftedCompleteTitleWithoutMatchingAnotherItem(string name,bool matches)
+    {
+        var root=RecognitionTests.Root();var routes=ScreenRoutes.Load(root);
+        using var bgr=OpenCvSharp.Cv2.ImRead(Path.Combine(root,"tests/fixtures/production/storage-high-log-detail-current.jpg"));using var rgb=new OpenCvSharp.Mat();
+        OpenCvSharp.Cv2.CvtColor(bgr,rgb,OpenCvSharp.ColorConversionCodes.BGR2RGB);var pixels=new byte[rgb.Width*rgb.Height*3];System.Runtime.InteropServices.Marshal.Copy(rgb.Data,pixels,0,pixels.Length);
+        using var ocr=new OnnxTextRecognizer(Path.Combine(root,"models",OnnxTextRecognizer.DefaultModelFileName));
+        using var session=new ScreenWorkflowSession(routes,Window(),new NoInputOps(new RgbImage(rgb.Width,rgb.Height,pixels)),ocr,new MemoryStore());session.Start();
+        session.SetVerifiedOwnerResolver(()=>new("capture","24081432","25251211640832"));
+        var plan=new WithdrawalPlan(4719508601690960,name,776,"character:[\"24081432\",\"25251211640832\"]");var frame=session.CreateStoragePort(plan,"detail",new MemoryStore()).Observe();
+        Assert.Equal("storage_detail",frame.Page);Assert.Equal(plan.Scope,frame.Scope);
+        Assert.Equal(matches,frame.TransferAvailable);Assert.Equal(matches?plan.ItemId:(long?)null,frame.ItemId);
+    }
+    [Fact] public void ForcedFullBackpackTidyExposesBoldSwitchAndProtectsConfirmation()
+    {
+        var routes=ScreenRoutes.Load(RecognitionTests.Root());var image=FishingFeedbackTests.ReadImage(Path.Combine(RecognitionTests.Root(),"tests/fixtures/production/backpack-full-tidy-current.png"));
+        using var session=new ScreenWorkflowSession(routes,Window(),new NoInputOps(image),new EmptyOcr(),new MemoryStore());session.Start();
+        var port=session.CreateMaintenancePort("forced-tidy",new MemoryStore());var frame=port.Observe();
+        Assert.Equal("tidy",frame.Page);Assert.True(frame.BoldSelected);Assert.Null(frame.MaterialsSelected);
+        Assert.Contains("tidy.bold",session.LastObservation!.View.Targets.Keys);Assert.DoesNotContain("tidy.prepare",session.LastObservation.View.Targets.Keys);
+        foreach(var destination in new[]{"backpack_weight","backpack_tidy"})
+            Assert.Contains("tidy",NavigationProfile.Names(routes.Configuration["maintenance"]!["navigation"]![destination]!["scene"]!["wait_for_pages"]));
+    }
+    [Theory][InlineData("production/tidy-result-current.jpg",true)][InlineData("screen_ui/tidy-result-current.jpg",true)][InlineData("screen_ui/production-complete-current.webp",false)]
+    public void TidyResultUsesCompleteStableTitleAcrossBrightness(string fixture,bool expected)
+    {
+        var root=RecognitionTests.Root();var routes=ScreenRoutes.Load(root);
+        using var bgr=OpenCvSharp.Cv2.ImRead(Path.Combine(root,"tests/fixtures",fixture));using var rgb=new OpenCvSharp.Mat();
+        OpenCvSharp.Cv2.CvtColor(bgr,rgb,OpenCvSharp.ColorConversionCodes.BGR2RGB);var pixels=new byte[rgb.Width*rgb.Height*3];System.Runtime.InteropServices.Marshal.Copy(rgb.Data,pixels,0,pixels.Length);
+        using var session=new ScreenWorkflowSession(routes,Window(),new NoInputOps(new RgbImage(rgb.Width,rgb.Height,pixels)),new EmptyOcr(),new MemoryStore());session.Start();
+        var frame=session.CreateMaintenancePort("tidy-result",new MemoryStore()).Observe();
+        Assert.Equal(expected,frame.TidyComplete);if(expected)Assert.Equal("tidy_result",frame.Page);
+    }
+    [Fact] public void CapacityLimitedTransferReadsActualSelectedAmount()
+    {
+        var root=RecognitionTests.Root();var routes=ScreenRoutes.Load(root);
+        using var bgr=OpenCvSharp.Cv2.ImRead(Path.Combine(root,"tests/fixtures/production/storage-high-log-capacity-current.jpg"));using var rgb=new OpenCvSharp.Mat();
+        OpenCvSharp.Cv2.CvtColor(bgr,rgb,OpenCvSharp.ColorConversionCodes.BGR2RGB);var pixels=new byte[rgb.Width*rgb.Height*3];System.Runtime.InteropServices.Marshal.Copy(rgb.Data,pixels,0,pixels.Length);
+        using var ocr=new OnnxTextRecognizer(Path.Combine(root,"models",OnnxTextRecognizer.DefaultModelFileName));
+        using var session=new ScreenWorkflowSession(routes,Window(),new NoInputOps(new RgbImage(rgb.Width,rgb.Height,pixels)),ocr,new MemoryStore());session.Start();
+        session.SetVerifiedOwnerResolver(()=>new("capture","24081432","25251211640832"));
+        var plan=new WithdrawalPlan(4719508601690960,"高級原木",776,"character:[\"24081432\",\"25251211640832\"]");
+        var frame=session.CreateStoragePort(plan,"capacity",new MemoryStore()).Observe();
+        Assert.True(frame.TransferDialog);Assert.Equal(650,frame.DialogQuantity);var capacity=routes.Profile.Definition["storage_supply"]!["transfer"]!["capacity"]!;
+        var bag=session.QuantityReader.ColorText(session.LastCapture!.Image,session.Box(capacity["bag_region"]!),.75);
+        var unit=session.QuantityReader.ColorText(session.LastCapture!.Image,session.Box(capacity["unit_region"]!),.75);
+        Assert.True(frame.CapacityQuantity==650,$"bag={bag}; unit={unit}; limit={frame.CapacityQuantity}");Assert.False(frame.ConfirmAvailable);
+    }
     [Fact] public void CurrentBottleTransferFindsShiftedExactTitleAndQuantity()
     {
         var root=RecognitionTests.Root();var routes=ScreenRoutes.Load(root);
@@ -1943,6 +2265,23 @@ public sealed class ScreenWorkflowSessionTests
         Assert.Equal("storage_transfer",frame.Page);Assert.Equal(plan.Scope,frame.Scope);Assert.Equal(plan.ItemId,frame.ItemId);Assert.True(frame.TransferDialog);Assert.Equal(1,frame.DialogQuantity);
         var wrong=plan with{ItemId=985189850,Name="樹枝"};var rejected=session.CreateStoragePort(wrong,"wrong",new MemoryStore()).Observe();
         Assert.Equal("storage_transfer",rejected.Page);Assert.Null(rejected.ItemId);Assert.False(rejected.TransferDialog);
+    }
+    [Theory][InlineData(true)][InlineData(false)]
+    public void SharedExitWaitsForAnAlreadyDispatchedTravelLoad(bool travelling)
+    {
+        var routes=ScreenRoutes.Load(RecognitionTests.Root());routes.Configuration["notifications"]=new JsonObject();
+        routes.Profile.Definition.Remove("page_variants");routes.Profile.Definition.Remove("coordinate_control_targets");
+        routes.Profile.Definition["pages"]=JsonNode.Parse("""{"scene":{"anchors":["scene_bag"]}}""");
+        var clicks=new List<PixelPoint>();var native=new NoInputOps(new RgbImage(1280,960,new byte[1280*960*3]),clicks);
+        using var session=new ScreenWorkflowSession(routes,Window(),native,new EmptyOcr(),new MemoryStore());session.Start();
+        if(travelling)session.BeginNavigation("maintenance:withdrawal:storage-navigation");
+        var port=session.CreateStoragePort(new WithdrawalPlan(1,"ore",1,"account_storage"),"loading-exit",new MemoryStore());
+        var runner=new StorageSupplyRunner([new(1,"ore",1,"account_storage")],port,new MemoryStore());
+        Assert.True(runner.RetireSatisfiedPlans(_=>true));
+        for(var tick=0;tick<(travelling?5:2);tick++)
+        {Assert.False(runner.ReleaseNavigation());Assert.Equal(travelling,port.ReleaseWaiting);Assert.False(port.ReleaseAdvanced);Assert.False(runner.NavigationAbandoned);}
+        Assert.Empty(clicks);Assert.Empty(native.Keys);
+        native.CurrentImage=Stamp(routes.Profile,"scene_bag");Assert.True(runner.ReleaseNavigation());Assert.False(port.ReleaseWaiting);
     }
     [Fact] public void InnRoomExitUsesMapButtonWhileTownSceneNeedsNoExtraExit()
     {

@@ -28,10 +28,10 @@ public sealed class UiLanguageTests : IDisposable
         Assert.Equal("倉庫", language.Text("仓库"));
         Assert.Equal("已選 3 項", language.TranslateText("已选 3 条"));
         Assert.Equal("已選 5 項", language.Format("已选 {0} 条", 5));
-        Assert.Equal("目標 1/2 已完成 · 3 個活動批次 · 1 項待核帳 · 目前已確認 11時 1分 20秒 / 120時 0分 0秒",
-            language.TranslateText("目标 1/2 已完成 · 3 个活动批次 · 1 项待核账 · 当前已确认 11时 1分 20秒 / 120时 0分 0秒"));
-        Assert.Equal("心跳 12:34:56 · 執行階段 · 計畫 42 · 暫停：手動暫停 · 自動重試 1/3",
-            language.TranslateText("心跳 12:34:56 · 执行阶段 · 计划 42 · 暂停：手动暂停 · 自动重试 1/3"));
+        Assert.Equal("目標 1/2 已完成 · 3 項任務進行中 · 1 項結果待確認 · 目前已確認 11時 1分 20秒 / 120時 0分 0秒",
+            language.TranslateText("目标 1/2 已完成 · 3 项任务进行中 · 1 项结果待确认 · 当前已确认 11时 1分 20秒 / 120时 0分 0秒"));
+        Assert.Equal("最近更新 12:34:56 · 執行階段 · 計畫 42 · 暫停：手動暫停 · 自動重試 1/3",
+            language.TranslateText("最近更新 12:34:56 · 执行阶段 · 计划 42 · 暂停：手动暂停 · 自动重试 1/3"));
         Assert.Equal("右位 乙 · 左位 甲", language.TranslateText("左位 甲 · 右位 乙"));
         for(var index=0;index<800;index++)language.TranslateText($"未登记动态状态 {index}");
         Assert.InRange(language.CachedTranslationCount,0,512);

@@ -14,6 +14,13 @@ public sealed class ScreenProductionPort:ScreenWorkflowPort,IProductionPort
     private readonly TimeProvider navigationClock;
     private double NavigationNow=>navigationClock.GetUtcNow().ToUnixTimeMilliseconds()/1000d;
     private bool DeviceTravel=>navigationState["device_travel"]?.GetValue<bool>()==true;
+    private void ExpireNavigation(string reason)
+    {
+        navigationState["device_travel"]=false;
+        navigationState["navigation_expired"]=true;navigationState.Remove("travel_deadline");SaveNavigation();
+        pendingNavigation=pendingFrom=null;Session.EndNavigation("device:"+BatchId);
+        throw new TimeoutException(reason);
+    }
     private readonly IReadOnlySet<string> processingWaitPages;
     private bool NavigationPageResolved(string page)=>pendingNavigation=="skills.open_processing"?page!=pendingFrom&&processingWaitPages.Contains(page):page!=pendingFrom;
     public bool RemoteDevicePreview=>true;
@@ -31,13 +38,14 @@ public sealed class ScreenProductionPort:ScreenWorkflowPort,IProductionPort
         if(progress.State==WorkbenchFlowState.Failed)throw new InputBlockedException(progress.Message);
         return progress.State is WorkbenchFlowState.Running or WorkbenchFlowState.Idle;
     }
-    public override bool CanReleaseForeground()=>!DeviceTravel&&pendingNavigation is null&&base.CanReleaseForeground();
+    public override bool CanReleaseForeground()=>!DeviceTravel&&pendingNavigation is null&&
+        (navigationState["navigation_expired"]?.GetValue<bool>()==true||base.CanReleaseForeground());
     public ScreenProductionPort(ScreenWorkflowSession session,string recipeKey,string batchId,IWorkflowStore store,TimeProvider? navigationClock=null):base(session,batchId,store)
     {recipe=session.Routes.Recipes.TryGetValue(recipeKey,out var found)?found:throw new ArgumentException("配方未配置");device=session.Routes.Devices[recipe.Device];workbench=new(session,recipeKey);processingWaitPages=new HashSet<string>{"skills","category_page",device.QueuePage,recipe.Page};navigationState=session.PortState("production:"+batchId);this.navigationClock=navigationClock??TimeProvider.System;}
     protected override PageView Decorate(ClientCapture c,PageView view)
     {
         empty=null;ready=null;observedRecipe=null;arrived=false;if(view.Modal)return view;
-        var automaticArrival=navigationState["device_arrived"]?.GetValue<bool>()==true;
+        var automaticArrival=Session.HasDeviceArrival(device.Key);
         if(automaticArrival&&(view.Page==device.QueuePage||view.Page==recipe.Page))view=view with{NeedsDeviceArrival=false};
         var boxes=device.Slots.Select(Session.Box).ToArray();
         if(view.Page==device.QueuePage||view.Page==recipe.Page&&Session.All(c,recipe.ConfirmAnchors))
@@ -66,8 +74,6 @@ public sealed class ScreenProductionPort:ScreenWorkflowPort,IProductionPort
             if(view.Targets.TryGetValue(recipe.OpenTarget,out var point))
             {var layout=ReviewedLayout.For(c.Image.Width,c.Image.Height,c.Native.Geometry.Dpi);var targets=view.Targets.ToDictionary();targets[recipe.OpenTarget]=new(point.X+(int)Math.Round(recipe.OpenClickOffset.X*(double)layout.Width/layout.ReferenceWidth),point.Y+(int)Math.Round(recipe.OpenClickOffset.Y*(double)layout.Height/layout.ReferenceHeight));view=view with{Targets=targets};}
         }
-        if(!view.Targets.ContainsKey("page.close")&&(view.Page.EndsWith("_panel",StringComparison.Ordinal)||view.Page is "category_page" or "skills" or "recipe_detail"))
-            foreach(var anchor in Names(Session.Routes.Profile.Definition["close_anchors"])){var hit=Session.Matcher.Anchor(c.Image,anchor);if(hit is not null){view=Session.AddTarget(view,"page.close",hit);break;}}
         return view;
     }
     internal static bool Enabled(RgbImage image,PixelBox box)
@@ -77,25 +83,33 @@ public sealed class ScreenProductionPort:ScreenWorkflowPort,IProductionPort
         var o=pendingNavigation=="skills.open_processing"?ReadFocused(c=>Session.RecognizeDeclaredPages(c,processingWaitPages)):Read();
         if(DeviceTravel)
         {
+            // Persist one budget across pauses and port reconstruction, including
+            // unknown frames. Legacy trips get one bounded migration budget.
+            if(navigationState["travel_deadline"] is null)
+            {navigationState["travel_deadline"]=NavigationNow+ProductionRunner.DeviceTravelTimeoutSeconds;SaveNavigation();}
+            var alreadyOnsite=o.Stable&&o.View.Page==device.QueuePage&&arrived;
+            if(NavigationNow>=navigationState["travel_deadline"]!.GetFiniteDouble()&&!alreadyOnsite)
+                ExpireNavigation("前往设备超过120秒，已结束本次导航等待："+device.Key);
             if(o.View.Page!="device_travel_confirm")
             {navigationState.Remove("travel_confirm_attempts");navigationState.Remove("travel_confirm_at");}
             // Closing the panel starts the native trip. Its automatic reopening
             // is the user-confirmed arrival signal; no timer or task icon.
-            if(o.View.Page!=device.QueuePage&&navigationState["panel_closed"]?.GetValue<bool>()!=true)
+            if(o.View.Page!=device.QueuePage&&o.View.Page!="device_travel_confirm"&&navigationState["panel_closed"]?.GetValue<bool>()!=true)
             {navigationState["panel_closed"]=true;SaveNavigation();}
-            else if(o.Stable&&o.View.Page==device.QueuePage&&navigationState["panel_closed"]?.GetValue<bool>()==true)
+            else if(o.Stable&&o.View.Page==device.QueuePage&&(navigationState["panel_closed"]?.GetValue<bool>()==true||alreadyOnsite))
             {
-                navigationState["device_travel"]=false;navigationState["device_arrived"]=true;SaveNavigation();
+                navigationState["device_travel"]=false;navigationState.Remove("device_arrived");navigationState.Remove("travel_deadline");SaveNavigation();
                 arrived=queueArrived=true;pendingNavigation=pendingFrom=null;scrollCount=0;
+                Session.ConfirmDeviceArrival(device.Key);
                 Session.EndNavigation("device:"+BatchId);Session.TraceNavigation(BatchId,"device page reopened: "+device.QueuePage,"arrival_observed");
             }
         }
-        else if(o.Stable&&o.View.Page=="scene"&&navigationState["device_arrived"]?.GetValue<bool>()==true)
-        {navigationState["device_arrived"]=false;SaveNavigation();}
         // Observe the reversible result when it occurs. A recipe overlay may
         // open and auto-close after craft before Navigate is called again.
         if(!DeviceTravel&&pendingNavigation is not null&&o.Stable&&NavigationPageResolved(o.View.Page))
         {pendingNavigation=pendingFrom=null;scrollCount=navigationRetries=0;}
+        if(!DeviceTravel&&pendingNavigation is not null&&NavigationNow-navigationAt>=45)
+            ExpireNavigation("加工菜单切换超过45秒，已结束本次导航等待："+pendingNavigation);
         if(!o.Stable)Session.ReportWarning("production_observation",$"phase={S(Store.Read(),"phase")}; waiting={pendingNavigation}; from={pendingFrom}; page={o.View.Page}; reason={Session.StabilityReason}",BatchId);
         if(arrived&&!DeviceTravel)Session.EndNavigation("device:"+BatchId);return new(o.View.Page,Session.InputAvailable,o.Stable,empty,observedRecipe,o.View.Targets.ContainsKey("production.craft"),o.View.Targets.ContainsKey("production.collect"),Session.ProductionDuration(recipe.DurationSeconds),ready,false,arrived,device.Slots.Count,NavigationActive:DeviceTravel);
     }
@@ -185,9 +199,10 @@ public sealed class ScreenProductionPort:ScreenWorkflowPort,IProductionPort
         }
         if(!o.View.Targets.ContainsKey(target))throw new InputBlockedException("导航目标未识别："+target);
         Session.NavigateTarget(target);
+        if(navigationState.Remove("navigation_expired"))SaveNavigation();
         Session.TraceNavigation(BatchId,$"target={target}; from={page}; destination={destination}","input_dispatched");
         if(target==device.GotoTarget)
-        {navigationState["device_travel"]=true;navigationState["panel_closed"]=false;navigationState["device_arrived"]=false;SaveNavigation();Session.BeginNavigation("device:"+BatchId);}
+        {navigationState["device_travel"]=true;navigationState["panel_closed"]=false;navigationState.Remove("device_arrived");navigationState["travel_deadline"]=NavigationNow+ProductionRunner.DeviceTravelTimeoutSeconds;SaveNavigation();Session.BeginNavigation("device:"+BatchId);}
         else if(destination=="leave"&&page==device.QueuePage){navigationState["device_arrived"]=false;SaveNavigation();}
         pendingNavigation=target;pendingFrom=page;navigationAt=NavigationNow;
     }

@@ -3,6 +3,110 @@ using Xunit;
 namespace MabiAgent.Workflows.Tests;
 public sealed class MaintenanceTests
 {
+    [Theory][InlineData("idle")][InlineData("inspect")][InlineData("relief_weight")]
+    public void ForcedTidyDisablesBoldBeforePreparingCleanup(string phase)
+    {
+        var store=new MemoryStore();var port=new MaintenancePort{Frame=new("1","tidy",BoldSelected:true,MaterialsSelected:true,TidyCount:4)};
+        var policy=new MaintenancePolicy(RepairEnabled:false);var time=new ManualTime();
+        var seed=new MaintenanceRunner(port,store,policy,time).Snapshot();
+        seed["backpack"]!["phase"]=phase;seed["backpack"]!["status"]=phase=="idle"?"idle":"due";store.Flush(seed);
+        var runner=new MaintenanceRunner(port,store,policy,time);
+        runner.Tick(false);Assert.Empty(port.Actions);
+        runner.Tick();Assert.Equal(new[]{"disable_bold"},port.Actions);Assert.Null(runner.Snapshot()["pending"]);
+        port.Frame=port.Frame with{CaptureId="2",BoldSelected=false};runner.Tick();
+        Assert.Equal(new[]{"disable_bold","deselect_materials"},port.Actions);
+        port.Frame=port.Frame with{CaptureId="3",MaterialsSelected=false};runner.Tick();
+        port.Frame=new("4","tidy_confirm",ConfirmAvailable:true);runner.Tick();
+        Assert.Equal(new[]{"disable_bold","deselect_materials","prepare_tidy","confirm_tidy"},port.Actions);
+        Assert.NotNull(runner.Snapshot()["pending"]);
+    }
+    [Theory][InlineData(77764,81000,false)][InlineData(81000,81000,true)][InlineData(82000,81000,true)][InlineData(-1,81000,true)]
+    public void ReliefThresholdPrioritizesCleanupWithoutTreatingRemainingRoomAsFull(long weight,long capacity,bool blocked)
+    {
+        var store=new MemoryStore();var policy=new MaintenancePolicy(RepairEnabled:false,WeightThresholdPercent:95);
+        var port=new MaintenancePort();var time=new ManualTime();var seed=new MaintenanceRunner(port,store,policy,time).Snapshot();
+        seed["backpack"]!["phase"]="relief";seed["backpack"]!["status"]="production_relief";
+        seed["backpack"]!["weight"]=weight;seed["backpack"]!["capacity"]=capacity;store.Flush(seed);
+        var runner=new MaintenanceRunner(port,store,policy,time);
+        Assert.Equal(blocked,runner.Blocked("gathering"));Assert.Equal(blocked,runner.Blocked("idle_fishing"));Assert.False(runner.Blocked("production"));
+    }
+    [Theory][InlineData(false)][InlineData(true)]
+    public void FullBackpackReturnsToLocalCleanupBeforeTravel(bool toast)
+    {
+        var store=new MemoryStore();var port=new MaintenancePort{Frame=new("scene","scene")};var time=new ManualTime();
+        var policy=new MaintenancePolicy(RepairEnabled:false,ProductionFirst:true);
+        var seed=new MaintenanceRunner(port,store,policy,time).Snapshot();
+        seed["backpack"]!["phase"]="relief";seed["backpack"]!["status"]="production_relief";
+        seed["backpack"]!["tidy_checked"]=true;seed["backpack"]!["surplus_checked"]=true;seed["backpack"]!["weight"]=95;seed["backpack"]!["capacity"]=100;store.Flush(seed);
+        var sale=new WaitingSurplus{Result="running"};var runner=new MaintenanceRunner(port,store,policy,time,surplus:sale);
+        runner.Resume(true);if(!toast)runner.RequestBackpackInspection();runner.Tick();
+        port.Frame=toast?new("full","scene",BackpackFull:true):new("full","backpack",Weight:100,Capacity:100);
+        runner.Tick();
+        Assert.Equal("prepare",runner.Snapshot()["backpack"]!["phase"]!.GetValue<string>());
+        Assert.True(runner.Blocked("gathering"));Assert.False(runner.Blocked("production"));
+        var before=runner.Snapshot().ToJsonString();runner.ProductionReliefAvailable();Assert.Equal(before,runner.Snapshot().ToJsonString());
+        port.Frame=new("tidy","tidy",BoldSelected:false,MaterialsSelected:false,TidyCount:0);runner.Tick();
+        port.Frame=new("after","backpack",Weight:100,Capacity:100);runner.Tick();runner.Tick();
+        Assert.Equal(1,sale.Begins);Assert.Null(runner.Snapshot()["pending"]);
+        Assert.False(runner.Snapshot()["global_pause_required"]!.GetValue<bool>());
+    }
+    [Fact] public void ProductionReliefStillChecksCapacityAtTheConfiguredInterval()
+    {
+        var store=new MemoryStore();var port=new MaintenancePort{Frame=new("scene","scene")};var time=new ManualTime();
+        var policy=new MaintenancePolicy(RepairEnabled:false,BackpackCheckIntervalSeconds:120);
+        var seed=new MaintenanceRunner(port,store,policy,time).Snapshot();
+        seed["backpack"]!["phase"]="relief";seed["backpack"]!["status"]="production_relief";store.Flush(seed);
+        var runner=new MaintenanceRunner(port,store,policy,time);runner.Tick();Assert.Equal(0,port.Navigations);
+        time.Seconds+=120;runner.Tick(false,deferIdleObservation:true);Assert.Equal(0,port.Navigations);
+        runner.Tick();Assert.Equal(1,port.Navigations);
+        port.Frame=new("full","backpack",Weight:100,Capacity:100);runner.Tick();
+        Assert.True(runner.Blocked("gathering"));Assert.Equal("prepare",runner.Snapshot()["backpack"]!["phase"]!.GetValue<string>());
+    }
+    [Theory][InlineData(99,"production_relief")][InlineData(50,"idle")]
+    public void BusySlotsAllowOneSurplusPassThenKeepProcessingOrReleaseWeight(long after,string expected)
+    {
+        var store=new MemoryStore();var time=new ManualTime();var port=new MaintenancePort{Frame=new("bag","backpack",Weight:99,Capacity:100)};
+        var policy=new MaintenancePolicy(RepairEnabled:false,ProductionFirst:true);var seed=new MaintenanceRunner(port,store,policy,time).Snapshot();
+        seed["backpack"]!["phase"]="relief";seed["backpack"]!["status"]="production_relief";seed["backpack"]!["tidy_checked"]=true;store.Flush(seed);
+        var sale=new WaitingSurplus{Result="complete"};var runner=new MaintenanceRunner(port,store,policy,time,surplus:sale);
+        Assert.True(runner.TrySellWhileProductionSlotsBusy());Assert.False(runner.TrySellWhileProductionSlotsBusy());
+        for(var i=0;i<6;i++){port.Frame=port.Frame with{CaptureId="bag-"+i,Weight=after};runner.Tick();}
+        Assert.Equal(expected,runner.Snapshot()["backpack"]!["status"]!.GetValue<string>());Assert.False(runner.Snapshot()["global_pause_required"]!.GetValue<bool>());
+        Assert.False(runner.TrySellWhileProductionSlotsBusy());
+        Assert.False(runner.Snapshot()["backpack"]!["waiting_for_slots"]!.GetValue<bool>());
+    }
+    [Fact] public void SuccessiveProductionChecksDoNotReuseTheOldBagOpeningWait()
+    {
+        var store=new MemoryStore();var time=new ManualTime();var port=new MaintenancePort{Frame=new("scene","scene"),RememberNavigation=true};
+        var policy=new MaintenancePolicy(RepairEnabled:false);var seed=new MaintenanceRunner(port,store,policy,time).Snapshot();
+        seed["backpack"]!["phase"]="relief";seed["backpack"]!["status"]="production_relief";store.Flush(seed);
+        var runner=new MaintenanceRunner(port,store,policy,time);
+        for(var i=0;i<2;i++)
+        {
+            port.Frame=new("scene-"+i,"scene");runner.CheckProductionWeight("batch-"+i,1);runner.Tick();
+            port.Frame=new("weight-"+i,"backpack",Weight:99,Capacity:100);runner.Tick();time.Seconds+=60;
+            Assert.Equal("production_relief",runner.Snapshot()["backpack"]!["status"]!.GetValue<string>());
+            Assert.Null(runner.Snapshot()["active"]);
+            Assert.True(runner.StatusSnapshot()["navigation_reserved"]!.GetValue<bool>());
+            runner.Tick();Assert.Equal(i+1,port.Exits);
+            port.Frame=new("closed-"+i,"scene");runner.Tick();
+            Assert.False(runner.StatusSnapshot()["navigation_reserved"]!.GetValue<bool>());
+        }
+        Assert.Equal(2,port.Navigations);
+    }
+    [Fact] public void ProductionWeightCheckWaitsForItsOwnerToReleaseTheTurn()
+    {
+        var store=new MemoryStore();var time=new ManualTime();var port=new MaintenancePort{Frame=new("scene","scene")};
+        var policy=new MaintenancePolicy(RepairEnabled:false);var seed=new MaintenanceRunner(port,store,policy,time).Snapshot();
+        seed["backpack"]!["phase"]="relief";seed["backpack"]!["status"]="production_relief";store.Flush(seed);
+        var runner=new MaintenanceRunner(port,store,policy,time);runner.CheckProductionWeight("batch",1);
+        Assert.False(runner.StatusSnapshot()["navigation_reserved"]!.GetValue<bool>());
+        runner.Tick(safeToSwitch:false);Assert.Equal(0,port.Navigations);
+        Assert.False(runner.StatusSnapshot()["navigation_reserved"]!.GetValue<bool>());
+        runner.Tick();Assert.Equal(1,port.Navigations);
+        port.Frame=new("weight","backpack",Weight:50,Capacity:100);runner.Tick();
+        Assert.Equal("idle",runner.Snapshot()["backpack"]!["status"]!.GetValue<string>());
+    }
     [Fact] public void RequestedFishingInspectionBypassesPeriodicDeferralAndFailureStaysLocal()
     {
         var time=new ManualTime();var port=new MaintenancePort{Frame=new("scene","scene")};
@@ -28,17 +132,17 @@ public sealed class MaintenanceTests
         port.Frame=new("items","backpack",Weight:20,Capacity:100);runner.Tick();
         Assert.Equal("idle",runner.Snapshot()["backpack"]!["phase"]!.GetValue<string>());Assert.Equal(20,runner.Snapshot()["backpack"]!["weight"]!.GetValue<long>());
     }
-    [Theory][InlineData(true)][InlineData(false)]
-    public void LegacyBlockedBackpackPreservesOnlyObservedCapacityRestriction(bool overweight)
+    [Theory][InlineData(100,true)][InlineData(95,true)][InlineData(20,false)]
+    public void FailedCleanupPreservesObservedWeightRestriction(long weight,bool full)
     {
         var store=new MemoryStore();var port=new MaintenancePort();var time=new ManualTime();
         var original=new MaintenanceRunner(port,store,new(RepairEnabled:false),time);
         var saved=original.Snapshot();saved["backpack"]!["status"]="blocked";
         saved["backpack"]!["phase"]="prepare";saved["backpack"]!.AsObject().Remove("capacity_blocked");
-        saved["backpack"]!["weight"]=overweight?95:20;saved["backpack"]!["capacity"]=100;
+        saved["backpack"]!["weight"]=weight;saved["backpack"]!["capacity"]=100;
         store.Value=saved;
         var restored=new MaintenanceRunner(port,store,new(RepairEnabled:false),time);
-        Assert.Equal(overweight,restored.Blocked("gathering"));Assert.False(restored.Blocked("production"));
+        Assert.Equal(full,restored.Blocked("gathering"));Assert.Equal(full,restored.Blocked("idle_fishing"));Assert.False(restored.Blocked("production"));
     }
     [Theory][InlineData(false)][InlineData(true)]
     public void FailedBackpackInspectionReleasesCleanupEvenWhenPageStaysUnknown(bool stable)
@@ -430,6 +534,22 @@ public sealed class MaintenanceTests
         Assert.Single(port.Actions);Assert.Equal(resumes,port.Resumes);Assert.Equal(navigations,port.Navigations);
         runner.Resume(true);runner.Tick();Assert.Equal(new[]{"confirm_repair","auto_equip"},port.Actions);
     }
+    [Theory][InlineData(false)][InlineData(true)]
+    public void LateVisibleTidyResultContinuesAccountingWithoutRepeatingCleanup(bool timedOut)
+    {
+        var store=new MemoryStore();var port=new MaintenancePort{Frame=new("1","backpack",Weight:99,Capacity:100)};
+        var time=new ManualTime();var runner=new MaintenanceRunner(port,store,new(RepairEnabled:false),time);runner.Tick();
+        port.Frame=new("2","tidy",BoldSelected:false,MaterialsSelected:false,TidyCount:4);runner.Tick();
+        port.Frame=new("3","tidy_confirm",ConfirmAvailable:true);runner.Tick();var actions=port.Actions.Count;
+        time.Seconds+=121;
+        if(timedOut){port.Frame=new("unknown","unknown",Stable:false);runner.Tick();Assert.True(runner.Snapshot()["global_pause_required"]!.GetValue<bool>());}
+        port.Frame=new("4","tidy_result",TidyComplete:true);
+        if(timedOut)runner.Resume(true);
+        runner.Tick();Assert.False(runner.Snapshot()["global_pause_required"]!.GetValue<bool>());Assert.NotNull(runner.Snapshot()["pending"]);
+        port.Frame=new("5","backpack",Weight:99,Capacity:100);runner.Tick();
+        Assert.Null(runner.Snapshot()["pending"]);Assert.Equal("production_relief",runner.Snapshot()["backpack"]!["status"]!.GetValue<string>());
+        Assert.Equal(actions,port.Actions.Count);Assert.Null(runner.Snapshot()["paused"]);
+    }
     [Fact] public void PausedTidyRequiresNewResultAndWeightWithoutNavigation()
     {
         var port=new MaintenancePort{Frame=new("1","backpack",Weight:95,Capacity:100)};var time=new ManualTime();var runner=new MaintenanceRunner(port,new MemoryStore(),new(RepairEnabled:false),time);runner.Tick();
@@ -528,8 +648,8 @@ internal sealed class MaintenancePort : IMaintenancePort
     public Exception? Error;
     public MaintenanceFrame Frame = new("1", "repair_quote", Gold: 100000, Quote: 1000, Currency: "gold", ConfirmAvailable: true);
     public int Resumes; public string? PauseReason;
-    public int Navigations,Exits,Observations;public string? NavigationFailure;public List<string> Actions = []; public MaintenanceFrame Observe() {Observations++;return Frame;} public string? Navigate(string destination) {Navigations++;return NavigationFailure;}
-    public void Act(string action) {if(Error is{} e)throw e;Actions.Add(action);} public void Pause(string reason) { PauseReason=reason; } public void Resume() { Resumes++; } public void ResetNavigation() { }
+    public int Navigations,Exits,Observations;public bool RememberNavigation;private bool navigationPending;public string? NavigationFailure;public List<string> Actions = []; public MaintenanceFrame Observe() {Observations++;return Frame;} public string? Navigate(string destination) {Navigations++;var failure=NavigationFailure??(RememberNavigation&&navigationPending?"navigation_result_not_observed:scene.open_bag":null);navigationPending=true;return failure;}
+    public void Act(string action) {if(Error is{} e)throw e;Actions.Add(action);} public void Pause(string reason) { PauseReason=reason; } public void Resume() { Resumes++; } public void ResetNavigation() { navigationPending=false; }
     public bool CanReleaseForeground()=>Frame.Page=="scene";
     public bool ReleaseNavigation(){if(Frame.Page=="scene")return true;Exits++;return false;}
 }

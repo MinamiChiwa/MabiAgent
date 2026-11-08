@@ -16,6 +16,7 @@ public sealed class ScreenMaintenancePort:ScreenWorkflowPort,IMaintenancePort
     private bool zoomCentering,zoomScaleChanged;private int mapRecoveries;
     private int dialogueSteps,releaseRetries;
     private int releaseDialogueSteps;private double lastReleaseDialogueAt=-1;
+    private double? releaseLoadStartedAt;
     private long? previewQuote;private long previewEpoch;
     private string? rejectedKey;private double rejectedAt;
     public NavigationTestTrace? LastTestNavigationTrace{get;private set;}
@@ -26,8 +27,10 @@ public sealed class ScreenMaintenancePort:ScreenWorkflowPort,IMaintenancePort
     {
         get
         {
-            if(awaiting is null||routeKey is null||!routeKey.StartsWith("release",StringComparison.Ordinal))return false;
             var now=Stopwatch.GetTimestamp()/(double)Stopwatch.Frequency;
+            if(releaseLoadStartedAt is{} started&&Session.CurrentNavigationId is not null&&
+                Session.LastObservation is{} observation&&(!observation.Stable||observation.View.Page=="unknown")&&now-started<45)return true;
+            if(awaiting is null||routeKey is null||!routeKey.StartsWith("release",StringComparison.Ordinal))return false;
             return now<nextAt||now-dispatchedAt<(awaiting["timeout_s"]?.GetFiniteDouble()??15);
         }
     }
@@ -139,7 +142,16 @@ public sealed class ScreenMaintenancePort:ScreenWorkflowPort,IMaintenancePort
     public bool ReleaseNavigation()
     {
         LastReleaseDispatched=false;
-        var o=Session.LastObservation;if(o is null||!o.Stable||!Session.InputAvailable)return false;
+        var o=Session.LastObservation;
+        if(o is not null&&Session.CurrentNavigationId is not null&&(!o.Stable||o.View.Page=="unknown"))
+        {
+            // A cancelled route can already be loading before its exit port exists.
+            // Observe that travel without replaying it or spending exit attempts.
+            releaseLoadStartedAt??=Stopwatch.GetTimestamp()/(double)Stopwatch.Frequency;
+            return false;
+        }
+        if(o is null||!o.Stable||!Session.InputAvailable)return false;
+        releaseLoadStartedAt=null;
         if(o.View.Page=="npc_dialogue")
         {
             // Closing a storage panel can return to the NPC's dialogue before

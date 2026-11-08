@@ -40,7 +40,7 @@
     <Grid x:Name="MiniActions" ColumnDefinitions="*,8,Auto,8,Auto">
      <Button x:Name="MiniStart" Classes="Primary" Theme="{DynamicResource SolidButton}" Content="开始／继续" ui:UiIcon.Kind="play" Command="{Binding StartCommand}" HorizontalAlignment="Stretch" ToolTip.Tip="需要先选择游戏窗口"/>
      <Button x:Name="MiniPause" Grid.Column="2" Content="暂停" ui:UiIcon.Kind="pause" Command="{Binding PauseCommand}"/>
-     <u:PopConfirm x:Name="StopConfirm" Grid.Column="4" PopupHeader="停止全部任务？" PopupContent="清除执行进度、自动补料和待核账记录，保留任务与设置。游戏内已发生的操作不会撤销。" ConfirmCommand="{Binding StopAllCommand}" Placement="BottomEdgeAlignedRight">
+     <u:PopConfirm x:Name="StopConfirm" Grid.Column="4" PopupHeader="停止全部任务？" PopupContent="重置任务进度、自动补料和待确认记录，保留任务与设置。游戏内已发生的操作不会撤销。" ConfirmCommand="{Binding StopAllCommand}" Placement="BottomEdgeAlignedRight">
       <Button x:Name="MiniStop" Classes="mini-round danger" AutomationProperties.Name="停止全部" ToolTip.Tip="停止全部"><ui:Icon Kind="stop"/></Button>
      </u:PopConfirm>
     </Grid>

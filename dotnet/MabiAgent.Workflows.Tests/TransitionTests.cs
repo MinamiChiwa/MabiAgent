@@ -12,12 +12,12 @@ public sealed class TransitionTests
         Assert.NotEqual("paused",runner.Snapshot()["status"]!.GetValue<string>());Assert.Empty(port.Actions);
         runner.Tick();Assert.Equal("queue",Assert.Single(port.Actions));Assert.Null(runner.Snapshot()["pending"]);
     }
-    [Fact] public void NativeDeviceTripWaitsForAutomaticPageWithoutGenericTimeoutAndKeepsManualPause()
+    [Fact] public void NativeDeviceTripWaitsWithinBudgetForAutomaticPageAndKeepsManualPause()
     {
         var time=new ManualTime();var port=new ProductionPort{Frame=new("scene",AtDevice:false,NavigationActive:true)};
         var runner=new ProductionRunner(port,new MemoryStore(),new("iron","furnace",30),time:time);runner.Resume(true);
         foreach(var page in new[]{"scene","unknown","skills","unknown"})
-        {time.Seconds+=180;port.Frame=port.Frame with{Page=page,Stable=page!="unknown"};runner.Tick();Assert.Null(runner.Snapshot()["pause_reason"]);}
+        {time.Seconds+=20;port.Frame=port.Frame with{Page=page,Stable=page!="unknown"};runner.Tick();Assert.Null(runner.Snapshot()["pause_reason"]);}
         Assert.Empty(port.Navigation);Assert.Empty(port.Clicks);
         runner.Pause();time.Seconds+=180;runner.Tick();Assert.Equal("manual",runner.Snapshot()["pause_reason"]!.GetValue<string>());
         runner.Resume(false);Assert.Equal("manual",runner.Snapshot()["pause_reason"]!.GetValue<string>());

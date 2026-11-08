@@ -34,7 +34,7 @@ public partial class MainViewModel
         HasActiveJob=active is not null;
         if(active is null)
         {
-            ActiveJobName=IsRunning?"正在核验或等待":"暂无运行中的任务";ActiveProgressText=goals.Length==0?"":GoalSummary;ActiveProgress=0;
+            ActiveJobName=IsRunning?"正在检查或等待":"暂无运行中的任务";ActiveProgressText=goals.Length==0?"":GoalSummary;ActiveProgress=0;
         }
         else
         {

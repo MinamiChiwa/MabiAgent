@@ -65,8 +65,11 @@ public partial class SettingsPanel : UserControl
             choice.IsCheckedChanged+=SettingChoiceChecked;
         SyncSettingChoices();
     }
-    private HotkeyRecorder? StopRecorder=>OperationSettingsSection.GetVisualDescendants().OfType<HotkeyRecorder>().FirstOrDefault();
-    private void BeginStopHotkeyRecording(object? sender,RoutedEventArgs e)=>StopRecorder?.BeginRecording();
+    private HotkeyRecorder? StopRecorder=>OperationSettingsSection.GetVisualDescendants().OfType<HotkeyRecorder>().FirstOrDefault(r=>r.Name=="GlobalStopHotkeyInput");
+    private HotkeyRecorder? PauseRecorder=>OperationSettingsSection.GetVisualDescendants().OfType<HotkeyRecorder>().FirstOrDefault(r=>r.Name=="GlobalPauseHotkeyInput");
+    private void BeginPauseHotkeyRecording(object? sender,RoutedEventArgs e){StopRecorder?.CancelRecording();PauseRecorder?.BeginRecording();}
+    private void CancelPauseHotkeyRecording(object? sender,RoutedEventArgs e)=>PauseRecorder?.CancelRecording();
+    private void BeginStopHotkeyRecording(object? sender,RoutedEventArgs e){PauseRecorder?.CancelRecording();StopRecorder?.BeginRecording();}
     private void CancelStopHotkeyRecording(object? sender,RoutedEventArgs e)=>StopRecorder?.CancelRecording();
     private void SettingChoiceChecked(object? sender,RoutedEventArgs e)
     {

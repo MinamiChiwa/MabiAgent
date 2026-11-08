@@ -160,18 +160,29 @@ public sealed class ProcessingNavigationTests
         using var recognizer=new ScreenPageRecognizer(profile);var view=recognizer.Recognize(new RgbImage(rgb.Width,rgb.Height,pixels));
         Assert.Equal("storage_dialog",view.Page);Assert.Contains("storage.open",view.Targets.Keys);
     }
-    [Fact] public void PublishedRuntimeRecognizesCrossRegionDeviceTravelConfirmation()
+    [Theory][InlineData("device-travel-confirm.jpg")][InlineData("device-travel-wood-confirm.jpg")]
+    public void PublishedRuntimeRecognizesCrossRegionDeviceTravelConfirmation(string file)
     {
         var root=Path.GetFullPath(Path.Combine(AppContext.BaseDirectory,"../../../../../"));
         var repository=new EditorRepository(root,Path.Combine(Path.GetTempPath(),"mabi-device-confirm-"+Guid.NewGuid().ToString("N")));
         var profile=ScreenRoutes.FromConfiguration(root,PublishedCatalogCompiler.CompileAvailable(repository),repository.UserAssetRoot).Profile;
-        using var bgr=OpenCvSharp.Cv2.ImRead(Path.Combine(root,"tests/fixtures/production/device-travel-confirm.jpg"));
+        using var bgr=OpenCvSharp.Cv2.ImRead(Path.Combine(root,"tests/fixtures/production",file));
         using var rgb=new OpenCvSharp.Mat();OpenCvSharp.Cv2.CvtColor(bgr,rgb,OpenCvSharp.ColorConversionCodes.BGR2RGB);
         var pixels=new byte[rgb.Width*rgb.Height*3];System.Runtime.InteropServices.Marshal.Copy(rgb.Data,pixels,0,pixels.Length);
         using var matcher=new TemplateMatcher(profile);using var recognizer=new ScreenPageRecognizer(profile,matcher);
         var view=recognizer.Recognize(new RgbImage(rgb.Width,rgb.Height,pixels));
         Assert.Equal("device_travel_confirm",view.Page);
         Assert.Contains("device.confirm_travel",view.Targets.Keys);
+        Assert.Contains("device.cancel_travel",view.Targets.Keys);
+    }
+    [Fact] public void CurrentWoodDeviceHasFiveEmptySlotsAndNoReadyOutput()
+    {
+        var root=Path.GetFullPath(Path.Combine(AppContext.BaseDirectory,"../../../../../"));var routes=ScreenRoutes.Load(root);
+        using var bgr=OpenCvSharp.Cv2.ImRead(Path.Combine(root,"tests/fixtures/production/wood-empty-current.jpg"));
+        using var rgb=new OpenCvSharp.Mat();OpenCvSharp.Cv2.CvtColor(bgr,rgb,OpenCvSharp.ColorConversionCodes.BGR2RGB);
+        var pixels=new byte[rgb.Width*rgb.Height*3];System.Runtime.InteropServices.Marshal.Copy(rgb.Data,pixels,0,pixels.Length);
+        var frame=new RgbImage(rgb.Width,rgb.Height,pixels);var slots=routes.Devices["wood"].Slots;
+        Assert.Equal(new[]{0,1,2,3,4},SlotRecognition.EmptyIndices(frame,slots));Assert.Empty(SlotRecognition.ReadyIndices(frame,slots)!);
     }
     [Fact] public void PublishedRecipeRecognitionSurvivesAnOccupiedDeviceSlot()
     {

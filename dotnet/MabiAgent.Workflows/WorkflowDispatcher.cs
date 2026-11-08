@@ -31,7 +31,7 @@ public sealed class WorkflowDispatcher(TimeProvider? time=null,Action<string,Exc
             &&(status!="paused"||supplyChanged.Contains(id)||explicitlyResumable.Contains(id));
     }
     public void RestoreOwnership(string id)
-    {if(!entries.ContainsKey(id))throw new ArgumentException("恢复目标不存在");if(ActiveId is not null&&ActiveId!=id)throw new InvalidDataException("多个批次同时占用角色，保留核账");ActiveId=id;}
+    {if(!entries.ContainsKey(id))throw new ArgumentException("恢复目标不存在");if(ActiveId is not null&&ActiveId!=id)throw new InvalidDataException("多个任务的操作尚未结束，请确认上次操作结果");ActiveId=id;}
     public void Remove(string id){entries.Remove(id);supplyChanged.Remove(id);explicitlyResumable.Remove(id);held.Remove(id);quarantined.Remove(id);if(ActiveId==id)ActiveId=null;}
     public void SetHeld(string id,bool value)
     {if(value)held.Add(id);else if(held.Remove(id))explicitlyResumable.Add(id);}
@@ -113,7 +113,7 @@ public sealed class WorkflowDispatcher(TimeProvider? time=null,Action<string,Exc
             {
                 active.Observe?.Invoke();
                 if(active.Safe()||active.Snapshot()["status"]?.GetValue<string>()=="complete"){ActiveId=null;Status="当前轮次已确认结束";return null;}
-                Status="当前任务仍占用角色，仅观察结果，等待显式继续";return ActiveId;
+                Status="当前任务尚未结束，已暂停操作，请点击继续";return ActiveId;
             }
             var refill=state["phase"]?.GetValue<string>()=="leave"&&active.Device==currentDevice&&currentDevice is not null
                 &&candidates.Any(p=>p.Id!=ActiveId&&p.Kind=="production"&&p.Device==currentDevice&&p.Ready&&!p.Blocked&&p.FreeSlots>0&&!(p.Automatic&&p.BufferSatisfied));
@@ -127,7 +127,7 @@ public sealed class WorkflowDispatcher(TimeProvider? time=null,Action<string,Exc
                     var after=active.Snapshot();
                     // Passive confirmation never grants permission to restart input.
                     if(after["status"]?.GetValue<string>()=="complete"||active.Safe())ActiveId=null;
-                    Status=candidates.Any(c=>c.Id==ActiveId&&c.Kind=="idle_fishing")?"钓鱼动作结果待确认，请核实后继续":"当前动作仅核账，未重放消费";return ActiveId;
+                    Status=candidates.Any(c=>c.Id==ActiveId&&c.Kind=="idle_fishing")?"钓鱼动作结果待确认，请核实后继续":"正在确认上次操作结果";return ActiveId;
                 }
                 active.Tick();Status="执行当前批次";return ActiveId;
             }

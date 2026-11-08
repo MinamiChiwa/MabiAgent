@@ -189,10 +189,11 @@ internal sealed class TouchInputWindow:IDisposable
 internal sealed class SyntheticTouchDevice:IDisposable
 {
     private nint device;private readonly PixelPoint anchor;private readonly nint anchorWindow;private nint targetWindow;
+    private readonly PixelBox desktop=PhysicalDesktop.Bounds;
     private PixelPoint[] active=[];
     private bool anchorAttempted,targetAttempted;internal JsonArray Frames{get;}=new();internal bool Released{get;private set;}
     internal SyntheticTouchDevice(PixelPoint anchor,nint anchorWindow)
-    {RequireLocalWindow(anchorWindow);this.anchor=anchor;this.anchorWindow=anchorWindow;device=TouchNative.CreateSyntheticPointerDevice(2,3,3);if(device==0)throw new Win32Exception(Marshal.GetLastWin32Error(),"创建合成触点设备失败");}
+    {RequireLocalWindow(anchorWindow);this.anchor=anchor;this.anchorWindow=anchorWindow;using var dpi=TouchNative.PhysicalDpi();device=TouchNative.CreateSyntheticPointerDevice(2,3,3);if(device==0)throw new Win32Exception(Marshal.GetLastWin32Error(),"创建合成触点设备失败");}
     internal void Begin()
     {anchorAttempted=true;Send(TouchNative.Contact(1,anchor,TouchNative.Down,anchorWindow));Thread.Sleep(20);}
     internal void Down(PixelPoint point,nint hwnd)
@@ -210,6 +211,7 @@ internal sealed class SyntheticTouchDevice:IDisposable
     {if(!targetAttempted)return;SendTarget(TouchNative.Up);targetAttempted=false;}
     private void Send(params TouchNative.TypeInfo[] frame)
     {
+        if(PhysicalDesktop.Bounds!=desktop)throw new InputBlockedException("触控期间显示器布局变化，已停止本地注入");
         // Native contacts are local message sources only. Never let them reach the game,
         // including if an auxiliary window disappears during a gesture.
         foreach(var contact in frame)
@@ -219,10 +221,22 @@ internal sealed class SyntheticTouchDevice:IDisposable
             if((pointer.Flags&0x10000)!=0 && TouchNative.At(new(pointer.Pixel.X,pointer.Pixel.Y))!=pointer.Target)
                 throw new InputBlockedException("触控消息源必须位于当前进程的辅助窗口，禁止原生直达游戏");
         }
-        using var dpi=TouchNative.PhysicalDpi();var ok=TouchNative.InjectSyntheticPointerInput(device,frame,(uint)frame.Length);var error=ok?0:Marshal.GetLastWin32Error();
-        Frames.Add(new JsonObject{["tick"]=System.Diagnostics.Stopwatch.GetTimestamp(),["submitted"]=ok,["error"]=error,["foreground"]=(long)TouchNative.Foreground,["contacts"]=new JsonArray(frame.Select(p=>(JsonNode)new JsonObject{["id"]=p.Touch.Pointer.Id,["flags"]=p.Touch.Pointer.Flags,["suggested_target"]=(long)p.Touch.Pointer.Target,["point"]=new JsonArray(p.Touch.Pointer.Pixel.X,p.Touch.Pointer.Pixel.Y)}).ToArray())});
+        // Hit testing and WM_TOUCH use absolute screen pixels; injection uses the
+        // virtual desktop's top-left as its origin, including left/upper monitors.
+        var injected=ToInjectionFrame(frame,desktop);
+        using var dpi=TouchNative.PhysicalDpi();var ok=TouchNative.InjectSyntheticPointerInput(device,injected,(uint)injected.Length);var error=ok?0:Marshal.GetLastWin32Error();
+        Frames.Add(new JsonObject{["tick"]=System.Diagnostics.Stopwatch.GetTimestamp(),["submitted"]=ok,["error"]=error,["foreground"]=(long)TouchNative.Foreground,["contacts"]=new JsonArray(frame.Select((p,i)=>(JsonNode)new JsonObject{["id"]=p.Touch.Pointer.Id,["flags"]=p.Touch.Pointer.Flags,["suggested_target"]=(long)p.Touch.Pointer.Target,["point"]=new JsonArray(p.Touch.Pointer.Pixel.X,p.Touch.Pointer.Pixel.Y),["injection_point"]=new JsonArray(injected[i].Touch.Pointer.Pixel.X,injected[i].Touch.Pointer.Pixel.Y)}).ToArray())});
         if(!ok)throw new Win32Exception(error,$"合成触点投递失败（系统错误{error}），禁止重放");
     }
+    internal static TouchNative.TypeInfo[] ToInjectionFrame(TouchNative.TypeInfo[] frame,PixelBox desktop)
+        =>frame.Select(contact=>
+        {
+            var point=contact.Touch.Pointer.Pixel;
+            if(!desktop.Contains(new(point.X,point.Y)))throw new InputBlockedException("触点超出虚拟桌面，未发送输入");
+            contact.Touch.Pointer.Pixel=new(new PixelPoint(checked(point.X-desktop.Left),checked(point.Y-desktop.Top)));
+            contact.Touch.Pointer.Raw=contact.Touch.Pointer.Pixel;
+            return contact;
+        }).ToArray();
     private static void RequireLocalWindow(nint hwnd)
     {
         GetWindowThreadProcessId(hwnd,out var owner);

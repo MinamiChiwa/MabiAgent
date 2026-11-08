@@ -152,7 +152,7 @@ public sealed partial class AutomationService:IAsyncDisposable
         ApplyOcrPreferences();
         var revision=Volatile.Read(ref configurationRevision);var routes=ScreenRoutes.FromConfiguration(workspace.Root,PublishedCatalogCompiler.CompileAvailable(Repository),Repository.UserAssetRoot);var catalog=new RuntimeCatalog(routes.Configuration);
         var scope=ScreenWorkflowSession.ProcessScope(game.State);var current=DesktopPorts.VerifiedCapture(CaptureStatus,game.State);
-        if(current?.Scope is{} owner)scope=scope with{SessionId=scope.SessionId+":owner:"+JsonSerializer.Serialize(new[]{owner.AccountId,owner.CharacterId})};
+        if(current?.Scope is{} owner)scope=scope with{SessionId=scope.SessionId+":owner:"+JsonSerializer.Serialize(new[]{owner.AccountId,owner.CharacterId}),AccountId=owner.AccountId,CharacterId=owner.CharacterId};
         var input=InputOptions.FromJson(ReadRuntimeSettings());var diagnostics=new RuntimeDiagnostics(workspace.DataPath);var inputOps=InputTransportFactory.Create(game.State,input,diagnostics);
         if(inputOps is TouchInputOps touch)touch.DiagnosticWriteFailed+=failure=>{activity.Warning("touch",$"触控诊断写入失败：{failure.GestureId}/{failure.Stage}；{failure.Error}");NotifyChanged();};
         var next=new ScreenWorkflowSession(routes,game.State,inputOps,GetOcr(),new JsonWorkflowStore(Path.Combine(workspace.DataPath,"native-input-intents.json")),()=>NativeWindowActivation.Activate(game.State),scope,diagnostics,inputOptions:input);
@@ -199,7 +199,7 @@ public sealed partial class AutomationService:IAsyncDisposable
                         var complete=ports.QuickReentryStatus==QuickReentryStatus.Complete;
                         var failed=ports.QuickReentryStatus==QuickReentryStatus.Failed;
                         var fresh=ports.VerifiedCapture() is {} sync&&sync.FullSyncAt>refreshStartedAt&&ports.CurrentEpoch is{} epoch&&epoch!=recoveryEpoch&&(recoveryIdentity is null||ports.CurrentIdentity==recoveryIdentity);
-                        Status=host.Status with{Running=false,ActivePhase="quick_reentry",Message=failed?"快速重进失败："+(ports.QuickReentryFailure??QuickReentryStepLabel(ports.QuickReentryStep)):complete&&fresh?"库存刷新已完成，请显式继续":"快速重进中 · "+QuickReentryStepLabel(ports.QuickReentryStep)};
+                        Status=host.Status with{Running=false,ActivePhase="quick_reentry",Message=failed?"快速重进失败："+(ports.QuickReentryFailure??QuickReentryStepLabel(ports.QuickReentryStep)):complete&&fresh?"库存刷新已完成，请点击继续":"快速重进中 · "+QuickReentryStepLabel(ports.QuickReentryStep)};
                         if(complete)refreshCompletedAt??=DateTimeOffset.UtcNow;
                         var stopped=refreshCommand!=Volatile.Read(ref commandRevision)||session!.Guard.Paused;
                         var captureExpired=refreshCompletedAt is{} finished&&DateTimeOffset.UtcNow-finished>=TimeSpan.FromSeconds(session!.Routes.Configuration["quick_reentry"]?["capture_wait_s"]?.GetValue<int>()??8);
@@ -210,7 +210,7 @@ public sealed partial class AutomationService:IAsyncDisposable
                             else if(complete&&fresh&&!stopped)
                             {
                                 host.Pause("inventory_sync_complete");
-                                Status=host.Status with{Running=false,ActivePhase="quick_reentry",Message="库存刷新已完成，请显式继续",PauseReason="inventory_sync_complete"};
+                                Status=host.Status with{Running=false,ActivePhase="quick_reentry",Message="库存刷新已完成，请点击继续",PauseReason="inventory_sync_complete"};
                             }
                             else if(stopped)
                             {var reason=failed?ports.QuickReentryFailure??"快速重进失败":"刷新已中止，未取得完整抓包";host.Pause("manual");Status=host.Status with{Running=false,ActivePhase="quick_reentry",Message=reason+"；已暂停",PauseReason="manual"};}
@@ -247,7 +247,7 @@ public sealed partial class AutomationService:IAsyncDisposable
                         using(var inventoryStage=activity.Enter("刷新库存依据"))ports.RefreshInventoryBasis();
                         if(host.Status.Running){using var tickStage=activity.Enter("执行任务："+(Status.ActivePhase??Status.Message));Status=host.Tick();}
                         else{host.ObservePausedWork();Status=Status with{ActiveConfirmed=host.Status.ActiveConfirmed,ReconciliationCount=host.Status.ReconciliationCount,Issues=host.Status.Issues};}
-                        if(Status.Running&&session!.Guard.Paused){var reason=session.Guard.PauseReason;host.Pause(reason??"input_paused");Status=host.Status with{Message=reason=="restart_required"?"游戏运行时限已到，请重启后核账":"输入已暂停，请核实后继续"};}
+                        if(Status.Running&&session!.Guard.Paused){var reason=session.Guard.PauseReason;host.Pause(reason??"input_paused");Status=host.Status with{Message=reason=="restart_required"?"游戏运行时限已到，请重启游戏后确认上次操作结果":"输入已暂停，请核实后继续"};}
                         else if(host.Status.Running&&ports.InventorySyncRequested&&host.SafeToSwitch)
                         {
                             if(captureEnabled&&CaptureStatus.State==CaptureState.Listening){ports.InventorySyncRequested=false;BeginQuickReentry(true);}
@@ -322,7 +322,7 @@ public sealed partial class AutomationService:IAsyncDisposable
     internal static AutomationStatus RecoveryStatus(AutomationStatus prior,JsonObject recovery,string? pauseReason)
     {
         var state=recovery["status"]?.GetValue<string>();var phase=recovery["phase"]?.GetValue<string>();
-        var message=state=="complete"?"登录恢复已完成，请显式继续":state=="running"&&pauseReason is null?"登录恢复："+ScreenRelogin.PhaseLabel(phase):recovery["reason"]?.GetValue<string>()??"重登已暂停，请核实当前页面";
+        var message=state=="complete"?"登录恢复已完成，请点击继续":state=="running"&&pauseReason is null?"登录恢复："+ScreenRelogin.PhaseLabel(phase):recovery["reason"]?.GetValue<string>()??"重登已暂停，请核实当前页面";
         return prior with{Running=false,ActivePhase=phase,Message=message,PauseReason=state=="running"&&pauseReason is null?null:pauseReason??"relogin_blocked"};
     }
     public Task PauseAsync()
@@ -352,7 +352,7 @@ public sealed partial class AutomationService:IAsyncDisposable
                 Status=new(false,"正在清除全部执行状态",null,new Dictionary<string,string>(),0);
                 new RuntimeQueue(workspace.DataPath).ResetAllExecution();
                 lock(lifecycle){executionLifetime.Dispose();executionLifetime=new();}
-                Status=new(false,"已停止全部，执行进度与核账已清除；再次开始将重新规划",null,new Dictionary<string,string>(),0);
+                Status=new(false,"已停止全部，任务进度和操作记录已重置；再次开始将重新安排",null,new Dictionary<string,string>(),0);
             }
             catch(Exception error){Status=Status with{Message="停止重置未完成，请重试停止全部",Fault=error.ToString()};throw;}
             finally{NotifyChanged();gate.Release();wake.Signal();}
@@ -361,6 +361,7 @@ public sealed partial class AutomationService:IAsyncDisposable
     public async ValueTask DisposeAsync()
     {
         stopHotkey?.Dispose();
+        pauseHotkey?.Dispose();
         lock(lifecycle){if(disposed)return;disposed=true;Interlocked.Increment(ref commandRevision);lifetime.Cancel();executionLifetime.Cancel();workbenchCancellation?.Cancel();captureLifetime?.Cancel();captureEnabled=false;}
         selection.Changed-=SelectionChanged;Repository.CatalogChanged-=CatalogChanged;workspace.Changed-=NotifyRuntimeChanged;if(capture is not null)capture.Changed-=NotifyRuntimeChanged;session?.Guard.Pause("closed");
         if(worker is not null)await worker.ConfigureAwait(false);await gate.WaitAsync().ConfigureAwait(false);try{DestroyHost();lock(ocrGate){ocr?.Dispose();ocr=null;}}finally{gate.Release();}
@@ -372,7 +373,9 @@ internal sealed class DesktopPorts:IAutomationPorts
 {
     private readonly ScreenWorkflowSession session;private readonly Func<CaptureStatus> capture;private readonly NativeWindowState window;private readonly CapturePlanningAdapter mapping;
     private readonly RuntimeCatalog catalog;private readonly Func<JsonObject> settings;private readonly ScreenOwnerTracker ownerTracker=new();
-    public string Scope=>session.Scope.SessionId;public string? CurrentDevice=>session.CurrentDevice;public IGatheringConsumables? GatheringConsumables{get;}
+    public string Scope=>session.Scope.HasIdentity?session.Scope.SessionId:VerifiedCapture()?.Scope is{} owner
+        ?session.Scope.SessionId+":owner:"+JsonSerializer.Serialize(new[]{owner.AccountId,owner.CharacterId}):session.Scope.SessionId;
+    public string? CurrentDevice=>session.CurrentDevice;public IGatheringConsumables? GatheringConsumables{get;}
     public string? InputPauseReason=>session.Guard.Paused?session.Guard.PauseReason??"input_paused":null;
     public string? CurrentPage=>session.CurrentPage;
     public string? OnsiteDevice=>session.OnsiteDevice;
@@ -397,16 +400,19 @@ internal sealed class DesktopPorts:IAutomationPorts
     internal bool IdentityChanged(){var scope=VerifiedCapture()?.Scope;return ownerTracker.Observe(scope?.AccountId,scope?.CharacterId);}
     internal void RefreshInventoryBasis(){}
     public void Start()=>session.Start();public void Continue()=>session.ResumeExplicit();public void Pause(string reason)=>session.Pause(reason);public void Dispose(){session.Dispose();}
-    public InventorySnapshot Inventory()
+    public InventorySnapshot Inventory()=>Inventory(VerifiedCapture());
+    private InventorySnapshot Inventory(MabiAgent.Capture.InventorySnapshot? raw)
     {
-        if(IdentityChanged())throw new InvalidOperationException("当前角色已变化，请重新开始任务");
-        var result=new InventorySnapshot(Scope);var raw=VerifiedCapture();var mapped=mapping.Convert(raw);var epoch=raw is null?null:CapturePlanningAdapter.ScopeKey(raw.Scope!)+":"+raw.FullSyncRevision;
-        foreach(var id in catalog.Names.Keys)
+        if(ownerTracker.Observe(raw?.Scope?.AccountId,raw?.Scope?.CharacterId))throw new InvalidOperationException("当前角色已变化，请重新开始任务");
+        var scope=session.Scope.HasIdentity?session.Scope.SessionId:raw?.Scope is{} owner
+            ?session.Scope.SessionId+":owner:"+JsonSerializer.Serialize(new[]{owner.AccountId,owner.CharacterId}):session.Scope.SessionId;
+        var result=new InventorySnapshot(scope);var mapped=mapping.Convert(raw);
+        foreach(var id in mapped.Inventory?.Observations.Keys??Enumerable.Empty<long>())
         {
             var packet=mapped.Inventory?.Query(id);
-            if(packet is not null)result.Set(packet with{Scope=Scope});
+            if(packet is not null)result.Set(packet with{Scope=scope});
         }
-        if(mapped.Inventory is not null)foreach(var (scope,values) in mapped.Inventory.Storage)result.SetStorage(scope,values);return result;
+        if(mapped.Inventory is not null)foreach(var (storageScope,values) in mapped.Inventory.Storage)result.SetStorage(storageScope,values);return result;
     }
     public bool PreferBulkInventorySync=>capture().State==CaptureState.Listening;
     public QuickReentryStatus QuickReentryStatus=>refresh?.Status??QuickReentryStatus.Idle;
@@ -425,22 +431,24 @@ internal sealed class DesktopPorts:IAutomationPorts
     public void ResumeAfterInventorySync()=>session.ResumeWorkflow();
     public bool BeforeTick(bool safeBoundary)
     {if(session.Guard.Paused||!safeBoundary)return false;return session.DismissNotice()||session.TryTravel();}
-    public bool BeforeNavigationTick()=>!session.Guard.Paused&&session.TryTravel();
+    public bool BeforeNavigationTick()=>!session.Guard.Paused&&
+        (session.CurrentPage.StartsWith("notification_",StringComparison.Ordinal)&&session.DismissNotice(notificationsOnly:true)||session.TryTravel());
     public IProductionPort Production(string key,string id,IWorkflowStore store)=>session.CreateProductionPort(key,id,store);
     public IGatheringPort Gathering(string key,string id,IWorkflowStore store)=>session.CreateGatheringPort(key,id,store);
     public IStorageSupplyPort Storage(WithdrawalPlan plan,string id,IWorkflowStore store)=>session.CreateStoragePort(plan,id,store,Inventory);
     public IFishingPort Fishing(string key,string id,IWorkflowStore store)=>session.CreateFishingPort(key,id,store);
     private InventorySnapshot InventoryWithDecompositionInput()
     {
-        var result=Inventory();var decomposition=catalog.Configuration["decomposition"];
+        var raw=VerifiedCapture();var result=Inventory(raw);var decomposition=catalog.Configuration["decomposition"];
         if(decomposition?["input_wire_id"] is not {} input)return result;
-        var item=input.GetValue<long>();var raw=VerifiedCapture();var quantity=raw?.Quantity(MabiAgent.Capture.InventoryContainer.Backpack,checked((uint)item));
-        result.Set(new(item,quantity,Scope,"packet_capture",raw?.Scope?.SessionId+":"+raw?.Revision,quantity is not null));return result;
+        var item=input.GetValue<long>();var quantity=raw?.Quantity(MabiAgent.Capture.InventoryContainer.Backpack,checked((uint)item));
+        result.Set(new(item,quantity,result.Scope,"packet_capture",raw?.Scope?.SessionId+":"+raw?.Revision,quantity is not null));return result;
     }
     public IDecompositionPort Decomposition(string id,IWorkflowStore store)=>new ScreenDecompositionPort(session,id,store,InventoryWithDecompositionInput);
     public IMaintenancePort Maintenance(string id,IWorkflowStore store)=>session.CreateMaintenancePort(id,store);
     public bool IsExplicitSurplusMaterial(long item)=>DesktopPreferences.FromJson(settings()).IsExplicitSurplusMaterial(item);
+    public long MaterialReserveMinimum(long item)=>DesktopPreferences.FromJson(settings()).MaterialReserveMinimum(item);
     public IPurchasePort Purchase(GatheringSupplyRequest request,string batchId,Func<PurchaseState?> persisted)=>session.CreatePurchasePort(request.ItemId,request.Name,batchId,persisted,()=>PurchasePreferences,()=>Inventory());
     public ISurplusMaintenancePort Surplus(string batchId,IWorkflowStore store,Func<long,long?> requiredReserve)=>session.CreateSurplusPort(batchId,store,id=>
-    DesktopPreferences.FromJson(settings()).RequiredMaterialReserve(id,requiredReserve(id)),InventoryWithDecompositionInput);
+    DesktopPreferences.FromJson(settings()).RequiredMaterialReserve(id,requiredReserve(id)),InventoryWithDecompositionInput,id=>mapping.Name(id,VerifiedCapture()));
 }

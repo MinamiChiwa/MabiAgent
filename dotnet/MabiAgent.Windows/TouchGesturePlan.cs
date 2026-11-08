@@ -3,6 +3,8 @@ using System.Text.Json.Nodes;
 using MabiAgent.Windows;
 namespace MabiAgent.Windows;
 
+internal sealed class LocalTouchFramesUnavailableException(string message):Exception(message);
+
 internal sealed record TouchGesturePlan(string Kind,PixelPoint[][] Points,int ReleaseDelayMilliseconds=0)
 {
     internal int Steps=>Points.Length-1;
@@ -35,7 +37,7 @@ internal sealed record TouchGesturePlan(string Kind,PixelPoint[][] Points,int Re
             if(ups.Count>=ContactCount||result.Count>MessageCount)break;
             Thread.Sleep(2);
         }while(timer.ElapsedMilliseconds<250);
-        try{Validate(result);return result;}
+        try{if(result.Count==0)throw new LocalTouchFramesUnavailableException($"触控帧不完整：0/{MessageCount}，手势 {Kind}");Validate(result);return result;}
         catch{foreach(var envelope in result)envelope.Dispose();throw;}
     }
     // Windows can coalesce UPDATE frames. Boundaries and coordinates must still form one complete planned gesture.

@@ -4,6 +4,9 @@ namespace MabiAgent.Windows.Tests;
 
 public sealed class StorageTransferQuantityTests
 {
+    [Theory][InlineData(650,"744.93/810","0.10",650L)][InlineData(1,"744.93/810","0.10",null)][InlineData(650,null,"0.10",null)][InlineData(650,"744.93/810","0",null)]
+    public void CapacityLimitRequiresMatchingWeightEvidence(long selected,string? bag,string unit,long? expected)
+        =>Assert.Equal(expected,ScreenStorageSupplyPort.LimitedQuantity(selected,bag,unit));
     [Fact] public void QuantityReadRegionCoversMultiDigitInputSurface()
     {
         var routes=ScreenRoutes.Load(RecognitionTests.Root());

@@ -6,7 +6,8 @@ public sealed record WithdrawalFrame(double At, string CaptureId, string Page = 
     string? Scope = null, long? ItemId = null, string? Name = null, long? Available = null, long? BagQuantity = null, string? BagScope = null,
     bool TransferAvailable = false, bool TransferDialog = false, long? DialogQuantity = null, bool ConfirmAvailable = false, bool TransferComplete = false,
     bool SelectAvailable = false, bool LocateAvailable = false, int LocateLimit = 10, double LocateIntervalSeconds = .5,
-    string? StorageBalanceScope = null, string? BagBalanceScope = null, string? BalanceSource = null, double? BalanceAt = null);
+    string? StorageBalanceScope = null, string? BagBalanceScope = null, string? BalanceSource = null, double? BalanceAt = null,
+    long? CapacityQuantity = null);
 public sealed record WithdrawalAction(string Kind, long ItemId, string Name, long Quantity, string Scope, int SearchIndex = 0);
 public interface IStorageSupplyPort : IForegroundWorkflowPort
 {
@@ -124,11 +125,11 @@ public sealed class StorageSupplyRunner : PersistentWorkflow
     {lock(Gate){if(!NavigationReleased||State["reconciliation_refresh_requested"]?.GetValue<bool>()==true)return false;State["reconciliation_refresh_requested"]=true;Save();return true;}}
     public void ResetRefreshRequest(){lock(Gate){State.Remove("reconciliation_refresh_requested");Save();}}
     public bool CanIsolateFault=>Pending is null&&port.CanReleaseForeground();
-    public bool RetireSatisfiedPlans(Func<long,bool> noLongerNeeded)
+    public bool RetireSatisfiedPlans(Func<WithdrawalPlan,bool> noLongerNeeded)
     {
         lock(Gate)
         {
-            if(Pending is not null||!plans.Skip(I("index")).All(p=>noLongerNeeded(p.ItemId)))return false;
+            if(S("status")=="complete"||I("index")>=plans.Length||Pending is not null||!plans.Skip(I("index")).All(noLongerNeeded))return false;
             Set(("index",plans.Length),("status","complete"),("reason","material_demand_satisfied"),("wait",null));Save();return true;
         }
     }
@@ -169,7 +170,9 @@ public sealed class StorageSupplyRunner : PersistentWorkflow
         if (Load() is { } saved)
         {
             if (saved["schema_version"]?.GetValue<int>() != 1 || !JsonNode.DeepEquals(saved["plans"], serialized) || saved["index"]?.GetValue<int>() is not { } index || index < 0 || index > this.plans.Length || saved["completed"] is not JsonArray || saved["pending"] is not (null or JsonObject)) throw new InvalidDataException("取料记录不匹配，保留待核对");
-            State = saved; if (S("status") != "complete") Set(("status", "paused"), ("pause_reason", "restart"));
+            State = saved;
+            if(index==this.plans.Length&&Pending is null)Set(("status","complete"),("pause_reason",null));
+            else if (S("status") != "complete") Set(("status", "paused"), ("pause_reason", "restart"));
         }
         Save();
     }
@@ -187,6 +190,11 @@ public sealed class StorageSupplyRunner : PersistentWorkflow
     }
     private string? WaitKind => State["wait"]?["kind"]?.GetValue<string>();
     private static bool Identity(WithdrawalFrame f, WithdrawalPlan p) => f.Scope == p.Scope && f.ItemId == p.ItemId && f.Name == p.Name;
+    private WithdrawalPlan CurrentPlan()
+    {
+        var p=plans[I("index")];
+        return State["capacity_limited_quantity"]?.GetValue<long>() is{} quantity&&quantity>0&&quantity<p.Quantity?p with{Quantity=quantity}:p;
+    }
     private static bool Balances(WithdrawalFrame f) => f.BalanceSource == "packet_capture" && Quantity(f.Available, true) && Quantity(f.BagQuantity, true) && !string.IsNullOrWhiteSpace(f.BagScope);
     private void Perform(string kind, WithdrawalPlan p, WithdrawalFrame f, bool pending = false, int searchIndex = 0)
     {
@@ -223,7 +231,7 @@ public sealed class StorageSupplyRunner : PersistentWorkflow
         if (fresh && Identity(f, p) && f.TransferComplete)
         {
             State["completed"]!.AsArray().Add(new JsonObject { ["item_id"] = p.ItemId, ["name"] = p.Name, ["scope"] = p.Scope, ["bag_scope"] = f.BagScope, ["quantity"] = p.Quantity, ["goal_ids"] = new JsonArray((p.GoalIds ?? []).Select(g => (JsonNode?)JsonValue.Create(g)).ToArray()), ["capture_id"] = f.CaptureId, ["at"] = f.At, ["evidence"] = "transfer_complete" });
-            State.Remove("prepared_baseline");State["index"] = I("index") + 1; Set(("pending", null), ("phase", "navigate"), ("reason", null), ("wait", null), ("status", I("index") == plans.Length ? "complete" : "running")); Save(); return "completed";
+            State.Remove("prepared_baseline");State.Remove("capacity_limited_quantity");State.Remove("requested_quantity");State["index"] = I("index") + 1; Set(("pending", null), ("phase", "navigate"), ("reason", null), ("wait", null), ("status", I("index") == plans.Length ? "complete" : "running")); Save(); return "completed";
         }
         var same = pending["balance_source"]?.GetValue<string>() == "packet_capture" && Identity(f, p) && Balances(f) && SameBagOwner(f.BagScope,pending["bag_scope"]?.GetValue<string>(),p.Scope) && (f.StorageBalanceScope ?? f.Scope) == (pending["storage_balance_scope"] ?? pending["scope"])?.GetValue<string>() && SameBagOwner(f.BagBalanceScope ?? f.BagScope,(pending["bag_balance_scope"] ?? pending["bag_scope"])?.GetValue<string>(),p.Scope);
         // A newer screen does not make an unchanged packet snapshot fresh.
@@ -240,7 +248,7 @@ public sealed class StorageSupplyRunner : PersistentWorkflow
             if (bagDelta == p.Quantity && storageDelta == p.Quantity)
             {
                 State["completed"]!.AsArray().Add(new JsonObject { ["item_id"] = p.ItemId, ["name"] = p.Name, ["scope"] = p.Scope, ["bag_scope"] = f.BagScope, ["quantity"] = p.Quantity, ["goal_ids"] = new JsonArray((p.GoalIds ?? []).Select(g => (JsonNode?)JsonValue.Create(g)).ToArray()), ["capture_id"] = f.CaptureId, ["at"] = f.At, ["balance_source"] = f.BalanceSource, ["storage_balance_scope"] = f.StorageBalanceScope ?? f.Scope, ["bag_balance_scope"] = f.BagBalanceScope ?? f.BagScope });
-                State.Remove("prepared_baseline");State["index"] = I("index") + 1; Set(("pending", null), ("phase", "navigate"), ("reason", null), ("wait", null), ("status", I("index") == plans.Length ? "complete" : "running")); Save(); return "completed";
+                State.Remove("prepared_baseline");State.Remove("capacity_limited_quantity");State.Remove("requested_quantity");State["index"] = I("index") + 1; Set(("pending", null), ("phase", "navigate"), ("reason", null), ("wait", null), ("status", I("index") == plans.Length ? "complete" : "running")); Save(); return "completed";
             }
             if (prepare && bagDelta == 0 && storageDelta == 0&&(f.TransferDialog||f.BagScope!=pending["bag_scope"]?.GetValue<string>()&&f.Page is "scene" or "storage_character" or "storage_account"))
             { Set(("pending", null), ("phase",f.TransferDialog?"prepare_transfer":"navigate"), ("status", "running"), ("reason", null)); Save(); return f.TransferDialog?"dialog":"waiting"; }
@@ -268,7 +276,7 @@ public sealed class StorageSupplyRunner : PersistentWorkflow
             var frame = port.Observe();
             if (!double.IsFinite(frame.At) || string.IsNullOrWhiteSpace(frame.CaptureId) || !Ready(frame.Page, frame.Foreground, frame.Stable)) return;
             var paused=S("status")=="paused";var reason=S("pause_reason");
-            Reconcile(frame, plans[I("index")]);
+            Reconcile(frame, CurrentPlan());
             if(paused&&S("status") is not ("complete" or "unknown")){Set(("status","paused"),("pause_reason",reason));Save();}
         }
     }
@@ -280,7 +288,7 @@ public sealed class StorageSupplyRunner : PersistentWorkflow
         if (!PageReady(f.Page, f.Foreground, f.Stable, BlockPage)) { Save(); return; }
         if (S("status") == "paused") return;
         if (f.CaptureId == lastCapture) return; lastCapture = f.CaptureId;
-        var p = plans[I("index")]; if (Pending is not null) { if (Reconcile(f, p) != "dialog") return; } else if (S("status") is "unknown" or "blocked") return;
+        var p = CurrentPlan(); if (Pending is not null) { if (Reconcile(f, p) != "dialog") return; } else if (S("status") is "unknown" or "blocked") return;
         if (f.Scope != p.Scope) { CheckProgress("navigate:"+f.Page);Perform("navigate", p, f); return; }
         ResetProgressWait();
         if (!f.TransferAvailable && !f.TransferDialog && !f.SelectAvailable && WaitKind == "selection") { Wait("selection", f, "storage_selection_not_observed"); return; }
@@ -293,6 +301,17 @@ public sealed class StorageSupplyRunner : PersistentWorkflow
         }
         if (f.TransferDialog)
         {
+            if(WaitKind=="quantity_set"&&State["wait"] is JsonObject attempted&&
+                f.At>=(attempted["retry_at"]?.GetFiniteDouble()??double.PositiveInfinity)&&
+                Quantity(f.CapacityQuantity)&&f.CapacityQuantity==f.DialogQuantity&&f.CapacityQuantity<p.Quantity)
+            {
+                // This is the selected transfer amount, never an inventory count.
+                // Persist it before allowing a consumption intent for the smaller load.
+                State["capacity_limited_quantity"]=f.CapacityQuantity;
+                State["requested_quantity"]=p.Quantity;State["wait"]=null;Save();
+                p=CurrentPlan();
+                Perform("set_quantity",p,f);return;
+            }
             if (!Quantity(f.DialogQuantity) || f.DialogQuantity != p.Quantity)
             {
                 if (WaitKind != "quantity_set")

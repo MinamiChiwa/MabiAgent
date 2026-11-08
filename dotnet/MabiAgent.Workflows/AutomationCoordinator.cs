@@ -28,7 +28,7 @@ public sealed class AutomationCoordinator:IDisposable
     private readonly Dictionary<string,double> deviceRetry=[];
     private readonly Dictionary<string,string> gatheringSupplyVersions=[];
     private bool inventorySyncRequested,inventorySyncFailed;private string? inventorySyncKey;
-    private string? pauseReason;private int recoveryAttempt;private DateTimeOffset retryAfter;
+    private string? pauseReason,gatheringContinuation;private int recoveryAttempt;private DateTimeOffset retryAfter;
     private StorageSupplyRunner? withdrawal;private string? withdrawalKey;private string? withdrawalVersion;private bool withdrawalFaulted;
     private BottlePurchase? purchase;private GatheringSupplyRequest? purchaseRequest;private string? purchaseAction;private bool purchaseRestoreBlocked;private double? purchaseCompletionBaseline;
     private readonly IDecompositionPort? decomposition;private string? decompositionVersion;
@@ -126,22 +126,31 @@ public sealed class AutomationCoordinator:IDisposable
     {issues[job]="任务异常："+error.Message;Record("error","workflow",boundary,boundary=="task"?"explicit_continue":"observe_then_explicit_continue",error.Message,error,job);}
     private void StartMaintenanceSchedule()
     {maintenance.RestartRepairSchedule();maintenance.RestartBackpackSchedule();queueHadWork=queue.Read().Jobs.Count>0;started=true;}
+    private void ResumeMaintenance()
+    {
+        if(maintenance.StatusSnapshot()["reason"]?.GetValue<string>()=="backpack_relief_exhausted"
+            &&runs.Any(p=>p.Value.Runner is ProductionRunner&&dispatcher.CanSchedule(p.Key)
+                &&p.Value.Runner.Snapshot() is{} state&&state["phase"]?.GetValue<string>()=="waiting"
+                &&state["status"]?.GetValue<string>()!="unknown"&&state["pending"] is null&&state["owned_slots"] is JsonArray{Count:>0}))
+            maintenance.ProductionReliefAvailable();
+        maintenance.Resume(true);
+    }
     public void Start()
-    {ObjectDisposedException.ThrowIf(disposed,this);ports.Start();StartMaintenanceSchedule();ResetInventorySync(true);maintenanceFaulted=false;recoveryAttempt=0;pauseReason=null;retryAfter=DateTimeOffset.MinValue;running=true;ApplyQueueControls();dispatcher.Continue();withdrawal?.Resume(true);maintenance.Resume(true);Publish("正在核验任务与库存");}
+    {ObjectDisposedException.ThrowIf(disposed,this);ports.Start();StartMaintenanceSchedule();ResetInventorySync(true);maintenanceFaulted=false;recoveryAttempt=0;pauseReason=null;retryAfter=DateTimeOffset.MinValue;running=true;ApplyQueueControls();dispatcher.Continue();withdrawal?.Resume(true);ResumeMaintenance();Publish("正在核验任务与库存");}
     public void Continue()
-    {ObjectDisposedException.ThrowIf(disposed,this);ports.Continue();if(!started)StartMaintenanceSchedule();ResetInventorySync(true);if(decompositionVersion=="pending-refresh")decompositionVersion=null;foreach(var key in issues.Keys.Where(k=>k.StartsWith("inventory:",StringComparison.Ordinal)||dispatcher.Faults.ContainsKey(k)||k=="maintenance_fault"||withdrawalFaulted&&k==withdrawalKey).ToArray())issues.Remove(key);maintenanceFaulted=false;withdrawalFaulted=false;recoveryAttempt=0;pauseReason=null;retryAfter=DateTimeOffset.MinValue;running=true;ApplyQueueControls();dispatcher.Continue();withdrawal?.ResetRefreshRequest();withdrawal?.Resume(true);maintenance.Resume(true);Publish("继续执行");}
+    {ObjectDisposedException.ThrowIf(disposed,this);ports.Continue();if(!started)StartMaintenanceSchedule();ResetInventorySync(true);Restore();if(decompositionVersion=="pending-refresh")decompositionVersion=null;foreach(var key in issues.Keys.Where(k=>k.StartsWith("inventory:",StringComparison.Ordinal)||dispatcher.Faults.ContainsKey(k)||k=="maintenance_fault"||withdrawalFaulted&&k==withdrawalKey).ToArray())issues.Remove(key);maintenanceFaulted=false;withdrawalFaulted=false;recoveryAttempt=0;pauseReason=null;retryAfter=DateTimeOffset.MinValue;running=true;ApplyQueueControls();dispatcher.Continue();withdrawal?.Resume(true);ResumeMaintenance();Publish("继续执行");}
     public void ContinueAfterInventorySync()
     {
         ObjectDisposedException.ThrowIf(disposed,this);
-        if(ManualPausePending){Publish("库存同步完成，等待显式继续");return;}
-        ports.ResumeAfterInventorySync();inventorySyncFailed=false;ResetInventorySync();running=true;ApplyQueueControls();dispatcher.Continue(false);if(!withdrawalFaulted)withdrawal?.Resume(true);if(!maintenanceFaulted)maintenance.Resume(true);Publish("库存同步完成，继续执行");
+        if(ManualPausePending){Publish("库存同步完成，等待点击继续");return;}
+        ports.ResumeAfterInventorySync();inventorySyncFailed=false;ResetInventorySync();Restore();running=true;ApplyQueueControls();dispatcher.Continue(false);if(!withdrawalFaulted)withdrawal?.Resume(true);if(!maintenanceFaulted)ResumeMaintenance();Publish("库存同步完成，继续执行");
     }
     public void FinishInventorySyncWithoutCoverage(string reason)
     {
         ObjectDisposedException.ThrowIf(disposed,this);
         if(ManualPausePending)
         {
-            inventorySyncFailed=true;issues["inventory_sync"]=reason+"；已暂停，等待显式继续";Publish(reason+"；已暂停");return;
+            inventorySyncFailed=true;issues["inventory_sync"]=reason+"；已暂停，等待点击继续";Publish(reason+"；已暂停");return;
         }
         ports.ResumeAfterInventorySync();inventorySyncFailed=true;ResetInventorySync();issues["inventory_sync"]=reason+"；等待后续库存同步，独立任务继续";running=true;pauseReason=null;ApplyQueueControls();dispatcher.Continue(false);if(!withdrawalFaulted)withdrawal?.Resume(true);if(!maintenanceFaulted)maintenance.Resume(true);Publish(reason+"；相关材料保持未知，独立任务继续");
     }
@@ -218,7 +227,8 @@ public sealed class AutomationCoordinator:IDisposable
             visibleIssues["material:"+missing.ItemId]=name+"材料不足（背包及仓库不足）"+detail;
         }
         foreach(var (id,state) in snapshots)
-            if(state["status"]?.GetValue<string>() is "unknown" or "blocked"||state["paused"] is not null||state["status"]?.GetValue<string>()=="paused"&&state["pause_reason"]?.GetValue<string>() is not ("manual" or "closed"))
+            if(!(runs.TryGetValue(id,out var waitingRun)&&waitingRun.Runner is ProductionRunner&&state["phase"]?.GetValue<string>()=="waiting"&&state["pending"] is null&&dispatcher.CanSchedule(id))
+                &&(state["status"]?.GetValue<string>() is "unknown" or "blocked"||state["paused"] is not null||state["status"]?.GetValue<string>()=="paused"&&state["pause_reason"]?.GetValue<string>() is not ("manual" or "closed")))
                 visibleIssues.TryAdd(id,state["reason"]?.GetValue<string>()??state["pause_reason"]?.GetValue<string>()??state["paused"]?.GetValue<string>()??"等待核实");
         var maintenanceState=maintenance.StatusSnapshot();
         if(new[]{"repair","backpack"}.Any(part=>maintenanceState[part]?["status"]?.GetValue<string>() is "blocked" or "unknown" or "manual_required"))
@@ -234,7 +244,7 @@ public sealed class AutomationCoordinator:IDisposable
     {
         foreach(var node in queue.Read().ToJson()["jobs"]!.AsArray())
         {
-            if(node!["pending"] is null)continue;var id=node["job_id"]!.GetValue<string>();
+            if(node!["pending"] is null)continue;var id=node["job_id"]!.GetValue<string>();if(runs.ContainsKey(id))continue;
             try
             {
                 var saved=queue.Restore(node.AsObject(),ports.Scope);
@@ -242,10 +252,10 @@ public sealed class AutomationCoordinator:IDisposable
                 {
                     if(queue.ReleaseRetiredUnsubmitted(node.AsObject()))
                     {var action=node["pending"]!["action_id"]!.GetValue<string>();inventory.ReleaseUnsubmitted(action);ports.GatheringConsumables?.ReleaseUnsubmitted(action);SaveReservations();}
-                    else issues[id]="旧批次需要核账，未创建新消费动作";
+                    else issues[id]="上次任务的操作结果待确认，暂未继续操作";
                     continue;
                 }
-                LoadRun(saved.Value.Batch,saved.Value.Folder);
+                LoadRun(saved.Value.Batch,saved.Value.Folder);issues.Remove(id);
             }
             catch(Exception e){issues[id]="恢复失败："+e.Message;Record("error","restore","task","manual_review",issues[id],e,id);}
         }
@@ -331,10 +341,19 @@ public sealed class AutomationCoordinator:IDisposable
         foreach(var task in plan.Tasks)
         {
             var matching=q.Jobs.Where(j=>!j.Cancelled&&!j.Paused&&(j.Pending||q.Status(j.Id)=="queued")&&j.ItemId==task.ItemId&&j.Kind==task.Kind&&j.Recipe==(task.RecipeKey??task.RouteKey)).ToArray();
-            var available=task.ReadyRounds;
+            // Long-term demand allocations are not reservations for unsent
+            // batches. The dispatcher has one input owner; durable submission
+            // debits prevent the next recipe from spending these inputs twice.
+            var available=task.Kind=="production"?Math.Min(task.Rounds,task.Inputs.Select(p=>
+            {var stock=current.Query(p.Key);return stock.Confirmed&&stock.Quantity is{} quantity?quantity/p.Value:0;}).DefaultIfEmpty(0).Min()):task.ReadyRounds;
             foreach(var job in matching)
             {
                 tasks[job.Id]=task;var remaining=Math.Max(0,job.Target-job.Completed);var each=task.OutputPerRound??1;var wanted=(remaining+each-1)/each;
+                if(runs.TryGetValue(job.Id,out var existing)&&existing.Runner is ProductionRunner)
+                {
+                    var state=existing.Runner.Snapshot();
+                    wanted=state["phase"]?.GetValue<string>()=="waiting"?0:Math.Max(0,(state["count"]?.GetValue<int>()??0)-(state["submitted"]?.GetValue<int>()??0));
+                }
                 readyRounds[job.Id]=Math.Min(available,wanted);available-=readyRounds[job.Id];
                 if(!deferred.ContainsKey(job.Id)||deferred[job.Id]!=SupplyKey(job))dispatcher.SupplyChanged(job.Id);
             }
@@ -442,7 +461,7 @@ public sealed class AutomationCoordinator:IDisposable
             double coverage=0;var satisfied=false;
             if(automatic&&job.Kind=="gathering")
             {
-                var demand=plan!.Tasks.Where(t=>t.Kind=="production"&&t.Inputs.ContainsKey(job.ItemId)).Sum(t=>checked(t.Inputs[job.ItemId]*Math.Min(5,t.Rounds)));
+                var demand=Math.Max(ports.MaterialReserveMinimum(job.ItemId),ImmediateMaterialDemand(job.ItemId,plan!.Tasks));
                 var observation=current.Query(job.ItemId);var quantity=observation.Quantity;
                 var awaitingFresh=string.Equals(observation.UnknownReason,"采集批结束，等待新库存",StringComparison.Ordinal);
                 coverage=quantity is null?0:demand>0?(double)quantity.Value/demand:1;
@@ -454,8 +473,28 @@ public sealed class AutomationCoordinator:IDisposable
             }
             result.Add(new(job.Id,job.Kind,task.Device,ready,FreeSlots(task.Device),index,coverage,Automatic:automatic,BufferSatisfied:satisfied,Blocked:maintenance.Blocked(job.Kind,job.Kind=="gathering")));
         }
-        return result.ToArray();
+        return result.Select(candidate=>candidate.Kind=="gathering"?candidate with
+        {
+            ContinueGathering=candidate.Id==gatheringContinuation,
+            ProductionSupplyPriority=GatheringProductionPriority(jobs.First(j=>j.Id==candidate.Id).ItemId)
+        }:candidate).ToArray();
     }
+    private int GatheringProductionPriority(long item)
+    {
+        if(plan is null)return 0;
+        var priority=0;
+        foreach(var task in plan.Tasks.Where(t=>t.Kind=="production"&&FreeSlots(t.Device)>0&&t.Inputs.ContainsKey(item)))
+        {
+            var missing=task.Inputs.Where(p=>current.Query(p.Key).Quantity is not{} quantity||quantity<p.Value).ToArray();
+            if(!missing.Any(p=>p.Key==item)||missing.Any(p=>!current.Query(p.Key).Confirmed||current.Query(p.Key).Quantity is null
+                ||plan.Issues.Any(i=>i.ItemId==p.Key&&i.Kind is "no_source" or "inventory_unknown" or "recipe_cycle")))continue;
+            priority=Math.Max(priority,missing.Length==1?2:1);
+        }
+        return priority;
+    }
+    private long ImmediateMaterialDemand(long item,IEnumerable<PlannedTask> planned)
+        =>planned.Where(t=>t.Kind=="production"&&t.Inputs.ContainsKey(item))
+            .Sum(t=>checked(t.Inputs[item]*Math.Min(t.Rounds,FreeSlots(t.Device))));
     private int FreeSlots(string? device)
     {
         if(device is null)return 0;var occupied=runs.Values.Where(r=>r.Batch["recipe"]?["device"]?.GetValue<string>()==device).Sum(r=>r.Runner.Snapshot()["owned_slots"]?.AsArray().Count??0);
@@ -492,13 +531,17 @@ public sealed class AutomationCoordinator:IDisposable
         {
             stage="plan";ApplyQueueControls();Reconcile();if(TryCompleteQueue())return Status;Replan();if(TryCompleteQueue())return Status;var candidates=Candidates();readyAtLastPlan=candidates.Any(c=>c.Ready&&!c.Blocked);
             var latestPolicy=preferences();if(latestPolicy!=appliedPolicy){maintenance.Configure(latestPolicy);appliedPolicy=latestPolicy;}
+            if(candidates.Any(c=>c.Ready&&!c.Blocked&&c.Kind=="production"&&c.FreeSlots>0))maintenance.ProductionReliefAvailable();
             var selectedTurn=new Scheduler().Select(candidates,new(dispatcher.ActiveId,!dispatcher.SafeToSwitch,ports.CurrentDevice,BackpackRelief()));
             var inPlace=selectedTurn is not null&&queue.Read().Jobs.Any(j=>j.Id==selectedTurn.Id&&InPlaceFishing(j));
             var fishingTurn=selectedTurn?.Kind=="idle_fishing";
             var selectedFishing=selectedTurn is not null&&runs.TryGetValue(selectedTurn.Id,out var selectedRun)?selectedRun.Runner as IdleFishingRunner:null;
             if(selectedFishing?.NeedsBackpackCheck==true)maintenance.RequestBackpackInspection();
             var periodicBackpack=!fishingTurn||selectedFishing?.PeriodicBackpackCheckAllowed==true&&maintenance.PeriodicBackpackCheckDue(600)||selectedFishing?.NeedsBackpackCheck==true;
-            var fishingYieldRequested=maintenance.RequiresTurnFor(!inPlace,periodicBackpack)||candidates.Any(c=>c.Kind!="idle_fishing"&&c.Ready&&!c.Blocked);
+            var nextIndependentTurn=new Scheduler().Select(candidates,new(null,false,ports.CurrentDevice,BackpackRelief()));
+            var fishingYieldRequested=maintenance.RequiresTurnFor(!inPlace,periodicBackpack)
+                ||nextIndependentTurn is {Kind:not "idle_fishing"}
+                ||UnrestoredInventory().Any()&&InventoryRefreshKey() is not null;
             foreach(var run in runs.Values)if(run.Runner is IdleFishingRunner fish)fish.RequestYield(fishingYieldRequested);
             var safeAuxiliary=SafeToSwitch;
             inputPhase=true;recoveryAttempt=0;
@@ -506,9 +549,9 @@ public sealed class AutomationCoordinator:IDisposable
             if(decomposition?.Snapshot()["status"]?.GetValue<string>()=="running")
             {decomposition.Tick();Publish("正在分解樹枝补料");return Status;}
             if(decomposition is not null&&decomposition.Snapshot()["phase"]?.GetValue<string>()=="leave"&&safeAuxiliary)
-            {if(!decomposition.ReleaseNavigation()){Publish("分解已核账，正在退出背包");return Status;}}
+            {if(!decomposition.ReleaseNavigation()){Publish("分解结果已确认，正在关闭背包");return Status;}}
             if(!safeAuxiliary&&maintenance.StatusSnapshot()["pending"] is null&&maintenance.StatusSnapshot()["surplus"]?["pending"] is null&&ports.BeforeNavigationTick())
-            {Publish("正在使用导航精灵之翼");return Status;}
+            {Publish("正在处理导航提示");return Status;}
             if(purchase is not null&&TickPurchase(false))return Status;
             // Continue can revive a previously blocked, unsent storage search while
             // production still owns the character. Finish that owner before storage
@@ -524,9 +567,8 @@ public sealed class AutomationCoordinator:IDisposable
             else if(issues.GetValueOrDefault("maintenance")=="维护等待画面超时，请核实页面后继续")issues.Remove("maintenance");
             if(maintenanceState["global_pause_required"]?.GetValue<bool>()==true){Pause("maintenance_required");Publish("背包需要手动处理，任务已暂停");return Status;}
             if(maintenanceState["backpack"]?["status"]?.GetValue<string>()=="blocked"&&maintenanceState["reason"]?.GetValue<string>()=="backpack_relief_exhausted")
-            {Pause("backpack_player_action_required");Publish("背包空间不足，无法继续贩售或生产；请玩家处理后显式继续");return Status;}
-            if(maintenanceState["navigation_reserved"]?.GetValue<bool>()==true
-                &&!candidates.Any(c=>c.Kind=="production"&&c.Ready&&!c.Blocked)){Publish("正在维护");return Status;}
+            {Pause("backpack_player_action_required");Publish("背包空间不足，无法继续贩售或生产；请处理背包后点击继续");return Status;}
+            if(maintenanceState["navigation_reserved"]?.GetValue<bool>()==true&&dispatcher.SafeToSwitch){Publish("正在维护");return Status;}
             if(maintenanceState["surplus"]?["pending"] is not null&&maintenanceState["active"]?.GetValue<string>()!="backpack"){Publish("贩售结果待核实，仅观察，不派发新动作");return Status;}
             if(maintenanceState["pending"] is not null){Publish("维护动作结果待核实，仅观察，不派发新动作");return Status;}
             stage="purchase";if(TickPurchase(true))return Status;
@@ -540,7 +582,16 @@ public sealed class AutomationCoordinator:IDisposable
                 }
             }
             stage="dispatch";var selected=new Scheduler().Select(candidates,new(dispatcher.ActiveId,!dispatcher.SafeToSwitch,ports.CurrentDevice,BackpackRelief()));
+            if (dispatcher.SafeToSwitch && BackpackRelief() && selected?.Kind is "gathering" or "idle_fishing"
+                && maintenance.TrySellWhileProductionSlotsBusy())
+            {Publish("先清理超过保留数量的材料");return Status;}
             if(selected?.Kind is not "production"&&SupplyFromStorage())return Status;
+            if(selected?.Kind=="idle_fishing"&&SafeToSwitch&&UnrestoredInventory().Any())
+            {
+                RequestInventoryRefresh();
+                if(inventorySyncRequested){Publish("正在更新库存，随后继续钓鱼");return Status;}
+            }
+            if(selected is not null)gatheringContinuation=selected.Kind=="gathering"?selected.Id:null;
             if(selected is not null&&!runs.ContainsKey(selected.Id))CreateRun(selected);
             var before=runs.ToDictionary(p=>p.Key,p=>p.Value.Runner.Snapshot());var baseline=ports.Inventory();
             dispatcher.Tick(candidates,ports.CurrentDevice,BackpackRelief(),ports.OnsiteDevice,true);
@@ -559,12 +610,19 @@ public sealed class AutomationCoordinator:IDisposable
             if(TryCompleteQueue())return Status;
             if(dispatcher.ActiveId is null&&dispatcher.SafeToSwitch)
             {
-                if(BackpackRelief()&&!candidates.Any(c=>c.Ready&&c.Kind=="production"))
+                // Completion and packet observations can release materials and
+                // slots in this tick. Exhaustion must use the resulting plan.
+                if(BackpackRelief()){Replan();candidates=Candidates();}
+                if(BackpackRelief()&&new Scheduler().Select(candidates,new(null,false,ports.CurrentDevice,true)) is null)
                 {
+                    RequestInventoryRefresh();
+                    if(inventorySyncRequested){Publish("背包减重前等待库存同步");return Status;}
+                    if(runs.Values.Any(r=>r.Runner is ProductionRunner&&r.Runner.Snapshot()["phase"]?.GetValue<string>()=="waiting"&&r.Runner.Snapshot()["owned_slots"]?.AsArray().Count>0))
+                    {Publish(maintenance.TrySellWhileProductionSlotsBusy()?"生产槽加工中，先处理已授权余料":"生产槽加工中，等待到期后继续减重");return Status;}
                     maintenance.ProductionReliefExhausted();
                     var relief=maintenance.StatusSnapshot();
                     if(relief["backpack"]?["status"]?.GetValue<string>()=="blocked"&&relief["reason"]?.GetValue<string>()=="backpack_relief_exhausted")
-                    {Pause("backpack_player_action_required");Publish("背包空间不足，无法继续贩售或生产；请玩家处理后显式继续");return Status;}
+                    {Pause("backpack_player_action_required");Publish("背包空间不足，无法继续贩售或生产；请处理背包后点击继续");return Status;}
                 }
                 else RequestInventoryRefresh();
             }
@@ -585,7 +643,7 @@ public sealed class AutomationCoordinator:IDisposable
             {
                 try{Pause(inputPause);}
                 catch(Exception pauseError){fault=new AggregateException("输入暂停且暂停记录保存失败",error,pauseError);Record("error","pause","global","manual_review",pauseError.Message,fault);}
-                Publish("输入守卫已暂停，核实后继续："+error.Message);Status=Status with{Running=false,Fault=fault.ToString()};
+                Publish("输入已暂停，请检查后继续："+error.Message);Status=Status with{Running=false,Fault=fault.ToString()};
             }
             else
             {
@@ -596,14 +654,20 @@ public sealed class AutomationCoordinator:IDisposable
     }
     private void RequestInventoryRefresh()
     {
-        if(plan is null||inventorySyncFailed||BackpackRelief()||!ports.PreferBulkInventorySync)return;
-        var unknown=plan.Issues.Where(i=>i.Kind=="inventory_unknown"||i.Kind=="no_source"&&StorageUnknown(i.ItemId)).Select(i=>i.ItemId).Concat(ports.GatheringConsumables?.AwaitingInventoryItemIds??[]).Distinct().ToArray();
-        foreach(var key in issues.Keys.Where(k=>k.StartsWith("inventory:",StringComparison.Ordinal)&&long.TryParse(k[10..],out var id)&&!unknown.Contains(id)).ToArray())issues.Remove(key);
-        if(unknown.Length==0){ResetInventorySync();inventorySyncKey=null;return;}
-        var syncKey=string.Join("|",unknown.Order().Select(item=>item+":"+current.Query(item).Source+":"+current.Query(item).Version));
-        if(!SafeToSwitch||Candidates().Any(c=>c.Ready&&!c.Blocked&&c.Kind!="idle_fishing")||inventorySyncKey==syncKey)return;
+        var syncKey=InventoryRefreshKey();if(syncKey is null)return;
+        if(!SafeToSwitch||new Scheduler().Select(Candidates(),new(null,false,ports.CurrentDevice,BackpackRelief())) is {Kind:not "idle_fishing"})return;
         inventorySyncKey=syncKey;inventorySyncRequested=true;ports.RequestInventorySync();
     }
+    private string? InventoryRefreshKey()
+    {
+        if(plan is null||inventorySyncFailed||!ports.PreferBulkInventorySync)return null;
+        var unknown=plan.Issues.Where(i=>i.Kind=="inventory_unknown"||i.Kind=="no_source"&&StorageUnknown(i.ItemId)).Select(i=>i.ItemId).Concat(UnrestoredInventory()).Concat(ports.GatheringConsumables?.AwaitingInventoryItemIds??[]).Distinct().ToArray();
+        foreach(var key in issues.Keys.Where(k=>k.StartsWith("inventory:",StringComparison.Ordinal)&&long.TryParse(k[10..],out var id)&&!unknown.Contains(id)).ToArray())issues.Remove(key);
+        if(unknown.Length==0){ResetInventorySync();inventorySyncKey=null;return null;}
+        var syncKey=string.Join("|",unknown.Order().Select(item=>item+":"+current.Query(item).Source+":"+current.Query(item).Version));
+        return inventorySyncKey==syncKey?null:syncKey;
+    }
+    private IEnumerable<long> UnrestoredInventory()=>queue.Read().Jobs.Where(j=>j.Pending&&!runs.ContainsKey(j.Id)&&!current.Query(j.ItemId).Confirmed).Select(j=>j.ItemId);
     private bool TryCompleteQueue()
     {
         var jobs=queue.Read().Jobs;queueHadWork|=jobs.Count>0;
@@ -617,7 +681,7 @@ public sealed class AutomationCoordinator:IDisposable
         Publish("全部任务已完成，已自动停止");return true;
     }
     private void ResetInventorySync(bool explicitRetry=false)
-    {inventorySyncRequested=false;ports.CancelInventorySync();if(explicitRetry){inventorySyncKey=null;inventorySyncFailed=false;}issues.Remove("inventory_sync");}
+    {inventorySyncRequested=false;ports.CancelInventorySync();if(explicitRetry){inventorySyncKey=null;inventorySyncFailed=false;withdrawal?.ResetRefreshRequest();}issues.Remove("inventory_sync");}
     private bool StorageUnknown(long item)=>current.Storage.Count<2||current.Storage.Values.Any(rows=>!rows.TryGetValue(item,out var quantity)||quantity is null);
     private bool SupplyFromDecomposition()
     {
@@ -626,10 +690,10 @@ public sealed class AutomationCoordinator:IDisposable
         if(saved["pending"] is null&&saved["status"]?.GetValue<string>()=="complete")issues.Remove("decomposition");
         if(saved["pending"] is not null)
         {
-            issues["decomposition"]="分解结果待核账，不重放；其他队列继续";
+            issues["decomposition"]="分解结果待确认，其他任务继续";
             if(!decomposition.ReleaseNavigation()){Publish("保留分解意图，正在退出结果页");return true;}
             if(!inventorySyncFailed&&ports.PreferBulkInventorySync&&decompositionVersion!="pending-refresh")
-            {decompositionVersion="pending-refresh";inventorySyncRequested=true;ports.RequestInventorySync();Publish("保留分解意图，刷新抓包核账");return true;}
+            {decompositionVersion="pending-refresh";inventorySyncRequested=true;ports.RequestInventorySync();Publish("正在更新库存，确认分解结果");return true;}
             return false;
         }
         if(saved["status"]?.GetValue<string>()=="blocked"){issues["decomposition"]=saved["reason"]?.GetValue<string>()??"分解局部受阻";return false;}
@@ -642,27 +706,32 @@ public sealed class AutomationCoordinator:IDisposable
     }
     private bool SupplyFromStorage()
     {
-        if(!dispatcher.SafeToSwitch||BackpackRelief())return false;
+        // Relief prevents a new withdrawal, but a sent transfer still needs its
+        // exit and packet reconciliation before its materials can be scheduled.
+        if(!dispatcher.SafeToSwitch||BackpackRelief()&&withdrawal?.Snapshot()["pending"] is null&&withdrawal?.NavigationReleased!=true)return false;
         if(withdrawal is not null)
         {
             if(withdrawalFaulted)return false;
-            if(plan is not null)withdrawal.RetireSatisfiedPlans(item=>current.Query(item).Confirmed&&plan.Allocations.Any(a=>a.SourceKind=="inventory"&&a.ItemId==item&&a.Quantity>0)&&!plan.Allocations.Any(a=>a.SourceKind=="storage"&&a.ItemId==item&&a.Quantity>0));
+            if(plan is not null)withdrawal.RetireSatisfiedPlans(p=>!WithdrawalStillNeeded(p)&&current.Query(p.ItemId).Confirmed
+                &&plan.Allocations.Any(a=>a.SourceKind=="inventory"&&a.ItemId==p.ItemId&&a.Quantity>0)
+                &&!plan.Allocations.Any(a=>a.SourceKind=="storage"&&a.ItemId==p.ItemId&&a.Quantity>0));
             withdrawal.RetireUnneededPlans(WithdrawalStillNeeded);
             var state=withdrawal.Snapshot();
             if(state["status"]?.GetValue<string>()=="complete")
             {
+                var cancelled=state["reason"]?.GetValue<string>() is "material_demand_stopped" or "material_demand_satisfied";
+                var releaseMessage=cancelled?"取料需求已撤销":"取料结果已确认";
                 if(withdrawal.NavigationAbandoned)
                 {
                     // The exit was already given up after a bounded number of tries.
                     // The transfer stays accounted for, but the chain has to let go so
                     // the gathering that waits on this withdrawal can run again.
-                    issues[withdrawalKey!]="取料已核账，退出仓库未确认（画面可能仍在仓库），已放弃退出并继续其他任务";
+                    issues[withdrawalKey!]=releaseMessage+"，退出仓库未确认，已交由后续任务接手退出";
                     withdrawal=null;planFingerprint=null;return false;
                 }
-                if(!withdrawal.ReleaseNavigation()){Publish("取料已核账，正在退出仓库");return true;}
-                var stopped=state["reason"]?.GetValue<string>()=="material_demand_stopped";
+                if(!withdrawal.ReleaseNavigation()){Publish(releaseMessage+"，正在退出仓库");return true;}
                 issues.Remove(withdrawalKey!);withdrawal=null;planFingerprint=null;
-                if(stopped)
+                if(cancelled)
                 {
                     File.Delete(Path.Combine(queue.DirectoryPath,"storage-supply.json"));
                     withdrawalKey=null;withdrawalVersion=null;
@@ -682,9 +751,9 @@ public sealed class AutomationCoordinator:IDisposable
                 issues[withdrawalKey!]=(state["pending"] is null?"仓库取料局部受阻：":"仓库取料待核对：")+state["reason"]?.GetValue<string>();
                 if(state["pending"]?["kind"]?.GetValue<string>() is "confirm_transfer" or "prepare_transfer")
                 {
-                    if(!withdrawal.ReleaseNavigation()){Publish("保留取料意图，正在退出仓库准备核账");return true;}
+                    if(!withdrawal.ReleaseNavigation()){Publish("正在退出仓库，随后确认取料结果");return true;}
                     if(!inventorySyncFailed&&ports.PreferBulkInventorySync&&withdrawal.RequestRefreshOnce())
-                    {inventorySyncRequested=true;ports.RequestInventorySync();Publish("保留取料意图，刷新抓包核账");return true;}
+                    {inventorySyncRequested=true;ports.RequestInventorySync();Publish("正在更新库存，确认取料结果");return true;}
                 }
                 return false;
             }
@@ -730,7 +799,23 @@ public sealed class AutomationCoordinator:IDisposable
             .Select(a=>a.GoalId).ToHashSet(StringComparer.Ordinal)??[];
         var activeSupply=ports.GatheringConsumables?.PendingRequests.Where(r=>r.ItemId==withdrawalPlan.ItemId&&r.Scope==ports.Scope)
             .Select(r=>r.ActionId).ToHashSet(StringComparer.Ordinal)??[];
-        return goals.Any(goal=>activeStorage.Contains(goal)||activeSupply.Contains(goal));
+        return goals.Any(goal=>activeStorage.Contains(goal)||activeSupply.Contains(goal)||UnknownDependency(goal));
+
+        bool UnknownDependency(string goal)
+        {
+            // A temporary capture gap removes allocations from planning. It does
+            // not cancel the already scheduled supply for a live production goal.
+            if(plan is null||!plan.Goals.Any(g=>g.GoalId==goal))return false;
+            if(!current.Query(withdrawalPlan.ItemId).Confirmed||StorageUnknown(withdrawalPlan.ItemId))return true;
+            return plan.Issues.Any(i=>i.Kind=="inventory_unknown"&&i.GoalId==goal&&DependsOn(i.ItemId,[]));
+        }
+        bool DependsOn(long item,HashSet<long> visited)
+        {
+            if(item==withdrawalPlan.ItemId)return true;
+            if(!visited.Add(item))return false;
+            var recipe=catalog.Recipes.Values.FirstOrDefault(r=>r.OutputItemId==item);
+            return recipe is not null&&recipe.Inputs.Keys.Any(input=>DependsOn(input,visited));
+        }
     }
     private void Reconcile()
     {
@@ -868,12 +953,12 @@ public sealed class AutomationCoordinator:IDisposable
         if(saved is null||saved["status"]?.GetValue<string>()=="complete")return;
         try
         {
-            if(saved["runtime_scope"]?.GetValue<string>()!=ports.Scope||saved["runtime_action"]?.GetValue<string>() is not {} action)throw new InvalidDataException("取料记录范围未核实，保留待核账");
+            if(saved["runtime_scope"]?.GetValue<string>()!=ports.Scope||saved["runtime_action"]?.GetValue<string>() is not {} action)throw new InvalidDataException("上次取料的账号或角色未确认，操作结果待确认");
             if(saved["plans"] is not JsonArray {Count:1} rows)throw new InvalidDataException("取料计划不能完整恢复");
             var row=rows[0]!;var p=new WithdrawalPlan(row["item_id"]!.GetValue<long>(),row["name"]!.GetValue<string>(),row["quantity"]!.GetValue<long>(),row["scope"]!.GetValue<string>(),row["goal_ids"]!.AsArray().Select(n=>n!.GetValue<string>()).ToArray());
             var bound=new WithdrawalStore(store,ports.Scope,action);withdrawal=new([p],ports.Storage(p,action,bound),bound,time:clock);withdrawalKey=p.Scope+":"+p.ItemId;
         }
-        catch(Exception error){issues["storage_restore"]="仓库取料仅核账："+error.Message;Record("error","storage_restore","module","manual_review",error.Message,error);}
+        catch(Exception error){issues["storage_restore"]="仓库取料结果待确认："+error.Message;Record("error","storage_restore","module","manual_review",error.Message,error);}
     }
     private long? RequiredReserve(long item)
     {
@@ -885,8 +970,9 @@ public sealed class AutomationCoordinator:IDisposable
             var goals=q.Jobs.Where(j=>!j.Cancelled&&j.Target>j.Completed&&!j.Id.StartsWith("auto-material:")&&j.Kind=="production")
                 .Select(j=>new MaterialGoal(j.Id,j.ItemId,j.Target-j.Completed,j.Kind,j.Kind=="production"?j.Recipe:null,j.Kind=="gathering"?j.Recipe:null));
             var snapshot=inventory.Apply(ports.Inventory());var required=catalog.Planner().Plan(goals,snapshot);
-            if(required.Issues.Any(i=>i.Kind is "inventory_unknown" or "recipe_cycle" or "no_source"))return null;
+            if(required.Issues.Any(i=>i.Kind=="recipe_cycle"||i.Kind=="inventory_unknown"&&i.ItemId==item))return null;
             var inputs=required.Allocations.Where(a=>a.ItemId==item&&a.SourceKind=="inventory").Sum(a=>a.Quantity);
+            inputs=Math.Min(inputs,ImmediateMaterialDemand(item,required.Tasks));
             var retained=q.Jobs.Where(j=>!j.Cancelled&&j.ItemId==item&&!j.Id.StartsWith("auto-material:")&&j.Kind=="production").Sum(j=>j.Completed);
             issues.Remove("surplus_reserve");
             return checked(inputs+retained);
@@ -942,7 +1028,7 @@ public sealed class AutomationCoordinator:IDisposable
             var adapter=ports.Purchase(request,action,PersistedPurchase)??throw new InvalidOperationException("采购适配不可用");
             purchaseRequest=request;purchaseAction=action;purchaseCompletionBaseline=null;purchase=new(PurchasePath,adapter,clock,()=>ports.PurchasePreferences,()=>purchaseRequest is{} active?current.Query(active.ItemId).VerifiedThrough:null);
         }
-        catch(Exception error){purchaseRestoreBlocked=true;issues["purchase_restore"]="采购仅核账："+error.Message;Record("error","purchase_restore","module","manual_review",error.Message,error);}
+        catch(Exception error){purchaseRestoreBlocked=true;issues["purchase_restore"]="采购结果待确认："+error.Message;Record("error","purchase_restore","module","manual_review",error.Message,error);}
     }
     private bool TickPurchase(bool allowNew)
     {
@@ -1006,7 +1092,7 @@ public sealed class AutomationCoordinator:IDisposable
                 issues["purchase"]=purchase.State.Reason??"采购条件尚未满足";return false;
             }
             purchase.Tick();
-            if(purchase.State.Stage==PurchaseStage.Reconcile){issues["purchase"]="采购结果仅核账，未重放付款";Publish(issues["purchase"]);return true;}
+            if(purchase.State.Stage==PurchaseStage.Reconcile){issues["purchase"]="正在确认上次采购结果";Publish(issues["purchase"]);return true;}
             Publish(purchase.State.Intent is null?"正在补充采集耗材":"采购结果已核对，正在退出商店");return true;
         }
         if(!allowNew||purchaseRestoreBlocked||!ports.PurchasePreferences.AutoBuyBottles)return false;
@@ -1019,7 +1105,7 @@ public sealed class AutomationCoordinator:IDisposable
         {issues["purchase"]="购买前仓库库存未知，等待完整抓包";return false;}
         var actionId="purchase:"+Guid.NewGuid().ToString("N");var port=ports.Purchase(request,actionId,PersistedPurchase);
         if(port is null){issues["purchase"]="采购适配尚未连接";return false;}
-        var old=PersistedPurchase();if(old is not null&&old.Stage!=PurchaseStage.Complete){issues["purchase"]="已有采购记录待核账";return false;}
+        var old=PersistedPurchase();if(old is not null&&old.Stage!=PurchaseStage.Complete){issues["purchase"]="上次采购结果待确认";return false;}
         AtomicJson.Write(PurchaseContextPath,new JsonObject{["request"]=JsonSerializer.SerializeToNode(request),["action"]=actionId});
         purchaseRequest=request;purchaseAction=actionId;purchasePreferences=ports.PurchasePreferences;purchaseCompletionBaseline=null;purchase=new(PurchasePath,port,clock,()=>ports.PurchasePreferences,()=>purchaseRequest is{} active?current.Query(active.ItemId).VerifiedThrough:null);
         purchase.Request(Math.Max(0,request.TargetStock-request.Quantity),targetStock:request.TargetStock);Publish("准备补充"+request.Name);return true;

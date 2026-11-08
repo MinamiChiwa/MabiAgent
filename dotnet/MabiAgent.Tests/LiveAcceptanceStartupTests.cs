@@ -24,6 +24,12 @@ public sealed class LiveAcceptanceStartupTests:IDisposable
         File.WriteAllText(Path.Combine(collection,"production.json"),"""{"pending":{"kind":"collect"}}""");
         Assert.True(LiveAcceptanceStartup.HasRestoredPendingWork(root));
     }
+    [Theory][InlineData("maintenance.json","{\"pending\":{\"action\":\"confirm_tidy\"}}")][InlineData("surplus-sale.json","{\"pending\":{\"action\":\"sell\"}}")][InlineData("storage-supply.json","{\"pending\":{\"kind\":\"confirm_transfer\"}}")][InlineData("bottle-purchase.json","{\"Intent\":{\"kind\":\"purchase\"}}")]
+    public void RestoredAuxiliaryConsumptionMustResumeBeforeInventoryRefresh(string file,string content)
+    {
+        Directory.CreateDirectory(root);File.WriteAllText(Path.Combine(root,file),content);
+        Assert.True(LiveAcceptanceStartup.HasRestoredPendingWork(root));
+    }
 
     [Fact] public async Task WaitKeepsPollingUntilListeningBeforeDeadline()
     {

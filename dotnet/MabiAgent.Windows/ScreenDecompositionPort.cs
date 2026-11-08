@@ -8,22 +8,22 @@ namespace MabiAgent.Windows;
 public sealed class ScreenDecompositionPort:ScreenWorkflowPort,IDecompositionPort
 {
     private readonly Func<InventorySnapshot> inventory;private readonly JsonNode cfg;private JsonObject state;
-    private readonly ScreenMaintenancePort exit;private double editedAt,nextScroll;private int edits,scrolls;private bool itemsIssued;
+    private readonly ScreenMaintenancePort exit;private double editedAt;private int edits;private readonly ScreenBagItemSearch search;
     private static double Now=>DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()/1000d;
     private long InputId=>cfg["input_wire_id"]!.GetValue<long>();
     private long OutputId=>cfg["output_item_id"]!.GetValue<long>();
     public ScreenDecompositionPort(ScreenWorkflowSession session,string id,IWorkflowStore store,Func<InventorySnapshot> stock):base(session,id,store)
-    {inventory=stock;cfg=session.Routes.Configuration["decomposition"]??throw new InvalidDataException("缺少分解配置");state=store.Read()??new JsonObject{["status"]="idle"};if(state["pending"] is not null)state["status"]="unknown";else if(S(state,"status")=="running")state["status"]="blocked";exit=session.CreateMaintenancePort(id+":exit",new NavigationStore());}
+    {search=new(session);inventory=stock;cfg=session.Routes.Configuration["decomposition"]??throw new InvalidDataException("缺少分解配置");state=store.Read()??new JsonObject{["status"]="idle"};if(state["search_dirty"]?.GetValue<bool>()==true)search.RestoreFilter();if(state["pending"] is not null)state["status"]="unknown";else if(S(state,"status")=="running")state["status"]="blocked";exit=session.CreateMaintenancePort(id+":exit",new NavigationStore());}
     private sealed class NavigationStore:IWorkflowStore{private JsonObject? value;public JsonObject? Read()=>(JsonObject?)value?.DeepClone();public void Flush(JsonObject next)=>value=(JsonObject)next.DeepClone();}
     public JsonObject Snapshot()=>(JsonObject)state.DeepClone();
     private void Save()=>Store.Flush(state);
     public bool Request(long inputQuantity)
     {
         if(inputQuantity<=0||state["pending"] is not null||S(state,"status")=="running")return false;
-        var input=inventory().Query(InputId);var output=inventory().Query(OutputId);
-        if(!input.Confirmed||!output.Confirmed||input.Source!="packet_capture"||output.Source!="packet_capture"||input.Scope!=Session.Scope.SessionId||output.Scope!=input.Scope||input.Quantity is null||input.Quantity<inputQuantity||output.Quantity is null)return false;
+        var snapshot=inventory();var input=snapshot.Query(InputId);var output=snapshot.Query(OutputId);
+        if(!input.Confirmed||!output.Confirmed||input.Source!="packet_capture"||output.Source!="packet_capture"||input.Scope!=snapshot.Scope||output.Scope!=input.Scope||input.Quantity is null||input.Quantity<inputQuantity||output.Quantity is null)return false;
         state=new JsonObject{["status"]="running",["phase"]="select",["amount"]=inputQuantity,["input_before"]=input.Quantity,["output_before"]=output.Quantity,["input_version"]=input.Version,["output_version"]=output.Version,["scope"]=input.Scope,["deadline"]=Now+180};
-        edits=scrolls=0;itemsIssued=false;Save();return true;
+        edits=0;search.Reset();Save();return true;
     }
     public void ObserveOnly()
     {
@@ -33,7 +33,7 @@ public sealed class ScreenDecompositionPort:ScreenWorkflowPort,IDecompositionPor
         state["output_received"]=output.Quantity-state["output_before"]!.GetValue<long>();state["input_after"]=input.Quantity;state["output_after"]=output.Quantity;state["pending"]=null;state["status"]="complete";state["phase"]="leave";Save();
     }
     private string Block(string reason){state["status"]=state["pending"] is null?"blocked":"unknown";if(state["pending"] is null)state["phase"]="leave";state["reason"]=reason;Save();return S(state,"status")!;}
-    public bool ReleaseNavigation(){Session.Observe();if(!exit.ReleaseNavigation())return false;if(S(state,"phase")=="leave"){state["phase"]="idle";Save();}return true;}
+    public bool ReleaseNavigation(){var observation=Read();if(!search.Clear(observation))return false;if(!search.Used&&state["search_dirty"]?.GetValue<bool>()==true){state["search_dirty"]=false;Save();}if(!exit.ReleaseNavigation())return false;if(S(state,"phase")=="leave"){state["phase"]="idle";Save();}return true;}
     public string Tick()
     {
         try{return TickCore();}
@@ -48,14 +48,9 @@ public sealed class ScreenDecompositionPort:ScreenWorkflowPort,IDecompositionPor
         if(state["pending"] is not null){if(page=="decomposition_result")Session.NavigateTarget("decomposition.result_close");return "running";}
         if(phase=="select")
         {
-            if(page=="scene"){Session.NavigateTarget("scene.open_bag");return "running";}
-            if(page=="repair_tools"&&!itemsIssued){Session.Guard.PressKey(83,TimeSpan.FromMilliseconds(80));itemsIssued=true;return "running";}
-            if(page=="bag")
-            {
-                if(Session.FindBagItem("樹枝") is{} item)
-                {state["phase"]="detail";Save();Session.Guard.ClickAt(item);return "running";}
-                if(Now>=nextScroll){if(scrolls++>=12)return Block("branch_not_visible");Session.Guard.ScrollAt(Session.Box(new PixelBox(1049,549,1051,551)).Center,Session.Box(new PixelBox(710,170,1260,820)),-12);nextScroll=Now+1.2;}
-            }
+            state["search_dirty"]=true;Save();var result=search.Tick(o,cfg["input_name"]?.GetValue<string>()??"樹枝");
+            if(result.Item is{} item){state["phase"]="detail";Save();Session.Guard.ClickAt(item);}
+            else if(result.Status=="missing")return Block("branch_not_visible");
         }
         else if(phase=="detail"&&page=="bag_item_detail")
         {if(!Session.BagItemNameMatches("樹枝"))return Block("branch_identity_unknown");Session.NavigateTarget("bag.decompose_open");state["phase"]="quantity";Save();}

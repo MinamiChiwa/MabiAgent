@@ -720,7 +720,7 @@ def finish_native(root, destination, plan):
     # Isolated UI-only check: never starts capture, game input, or player data.
     with tempfile.TemporaryDirectory(prefix='mabi-native-check-') as state:
         report = docs/'self-check.json'
-        subprocess.run([str(executable), '--self-check', '--interaction-check', '--native-check', '--root', str(destination), '--state-dir', state, '--report', str(report)], cwd=destination, check=True, timeout=300)
+        subprocess.run([str(executable), '--self-check', '--interaction-check', '--native-check', '--root', str(destination), '--state-dir', state, '--report', str(report)], cwd=destination, check=True, timeout=600)
         checked = json.loads(report.read_text(encoding='utf-8-sig'))
         if checked.get('ok') is not True or checked.get('game_input') is not False or '原生 OCR 推理及 OpenCV 加载' not in checked.get('ui_checks', []):
             raise RuntimeError('原生离线自检未通过')

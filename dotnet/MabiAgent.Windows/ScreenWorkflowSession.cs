@@ -68,7 +68,10 @@ public sealed class ScreenWorkflowSession : IDisposable
     internal string? StabilityReason=>observer.StabilityReason;
     public string? CurrentDevice=>Routes.Devices.Values.FirstOrDefault(d=>d.QueuePage==CurrentPage)?.Key;
     public string? OnsiteDevice=>LastCapture is{} capture&&LastObservation is{Stable:true} observation&&!observation.View.NeedsDeviceArrival
-        ?Routes.Devices.Values.FirstOrDefault(d=>d.QueuePage==CurrentPage&&All(capture,d.ArrivalAnchors))?.Key:null;
+        ?Routes.Devices.Values.FirstOrDefault(d=>d.QueuePage==CurrentPage&&(HasDeviceArrival(d.Key)||All(capture,d.ArrivalAnchors)))?.Key:null;
+    private string? arrivedDevice;private long arrivedDeviceRevision=-1;
+    internal bool HasDeviceArrival(string device)=>arrivedDevice==device&&arrivedDeviceRevision==LocationRevision;
+    internal void ConfirmDeviceArrival(string device){arrivedDevice=device;arrivedDeviceRevision=LocationRevision;}
     private string? navigationId;private double navigationDeadline;
     internal long LocationRevision {get;private set;}
     public string? CurrentNavigationId=>navigationId is not null&&DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()/1000d<=navigationDeadline?navigationId:null;
@@ -99,7 +102,6 @@ public sealed class ScreenWorkflowSession : IDisposable
     private UiObservation Review(ClientCapture c){LastCapture=c;lastObservationContext=observer;LastObservation=observer.Observe(c);return LastObservation;}
     private PageView RecognizeCommon(ClientCapture c)
     {
-        if(focusedRecognition is not null)return focusedRecognition(c);
         if(runtimeLimit?.Recognize(c.Image) is {} interrupted)return interrupted;
         if(Relogin?.Recognize(c) is {} recovery)return recovery;
         if(Routes.Configuration["notifications"]?["flows"] is JsonObject flows)foreach(var (name,node) in flows)
@@ -111,7 +113,10 @@ public sealed class ScreenWorkflowSession : IDisposable
             if(hits.Length==0||hits.Any(h=>h is null))continue;
             return new("notification_"+name,false,hits.Select(h=>h!).ToArray(),new Dictionary<string,PixelPoint>{{"notification.close",Box(close.ControlBox??close.Box).Center}},hits.Select(h=>h!.Box).ToArray());
         }
-        var page=recognizer.Recognize(c);
+        var page=focusedRecognition?.Invoke(c)??recognizer.Recognize(c);
+        if(!page.Targets.ContainsKey("page.close")&&(page.Page.EndsWith("_panel",StringComparison.Ordinal)||page.Page is "category_page" or "skills" or "recipe_detail"))
+            foreach(var anchor in Names(Routes.Profile.Definition["close_anchors"]))
+            {var hit=Matcher.Anchor(c.Image,anchor);if(hit is not null){page=AddTarget(page,"page.close",hit);break;}}
         // A remote device preview has a back arrow; the same device onsite has
         // an X at the opposite corner. Share the result across every port.
         if(Routes.Devices.Values.Any(d=>d.QueuePage==page.Page)&&page.Targets.ContainsKey("page.close")
@@ -123,7 +128,7 @@ public sealed class ScreenWorkflowSession : IDisposable
     {
         var o=Observe();if(!o.Stable||!InputAvailable||Guard.Paused)return false;
         var target=o.View.Page.StartsWith("notification_",StringComparison.Ordinal)?"notification.close":!notificationsOnly&&o.View.Page=="production_complete"?"completion.confirm":null;if(target is null)return false;
-        try{NavigateTarget(target);return true;}
+        try{NavigateTarget(target);TraceNavigation("notification",target,"input_dispatched");return true;}
         catch(InputBlockedException)when(!Guard.Paused&&LastObservation is{IdentityVerified:true} fresh&&(fresh.View.Page!=o.View.Page||!fresh.Stable))
         {
             // The shared guard rejected a changing page before native dispatch.
@@ -135,10 +140,10 @@ public sealed class ScreenWorkflowSession : IDisposable
     internal PageView RecognizeDeclaredPages(ClientCapture capture,IReadOnlySet<string> pages)=>recognizer.Recognize(capture.Image,pages);
     public ScreenRelogin ConfigureRelogin(IWorkflowStore store,TimeProvider? time=null)=>Relogin=new(this,store,time);
     internal void BeginRecoveryRecognition(){LocationRevision++;decorate=null;focusedRecognition=null;navigationId=null;observationContexts=new();observer=CreateObserver();}
-    public void Start(){if(started)throw new InputBlockedException("已开始，请显式继续");if(Guard.RequiresForeground)activateOnce?.Invoke();observer.Reset();Guard.Start();started=true;}
+    public void Start(){if(started)throw new InputBlockedException("已开始，请点击继续");if(Guard.RequiresForeground)activateOnce?.Invoke();observer.Reset();Guard.Start();started=true;}
     public void ResumeExplicit(){if(Guard.RequiresForeground)activateOnce?.Invoke();Resume();}
     public void Resume(){InputEpoch++;observer.Reset();if(started)Guard.Resume();else{Guard.Start();started=true;}}
-    internal void ResumePort(){if(Guard.Paused)throw new InputBlockedException("请显式继续当前暂停："+Guard.PauseReason);}
+    internal void ResumePort(){if(Guard.Paused)throw new InputBlockedException("请点击继续当前暂停："+Guard.PauseReason);}
     internal void PausePort(string reason)
     {
         // These are branch decisions, not permission to stop or resume the shared guard.
@@ -250,9 +255,9 @@ public sealed class ScreenWorkflowSession : IDisposable
         try{proof=Guard.ObserveCurrentTarget(target,lastObservationContext==observer?LastObservation:null);}
         catch(InputBlockedException e){ReportWarning("consume_not_dispatched",e.Message,batch);throw new InputRejectedBeforeDispatchException(e.Message);}
         if(movementKey is not null&&target!="fishing.start")throw new InputBlockedException("移动抛竿仅用于已声明钓鱼步骤");
-        Guard.Consume(proof,id,new DurableAuthority(journal,state,Scope,batch,hash,kind,validate),beforeDelivery:beforeDelivery,key:target is "production.craft" or "fishing.start"?(ushort)32:null,movementKey:movementKey);
+        Guard.Consume(proof,id,new DurableAuthority(journal,state,Scope,batch,hash,kind,validate,VerifiedOwner),beforeDelivery:beforeDelivery,key:target is "production.craft" or "fishing.start"?(ushort)32:null,movementKey:movementKey);
     }
-    internal sealed class DurableAuthority(IWorkflowStore journal,IWorkflowStore workflow,SessionScope scope,string batch,string pendingHash,string kind,Func<UiObservation,bool> validate):IProcessScopedConsumptionAuthorization
+    internal sealed class DurableAuthority(IWorkflowStore journal,IWorkflowStore workflow,SessionScope scope,string batch,string pendingHash,string kind,Func<UiObservation,bool> validate,SessionScope? verifiedOwner=null):IProcessScopedConsumptionAuthorization
     {
         public bool AllowsProcessScope(SessionScope current)=>current==scope&&current.SessionId.StartsWith("process:",StringComparison.Ordinal);
         public bool VerifyPersistedIntent(string id,TargetProof target,UiObservation fresh)
@@ -261,9 +266,9 @@ public sealed class ScreenWorkflowSession : IDisposable
             var pending=workflow.Read()?["pending"] as JsonObject;
             if(pending is null||(S(pending,"kind")??S(pending,"action"))!=kind||Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(pending.ToJsonString())))!=pendingHash)return false;
             var saved=journal.Read()??new JsonObject{["schema_version"]=1,["intents"]=new JsonObject()};
-            if(saved["intents"] is not JsonObject intents)throw new InvalidDataException("消费核账记录损坏");
+            if(saved["intents"] is not JsonObject intents)throw new InvalidDataException("上次操作记录损坏");
             if(intents.ContainsKey(id))return false;
-            intents[id]=new JsonObject{["batch_id"]=batch,["session_id"]=scope.SessionId,["account_id"]=scope.AccountId,["character_id"]=scope.CharacterId,["target"]=target.Name,["page"]=fresh.View.Page,["capture"]=fresh.ImageSha256,["kind"]=kind,["status"]="dispatch_attempted"};
+            intents[id]=new JsonObject{["batch_id"]=batch,["session_id"]=scope.SessionId,["account_id"]=(verifiedOwner??scope).AccountId,["character_id"]=(verifiedOwner??scope).CharacterId,["target"]=target.Name,["page"]=fresh.View.Page,["capture"]=fresh.ImageSha256,["kind"]=kind,["status"]="dispatch_attempted"};
             journal.Flush(saved);return true;
         }
     }
@@ -301,7 +306,7 @@ public sealed class ScreenWorkflowSession : IDisposable
     public ScreenStorageSupplyPort CreateStoragePort(WithdrawalPlan plan,string batchId,IWorkflowStore workflowStore,Func<InventorySnapshot>? packetInventory=null)=>new(this,plan,batchId,workflowStore,packetInventory);
     public ScreenFishingPort CreateFishingPort(string pointKey,string batchId,IWorkflowStore workflowStore)=>new(this,pointKey,batchId,workflowStore);
     public ScreenMaintenancePort CreateMaintenancePort(string batchId,IWorkflowStore workflowStore)=>new(this,batchId,workflowStore);
-    public ScreenSurplusPort CreateSurplusPort(string batchId,IWorkflowStore workflowStore,Func<long,long?> requiredReserveFunc,Func<MabiAgent.Core.InventorySnapshot>? packetInventory=null)=>new(this,batchId,workflowStore,requiredReserveFunc,packetInventory);
+    public ScreenSurplusPort CreateSurplusPort(string batchId,IWorkflowStore workflowStore,Func<long,long?> requiredReserveFunc,Func<MabiAgent.Core.InventorySnapshot>? packetInventory=null,Func<long,string?>? itemName=null)=>new(this,batchId,workflowStore,requiredReserveFunc,packetInventory,itemName);
     public ScreenPurchasePort CreatePurchasePort(long itemId,string verifiedName,string batchId,Func<MabiAgent.Core.PurchaseState?> persistedPurchase,Func<MabiAgent.Core.MaintenancePreferences> preferences,Func<InventorySnapshot>? packetInventory=null)=>new(this,itemId,verifiedName,batchId,persistedPurchase,preferences,packetInventory);
     public void Dispose(){try{Guard.Dispose();}finally{try{(inputOps as IDisposable)?.Dispose();}finally{Matcher.Dispose();recognizer.Dispose();runtimeLimit?.Dispose();observer.Reset();}}}
 }

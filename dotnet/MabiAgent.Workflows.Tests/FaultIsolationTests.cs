@@ -5,6 +5,45 @@ namespace MabiAgent.Workflows.Tests;
 
 public sealed class FaultIsolationTests
 {
+    [Theory][InlineData(false)][InlineData(true)]
+    public void CollectionRecheckWithNoOwnedWorkRefillsAvailableSlots(bool foreignReady)
+    {
+        var store=new MemoryStore();var time=new ManualTime();
+        var port=new ProductionPort{Frame=new("metal_panel",EmptySlots:foreignReady?[1]:[0,1],ReadySlots:foreignReady?[0]:[],CollectAvailable:foreignReady,SlotCount:2)};
+        var runner=new ProductionRunner(port,store,new("a","metal",60),time:time);var state=runner.Snapshot();
+        state["phase"]="collect";state["status"]="running";state["reason"]="collection_owner_unverified";store.Flush(state);
+        runner=new(port,store,new("a","metal",60),time:time);runner.Resume(true);runner.Tick();runner.Tick();
+        Assert.Equal("recipe",runner.Snapshot()["phase"]!.GetValue<string>());Assert.Contains("recipe",port.Navigation);Assert.Empty(port.Clicks);
+        Assert.Equal(0,runner.Snapshot()["completed"]!.GetValue<int>());Assert.Empty(runner.Snapshot()["owned_slots"]!.AsArray());
+    }
+    [Fact] public void DeviceTravelTimeoutPreservesPreviouslySubmittedSlotsAndTiming()
+    {
+        var time=new ManualTime{Seconds=0};var port=new FaultPort{Releasable=true,Frame=new("scene",AtDevice:false,NavigationActive:true)};var store=new MemoryStore();
+        var runner=new ProductionRunner(port,store,new("a","metal",60),2,time);var state=runner.Snapshot();
+        state["submitted"]=1;state["owned_slots"]=new JsonArray(0);state["production_due_at"]=300d;state["due_at"]=300d;store.Flush(state);
+        runner=new ProductionRunner(port,store,new("a","metal",60),2,time);runner.Resume(true);runner.Tick();
+        time.Seconds=121;Assert.Throws<TimeoutException>(()=>runner.Tick());Assert.True(runner.CanIsolateFault);
+        var after=runner.Snapshot();Assert.Equal(1,after["submitted"]!.GetValue<int>());Assert.Equal(0,Assert.Single(after["owned_slots"]!.AsArray())!.GetValue<int>());
+        Assert.Equal(300d,after["production_due_at"]!.GetFiniteDouble());Assert.Null(after["pending"]);Assert.Equal(0,port.Crafts);
+    }
+
+    [Fact] public void NativeDeviceTravelHasOneBudgetAcrossAlternatingPagesAndReleasesDispatcher()
+    {
+        var time=new ManualTime{Seconds=0};var bad=new FaultPort{Releasable=true,Frame=new("scene",AtDevice:false,NavigationActive:true)};var good=new FaultPort();
+        var runner=new ProductionRunner(bad,new MemoryStore(),new("a","metal",60),time:time);
+        var other=new ProductionRunner(good,new MemoryStore(),new("b","wood",60),time:time);
+        var dispatcher=new WorkflowDispatcher(time);dispatcher.Register("a",runner,"metal");dispatcher.Register("b",other,"wood");dispatcher.Continue();
+        var plan=new[]{new WorkCandidate("a","production","metal",true,5,0),new WorkCandidate("b","production","wood",true,5,1)};
+        dispatcher.Tick(plan,null);dispatcher.Tick(plan,null);
+        foreach(var seconds in new[]{30d,60d,90d})
+        {
+            time.Seconds=seconds;bad.Frame=bad.Frame with{Page=seconds==60?"recipe_detail":"unknown",Stable=seconds==60};dispatcher.Tick(plan,null);
+        }
+        time.Seconds=121;dispatcher.Tick(plan,null);
+        Assert.Contains("a",dispatcher.Faults.Keys);Assert.Null(dispatcher.ActiveId);Assert.False(dispatcher.IsPaused);
+        dispatcher.Tick(plan,null);dispatcher.Tick(plan,null);Assert.True(good.Navigations>0);Assert.Equal(0,bad.Crafts);Assert.Null(runner.Snapshot()["pending"]);
+    }
+
     [Fact] public void CompactedCollectionReconcilesOriginalIntentAndMovesPeerSlotsOnce()
     {
         var time=new ManualTime();var store=new MemoryStore();var port=new ProductionPort{Frame=new("wood_panel",EmptySlots:[3,4],ReadySlots:[],SlotCount:5)};

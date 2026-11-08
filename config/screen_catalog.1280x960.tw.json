@@ -17982,7 +17982,10 @@
           1,
           1
         ],
-        "coordinates_for_input": false
+        "coordinates_for_input": false,
+        "match_mode": "light_text",
+        "light_threshold": 205,
+        "glyph_threshold": 0.97
       },
       "detail_equipment": {
         "path": "assets/templates/screen_ui/catalog-2026-10-25/detail_equipment_stable.png",
@@ -18142,7 +18145,9 @@
           138
         ],
         "threshold": 0.97,
-        "match_mode": "grayscale",
+        "match_mode": "light_text",
+        "light_threshold": 205,
+        "glyph_threshold": 0.97,
         "source": "release_catalog",
         "source_sha256": "5e92f295df530460119a4fdc2444a3cf45cf5482824c5265b43dc42ab31cf023",
         "crop_native": [
@@ -18268,7 +18273,9 @@
           138
         ],
         "threshold": 0.97,
-        "match_mode": "grayscale",
+        "match_mode": "light_text",
+        "light_threshold": 205,
+        "glyph_threshold": 0.97,
         "source": "release_catalog",
         "source_sha256": "fcef0d090074205405d54546896f8e962efeede3c7376722d558bc8ddf04d865",
         "crop_native": [
@@ -18330,7 +18337,9 @@
           138
         ],
         "threshold": 0.97,
-        "match_mode": "grayscale",
+        "match_mode": "light_text",
+        "light_threshold": 205,
+        "glyph_threshold": 0.97,
         "source": "release_catalog",
         "source_sha256": "f9e6b219076f118376f3e455f9ca4e82a11236000fded1d258b2e56f30074880",
         "crop_native": [
@@ -20128,6 +20137,29 @@
         "light_threshold": 180,
         "glyph_threshold": 0.95
       },
+      "storage_account_dim_bright": {
+        "path": "assets/templates/screen_ui/storage/storage_account_dim.png",
+        "sha256": "6f08dd8a025a99d8998a1ea16aada8bcf04d34ebb042bd8f472b599b3d484dea",
+        "bytes": 349,
+        "box": [
+          166,
+          28,
+          242,
+          49
+        ],
+        "search": [
+          156,
+          18,
+          252,
+          59
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "light_threshold": 75,
+        "glyph_threshold": 0.93,
+        "source": "tests/fixtures/production/storage-raw-log-detail-current.jpg",
+        "matching_notes": "公用保管箱选中标签的固定字形，适配详情遮罩下较亮的标签背景。"
+      },
       "storage_account_dim": {
         "path": "assets/templates/screen_ui/storage/storage_account_dim.png",
         "sha256": "6f08dd8a025a99d8998a1ea16aada8bcf04d34ebb042bd8f472b599b3d484dea",
@@ -20211,9 +20243,9 @@
           780
         ],
         "search": [
-          424,
+          405,
           750,
-          537,
+          570,
           780
         ],
         "match_mode": "light_text",
@@ -20931,6 +20963,33 @@
           898,
           933,
           932
+        ]
+      },
+      "scene_bag_core_current": {
+        "path": "assets/templates/screen_ui/runtime_hud/scene_bag_core_current.png",
+        "box": [
+          1062,
+          877,
+          1099,
+          911
+        ],
+        "search": [
+          1057,
+          872,
+          1104,
+          916
+        ],
+        "threshold": 0.97,
+        "match_mode": "grayscale",
+        "variant_for": "scene_bag",
+        "sha256": "8293fb6eaac01387e2af8ab51f28b4949980bda9434d5481a6878838d110f488",
+        "bytes": 2352,
+        "source": "tests/fixtures/production/harvest-idle-current.jpg",
+        "control_box": [
+          1067,
+          882,
+          1099,
+          914
         ]
       }
     },
@@ -22925,6 +22984,12 @@
           "device_travel_confirm_text"
         ],
         "coordinate_targets": {
+          "device.cancel_travel": [
+            440,
+            833,
+            620,
+            896
+          ],
           "device.confirm_travel": [
             646,
             833,
@@ -25518,6 +25583,9 @@
       "skills_processing_inactive": [
         "skills_processing_label"
       ],
+      "storage_account_dim": [
+        "storage_account_dim_bright"
+      ],
       "storage_detail_weight_header": [
         "storage_character_dim",
         "storage_account_dim"
@@ -25551,6 +25619,12 @@
       ],
       "preset_catalog_point_fishing_03_node": [
         "fishing_list_03_current"
+      ],
+      "scene_bag": [
+        "scene_bag_mounted",
+        "scene_bag_live",
+        "scene_bag_live_entry",
+        "scene_bag_core_current"
       ]
     },
     "idle_fishing": {
@@ -26108,6 +26182,12 @@
           575,
           356
         ],
+        "name_search_region": [
+          445,
+          240,
+          710,
+          365
+        ],
         "prepare_target": "storage.prepare"
       },
       "transfer": {
@@ -26141,6 +26221,20 @@
           "min_confidence": 0.75
         },
         "quantity_target": "storage.quantity",
+        "capacity": {
+          "bag_region": [
+            1113,
+            104,
+            1218,
+            132
+          ],
+          "unit_region": [
+            1164,
+            719,
+            1195,
+            742
+          ]
+        },
         "confirm_target": "storage.confirm",
         "scope_anchors": {
           "character_storage": "storage_character_dim",

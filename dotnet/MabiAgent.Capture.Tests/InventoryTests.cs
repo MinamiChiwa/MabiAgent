@@ -8,6 +8,21 @@ namespace MabiAgent.Capture.Tests;
 
 public class InventoryTests
 {
+    [Theory][InlineData(1794077099380,true)][InlineData(1791979760147,false)][InlineData(1794077099381,false)]
+    public void SharedStackIdUsesExistingBackpackAcquisitionEvidence(long acquired,bool accepted)
+    {
+        const uint item=332636885;const long stack=565995852121792512;
+        var bag=ConsumableCodec.ParseRecord(ProtocolTests.Record(item:item,stackId:stack,quantity:163)) with{AcquiredTimeRaw=1794077099380};
+        var warehouse=bag with{Quantity=191,AcquiredTimeRaw=1791979760147};
+        var login=Login() with{Containers=new Dictionary<InventoryContainer,IReadOnlyList<ConsumableStack>>{
+            [InventoryContainer.Backpack]=[bag],[InventoryContainer.CharacterStorage]=[],[InventoryContainer.AccountStorage]=[warehouse]}};
+        var inventory=new StreamingInventory(_=>login,"distinct-acquisition",decodeUpdates:_=>[bag with{Quantity=160,AcquiredTimeRaw=acquired}]);
+        inventory.Accept(new(0,GameProtocol.LoginOpcode,0,[1]),"c",1);
+        inventory.Accept(new(0,GameProtocol.ProfileOpcode,0,Profile(login.CharacterCode)),"c",2);
+        void Update()=>inventory.Accept(new(0,GameProtocol.InventoryOpcode,0,[1]),"c",3);
+        if(accepted){Update();Assert.Equal(160,inventory.Snapshot().Quantity(InventoryContainer.Backpack,item));Assert.Equal(191,inventory.Snapshot().Quantity(InventoryContainer.AccountStorage,item));}
+        else{Assert.Throws<InvalidDataException>(Update);Assert.Null(inventory.Snapshot().VerifiedThrough);}
+    }
     [Fact] public void IdenticalStackInBackpackAndWarehouseRemainsUnknownUntilFreshFullSync()
     {
         const uint item=332636885;const long stack=565995852121792512;

@@ -41,8 +41,8 @@ internal static class LanguageUiSelfCheck
             if(!workbench.IsVisible)workbench.Show(window);
             model.ChainEditor?.NewDraftCommand.Execute(null);
             model.RuntimeTask="当前任务：铁矿石";
-            model.RuntimeProgress="目标 0/1 已完成 · 1 个活动批次 · 1 项待核账 · 当前已确认 120 / 120";
-            model.RuntimeHealth="心跳 12:34:56 · 执行阶段 · 计划 42 · 暂停：手动暂停 · 自动重试 1/3";
+            model.RuntimeProgress="目标 0/1 已完成 · 1 项任务进行中 · 1 项结果待确认 · 当前已确认 120 / 120";
+            model.RuntimeHealth="最近更新 12:34:56 · 执行阶段 · 计划 42 · 暂停：手动暂停 · 自动重试 1/3";
             Layout(window);Layout(workbench);
             for(var category=0;category<6;category++){model.Workbench.Category=category;Layout(workbench);await Task.Delay(20);}
             model.Workbench.Category=0;Layout(workbench);
@@ -75,8 +75,8 @@ internal static class LanguageUiSelfCheck
             Check(HasText(window.CaptureOverlay,"封包擷取設定"),"抓包设置弹窗繁体文案");
             Check(HasText(workbench,"流程工作台"),"工作台繁体文案");
             Check(HasText(window,"目前任務：铁矿石"),"完整任务状态保留物品名");
-            Check(HasText(window,"目標 0/1 已完成 · 1 個活動批次 · 1 項待核帳 · 目前已確認 120 / 120"),"完整进度状态");
-            Check(HasText(window,"心跳 12:34:56 · 執行階段 · 計畫 42 · 暫停：手動暫停 · 自動重試 1/3"),"完整健康状态");
+            Check(HasText(window,"目標 0/1 已完成 · 1 項任務進行中 · 1 項結果待確認 · 目前已確認 120 / 120"),"完整进度状态");
+            Check(HasText(window,"最近更新 12:34:56 · 執行階段 · 計畫 42 · 暫停：手動暫停 · 自動重試 1/3"),"完整健康状态");
             Check(model.ChainEditor?.HasUnsavedChanges==hadDraft,"草稿在语言切换后保持");
             Check(headers.All(pair=>pair.Key.Header?.ToString()==language.TranslateText(pair.Value)),"全页面表格标题随语言切换");
             Check(headers.Keys.Any(c=>c.Header?.ToString()=="已確認")&&headers.Keys.Any(c=>c.Header?.ToString()=="類型"),"队列表头为繁体中文："+string.Join("/",headers.Keys.Select(c=>c.Header)));

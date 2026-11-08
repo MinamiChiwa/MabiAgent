@@ -73,7 +73,7 @@ internal static class UiLayoutRegression
             checks.Add("任务直接行内编辑，人工与自动列表均支持多选，无底部编辑卡片");
             model.RuntimeTask = "当前任务：" + string.Concat(Enumerable.Repeat("铁矿石加工为铁锭，等待设备空槽与材料确认；", 5));
             model.RuntimeProgress = string.Concat(Enumerable.Repeat("目标与活动批次正在更新，当前已确认数量以实际结果为准。", 4));
-            model.RuntimeHealth = "心跳正常，等待下一次任务执行；" + new string('测', 100);
+            model.RuntimeHealth = "运行正常，等待下一项任务；" + new string('测', 100);
             model.RuntimeIssues = "维修任务等待报价核实\n采购任务等待核账确认\n独立任务继续执行";
             model.Error = "配置校验信息：" + new string('测', 100);
             await Settle(window);

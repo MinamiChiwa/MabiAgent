@@ -130,10 +130,15 @@ public sealed class StreamingInventory(Func<byte[], LoginInventory> decodeLogin,
                 var touched = new HashSet<uint>();
                 foreach (var row in updates)
                 {
-                    // Descriptor keys can be identical across containers. A warehouse stack is a
-                    // conflicting owner only when the wire stack instance also matches.
-                    if (records[InventoryContainer.AccountStorage].TryGetValue(row.StackKeyHex,out var shared)&&shared.StackableId==row.StackableId
-                        || records[InventoryContainer.CharacterStorage].TryGetValue(row.StackKeyHex,out var stored)&&stored.StackableId==row.StackableId)
+                    // 完整同步中跨容器可能复用StackableId。只有增量明确延续背包
+                    // 已有取得时间且仓库取得时间不同，才可排除仓库归属。
+                    var conflicts=new[]{InventoryContainer.AccountStorage,InventoryContainer.CharacterStorage}
+                        .Select(container=>records[container].GetValueOrDefault(row.StackKeyHex))
+                        .Where(stack=>stack is not null&&stack.StackableId==row.StackableId).ToArray();
+                    var knownBackpack=backpack.GetValueOrDefault(row.StackKeyHex);
+                    var backpackContinuation=knownBackpack is not null&&knownBackpack.StackableId==row.StackableId&&row.AcquiredTimeRaw>0&&
+                        knownBackpack.AcquiredTimeRaw==row.AcquiredTimeRaw&&conflicts.All(stack=>stack!.AcquiredTimeRaw>0&&stack.AcquiredTimeRaw!=row.AcquiredTimeRaw);
+                    if(conflicts.Length>0&&!backpackContinuation)
                         throw new InvalidDataException($"Inventory update container ambiguous; item={row.ItemId}; update_stack={row.StackableId}; backpack_stack={records[InventoryContainer.Backpack].GetValueOrDefault(row.StackKeyHex)?.StackableId}; character_stack={records[InventoryContainer.CharacterStorage].GetValueOrDefault(row.StackKeyHex)?.StackableId}; account_stack={records[InventoryContainer.AccountStorage].GetValueOrDefault(row.StackKeyHex)?.StackableId}; full sync required");
                     var existed=backpack.TryGetValue(row.StackKeyHex,out var previous);
                     if(row.Quantity==0?existed:!existed||previous!.Quantity!=row.Quantity||previous.ItemId!=row.ItemId)

@@ -2310,7 +2310,6 @@
       "bag_search": {
         "anchors": [
           "bag_search_name",
-          "bag_search_rarity",
           "bag_search_apply"
         ],
         "targets": {

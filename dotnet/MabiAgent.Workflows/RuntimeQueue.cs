@@ -49,18 +49,44 @@ public sealed class RuntimeQueue(string directory)
         catch{File.Delete(Path.Combine(folder,"batch.json"));Directory.Delete(folder);throw;}
         return batch;
     }
-    public (JsonObject Batch,string Folder)? Restore(JsonObject job,string scope)
+    public (JsonObject Batch,string Folder)? Restore(JsonObject job,string scope,Func<string,bool>? isRetired=null)
     {
         if(job["pending"] is not JsonObject pending)return null;
         var action=pending["action_id"]!.GetValue<string>();var id=job["job_id"]!.GetValue<string>();
         var folder=BatchDirectory(scope,id,action);
-        if(!File.Exists(Path.Combine(folder,"batch.json")))return null;
+        if(!File.Exists(Path.Combine(folder,"batch.json")))
+        {
+            var owner=ScopeOwner(scope);var root=Path.Combine(DirectoryPath,"windows");
+            if(owner is null||job["kind"]?.GetValue<string>()!="production"||!Directory.Exists(root))return null;
+            var scopes=Directory.EnumerateDirectories(root).Take(10001).ToArray();if(scopes.Length>10000)return null;
+            var candidates=scopes.Select(s=>Path.Combine(s,"targets",Hash(id),Hash(action)))
+                .Where(f=>File.Exists(Path.Combine(f,"batch.json"))).Select(f=>(Folder:f,Batch:JsonNode.Parse(File.ReadAllText(Path.Combine(f,"batch.json")))!.AsObject()))
+                .Where(c=>ScopeOwner(c.Batch["scope"]?.GetValue<string>())==owner&&(isRetired??ProcessIsRetired)(c.Batch["scope"]!.GetValue<string>())).Take(2).ToArray();
+            if(candidates.Length!=1)return null;
+            var candidate=candidates[0];var oldScope=candidate.Batch["scope"]!.GetValue<string>();
+            // Validate the queue binding before carrying the unchanged journal to the new process.
+            var verified=Restore(job,oldScope);if(verified is null)return null;
+            Directory.CreateDirectory(Path.GetDirectoryName(folder)!);Directory.Move(candidate.Folder,folder);
+        }
         var batch=JsonNode.Parse(File.ReadAllText(Path.Combine(folder,"batch.json")))!.AsObject();
-        if(batch["job_id"]?.GetValue<string>()!=id||batch["action_id"]?.GetValue<string>()!=action||batch["resource"]?.GetValue<string>()!=pending["resource"]?.GetValue<string>()||batch["target_item_id"]?.GetValue<long>()!=job["target_item_id"]!.GetValue<long>())throw new InvalidDataException("批次与队列不一致，保留核账");
-        if(batch["scope"]?.GetValue<string>()!=scope||batch["kind"]?.GetValue<string>()!=job["kind"]?.GetValue<string>())throw new InvalidDataException("批次角色范围或类型不匹配");
+        if(batch["job_id"]?.GetValue<string>()!=id||batch["action_id"]?.GetValue<string>()!=action||batch["resource"]?.GetValue<string>()!=pending["resource"]?.GetValue<string>()||batch["target_item_id"]?.GetValue<long>()!=job["target_item_id"]!.GetValue<long>())throw new InvalidDataException("任务记录与当前队列不符，操作结果待确认");
+        if(batch["kind"]?.GetValue<string>()!=job["kind"]?.GetValue<string>())throw new InvalidDataException("批次角色范围或类型不匹配");
         var key=batch["kind"]!.GetValue<string>() switch{"production"=>batch["recipe"]?["key"],"gathering"=>batch["route_key"],_=>batch["point_key"]};
         if(key?.GetValue<string>()!=job["recipe_key"]?.GetValue<string>())throw new InvalidDataException("批次配方或采集点不匹配");
+        if(batch["scope"]?.GetValue<string>()!=scope)
+        {
+            var prior=batch["scope"]?.GetValue<string>();
+            if(job["kind"]?.GetValue<string>()!="production"||ScopeOwner(scope) is not {} owner||ScopeOwner(prior)!=owner||prior is null||!(isRetired??ProcessIsRetired)(prior))throw new InvalidDataException("批次角色范围或类型不匹配");
+            batch["previous_scope"]=prior;batch["scope"]=scope;
+            AtomicJson.Write(Path.Combine(folder,"batch.json"),batch);
+        }
         return (batch,folder);
+    }
+    private static string? ScopeOwner(string? scope)
+    {
+        var offset=scope?.IndexOf(":owner:",StringComparison.Ordinal)??-1;if(offset<0)return null;
+        try{var ids=JsonNode.Parse(scope![(offset+7)..]) as JsonArray;return ids is{Count:2}&&ids.All(id=>id is JsonValue value&&value.TryGetValue<string>(out var text)&&!string.IsNullOrWhiteSpace(text))?ids.ToJsonString():null;}
+        catch(System.Text.Json.JsonException){return null;}
     }
     public void Finish(JsonObject batch,long quantity,string evidence)
         =>Edit(q=>q.Confirm(batch["job_id"]!.GetValue<string>(),batch["action_id"]!.GetValue<string>(),batch["action_id"]!.GetValue<string>()+":complete",quantity,evidence));

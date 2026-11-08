@@ -189,7 +189,7 @@ internal static class UiSelfCheck
             var batchRow=new JobRow("old","铁锭","生产",20,0,"批次进行中",false,1,true,false,false,ActionId:"batch-old");
             Check(!batchRow.IsWarningState,"已分配批次不冒充结果待确认");
             batchRow.ApplyRuntime(new("batch-old","unknown","confirm_craft","consuming_result_not_visible",true));
-            Check(batchRow.IsWarningState&&batchRow.Status=="本批结果待核账","真正未知消费显示待核账");
+            Check(batchRow.IsWarningState&&batchRow.Status=="本批结果待确认","真正未知消费显示待核账");
             var nextRow=new JobRow("next","胶水","生产",20,0,"批次进行中",false,2,true,false,false,ActionId:"batch-next");
             var boundRows=new QueueRows();boundRows.ApplySnapshot([batchRow,nextRow]);boundRows.ApplySnapshot([nextRow]);
             boundRows[0].ApplyRuntime(new("batch-old","unknown","confirm_craft",null,true));
@@ -230,7 +230,10 @@ internal static class UiSelfCheck
             Check(vm.GoldReserve=="45678"&&!vm.SettingsDirty,"显式放弃后重读磁盘");
             passed.AddRange(Accounts.AccountItemsSelfCheck.Run());
             var repository=new Editors.EditorRepository(root,Path.Combine(directory,"editor-check"));
-            vm.InitializeEditorSelfCheck(repository,new MabiAgent.Capture.AccountItemService(Path.Combine(directory,"account-check")));
+            var reserveAccounts=new MabiAgent.Capture.AccountItemService(Path.Combine(directory,"account-check"));
+            reserveAccounts.Record(new(new("check","role","session"),new("check","role","自检角色"),Enum.GetValues<MabiAgent.Capture.InventoryContainer>().ToDictionary(c=>c,c=>(IReadOnlyDictionary<uint,long>)new Dictionary<uint,long>{{987,1}}),1,1,1,2,null));
+            reserveAccounts.UpdateNames("check",[new(987,"自检道具")],MabiAgent.Capture.NameEditOperation.Confirm);
+            vm.InitializeEditorSelfCheck(repository,reserveAccounts);
             var gatheringSkills=GoalChoices.LoadGatheringSkills(root,()=>Editors.PublishedCatalogCompiler.CompileAvailable(repository));
             Check(gatheringSkills.GetValueOrDefault("iron_ore_nearby")=="采矿","发布目录中的铁矿别名继承采矿分类："+gatheringSkills.GetValueOrDefault("iron_ore_nearby","未映射"));
             passed.AddRange(await Editors.AnchorWorkbenchSelfCheck.Run(vm,new Editors.EditorRepository(root,Path.Combine(directory,"workbench-check"))));
@@ -418,7 +421,7 @@ internal static class UiSelfCheck
             themeButton.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));await Task.Delay(500);
             Check(vm.ThemeKey=="dark"&&DesktopPreferences.FromJson(w.ReadSettings()).Theme=="dark","主界面一键暗色主题支持连续切换并完成旋转");
             vm.ThemeKey=originalTheme;vm.SaveSettings();
-            vm.RuntimeIssues="铁锭：任务异常，等待显式继续\n维护：报价待核实";previewWindow.UpdateLayout();
+            vm.RuntimeIssues="铁锭：任务异常，等待点击继续\n维护：报价待核实";previewWindow.UpdateLayout();
             var problem=previewWindow.GetVisualDescendants().OfType<Expander>().FirstOrDefault(e=>e.Header?.ToString()=="待处理问题");
             Check(problem is{IsVisible:true},"隔离问题在运行状态中可展开查看");problem!.IsExpanded=true;previewWindow.UpdateLayout();
             Check(previewWindow.GetVisualDescendants().OfType<TextBlock>().Any(t=>t.IsEffectivelyVisible&&t.Text==vm.RuntimeIssues),"隔离任务与依赖问题完整显示");vm.RuntimeIssues="";

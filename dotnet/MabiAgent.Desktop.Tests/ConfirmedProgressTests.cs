@@ -4,6 +4,15 @@ namespace MabiAgent.Desktop.Tests;
 
 public sealed class ConfirmedProgressTests
 {
+    [Fact]
+    public void SubmittedProcessingRemainsVisibleAcrossPauseAndUnknownStillNeedsConfirmation()
+    {
+        var row=new JobRow("wood","木材","生产",100,0,"执行",false,0,true,false,false,ActionId:"batch");
+        row.ApplyRuntime(new("batch","paused","waiting",null,false));
+        Assert.Equal("设备加工中",row.Status);Assert.False(row.IsWarningState);
+        row.ApplyRuntime(new("batch","unknown","waiting","collection_receipt_missing",false));
+        Assert.Equal("本批结果待确认",row.Status);Assert.True(row.IsWarningState);
+    }
     private static JobRow Fishing()=>new("fish","海滨","挂机钓鱼",120,10,"执行",false,0,true,false,false,ActionId:"cast-batch");
 
     [Fact]

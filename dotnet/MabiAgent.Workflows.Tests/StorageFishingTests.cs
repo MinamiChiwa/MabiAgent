@@ -11,6 +11,14 @@ public sealed class StorageFishingTests
         var active=new StorageSupplyRunner([new(1,"ore",3,"shared")],port,new MemoryStore());active.Tick();
         Assert.False(active.RetireSatisfiedPlans(_=>true));Assert.NotNull(active.Snapshot()["pending"]);Assert.Single(port.Actions);
     }
+    [Fact] public void RetiringCompletedWithdrawalPreservesItsOriginalOutcome()
+    {
+        var port=new StoragePort();var runner=new StorageSupplyRunner([new(1,"ore",3,"shared")],port,new MemoryStore());
+        Assert.True(runner.RetireUnneededPlans(_=>false));
+        Assert.False(runner.RetireSatisfiedPlans(_=>true));
+        Assert.Equal("material_demand_stopped",runner.Snapshot()["reason"]!.GetValue<string>());
+        Assert.Empty(port.Actions);
+    }
     [Theory][InlineData("prepare_transfer",true)][InlineData("confirm_transfer",false)]
     public void FreshUnchangedBalancesCanResetOnlyPreparationAfterReturningToScene(string kind,bool resets)
     {
@@ -67,6 +75,21 @@ public sealed class StorageFishingTests
         var failing=new StorageSupplyRunner([new(1,"空瓶",20,"shared")],failingPort,new MemoryStore());failing.Tick();
         foreach(var at in new[]{102d,104d,116d}){failingPort.Frame=failingPort.Frame with{At=at,CaptureId=at.ToString()};failing.Tick();}
         Assert.Equal(3,failingPort.Actions.Count);Assert.Equal("blocked",failing.Snapshot()["status"]!.GetValue<string>());
+    }
+    [Fact] public void CapacityLimitedLoadPersistsActualIntentAndReconcilesAfterRestart()
+    {
+        var store=new MemoryStore();var plan=new WithdrawalPlan(1,"ore",776,"shared");
+        var port=new StoragePort{Frame=new(100,"dialog","storage",Scope:"shared",ItemId:1,Name:"ore",Available:776,BagQuantity:66,BagScope:"bag",TransferDialog:true,DialogQuantity:650,CapacityQuantity:650,BalanceSource:"packet_capture",BalanceAt:100)};
+        var runner=new StorageSupplyRunner([plan],port,store);runner.Tick();
+        Assert.Equal(776,Assert.Single(port.Actions).Quantity);
+        port.Frame=port.Frame with{At=102,CaptureId="clamped"};runner.Tick();
+        Assert.Equal(650,port.Actions[^1].Quantity);Assert.Null(runner.Snapshot()["pending"]);
+        Assert.Equal(650,runner.Snapshot()["capacity_limited_quantity"]!.GetValue<long>());
+        runner=new([plan],port,store);runner.Resume();port.Frame=port.Frame with{At=103,CaptureId="confirm",ConfirmAvailable=true};runner.Tick();
+        Assert.Equal("confirm_transfer",port.Actions[^1].Kind);Assert.Equal(650,runner.Snapshot()["pending"]!["quantity"]!.GetValue<long>());
+        runner=new([plan],port,store);runner.Resume();port.Frame=port.Frame with{At=104,CaptureId="receipt",TransferDialog=false,Available=126,BagQuantity=716,BalanceAt=104};runner.Tick();
+        Assert.Equal("complete",runner.Snapshot()["status"]!.GetValue<string>());Assert.Null(runner.Snapshot()["pending"]);
+        Assert.Equal(650,runner.Snapshot()["completed"]![0]!["quantity"]!.GetValue<long>());Assert.Equal(3,port.Actions.Count);
     }
     [Fact] public void OneItemDirectTransferCanStillReconcileWithoutQuantityDialog()
     {

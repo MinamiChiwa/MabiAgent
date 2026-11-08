@@ -63,6 +63,7 @@ public interface IAutomationPorts:IDisposable
     IMaintenancePort Maintenance(string batchId,IWorkflowStore store);
     IGatheringConsumables? GatheringConsumables=>null;
     bool IsExplicitSurplusMaterial(long item)=>false;
+    long MaterialReserveMinimum(long item)=>300;
     ISurplusMaintenancePort? Surplus(string batchId,IWorkflowStore store,Func<long,long?> requiredReserve)=>null;
     IDecompositionPort? Decomposition(string batchId,IWorkflowStore store)=>null;
     IPurchasePort? Purchase(GatheringSupplyRequest request,string batchId,Func<PurchaseState?> persisted)=>null;

@@ -4,6 +4,122 @@ using Xunit;
 namespace MabiAgent.Workflows.Tests;
 public sealed class RuntimeIntegrationTests
 {
+    [Fact] public void AlreadyRequestedInventoryVersionDoesNotRepeatedlyYieldFishing()
+    {
+        var dir=Path.Combine(Path.GetTempPath(),"mabi-fishing-refresh-handoff-"+Guid.NewGuid().ToString("N"));
+        try
+        {
+            var queue=new RuntimeQueue(dir);queue.Edit(q=>{q.Add("wood","production",4,1,"wood",[]);q.Add("fish","idle_fishing",1,600,FishingPlan.CurrentLocation,[]);});
+            queue.Claim(queue.Read().Jobs.Single(j=>j.Id=="wood"),"old-process","production","device:wood",new JsonObject
+            {
+                ["rounds"]=1,["output_per_round"]=1,
+                ["recipe"]=new JsonObject{["key"]="wood",["device"]="wood",["duration_s"]=60}
+            });
+            var ports=new RuntimePorts();using var host=new AutomationCoordinator(Catalog(),queue,ports,()=>new(RepairEnabled:false,BackpackEnabled:false),new ManualTime());
+            host.Start();host.Tick();Assert.Equal(1,ports.RefreshRequests);
+            host.SuspendForInventorySync();host.ContinueAfterInventorySync();
+            for(var n=0;n<8;n++)
+            {
+                ports.Fish.Frame=new(n,"cast-"+n,"fishing",FishingButton:true);host.Tick();
+            }
+            Assert.Equal(1,ports.RefreshRequests);Assert.Equal("fish",host.Status.ActiveJob);
+            Assert.Contains(ports.Fish.Actions,a=>a.Kind=="start");Assert.DoesNotContain(ports.Fish.Actions,a=>a.Kind=="leave");Assert.Null(host.Status.Fault);
+        }
+        finally{if(Directory.Exists(dir))Directory.Delete(dir,true);}
+    }
+    [Fact] public void UnfundedIdleProductionDoesNotRepeatedlyYieldFishingAndTakesOverWhenSupplied()
+    {
+        var dir=Path.Combine(Path.GetTempPath(),"mabi-fishing-handoff-"+Guid.NewGuid().ToString("N"));
+        try
+        {
+            var queue=new RuntimeQueue(dir);queue.Edit(q=>{q.Add("wood","production",4,1,"wood",[]);q.Add("fish","idle_fishing",1,600,FishingPlan.CurrentLocation,[]);});
+            var ports=new RuntimePorts();var time=new ManualTime();
+            ports.Stock.Set(new(2,0,ports.Scope,"packet_capture","v1",true));
+            queue.Claim(queue.Read().Jobs.Single(j=>j.Id=="wood"),ports.Scope,"production","device:wood",new JsonObject
+            {
+                ["rounds"]=1,["output_per_round"]=1,
+                ["recipe"]=new JsonObject{["key"]="wood",["device"]="wood",["duration_s"]=60}
+            });
+            using var host=new AutomationCoordinator(Catalog(),queue,ports,()=>new(RepairEnabled:false,BackpackEnabled:false),time);
+            host.Start();
+            for(var n=0;n<8;n++)
+            {
+                ports.Fish.Frame=new(n,"cast-"+n,"fishing",FishingButton:true);host.Tick();
+            }
+            Assert.Equal("fish",host.Status.ActiveJob);Assert.Contains(ports.Fish.Actions,a=>a.Kind=="start");
+            Assert.DoesNotContain(ports.Fish.Actions,a=>a.Kind=="leave");Assert.Equal("idle",host.Status.Jobs["wood"].Status);
+            ports.Stock.Set(new(2,10,ports.Scope,"packet_capture","v2",true));
+            for(var n=0;n<6&&host.Status.ActiveJob!="wood";n++)
+            {
+                ports.Fish.Frame=new(20+n,"handoff-"+n,Compass:true);host.Tick();
+            }
+            Assert.Equal("wood",host.Status.ActiveJob);Assert.Null(host.Status.Fault);
+        }
+        finally{if(Directory.Exists(dir))Directory.Delete(dir,true);}
+    }
+    [Fact] public void IdleDeviceInputsPreemptBufferingAndMoveToTheOtherMissingInputBeforeStockpiling()
+    {
+        var dir=Path.Combine(Path.GetTempPath(),"mabi-idle-device-"+Guid.NewGuid().ToString("N"));
+        try
+        {
+            var config=Catalog().Configuration;
+            config["gathering_routes"]!["buffer"]=JsonNode.Parse("""{"target_item_id":9,"skill":"mining","node":"buffer","attempts_per_batch":10}""");
+            config["gathering_routes"]!["logs"]=JsonNode.Parse("""{"target_item_id":2,"skill":"logging","node":"logs","attempts_per_batch":10,"reference_yield_per_batch":10}""");
+            config["gathering_routes"]!["ore"]!["reference_yield_per_batch"]=10;
+            config["recipes"]!["iron"]!["materials"]!.AsArray().Add(new JsonObject{["item_id"]=2,["quantity"]=10});
+            var queue=new RuntimeQueue(dir);queue.Edit(q=>q.Add("buffer","gathering",9,50,"buffer",[]));
+            var ports=new RuntimePorts();var time=new ManualTime();
+            foreach(var item in new[]{1,2,9})ports.Stock.Set(new(item,0,ports.Scope,"packet_capture","v1",true){VerifiedThrough=99});
+            using var host=new AutomationCoordinator(new(config),queue,ports,()=>new(RepairEnabled:false,BackpackEnabled:false),time);
+            ports.Gather.Frame=new("scene",RouteKey:"buffer",StartAvailable:true);host.Start();host.Tick();host.Tick();
+            ports.Gather.Frame=new("scene",RouteKey:"buffer",TaskId:JsonValue.Create("buffer1"),TaskStatus:"active");host.Tick();
+            queue.Edit(q=>q.Add("iron","production",3,100,"iron",[]));host.SynchronizeQueue();host.Tick();
+            Assert.Equal("buffer",host.Status.ActiveJob);
+            ports.Gather.Frame=ports.Gather.Frame with{TaskStatus="complete",Evidence=new JsonObject{["navigation_idle_confirmed"]=true}};host.Tick();
+            foreach(var (item,route) in new[]{(1L,"ore"),(2L,"logs")})
+            {
+                ports.Gather.Frame=new("scene",RouteKey:route,StartAvailable:true);host.Tick();host.Tick();
+                Assert.Equal(item,queue.Read().Jobs.Single(j=>j.Id==host.Status.ActiveJob).ItemId);
+                ports.Gather.Frame=new("scene",RouteKey:route,TaskId:JsonValue.Create(route+"1"),TaskStatus:"active");host.Tick();
+                ports.Stock.Set(ports.Stock.Query(item) with{Quantity=10,Version="v2",VerifiedThrough=101});
+                ports.Gather.Frame=ports.Gather.Frame with{TaskStatus="complete",Evidence=new JsonObject{["navigation_idle_confirmed"]=true}};host.Tick();
+            }
+            host.Tick();Assert.Equal("iron",host.Status.ActiveJob);Assert.Equal(3,ports.Gather.Starts);Assert.Null(host.Status.Fault);
+        }
+        finally{if(Directory.Exists(dir))Directory.Delete(dir,true);}
+    }
+    [Theory][InlineData(false)][InlineData(true)]
+    public void AutomaticGatheringKeepsTheSelectedMaterialUntilReserveOrProductionIsReady(bool productionReady)
+    {
+        var dir=Path.Combine(Path.GetTempPath(),"mabi-gather-visit-"+Guid.NewGuid().ToString("N"));
+        try
+        {
+            var config=Catalog().Configuration;
+            config["gathering_routes"]!["logs"]=JsonNode.Parse("""{"target_item_id":2,"skill":"logging","node":"logs","attempts_per_batch":10,"reference_yield_per_batch":10}""");
+            config["gathering_routes"]!["ore"]!["reference_yield_per_batch"]=10;
+            foreach(var recipe in config["recipes"]!.AsObject())recipe.Value!["materials"]!.AsArray().Add(new JsonObject{["item_id"]=5,["quantity"]=1});
+            var queue=new RuntimeQueue(dir);queue.Edit(q=>{q.Add("iron","production",3,500,"iron",[]);q.Add("wood","production",4,500,"wood",[]);});
+            var ports=new RuntimePorts();var time=new ManualTime();
+            foreach(var item in new[]{1,2,5})ports.Stock.Set(new(item,0,ports.Scope,"packet_capture","v1",true){VerifiedThrough=99});
+            using var host=new AutomationCoordinator(new(config),queue,ports,()=>new(RepairEnabled:false,BackpackEnabled:false),time);
+            ports.Gather.Frame=new("scene",RouteKey:"ore",StartAvailable:true);host.Start();host.Tick();host.Tick();
+            var ore=Assert.Single(queue.Read().Jobs,j=>j.Kind=="gathering"&&j.ItemId==1).Id;
+            Assert.Equal(ore,host.Status.ActiveJob);Assert.Equal(1,ports.Gather.Starts);
+            ports.Gather.Frame=new("scene",RouteKey:"ore",TaskId:JsonValue.Create("round1"),TaskStatus:"active");host.Tick();
+            ports.Stock.Set(ports.Stock.Query(1) with{Quantity=10,Version="v2",VerifiedThrough=101});
+            ports.Gather.Frame=ports.Gather.Frame with{TaskStatus="complete",Evidence=new JsonObject{["navigation_idle_confirmed"]=true}};host.Tick();
+            ports.Gather.Frame=new("scene",RouteKey:"ore",StartAvailable:true);host.Tick();host.Tick();
+            Assert.Equal(ore,host.Status.ActiveJob);Assert.Equal(2,ports.Gather.Starts);
+            ports.Gather.Frame=new("scene",RouteKey:"ore",TaskId:JsonValue.Create("round2"),TaskStatus:"active");host.Tick();
+            ports.Stock.Set(ports.Stock.Query(1) with{Quantity=productionReady?20:300,Version="v3",VerifiedThrough=102});
+            if(productionReady)ports.Stock.Set(ports.Stock.Query(5) with{Quantity=100,Version="v2",VerifiedThrough=102});
+            ports.Gather.Frame=ports.Gather.Frame with{TaskStatus="complete",Evidence=new JsonObject{["navigation_idle_confirmed"]=true}};host.Tick();host.Tick();
+            if(productionReady)Assert.Equal("iron",host.Status.ActiveJob);
+            else Assert.Equal(2,queue.Read().Jobs.Single(j=>j.Id==host.Status.ActiveJob).ItemId);
+            Assert.Equal(2,ports.Gather.Starts);Assert.Null(host.Status.Fault);
+        }
+        finally{if(Directory.Exists(dir))Directory.Delete(dir,true);}
+    }
     [Theory][InlineData("point_fishing_lake")][InlineData(FishingPlan.CurrentLocation)]
     public void FishingPeriodicBackpackCheckWaitsForTwentyRoundsAndTenMinutes(string point)
     {

@@ -5,6 +5,33 @@ namespace MabiAgent.Capture.Tests;
 
 public sealed class CapturePlanningAdapterTests : IDisposable
 {
+    [Fact] public void LinkedNonRecipeItemsKeepWireIdNameAndCurrentPacketBalance()
+    {
+        var accounts=new AccountItemService(directory);accounts.Record(Snapshot());
+        accounts.UpdateNames("a",[new(123,"鐵礦石"),new(456,"仓库纪念品")],NameEditOperation.Confirm);
+        var catalog=new Dictionary<long,string>{{CatalogOre,"铁矿石"},{9000,"采集点:logging:南侧城墙"}};
+        var choices=LinkedItemCatalog.Names(accounts.ReadNames("a"),catalog);
+        Assert.Equal(2,choices.Count);Assert.Equal("仓库纪念品",choices[456]);Assert.Contains(CatalogOre,choices.Keys);Assert.DoesNotContain(9000L,choices.Keys);
+        var adapter=new CapturePlanningAdapter(accounts,catalog);var first=adapter.Convert(Snapshot()).Inventory!;
+        Assert.Equal(20,first.Query(456).Quantity);Assert.True(first.Query(456).Confirmed);Assert.Equal("仓库纪念品",adapter.Name(456,Snapshot()));
+        var after=adapter.Convert(Snapshot(other:12,revision:2)).Inventory!;
+        Assert.Equal(12,after.Query(456).Quantity);Assert.NotEqual(first.Query(456).Version,after.Query(456).Version);
+        accounts.UpdateNames("a",[new(456,null)],NameEditOperation.Clear);
+        Assert.DoesNotContain(456L,LinkedItemCatalog.Names(accounts.ReadNames("a"),catalog).Keys);
+        Assert.Null(adapter.Convert(Snapshot()).Inventory!.Query(456).Quantity);Assert.Null(adapter.Name(456,Snapshot()));
+    }
+    [Fact] public void LinkedChoicesExcludeUnseenCandidateClearedAndAmbiguousNames()
+    {
+        var registry=new ItemNameRegistry();
+        registry.Set(new(1,"配方材料",NameAssociation.BuiltinVerified,"test",true));
+        registry.Set(new(2,"目录外",NameAssociation.UserConfirmed,"test",true));
+        registry.Set(new(3,"未捕获",NameAssociation.BuiltinVerified,"test",false));
+        registry.Set(new(4,"候选",NameAssociation.Candidate,"test",true));
+        registry.Set(new(5,"清除",NameAssociation.UserCleared,"test",true));
+        registry.Set(new(6,"同名",NameAssociation.UserConfirmed,"test",true));registry.Set(new(7,"同名",NameAssociation.UserConfirmed,"test",true));
+        var result=LinkedItemCatalog.Names(registry,new Dictionary<long,string>{{100,"配方材料"},{200,"采集点:logging:木材"}});
+        Assert.Equal(new long[]{2,100},result.Keys.Order().ToArray());
+    }
     private const long CatalogOre = 4560776048983186;
     private const long CatalogOther = 4557102894501861;
     private readonly string directory = Path.Combine(Path.GetTempPath(), "mabi-planning-test-" + Guid.NewGuid().ToString("N"));

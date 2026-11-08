@@ -7,10 +7,27 @@ namespace MabiAgent.Windows;
 
 public sealed class ScreenStorageSupplyPort:ScreenWorkflowPort,IStorageSupplyPort
 {
-    private readonly WithdrawalPlan plan;private readonly JsonNode config,container;private readonly string scopeType;private string? rowTarget;private bool owner,item,dialog;private long? dialogQuantity;
+    private readonly WithdrawalPlan plan;private readonly JsonNode config,container;private readonly string scopeType;private string? rowTarget;private bool owner,item,dialog;private long? dialogQuantity,capacityQuantity;
     private int menuOpenAttempts;private double lastMenuOpenAt=-1;
     private double lastDialogueAt=-1;private int dialogueSteps;
     private readonly Func<InventorySnapshot>? packetInventory;
+    private long AuthorizedQuantity=>Store.Read()?["capacity_limited_quantity"]?.GetValue<long>() is{} q&&q>0&&q<plan.Quantity?q:plan.Quantity;
+    private long? CapacityQuantity()
+    {
+        if(!dialog||dialogQuantity is not >0||Session.LastCapture is not{} capture)return null;
+        var spec=config["transfer"]?["capacity"];if(spec is null)return null;
+        var bag=Session.QuantityReader.ColorText(capture.Image,Session.Box(spec["bag_region"]!),.75);
+        var unit=Session.QuantityReader.ColorText(capture.Image,Session.Box(spec["unit_region"]!),.75);
+        return LimitedQuantity(dialogQuantity.Value,bag,unit);
+    }
+    internal static long? LimitedQuantity(long selected,string? bag,string? unit)
+    {
+        var weight=bag is null?null:QuantityParser.Parse(bag,"fixed_ratio");
+        if(weight?.Capacity is not{} maximum||weight.Quantity>=maximum||unit is null||
+            !decimal.TryParse(unit,System.Globalization.NumberStyles.AllowDecimalPoint,CultureInfo.InvariantCulture,out var each)||each<=0)return null;
+        var limit=decimal.Floor((maximum-weight.Quantity)/(each*100m));
+        return selected>0&&limit==selected?selected:null;
+    }
     private ScreenMaintenancePort? exit,navigator;
     internal NavigationTestTrace? NavigationTrace=>navigator?.LastTestNavigationTrace;
     private int SearchPassLength=>Math.Clamp(config["search"]?["limit"]?.GetValue<int>()??10,1,33);
@@ -19,7 +36,7 @@ public sealed class ScreenStorageSupplyPort:ScreenWorkflowPort,IStorageSupplyPor
     public bool ReleaseAdvanced{get;private set;}
     public bool ReleaseWaiting=>exit?.ReleaseWaiting==true;
     public bool ReleaseNavigation()
-    {exit??=Session.CreateMaintenancePort(BatchId+":exit",Store);exit.Observe();var released=exit.ReleaseNavigation();ReleaseAdvanced=!released&&exit.LastReleaseDispatched;return released;}
+    {exit??=Session.CreateMaintenancePort(BatchId+":exit",Store);exit.Observe();var released=exit.ReleaseNavigation();ReleaseAdvanced=!released&&exit.LastReleaseDispatched;if(released)navigator?.ResetNavigation();return released;}
     public ScreenStorageSupplyPort(ScreenWorkflowSession session,WithdrawalPlan plan,string batchId,IWorkflowStore store,Func<InventorySnapshot>? packetInventory=null):base(session,batchId,store)
     {this.plan=plan;this.packetInventory=packetInventory;config=session.Routes.Profile.Definition["storage_supply"]??throw new ArgumentException("仓库缺少校准");scopeType=plan.Scope.Split(':')[0] switch{"character"=>"character_storage","account"=>"account_storage",var value=>value};container=config["containers"]?[scopeType]??throw new ArgumentException("仓库范围未配置");}
     public static bool ScopeMatches(string scope,SessionScope current)
@@ -34,7 +51,7 @@ public sealed class ScreenStorageSupplyPort:ScreenWorkflowPort,IStorageSupplyPor
             ||searchRegion is not null&&Session.QuantityReader.FindExactColorLine(c.Image,Session.Box(searchRegion),plan.Name,minimum:.75) is not null;
     protected override PageView Decorate(ClientCapture c,PageView view)
     {
-        owner=false;item=false;dialog=false;rowTarget=null;dialogQuantity=null;if(view.Modal)return view;
+        owner=false;item=false;dialog=false;rowTarget=null;dialogQuantity=null;capacityQuantity=null;if(view.Modal)return view;
         var baseScope=scopeType;owner=view.Page==S(container,"page");
         // Qualified owners require a verified account/character identity; process scope cannot invent it.
         var verifiedOwner=ScopeMatches(plan.Scope,Session.VerifiedOwner??Session.Scope);owner&=verifiedOwner;
@@ -45,8 +62,9 @@ public sealed class ScreenStorageSupplyPort:ScreenWorkflowPort,IStorageSupplyPor
             var anchor=S(spec["scope_anchors"],baseScope)??S(transfer["scope_anchors"],baseScope);owner=verifiedOwner&&Session.Hit(c,anchor);item=owner&&Name(c,spec["name_region"],spec["name_search_region"]);
             dialog=ReferenceEquals(spec,transfer)&&item;
             if(dialog){var q=transfer["quantity"]!;dialogQuantity=Session.QuantityReader.Read(c.Image,new(plan.ItemId,"storage_transfer_dialog",Session.Box(q["region"]!),S(q,"format")??"integer",Thresholds:q["thresholds"]?.AsArray().Select(v=>v!.GetValue<int>()).ToArray())).Value?.Quantity;}
+            if(dialogQuantity is >0&&dialogQuantity<plan.Quantity)capacityQuantity=CapacityQuantity();
             if(!item){view=Session.RemoveTarget(view,S(selection,"prepare_target")!);view=Session.RemoveTarget(view,S(transfer,"quantity_target")!);}
-            if(!dialog||dialogQuantity!=plan.Quantity)view=Session.RemoveTarget(view,S(transfer,"confirm_target")!);
+            if(!dialog||dialogQuantity!=AuthorizedQuantity)view=Session.RemoveTarget(view,S(transfer,"confirm_target")!);
         }
         if(owner&&view.Page==S(container,"page")&&config["rows"] is JsonArray rows)
         {
@@ -66,11 +84,11 @@ public sealed class ScreenStorageSupplyPort:ScreenWorkflowPort,IStorageSupplyPor
         var packetIdentity=reconciling&&o.Stable&&baselineBag.HasValue&&baselineStorage.HasValue;
         var scoped=visible||packetIdentity;var identified=visible&&item||packetIdentity;
         return new(at,id,o.View.Page,Session.InputAvailable,o.Stable,scoped?plan.Scope:null,identified?plan.ItemId:null,identified?plan.Name:null,scoped?baselineStorage:null,scoped?baselineBag:null,scoped?bagScope:null,
-            visible&&o.View.Targets.ContainsKey(S(config["selection"],"prepare_target")!),dialog,dialogQuantity,visible&&o.View.Targets.ContainsKey(S(config["transfer"],"confirm_target")!),false,visible&&rowTarget is not null,visible&&search is not null&&o.View.Targets.ContainsKey(S(search,"target")!),SearchPassLength*3,Math.Max(1.2,search?["interval_s"]?.GetFiniteDouble()??.5),scoped?plan.Scope:null,scoped?bagScope:null,scoped&&inventory is not null?"packet_capture":null,scoped?bag?.VerifiedThrough:null);
+            visible&&o.View.Targets.ContainsKey(S(config["selection"],"prepare_target")!),dialog,dialogQuantity,visible&&o.View.Targets.ContainsKey(S(config["transfer"],"confirm_target")!),false,visible&&rowTarget is not null,visible&&search is not null&&o.View.Targets.ContainsKey(S(search,"target")!),SearchPassLength*3,Math.Max(1.2,search?["interval_s"]?.GetFiniteDouble()??.5),scoped?plan.Scope:null,scoped?bagScope:null,scoped&&inventory is not null?"packet_capture":null,scoped?bag?.VerifiedThrough:null,visible?capacityQuantity:null);
     }
     public void Perform(WithdrawalAction action)
     {
-        if(action.ItemId!=plan.ItemId||action.Name!=plan.Name||action.Quantity!=plan.Quantity||action.Scope!=plan.Scope)throw new InputBlockedException("取料计划不匹配");
+        if(action.ItemId!=plan.ItemId||action.Name!=plan.Name||action.Quantity!=AuthorizedQuantity||action.Scope!=plan.Scope)throw new InputBlockedException("取料计划不匹配");
         // These checks precede any native action; consumption itself is wrapped
         // separately by the shared guard, which retains unknown native results.
         var consuming=action.Kind is "confirm_transfer" or "prepare_transfer";
@@ -80,7 +98,7 @@ public sealed class ScreenStorageSupplyPort:ScreenWorkflowPort,IStorageSupplyPor
             if(!frame.Stable||!frame.Foreground||!owner||!item)
                 throw new InputRejectedBeforeDispatchException("仓库页面、范围或物品已变化");
             var transfer=config["transfer"]!;
-            if(action.Kind=="confirm_transfer")Consume(S(transfer,"confirm_target")!,"confirm_transfer",_=>owner&&item&&dialog&&dialogQuantity==plan.Quantity);
+            if(action.Kind=="confirm_transfer")Consume(S(transfer,"confirm_target")!,"confirm_transfer",_=>owner&&item&&dialog&&dialogQuantity==action.Quantity);
             else Consume(S(config["selection"],"prepare_target")!,"prepare_transfer",_=>owner&&item&&!dialog);
             return;
         }
@@ -124,7 +142,7 @@ public sealed class ScreenStorageSupplyPort:ScreenWorkflowPort,IStorageSupplyPor
         {var search=config["search"]!;Session.ScrollListSearch(Session.LastObservation!,action.SearchIndex,S(search,"target")!,SearchPassLength);return;}
         if(!item)throw new InputBlockedException("物品名称未确认");
         var transfer=config["transfer"]!;
-        if(action.Kind=="set_quantity"){if(!dialog)throw new InputBlockedException("取料数量框未确认");Session.Guard.EditQuantity(Session.Guard.ObserveCurrentTarget(S(transfer,"quantity_target")!,Session.LastObservation),plan.Quantity.ToString(CultureInfo.InvariantCulture));return;}
+        if(action.Kind=="set_quantity"){if(!dialog)throw new InputBlockedException("取料数量框未确认");Session.Guard.EditQuantity(Session.Guard.ObserveCurrentTarget(S(transfer,"quantity_target")!,Session.LastObservation),action.Quantity.ToString(CultureInfo.InvariantCulture));return;}
         var target=action.Kind switch{"select_item"=>rowTarget,_=>null};
         if(target is null)throw new InputBlockedException("取料操作未配置");Session.NavigateTarget(target);
     }

@@ -76,7 +76,7 @@ public sealed class GatheringConsumables:IGatheringConsumables
             if(!rules.TryGetValue(route,out var rule)||entry["item_id"]?.GetValue<long>()!=rule.ItemId||entry["quantity"]?.GetValue<long>()!=checked((long)rule.PerAttempt*rule.RequiredAttempts)
                 ||string.IsNullOrWhiteSpace(entry["scope"]?.GetValue<string>()))throw new InvalidDataException("耗材预留记录不匹配");
             if(reservations.TryGetValue(action,out var existing)){if(!JsonNode.DeepEquals(existing,entry))throw new InvalidDataException("耗材预留动作冲突");return;}
-            if(reservations.Count>=10000)throw new InvalidDataException("耗材待核账已达上限");
+            if(reservations.Count>=10000)throw new InvalidDataException("待确认的耗材使用记录过多，请先确认结果");
             reservations.Add(action,(JsonObject)entry.DeepClone());
         }
     }
@@ -119,7 +119,7 @@ public sealed class GatheringConsumables:IGatheringConsumables
                 requests[actionId]=new(route.Key,actionId,rule.ItemId,rule.VerifiedName,deficit,snapshot.Scope,stock.Version,target);
                 return new(false,preferences().AutoBuyBottles?"等待补充空瓶":"等待仓库补充空瓶（自动购买已关闭）");
             }
-            if(reservations.Count>=10000)return new(false,"耗材待核账已达上限");
+            if(reservations.Count>=10000)return new(false,"待确认的耗材使用记录过多，请先确认结果");
             var reservation=new JsonObject{["action_id"]=actionId,["route_key"]=route.Key,["item_id"]=rule.ItemId,["name"]=rule.VerifiedName,
                 ["quantity"]=supply.ReservedQuantity,["scope"]=snapshot.Scope,["source"]=stock.Source,["version"]=stock.Version};
             reservations[actionId]=reservation;return new(true,Reservation:(JsonObject)reservation.DeepClone());

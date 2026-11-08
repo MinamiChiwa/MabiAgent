@@ -26,7 +26,7 @@ public sealed class RuntimeInventory(IWorkflowStore store)
         if(after is{} at&&!double.IsFinite(at))throw new ArgumentOutOfRangeException(nameof(after));
         state["seen"]??=new JsonObject();var seen=state["seen"]!.AsObject();var key=action+":inventory";
         if(seen.ContainsKey(key))return;
-        if(Refreshes.Count>=10000||seen.Count>=20000)throw new InvalidOperationException("库存核账记录已达上限，请先核对未完成消费");
+        if(Refreshes.Count>=10000||seen.Count>=20000)throw new InvalidOperationException("待确认的库存操作过多，请先处理未完成的操作");
         var row=System.Text.Json.JsonSerializer.SerializeToNode(basis)!.AsObject();row["required_through"]=after;
         Refreshes[key]=row;seen[key]=true;store.Flush(state);
     }
@@ -49,7 +49,7 @@ public sealed class RuntimeInventory(IWorkflowStore store)
     {
         state["seen"]??=new JsonObject();var seen=state["seen"]!.AsObject();
         var key=action+":"+submitted;if(Debits.ContainsKey(key)||seen.ContainsKey(key)){store.Flush(state);return;}
-        if(Debits.Count>=10000||seen.Count>=20000)throw new InvalidOperationException("库存核账记录已达上限，请先核对未完成消费");
+        if(Debits.Count>=10000||seen.Count>=20000)throw new InvalidOperationException("待确认的库存操作过多，请先处理未完成的操作");
         var rows=new JsonArray();
         foreach(var (item,quantity) in recipe.Inputs)
         {var observation=basis.Query(item);rows.Add(new JsonObject{["item"]=item,["quantity"]=quantity,["scope"]=basis.Scope,["version"]=observation.Version,["source"]=observation.Source});}

@@ -426,7 +426,7 @@ public sealed partial class AutomationService
                 && session.LastObservation?.View.Targets.ContainsKey("storage.room_exit") != true) return;
             runner.ReleaseNavigation();
             if (runner.NavigationAbandoned)
-                throw new InvalidOperationException("仓库取料已核账，但退出仓库未确认");
+                throw new InvalidOperationException("仓库取料结果已确认，但退出仓库未确认");
             await Task.Delay(200, cancellationToken).ConfigureAwait(false);
         }
         throw new TimeoutException("仓库取料完成，但未在期限内返回场景");

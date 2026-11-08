@@ -34,8 +34,21 @@
           </Grid>
           <u:Divider/>
           <ui:HotkeySettingsRegion><StackPanel Classes="setting-row" Spacing="8">
+            <TextBlock Text="全局暂停快捷键" Classes="setting-title"/>
+            <TextBlock Text="切换应用或操作等待时均可暂停，保留任务进度和操作记录。暂停后点击“继续”恢复。支持单键、组合键和鼠标键。" Classes="caption" TextWrapping="Wrap"/>
+            <Grid ColumnDefinitions="*,Auto,Auto,Auto">
+              <ui:HotkeyRecorder x:Name="GlobalPauseHotkeyInput" Text="{Binding PauseHotkeyText,Mode=TwoWay}" AutomationProperties.Name="全局暂停快捷键"/>
+              <Button x:Name="GlobalPauseHotkeyRecord" Grid.Column="1" Content="录入" Click="BeginPauseHotkeyRecording" Margin="8,0,0,0"/>
+              <Button Grid.Column="2" Content="取消录入" Click="CancelPauseHotkeyRecording" IsVisible="{Binding #GlobalPauseHotkeyInput.IsRecording}" Margin="8,0,0,0"/>
+              <Button x:Name="GlobalPauseHotkeyApply" Grid.Column="3" Content="应用快捷键" Command="{Binding ApplyPauseHotkeyCommand}" IsEnabled="{Binding !#GlobalPauseHotkeyInput.IsRecording}" Margin="8,0,0,0"/>
+            </Grid>
+            <TextBlock Text="{Binding #GlobalPauseHotkeyInput.CaptureMessage}" Classes="caption" TextWrapping="Wrap"/>
+            <TextBlock Text="{Binding PauseHotkeyStatus}" Classes="caption" TextWrapping="Wrap"/>
+          </StackPanel></ui:HotkeySettingsRegion>
+          <u:Divider/>
+          <ui:HotkeySettingsRegion><StackPanel Classes="setting-row" Spacing="8">
             <TextBlock Text="全局停止快捷键" Classes="setting-title"/>
-            <TextBlock Text="切换应用或操作等待时均可停止全部，清除执行进度与核账，保留任务定义和设置。组合被占用时更换快捷键。" Classes="caption" TextWrapping="Wrap"/>
+            <TextBlock Text="切换应用或操作等待时均可停止全部，重置任务进度和待确认记录，保留任务与设置。组合被占用时更换快捷键。" Classes="caption" TextWrapping="Wrap"/>
             <Grid ColumnDefinitions="*,Auto,Auto,Auto">
               <ui:HotkeyRecorder x:Name="GlobalStopHotkeyInput" Text="{Binding StopHotkeyText,Mode=TwoWay}" AutomationProperties.Name="全局停止快捷键"/>
               <Button x:Name="GlobalStopHotkeyRecord" Grid.Column="1" Content="录入" Click="BeginStopHotkeyRecording" Margin="8,0,0,0"/>
@@ -79,7 +92,7 @@
           <Grid Classes="card-header" ColumnDefinitions="Auto,*,Auto">
             <Border Classes="icon-tile"><ui:Icon Kind="sync"/></Border>
             <TextBlock Grid.Column="1" Text="数据同步" Classes="heading" VerticalAlignment="Center" Margin="12,0"/>
-            <ui:HelpButton Grid.Column="2" Message="监听用于同步当前角色的背包与仓库数量。停止只影响本次运行。重新登录前需核实当前角色，并结束运行任务、处理待核账记录。"/>
+            <ui:HelpButton Grid.Column="2" Message="监听用于同步当前角色的背包与仓库数量。停止只影响本次运行。重新登录前需核实当前角色，并结束运行任务、确认上次操作结果。"/>
           </Grid>
           <TextBlock Text="{Binding CaptureStatus}" Classes="status-info" FontWeight="Medium" TextWrapping="Wrap"/>
           <TextBlock Text="{Binding CaptureDetails}" Classes="muted" FontSize="12" Margin="0,4,0,8" TextWrapping="Wrap"/>
@@ -149,11 +162,11 @@
             <TextBox x:Name="BackpackThresholdEditor" Grid.Column="1" Width="160" Text="{Binding BackpackThreshold,UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="触发容量（%）"><TextBox.InnerRightContent><TextBlock Classes="suffix" Text="%"/></TextBox.InnerRightContent></TextBox>
           </Grid>
           <Grid Classes="setting-row" ColumnDefinitions="*,Auto">
-            <StackPanel><TextBlock Text="默认留存" Classes="setting-title"/><TextBlock Text="各材料默认保留数量，个别留存优先" Classes="caption" TextWrapping="Wrap"/></StackPanel>
+            <StackPanel><TextBlock Text="默认留存" Classes="setting-title"/><TextBlock Text="自动补料与整理共用，个别材料设置优先" Classes="caption" TextWrapping="Wrap"/></StackPanel>
             <TextBox Grid.Column="1" Width="160" Text="{Binding MaterialReserve,UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="各材料默认留存数量"/>
           </Grid>
           <Grid Classes="setting-row" ColumnDefinitions="*,Auto">
-            <StackPanel><TextBlock Text="贩售余料" Classes="setting-title"/><TextBlock Text="仅当前采集目标与下方指定材料；保留需求量和下限" Classes="caption" TextWrapping="Wrap"/></StackPanel>
+            <StackPanel><TextBlock Text="贩售余料" Classes="setting-title"/><TextBlock Text="仅出售采集目标和指定材料的余量；保留下限及当前投产用量" Classes="caption" TextWrapping="Wrap"/></StackPanel>
             <CheckBox Grid.Column="1" IsChecked="{Binding SellSurplus}" AutomationProperties.Name="贩售超出需求与留存量的材料"/>
           </Grid>
         </StackPanel>

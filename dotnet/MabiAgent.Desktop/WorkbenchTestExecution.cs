@@ -90,7 +90,7 @@ public static class WorkbenchTestExecution
                 {
                     cancellation.ThrowIfCancellationRequested();if(isRunning())throw new InputBlockedException("主任务已开始，调试测试已停止。");
                     var actual=ops.ReadWindow(current.WindowId);EnsureIdentity(current,actual);
-                    if(session.Guard.RequiresForeground&&actual.ForegroundId!=current.WindowId)throw new InputBlockedException("游戏失焦，测试已停止；请显式重新测试。");
+                    if(session.Guard.RequiresForeground&&actual.ForegroundId!=current.WindowId)throw new InputBlockedException("游戏失焦，测试已停止；请重新点击测试。");
                     if(session.Guard.Paused)throw new InputBlockedException(session.Guard.PauseReason??"输入已暂停。");
                     if(total.Elapsed.TotalSeconds>maximumSeconds)throw new TimeoutException("本次流程测试超过总时限。");
                     var result=flow.Tick();var card=flow.CurrentCard;var signature=result.CardId+":"+result.State+":"+result.Message;
@@ -229,7 +229,7 @@ public static class WorkbenchTestExecution
             {
                 cancellation.ThrowIfCancellationRequested();if(isRunning())throw new InputBlockedException("主任务已开始，导航测试已停止。");
                 var actual=ops.ReadWindow(window.WindowId);EnsureIdentity(window,actual);
-                if(session.Guard.RequiresForeground&&actual.ForegroundId!=window.WindowId||session.Guard.Paused)throw new InputBlockedException("游戏失焦或已暂停，请显式重新测试。");
+                if(session.Guard.RequiresForeground&&actual.ForegroundId!=window.WindowId||session.Guard.Paused)throw new InputBlockedException("游戏失焦或已暂停，请重新点击测试。");
                 if(timer.Elapsed.TotalSeconds>seconds)throw new TimeoutException("导航测试超时："+(card is null?chain.Name:S(card,"name")));
                 if(card is not null&&port.LastTestNavigationTrace is null&&S(card,"page_id") is {Length:>0} requiredPage)
                 {

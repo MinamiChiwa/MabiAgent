@@ -39,6 +39,16 @@ public sealed class MigrationTests
             new("ore","gathering",null,true,0,1)];
         Assert.Equal("done",scheduler.Select(rows,new(null,false,null))!.Id);
     }
+    [Theory][InlineData("gathering")][InlineData("idle_fishing")]
+    public void ReliefAllowsCapacityApprovedWorkWhileDevicesAreBusy(string kind)
+    {
+        var scheduler=new Scheduler();
+        WorkCandidate[] rows=[new("busy","production","wood",false,0,0),new("take","withdrawal",null,true,0,1),
+            new("buy","purchase",null,true,0,2),new("available",kind,null,true,0,3)];
+        Assert.Equal("available",scheduler.Select(rows,new(null,false,null,true))?.Id);
+        Assert.Null(scheduler.Select(rows.Select(r=>r.Id=="available"?r with{Blocked=true}:r),new(null,false,null,true)));
+        Assert.Equal("due",scheduler.Select([..rows,new("due","production","wood",true,0,4,Collectible:true)],new(null,false,null,true))?.Id);
+    }
     [Fact] public void BottleBatchRequiresTenAndUnknownDoesNotBecomeZero()
     {
         var p = new ConsumablePolicy("空瓶", 1, 10);
@@ -80,6 +90,21 @@ public sealed class MigrationTests
         var s=new Scheduler();
         Assert.Equal("wood",s.Select(new[]{new WorkCandidate("metal","production","metal",true,5,0),new WorkCandidate("wood","production","wood",true,2,1)},new(null,false,"wood"))?.Id);
         Assert.Equal("fiber",s.Select(new[]{new WorkCandidate("ore","gathering",null,true,0,0,Coverage:2),new WorkCandidate("fiber","gathering",null,true,0,1,Coverage:0.1)},new(null,false,null))?.Id);
+    }
+    [Fact] public void GatheringContinuesItsVisitBeforeRebalancingSmallStockDifferences()
+    {
+        var scheduler=new Scheduler();
+        WorkCandidate[] rows=[new("ore","gathering",null,true,0,1,Coverage:0.7,ContinueGathering:true),
+            new("wood","gathering",null,true,0,0,Coverage:0.1)];
+        Assert.Equal("ore",scheduler.Select(rows,new(null,false,null))?.Id);
+        Assert.Equal("wood",scheduler.Select(rows.Select(r=>r.Id=="ore"?r with{BufferSatisfied=true,Automatic=true}:r),new(null,false,null))?.Id);
+        Assert.Equal("wood",scheduler.Select(rows.Select(r=>r.Id=="ore"?r with{Blocked=true}:r),new(null,false,null))?.Id);
+        Assert.Equal("wood",scheduler.Select(rows.Select(r=>r.Id=="ore"?r with{Ready=false}:r),new(null,false,null))?.Id);
+        Assert.Equal("due",scheduler.Select([..rows,new("due","production","metal",true,0,2,Collectible:true)],new(null,false,null))?.Id);
+        Assert.Equal("craft",scheduler.Select([..rows,new("craft","production","metal",true,1,2)],new(null,false,null))?.Id);
+        Assert.Equal("wood",scheduler.Select(rows.Select(r=>r.Id=="wood"?r with{ProductionSupplyPriority=1}:r),new(null,false,null))?.Id);
+        Assert.Equal("ore",scheduler.Select(rows.Select(r=>r with{ProductionSupplyPriority=1}),new(null,false,null))?.Id);
+        Assert.Equal("wood",scheduler.Select(rows.Select(r=>r with{ProductionSupplyPriority=r.Id=="wood"?2:1}),new(null,false,null))?.Id);
     }
     [Fact] public void OrdinaryProductionKeepsUserOrderWithoutChangingOnsiteOrDuePriority()
     {

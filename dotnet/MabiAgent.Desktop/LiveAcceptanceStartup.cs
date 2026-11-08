@@ -6,6 +6,12 @@ internal static class LiveAcceptanceStartup
 {
     public static bool HasRestoredPendingWork(string dataPath)
     {
+        foreach(var file in new[]{"maintenance.json","storage-supply.json","surplus-sale.json","bottle-purchase.json"})
+        {
+            var path=Path.Combine(dataPath,file);if(!File.Exists(path))continue;
+            var state=JsonNode.Parse(File.ReadAllText(path));
+            if(state?["pending"] is JsonObject||file=="bottle-purchase.json"&&state?["Intent"] is JsonObject)return true;
+        }
         var windowStatePath=Path.Combine(dataPath,"windows");
         if(!Directory.Exists(windowStatePath))return false;
         var restoredNativeBatch=Directory.EnumerateFiles(windowStatePath,"gathering.json",SearchOption.AllDirectories).Any(path=>JsonNode.Parse(File.ReadAllText(path)) is{} state&&state["phase"]?.GetValue<string>()=="gathering"&&state["pending"] is null);

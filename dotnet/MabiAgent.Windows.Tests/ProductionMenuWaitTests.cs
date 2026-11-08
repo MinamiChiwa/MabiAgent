@@ -5,6 +5,88 @@ namespace MabiAgent.Windows.Tests;
 
 public sealed class ProductionMenuWaitTests
 {
+    [Theory][InlineData(10)][InlineData(90)][InlineData(150)]
+    public void StableEquipmentGlyphsIgnoreSceneBackground(byte background)
+    {
+        var profile=ScreenRoutes.Load(RecognitionTests.Root()).Profile;using var matcher=new TemplateMatcher(profile);
+        foreach(var spec in profile.Templates.Values.Where(t=>t.Path.Contains("equipment_stable",StringComparison.Ordinal)&&!t.Name.Contains("detail",StringComparison.Ordinal)))
+        {
+            var pixels=Stamp(profile,spec.Name).CopyPixels();
+            for(var y=spec.Box.Top;y<spec.Box.Top+spec.Image.Height;y++)for(var x=spec.Box.Left;x<spec.Box.Left+spec.Image.Width;x++)
+            {var i=(y*1280+x)*3;if(Math.Max(pixels[i],Math.Max(pixels[i+1],pixels[i+2]))<160)pixels[i]=pixels[i+1]=pixels[i+2]=background;}
+            Assert.True(matcher.Anchor(new RgbImage(1280,960,pixels),spec.Name) is not null,spec.Name+"; background="+background);
+        }
+    }
+    [Theory][InlineData("chemical-panel-20261108.jpg")][InlineData("chemical-panel-ready-current.jpg")]
+    public void CurrentChemicalEquipmentPageIsRecognizedWithScrolledRecipeList(string fixture)
+    {
+        var root=RecognitionTests.Root();using var bgr=OpenCvSharp.Cv2.ImRead(Path.Combine(root,"tests/fixtures/production",fixture));
+        using var rgb=new OpenCvSharp.Mat();OpenCvSharp.Cv2.CvtColor(bgr,rgb,OpenCvSharp.ColorConversionCodes.BGR2RGB);
+        var pixels=new byte[rgb.Width*rgb.Height*3];System.Runtime.InteropServices.Marshal.Copy(rgb.Data,pixels,0,pixels.Length);
+        var profile=ScreenRoutes.Load(root).Profile;var frame=new RgbImage(rgb.Width,rgb.Height,pixels);
+        using var matcher=new TemplateMatcher(profile);using var recognizer=new ScreenPageRecognizer(profile,matcher);
+        var view=recognizer.Recognize(frame);
+        Assert.Equal("chemical_panel",view.Page);
+    }
+
+    [Fact]
+    public void ProcessingMenuTimeoutAlsoExpiresOnUnrecognizedFrames()
+    {
+        var (routes,recipe,_)=Routes("chemical_first");var clock=new WaitClock();
+        var native=new WaitOps(Stamp(routes.Profile,"scene_bag"),[]);
+        using var session=new ScreenWorkflowSession(routes,Window(),native,new EmptyOcr(),new MemoryStore());session.Start();
+        var port=new ScreenProductionPort(session,recipe.Key,"expired-menu",new MemoryStore(),clock);
+        port.Observe();port.Navigate("recipe_preview",new(recipe.Key,recipe.Device,recipe.DurationSeconds));
+        native.CurrentImage=new RgbImage(1280,960,new byte[1280*960*3]);
+        clock.Seconds=44;Assert.False(port.Observe().Stable);Assert.False(port.CanReleaseForeground());
+        clock.Seconds=45;Assert.Throws<TimeoutException>(()=>port.Observe());
+        Assert.True(port.CanReleaseForeground());Assert.Single(native.Clicks);
+    }
+
+    [Theory]
+    [InlineData("iron_ingot_from_iron_ore")]
+    [InlineData("wood_first")]
+    [InlineData("leather_first")]
+    [InlineData("fabric_first")]
+    [InlineData("chemical_first")]
+    [InlineData("food_first")]
+    public void ProcessingWaitKeepsPublicNoticeVisibleAndResumesSameMenu(string recipeKey)
+    {
+        var (routes,recipe,device)=Routes(recipeKey);
+        routes.Configuration["notifications"]=ScreenRoutes.Load(RecognitionTests.Root()).Configuration["notifications"]!.DeepClone();
+        var native=new WaitOps(Stamp(routes.Profile,"scene_bag"),[]);
+        using var session=new ScreenWorkflowSession(routes,Window(),native,new EmptyOcr(),new MemoryStore());session.Start();
+        var port=session.CreateProductionPort(recipe.Key,"late-ad",new MemoryStore());var requested=new ProductionRecipe(recipe.Key,recipe.Device,recipe.DurationSeconds);
+        port.Observe();port.Navigate("recipe_preview",requested);
+        native.CurrentImage=Stamp(routes.Profile,"notification.news_tabs");
+        Assert.Equal("notification_news",port.Observe().Page);
+        Assert.True(session.DismissNotice(notificationsOnly:true));
+        native.CurrentImage=Stamp(routes.Profile,device.ArrivalAnchors.ToArray());
+        Assert.Equal(device.QueuePage,port.Observe().Page);
+        port.Navigate("recipe_preview",requested);Assert.Equal(2,native.Clicks.Count);
+    }
+
+    [Theory]
+    [InlineData("maint_scene_map")]
+    [InlineData("scene_skills")]
+    public void DeviceTravelTimeoutSurvivesUnknownFramesPauseAndPortRestart(string finalAnchor)
+    {
+        var (routes,recipe,device)=Routes("chemical_first");var clock=new WaitClock();var journal=new MemoryStore();
+        routes.Profile.Definition["pages"]=new JsonObject{[device.QueuePage]=Page(Names("scene_bag"))};
+        var native=new WaitOps(Stamp(routes.Profile,"scene_bag"),[]);
+        using var session=new ScreenWorkflowSession(routes,Window(),native,new EmptyOcr(),journal);session.Start();
+        var port=new ScreenProductionPort(session,recipe.Key,"expired-trip",new MemoryStore(),clock);var requested=new ProductionRecipe(recipe.Key,recipe.Device,recipe.DurationSeconds);
+        port.Observe();port.Navigate("queue",requested);Assert.Single(native.Clicks);
+        native.CurrentImage=new RgbImage(1280,960,new byte[1280*960*3]);clock.Seconds=100;
+        Assert.True(port.Observe().NavigationActive);
+        session.Pause("manual");session.ResumeExplicit();
+        port=new ScreenProductionPort(session,recipe.Key,"expired-trip",new MemoryStore(),clock);
+        clock.Seconds=121;native.CurrentImage=Stamp(routes.Profile,finalAnchor);
+        Assert.Throws<TimeoutException>(()=>port.Observe());
+        Assert.True(port.CanReleaseForeground());Assert.Null(session.CurrentNavigationId);Assert.Single(native.Clicks);
+        Assert.False(journal.Read()!["ports"]!["production:expired-trip"]!["device_travel"]!.GetValue<bool>());
+    }
+
     [Theory]
     [InlineData("iron_ingot_from_iron_ore")]
     [InlineData("wood_first")]

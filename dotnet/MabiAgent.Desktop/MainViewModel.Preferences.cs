@@ -9,6 +9,15 @@ public sealed record ReserveRow(string Id,string Name,long Quantity);
 public sealed record ThemeChoice(string Key,string Label);
 public partial class MainViewModel
 {
+    [ObservableProperty] private string pauseHotkeyText=MabiAgent.Windows.StopHotkey.PauseDefault;
+    [ObservableProperty] private string pauseHotkeyStatus="全局暂停快捷键正在注册";
+    [RelayCommand] private async Task ApplyPauseHotkeyAsync()
+    {
+        if(automation is null)return;
+        try{await automation.ApplyPauseHotkeyAsync(PauseHotkeyText);PauseHotkeyText=automation.ActivePauseHotkey??PauseHotkeyText;}
+        catch(Exception error){activity.Report(error);}
+        finally{PauseHotkeyStatus=automation.PauseHotkeyStatus;}
+    }
     [ObservableProperty] private string stopHotkeyText=MabiAgent.Windows.StopHotkey.Default;
     [ObservableProperty] private string stopHotkeyStatus="全局停止快捷键正在注册";
     [RelayCommand] private async Task ApplyStopHotkeyAsync()
@@ -68,7 +77,23 @@ public partial class MainViewModel
     void ApplyTheme()
     {if(Application.Current is {} app)app.RequestedThemeVariant=ThemeKey switch{"light"=>ThemeVariant.Light,"dark"=>ThemeVariant.Dark,_=>ThemeVariant.Default};}
     void LoadExtraSettings(DesktopPreferences p)
-    {var names=workspace.ReadItemNames();ReserveChoices.Clear();foreach(var x in names.OrderBy(x=>x.Value))ReserveChoices.Add(new(x.Key,x.Value));MaterialReserves.Clear();foreach(var x in p.MaterialReserves??new Dictionary<string,long>())MaterialReserves.Add(new(x.Key,names.GetValueOrDefault(x.Key)??$"未关联道具 {x.Key}",x.Value));ThemeKey=p.Theme??"system";ApplyTheme();}
+    {RefreshReserveChoices();var names=ReserveChoices.ToDictionary(x=>x.Id,x=>x.Name);MaterialReserves.Clear();foreach(var x in p.MaterialReserves??new Dictionary<string,long>())MaterialReserves.Add(new(x.Key,names.GetValueOrDefault(x.Key)??$"未关联道具 {x.Key}",x.Value));ThemeKey=p.Theme??"system";ApplyTheme();}
+    private MabiAgent.Capture.AccountItemService? reserveAccounts;
+    private string? reserveStamp;
+    internal void RefreshReserveChoices()
+    {
+        if(reserveAccounts is null)return;
+        var account=automation?.CaptureStatus.CurrentIdentity?.AccountId??AccountItems?.SelectedAccount?.Id;
+        if(account is null)return;
+        var stamp=account+":"+reserveAccounts.Version;
+        if(stamp==reserveStamp)return;
+        var catalog=workspace.ReadItemNames().ToDictionary(p=>long.Parse(p.Key,System.Globalization.CultureInfo.InvariantCulture),p=>p.Value);
+        var choices=MabiAgent.Capture.LinkedItemCatalog.Names(reserveAccounts.ReadNames(account),catalog)
+            .OrderBy(p=>p.Value,StringComparer.CurrentCulture).Select(p=>new ReserveChoice(p.Key.ToString(System.Globalization.CultureInfo.InvariantCulture),p.Value)).ToArray();
+        var selected=SelectedReserveItem?.Id;
+        if(!ReserveChoices.SequenceEqual(choices)){ReserveChoices.Clear();foreach(var choice in choices)ReserveChoices.Add(choice);SelectedReserveItem=ReserveChoices.FirstOrDefault(x=>x.Id==selected);}
+        reserveStamp=stamp;
+    }
     [ObservableProperty] private string captureDetails="当前会话数量未知；账户道具页显示历史记录。";
     void UpdateCaptureDetails(MabiAgent.Capture.CaptureStatus state)
     {

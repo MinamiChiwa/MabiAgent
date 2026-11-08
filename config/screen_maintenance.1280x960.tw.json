@@ -332,7 +332,7 @@
         ],
         "threshold": 0.94,
         "match_mode": "light_text",
-        "light_threshold": 235,
+        "light_threshold": 205,
         "glyph_threshold": 0.9,
         "source": "tests/fixtures/screen_ui/tidy-result-current.jpg",
         "source_sha256": "ba64ebbcf4ddf167a7ef34f05237699e45d378cc7f3510386b8494ef3a260138",
@@ -2235,7 +2235,13 @@
       },
       "backpack_tidy": {
         "scene": {
-          "target": "scene.open_bag"
+          "target": "scene.open_bag",
+          "wait_for_pages": [
+            "bag",
+            "repair_tools",
+            "tidy"
+          ],
+          "timeout_s": 8
         },
         "repair_tools": {
           "target": "bag.open_items"
@@ -2263,7 +2269,13 @@
           "target": "tidy.back"
         },
         "scene": {
-          "target": "scene.open_bag"
+          "target": "scene.open_bag",
+          "wait_for_pages": [
+            "bag",
+            "repair_tools",
+            "tidy"
+          ],
+          "timeout_s": 8
         },
         "tidy_result": {
           "target": "completion.confirm"
@@ -2289,7 +2301,12 @@
           "target": "dialog.end"
         },
         "scene": {
-          "target": "scene.open_bag"
+          "target": "scene.open_bag",
+          "wait_for_pages": [
+            "bag",
+            "repair_tools"
+          ],
+          "timeout_s": 8
         },
         "bag": {
           "target": "bag.tools"
@@ -2458,6 +2475,25 @@
       }
     },
     "exit_navigation": {
+      "skills": {
+        "target": "skills.close",
+        "expected_page": "scene",
+        "timeout_s": 2,
+        "retry_delay_s": 0.3
+      },
+      "device_travel_confirm": {
+        "target": "device.cancel_travel",
+        "wait_for_pages": [
+          "wood_panel",
+          "metal_panel",
+          "leather_panel",
+          "fabric_panel",
+          "chemical_panel",
+          "food_panel"
+        ],
+        "timeout_s": 5,
+        "settle_s": 0.5
+      },
       "bag": {
         "target": "bag.close",
         "expected_page": "scene",

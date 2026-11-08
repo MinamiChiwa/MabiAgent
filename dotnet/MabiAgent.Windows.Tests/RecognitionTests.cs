@@ -3,6 +3,29 @@ using Xunit;
 namespace MabiAgent.Windows.Tests;
 public class RecognitionTests
 {
+    [Fact] public void CompletedHarvestSceneWithNearbyCharactersRemainsRecognizable()
+    {
+        var routes=ScreenRoutes.Load(Root());var frame=FishingFeedbackTests.ReadImage(Path.Combine(Root(),"tests/fixtures/production/harvest-idle-current.jpg"));
+        using var matcher=new TemplateMatcher(routes.Profile);using var recognizer=new ScreenPageRecognizer(routes.Profile,matcher);
+        var view=recognizer.Recognize(frame);
+        var profile=routes.Profile.Definition;
+        var definitions=profile["pages"]!.AsObject().Concat(profile["page_variants"]?.AsObject()??[]);
+        var matches=definitions.Where(p=>NavigationProfile.Names(p.Value?["anchors"]).Length>0&&NavigationProfile.Names(p.Value?["anchors"]).All(n=>matcher.Anchor(frame,n) is not null)).Select(p=>p.Key);
+        Assert.True(view.Page=="scene","page="+view.Page+"; matched="+string.Join(',',matches)+"; anchors="+string.Join(';',new[]{"scene_bag","scene_skills","scene_menu","maint_scene_map"}.Select(n=>n+"="+matcher.Anchor(frame,n,.5,false,.5)?.Score)));
+    }
+    [Fact] public void CurrentFullBackpackTidyIsRecognized()
+    {
+        var routes=ScreenRoutes.Load(Root());var frame=FishingFeedbackTests.ReadImage(Path.Combine(Root(),"tests/fixtures/production/backpack-full-tidy-current.png"));
+        using var recognizer=new ScreenPageRecognizer(routes.Profile);Assert.Equal("tidy",recognizer.Recognize(frame).Page);
+    }
+    [Theory][InlineData(true)][InlineData(false)]
+    public void HarvestSceneRequiresBothBagCoreAndMap(bool removeBag)
+    {
+        var routes=ScreenRoutes.Load(Root());var frame=FishingFeedbackTests.ReadImage(Path.Combine(Root(),"tests/fixtures/production/harvest-idle-current.jpg"));
+        using var matcher=new TemplateMatcher(routes.Profile);var hit=matcher.Anchor(frame,removeBag?"scene_bag":"maint_scene_map")!;
+        var pixels=frame.CopyPixels();for(var y=hit.Box.Top;y<hit.Box.Bottom;y++)Array.Clear(pixels,(y*frame.Width+hit.Box.Left)*3,hit.Box.Width*3);
+        using var recognizer=new ScreenPageRecognizer(routes.Profile);Assert.NotEqual("scene",recognizer.Recognize(new RgbImage(frame.Width,frame.Height,pixels)).Page);
+    }
     [Theory][InlineData("tir-inn-map-current.png","map.inn")][InlineData("tir-inn-wide-current.png","map.inn")][InlineData("tir-inn-player-covered-current.png","map.inn")][InlineData("tir-inn-zoom-current.png","map.storage_box")][InlineData("tir-inn-box-unselected-current.png","map.storage_box")][InlineData("tir-inn-box-shifted-current.png","map.storage_box")][InlineData("tir-storage-travel-current.png","storage.travel")]
     public void InnMapUsesBuildingAndStorageBoxTargets(string fixture,string target)
     {

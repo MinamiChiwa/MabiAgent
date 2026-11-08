@@ -1,4 +1,4 @@
-﻿using System.IO;
+using System.IO;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using OpenCvSharp;
@@ -8,7 +8,7 @@ namespace MabiAgent.Desktop;
 // Temporary acceptance entry: the existing service owns all game inputs and state.
 public sealed partial class AutomationService
 {
-    public async Task RunLiveQueueAcceptanceAsync(string reportPath,bool storageAcceptance=false,bool startPaused=false)
+    public async Task RunLiveQueueAcceptanceAsync(string reportPath,bool storageAcceptance=false,bool startPaused=false,DateTimeOffset? until=null)
     {
         var began=DateTimeOffset.Now;var report=new JsonObject{["began"]=began.ToString("O"),["shared_service"]=true,["trace"]=new JsonArray()};
         Directory.CreateDirectory(Path.GetDirectoryName(reportPath)!);string? prior=null,lastSupplyRequest=null;var lastSaved=DateTimeOffset.MinValue;
@@ -21,7 +21,7 @@ public sealed partial class AutomationService
             var listening=await LiveAcceptanceStartup.WaitForAsync(()=>CaptureStatus.State==MabiAgent.Capture.CaptureState.Listening,captureDeadline,milliseconds=>Task.Delay(milliseconds,lifetime.Token),token:lifetime.Token);
             if(!listening)throw new InvalidOperationException("验收库存监听未在12秒内就绪："+CaptureStatus.Message);
             if(startPaused)
-            {Status=Status with{Running=false,Message="验收已暂停，请显式继续",PauseReason="manual"};NotifyChanged();}
+            {Status=Status with{Running=false,Message="验收已暂停，请点击继续",PauseReason="manual"};NotifyChanged();}
             else
             {
             // A new capture process has no current identity or quantities. Bootstrap
@@ -58,7 +58,7 @@ public sealed partial class AutomationService
                 await StartAsync();
             }
             }
-            while(DateTimeOffset.Now-began<TimeSpan.FromHours(24))
+            while(DateTimeOffset.Now-began<TimeSpan.FromHours(24)&& (until is null||DateTimeOffset.Now<until))
             {
                 await Task.Delay(1000,lifetime.Token);
                 await gate.WaitAsync(lifetime.Token);AutomationStatus state;bool isRunning;
@@ -98,6 +98,7 @@ public sealed partial class AutomationService
                     finally{gate.Release();}
                 }
             }
+            if(until is not null&&DateTimeOffset.Now>=until)report["stopped"]="acceptance_deadline";
         }
         catch(OperationCanceledException) when(disposed){report["stopped"]="window_closed";}
         catch(Exception e){report["error"]=e.ToString();throw;}
@@ -120,6 +121,8 @@ public sealed partial class AutomationService
             if(session?.LastCapture is{} capture)
             {
                 using var rgb=new Mat(capture.Image.Height,capture.Image.Width,MatType.CV_8UC3);var pixels=capture.Image.CopyPixels();System.Runtime.InteropServices.Marshal.Copy(pixels,0,rgb.Data,pixels.Length);using var bgr=new Mat();Cv2.CvtColor(rgb,bgr,ColorConversionCodes.RGB2BGR);Cv2.ImWrite(Path.ChangeExtension(reportPath,"jpg"),bgr,new ImageEncodingParam(ImwriteFlags.JpegQuality,70));
+                if(session.CurrentPage is{} page&&page.All(c=>char.IsAsciiLetterOrDigit(c)||c=='_'))
+                    Cv2.ImWrite(Path.Combine(Path.GetDirectoryName(reportPath)!,"page-"+page+".jpg"),bgr,new ImageEncodingParam(ImwriteFlags.JpegQuality,85));
                 // Keep one native task-label sample per acceptance job for missing source calibration.
                 if(Status.ActivePhase=="confirm_start"&&Status.ActiveJob is{} job&&session.Matcher.Anchor(capture.Image,"gathering_observer.task_title") is not null)
                 {

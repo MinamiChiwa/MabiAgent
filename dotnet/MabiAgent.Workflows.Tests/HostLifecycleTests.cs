@@ -6,6 +6,56 @@ namespace MabiAgent.Workflows.Tests;
 
 public sealed class HostLifecycleTests : IDisposable
 {
+    [Theory][InlineData(false)][InlineData(true)]
+    public void UnrestoredBatchRequestsInventoryOnceBeforeReturningToIndependentWork(bool activeFishing)
+    {
+        var queue=new RuntimeQueue(directory);queue.Edit(q=>q.Add("iron","production",3,1,"iron",[]));var ports=new Ports();ports.Set(1,1000);
+        using(var original=Host(queue,ports,new ManualTime())){original.Start();for(var n=0;n<12&&ports.Crafts==0;n++)original.Tick();Assert.Equal(1,ports.Crafts);}
+        queue.Edit(q=>q.Add("fish","idle_fishing",1,600,FishingPlan.CurrentLocation,[]));
+        ports.RuntimeScope="process-without-owner";ports.Stock=new(ports.Scope);
+        if(activeFishing)
+        {
+            using var fishing=Host(queue,ports,new ManualTime());fishing.Start();fishing.Tick();
+            ports.Fish.Frame=new(1,"button","fishing",FishingButton:true);fishing.Tick();
+            ports.Fish.Frame=new(2,"cast","fishing",FishingButton:true);fishing.Tick();
+            ports.Fish.Frame=new(3,"hook","fishing",RoundActive:true,LeisureMode:false,Gauge:.6);fishing.Tick();
+            Assert.False(fishing.SafeToSwitch);Assert.Equal(0,ports.SyncRequests);
+        }
+        ports.BulkSync=true;ports.Fish.Frame=ports.Fish.Frame with{CaptureId="resume"};
+        using var host=Host(queue,ports,new ManualTime());host.Start();host.Tick();
+        for(var n=0;activeFishing&&n<3&&ports.SyncRequests==0;n++)
+        {ports.Fish.Frame=ports.Fish.Frame with{At=4+n,CaptureId="boundary-"+n};host.Tick();}
+        Assert.True(ports.SyncRequests==1,JsonSerializer.Serialize(host.Status));Assert.DoesNotContain("iron",host.Status.Jobs.Keys);Assert.Equal(1,ports.Crafts);
+        host.SuspendForInventorySync();host.FinishInventorySyncWithoutCoverage("waiting for packet");
+        for(var n=0;n<5;n++)host.Tick();Assert.Equal(1,ports.SyncRequests);Assert.Equal(1,ports.Crafts);
+        ports.RuntimeScope="character";ports.Stock=new(ports.Scope);ports.Set(1,1000);ports.Set(3,0);host.ContinueAfterInventorySync();
+        Assert.Contains("iron",host.Status.Jobs.Keys);Assert.Equal(1,ports.Crafts);Assert.Equal(1,ports.SyncRequests);
+    }
+    [Theory][InlineData(true)][InlineData(false)]
+    public void CaptureIdentityArrivingAfterHostConstructionRestoresPendingBatch(bool automatic)
+    {
+        var queue=new RuntimeQueue(directory);queue.Edit(q=>q.Add("iron","production",3,1,"iron",[]));var ports=new Ports();ports.Set(1,10);
+        using(var original=Host(queue,ports,new ManualTime())){original.Start();for(var n=0;n<12&&ports.Crafts==0;n++)original.Tick();Assert.Equal(1,ports.Crafts);}
+        ports.RuntimeScope="process-without-owner";
+        using var host=Host(queue,ports,new ManualTime());Assert.Empty(host.Status.Jobs);
+        ports.RuntimeScope="character";
+        if(automatic)host.ContinueAfterInventorySync();else host.Continue();
+        Assert.Contains("iron",host.Status.Jobs.Keys);Assert.False(host.SafeToSwitch);
+        Assert.DoesNotContain("上次任务的操作结果待确认",host.Status.Issues.GetValueOrDefault("iron")??"");Assert.Equal(1,ports.Crafts);
+        host.ContinueAfterInventorySync();Assert.Single(host.Status.Jobs);Assert.Equal(1,ports.Crafts);
+    }
+    [Theory][InlineData(false)][InlineData(true)]
+    public void IndependentMissingSourceDoesNotBlockAuthorizedSurplusReserve(bool unknown)
+    {
+        var config=Catalog().Configuration;config["recipes"]!["iron"]!["materials"]=JsonNode.Parse("""[{"item_id":1,"quantity":10},{"item_id":9,"quantity":1}]""");
+        var queue=new RuntimeQueue(directory);queue.Edit(q=>q.Add("iron","production",3,1,"iron",[]));
+        var ports=new Ports{Sale=new()};ports.ExplicitSurplus.UnionWith([1,88]);ports.Set(1,30);ports.Set(88,50);
+        if(unknown)ports.Stock.Set(new(9,null,ports.Scope,"unknown","",false));else ports.Set(9,0);
+        using var host=new AutomationCoordinator(new(config),queue,ports,()=>new(RepairEnabled:false),new ManualTime());
+        host.Start();host.Tick();Assert.NotNull(ports.Reserve);
+        Assert.Equal(10,ports.Reserve!(1));Assert.Equal(0,ports.Reserve(88));Assert.Null(ports.Reserve(9));
+        ports.ExplicitSurplus.Add(9);if(unknown)Assert.Null(ports.Reserve(9));
+    }
     [Theory][InlineData(FishingPlan.CurrentLocation)][InlineData("lake")]
     public void CompletedFishingAutomaticallyStopsAndKeepsTheResult(string point)
     {
@@ -35,6 +85,20 @@ public sealed class HostLifecycleTests : IDisposable
         state["pending"]=new JsonObject{["kind"]="repair",["capture_id"]="before",["deadline"]=200d};state["active"]="repair";store.Flush(state);
         using var host=new AutomationCoordinator(Catalog(),queue,ports,()=>policy,time);host.Start();host.Tick();
         Assert.True(host.Status.Running);Assert.NotNull(store.Read()!["pending"]);
+    }
+    [Fact] public void ReadyProductionWaitsForBackpackInspectionAndItsExit()
+    {
+        var queue=new RuntimeQueue(directory);var ports=new Ports();var time=new ManualTime();
+        using var host=new AutomationCoordinator(Catalog(),queue,ports,()=>new(RepairEnabled:false,BackpackCheckIntervalSeconds:120),time);
+        host.Start();time.Seconds+=121;host.Tick();
+        ports.Set(1,10);queue.Edit(q=>q.Add("iron","production",3,1,"iron",[]));
+        for(var i=0;i<4;i++)host.Tick();
+        Assert.Empty(ports.Navigation);Assert.Equal(0,ports.Crafts);
+        ports.Maintain.Frame=new("bag","backpack",Weight:50,Capacity:100);host.Tick();host.Tick();
+        Assert.Empty(ports.Navigation);Assert.Equal(0,ports.Crafts);
+        ports.Maintain.Frame=new("closed","scene");
+        for(var i=0;i<12&&ports.Crafts==0;i++)host.Tick();
+        Assert.Equal(1,ports.Crafts);Assert.Null(host.Status.Fault);
     }
     [Fact] public void BackpackRecognitionAndExitFailureDoNotStarveIndependentProduction()
     {
@@ -182,7 +246,153 @@ public sealed class HostLifecycleTests : IDisposable
             host.Tick();
         }
         Assert.False(host.Status.Running);Assert.Equal("backpack_player_action_required",host.Status.PauseReason);
-        Assert.Contains("请玩家处理",host.Status.Message);Assert.Empty(ports.Store.Actions);
+        Assert.Contains("请处理背包",host.Status.Message);Assert.Empty(ports.Store.Actions);
+    }
+    [Theory][InlineData(false)][InlineData(true)]
+    public void NewProductionMaterialsReplaceStaleReliefExhaustion(bool exhausted)
+    {
+        var queue=new RuntimeQueue(directory);queue.Edit(q=>q.Add("iron","production",3,1,"iron",[]));
+        var ports=new Ports();ports.Set(1,10);var time=new ManualTime();
+        var policy=new MaintenancePolicy(RepairEnabled:false,BackpackCheckIntervalSeconds:120);
+        var store=new JsonWorkflowStore(Path.Combine(directory,"maintenance.json"));
+        var state=new MaintenanceRunner(ports.Maintain,store,policy,time).Snapshot();
+        state["backpack"]!["status"]=exhausted?"blocked":"due";state["backpack"]!["phase"]="prepare";
+        state["backpack"]!["capacity_blocked"]=true;state["backpack"]!["tidy_checked"]=true;
+        state["backpack"]!["cleanup_after_relief"]=true;state["backpack"]!["surplus_checked"]=true;
+        state["reason"]=exhausted?"backpack_relief_exhausted":"backpack_cleanup_after_production";store.Flush(state);
+        using var host=new AutomationCoordinator(Catalog(),queue,ports,()=>policy,time);host.Start();
+        for(var n=0;n<12&&ports.Crafts==0;n++)host.Tick();
+        Assert.True(host.Status.Running,host.Status.ToString());Assert.Equal(1,ports.Crafts);
+        Assert.NotEqual("backpack_relief_exhausted",store.Read()!["reason"]?.GetValue<string>());
+    }
+    [Fact] public void ReliefWeightCheckDoesNotFreezeAnUnfinishedProductionBatch()
+    {
+        var queue=new RuntimeQueue(directory);queue.Edit(q=>q.Add("iron","production",3,3,"iron",[]));
+        var ports=new Ports();ports.Set(1,30);var time=new ManualTime();var policy=new MaintenancePolicy(RepairEnabled:false);
+        var store=new JsonWorkflowStore(Path.Combine(directory,"maintenance.json"));
+        var seed=new MaintenanceRunner(ports.Maintain,store,policy,time).Snapshot();
+        seed["backpack"]!["phase"]="relief";seed["backpack"]!["status"]="production_relief";store.Flush(seed);
+        using var host=new AutomationCoordinator(Catalog(),queue,ports,()=>policy,time);host.Start();
+        for(var n=0;n<35&&ports.Maintain.Navigations==0;n++)host.Tick();
+        Assert.Equal(3,ports.Crafts);Assert.True(ports.Maintain.Navigations>0);
+        Assert.True(host.Status.Running);Assert.Null(host.Status.Fault);
+    }
+    [Theory][InlineData(false,false,false)][InlineData(true,false,false)][InlineData(false,true,false)][InlineData(false,true,true)]
+    public void FullProductionSlotsWaitForCompletionDuringReliefAndThenCollect(bool inventoryLost,bool exhausted,bool resume)
+    {
+        var queue=new RuntimeQueue(directory);queue.Edit(q=>q.Add("iron","production",3,100,"iron",[]));
+        var ports=new Ports();ports.Set(1,1000);var time=new ManualTime();
+        using(var host=Host(queue,ports,time))
+        {host.Start();for(var n=0;n<40;n++)host.Tick();Assert.Equal(5,ports.Crafts);}
+        var store=new JsonWorkflowStore(Path.Combine(directory,"maintenance.json"));var saved=store.Read()!;
+        saved["backpack"]!["phase"]="relief";saved["backpack"]!["status"]="production_relief";store.Flush(saved);
+        if(exhausted)
+        {
+            saved["reason"]="backpack_relief_exhausted";saved["backpack"]!["phase"]="prepare";saved["backpack"]!["status"]="blocked";
+            saved["backpack"]!["tidy_checked"]=true;saved["backpack"]!["surplus_checked"]=true;saved["backpack"]!["cleanup_after_relief"]=true;store.Flush(saved);
+        }
+        using var restored=new AutomationCoordinator(Catalog(),queue,ports,()=>new(RepairEnabled:false),time);
+        if(resume)restored.Continue();else restored.Start();for(var n=0;n<8;n++)restored.Tick();
+        Assert.True(restored.Status.Running,restored.Status.ToString());Assert.Contains("等待到期",restored.Status.Message);
+        Assert.DoesNotContain("iron",restored.Status.Issues.Keys);
+        Assert.Equal(5,ports.Crafts);Assert.Equal(0,ports.Collections);
+        if(inventoryLost)
+        {
+            ports.BulkSync=true;ports.Stock.Set(new(1,null,ports.Scope,"unknown","ambiguous",false,"container ambiguous"));
+            restored.Tick();Assert.Equal(1,ports.SyncRequests);Assert.True(restored.Status.Running);
+            for(var n=0;n<4;n++)restored.Tick();Assert.Equal(1,ports.SyncRequests);
+            ports.Set(1,950);restored.SuspendForInventorySync();restored.ContinueAfterInventorySync();
+        }
+        ports.Ready=true;time.Seconds=1000;
+        for(var n=0;n<15&&ports.Collections==0;n++)restored.Tick();
+        Assert.Equal(1,ports.Collections);Assert.True(restored.Status.Running);Assert.Null(restored.Status.Fault);
+    }
+    [Theory][InlineData(400,"idle_fishing")][InlineData(400,"gathering")]
+    public void BusyProductionUsesMaterialMinimumAndAllowsNewIndependentWork(long ore,string addedKind)
+    {
+        var config=Catalog().Configuration;config["gathering_routes"]!["lake"]=JsonNode.Parse("""{"target_item_id":2,"skill":"fishing","node":"lake","attempts_per_batch":1}""");
+        config["gathering_routes"]!["log"]=JsonNode.Parse("""{"target_item_id":2,"skill":"logging","node":"log","attempts_per_batch":10}""");
+        var queue=new RuntimeQueue(directory);queue.Edit(q=>q.Add("iron","production",3,1000,"iron",[]));
+        var ports=new Ports();ports.Set(1,ore);var time=new ManualTime();
+        using(var original=new AutomationCoordinator(new(config),queue,ports,()=>new(RepairEnabled:false,BackpackEnabled:false),time))
+        {original.Start();for(var n=0;n<40;n++)original.Tick();Assert.Equal(5,ports.Crafts);Assert.Equal(0,ports.Gather.Starts);}
+        var store=new JsonWorkflowStore(Path.Combine(directory,"maintenance.json"));var saved=store.Read()!;
+        saved["backpack"]!["phase"]="relief";saved["backpack"]!["status"]="production_relief";
+        saved["backpack"]!["weight"]=77764;saved["backpack"]!["capacity"]=81000;saved["backpack"]!["capacity_blocked"]=true;
+        store.Flush(saved);
+        using var restored=new AutomationCoordinator(new(config),queue,ports,()=>new(RepairEnabled:false,WeightThresholdPercent:95),time);
+        restored.Start();
+        queue.Edit(q=>q.Add("new-task",addedKind,2,60,addedKind=="idle_fishing"?"lake":"log",[]));
+        for(var n=0;n<25&&(restored.Status.ActiveJob is null or "iron");n++)restored.Tick();
+        Assert.True(restored.Status.Running,restored.Status.ToString());Assert.Null(restored.Status.Fault);
+        Assert.Equal("new-task",restored.Status.ActiveJob);Assert.Equal(0,ports.Reserve!(1));
+    }
+    [Theory][InlineData("gathering")][InlineData("idle_fishing")]
+    public void ProtectedTidyHandsOffToSurplusBeforeIndependentWork(string kind)
+    {
+        var config=Catalog().Configuration;
+        config["gathering_routes"]!["lake"]=JsonNode.Parse("""{"target_item_id":2,"skill":"fishing","node":"lake","attempts_per_batch":1}""");
+        config["gathering_routes"]!["log"]=JsonNode.Parse("""{"target_item_id":2,"skill":"logging","node":"log","attempts_per_batch":10}""");
+        var queue=new RuntimeQueue(directory);queue.Edit(q=>q.Add("independent",kind,2,60,kind=="gathering"?"log":"lake",[]));
+        var ports=new Ports{Sale=new()};ports.Set(1,100);ports.Set(2,100);var time=new ManualTime();
+        var policy=new MaintenancePolicy(RepairEnabled:false,WeightThresholdPercent:95);
+        var store=new JsonWorkflowStore(Path.Combine(directory,"maintenance.json"));
+        var seed=new MaintenanceRunner(ports.Maintain,store,policy,time).Snapshot();
+        seed["backpack"]!["phase"]="relief";seed["backpack"]!["status"]="production_relief";
+        seed["backpack"]!["tidy_checked"]=true;seed["backpack"]!["weight"]=80730;seed["backpack"]!["capacity"]=81000;store.Flush(seed);
+        using var host=new AutomationCoordinator(new(config),queue,ports,()=>policy,time);host.Start();
+        for(var n=0;n<10&&ports.Sale.Begins==0;n++)host.Tick();
+        Assert.Equal(1,ports.Sale.Begins);Assert.Equal(0,ports.Gather.Starts);Assert.True(host.Status.Running);
+    }
+    [Theory][InlineData(300,349,true)][InlineData(300,350,false)][InlineData(400,400,true)][InlineData(100,400,false)]
+    public void BusyProductionReplenishesOnlyBelowConfiguredMaterialMinimum(long minimum,long ore,bool gathers)
+    {
+        var queue=new RuntimeQueue(directory);queue.Edit(q=>q.Add("iron","production",3,1000,"iron",[]));
+        var ports=new Ports{MaterialMinimum=minimum};ports.Set(1,ore);
+        using var host=Host(queue,ports,new ManualTime());host.Start();for(var n=0;n<40;n++)host.Tick();
+        Assert.Equal(5,ports.Crafts);Assert.Equal(gathers,ports.Gather.Starts>0);Assert.True(host.Status.Running);Assert.Null(host.Status.Fault);
+    }
+    [Fact] public void UnknownInventoryRefreshesBeforeDeclaringBackpackReliefExhausted()
+    {
+        var queue=new RuntimeQueue(directory);queue.Edit(q=>q.Add("iron","production",3,1,"iron",[]));
+        var ports=new Ports{BulkSync=true};var time=new ManualTime();var policy=new MaintenancePolicy(RepairEnabled:false);
+        var store=new JsonWorkflowStore(Path.Combine(directory,"maintenance.json"));
+        var state=new MaintenanceRunner(ports.Maintain,store,policy,time).Snapshot();
+        state["backpack"]!["status"]="production_relief";state["backpack"]!["phase"]="relief";
+        state["backpack"]!["capacity_blocked"]=true;store.Flush(state);
+        using var host=new AutomationCoordinator(Catalog(),queue,ports,()=>policy,time);host.Start();host.Tick();
+        Assert.True(host.Status.Running);Assert.Equal(1,ports.SyncRequests);
+        Assert.Equal("production_relief",store.Read()!["backpack"]!["status"]!.GetValue<string>());
+        ports.Set(1,10);host.SuspendForInventorySync();host.ContinueAfterInventorySync();
+        for(var n=0;n<12&&ports.Crafts==0;n++)host.Tick();
+        Assert.Equal(1,ports.Crafts);Assert.True(host.Status.Running);
+    }
+    [Fact] public void WaitingRootBatchLeavesReadyMaterialsForSameRecipeSupplyJob()
+    {
+        var config=Catalog().Configuration;config["gathering_routes"]=new JsonObject();
+        config["recipes"]!["wood"]!["materials"]=JsonNode.Parse("""[{"item_id":3,"quantity":10}]""");
+        var queue=new RuntimeQueue(directory);queue.Edit(q=>{q.Add("iron","production",3,100,"iron",[]);q.Add("wood","production",4,100,"wood",[]);});
+        var ports=new Ports();ports.Set(1,20);ports.Set(3,0);var time=new ManualTime();
+        using var host=new AutomationCoordinator(new(config),queue,ports,()=>new(RepairEnabled:false,BackpackEnabled:false),time);host.Start();
+        for(var n=0;n<35;n++)host.Tick();Assert.Equal(2,ports.Crafts);
+        ports.Set(1,100);
+        for(var n=0;n<45&&ports.Crafts<5;n++)host.Tick();
+        Assert.True(ports.Crafts==5,host.Status+"; "+queue.Read().ToJson()+"; "+string.Join(";",ports.Navigation));Assert.Equal(0,ports.Collections);
+        Assert.True(queue.Read().Jobs.Single(j=>j.Id=="iron").Pending);
+        Assert.Contains(queue.Read().Jobs,j=>j.Id.StartsWith("auto-material:")&&j.Recipe=="iron"&&j.Pending);
+        Assert.True(host.Status.Running,host.Status.ToString());
+    }
+    [Fact] public void LongTermSharedMaterialAllocationDoesNotHideReadyIndependentRecipe()
+    {
+        var config=Catalog().Configuration;
+        config["recipes"]!["wood"]!["materials"]=JsonNode.Parse("""[{"item_id":1,"quantity":10},{"item_id":2,"quantity":10}]""");
+        var queue=new RuntimeQueue(directory);queue.Edit(q=>{q.Add("iron","production",3,100,"iron",[]);q.Add("wood","production",4,1,"wood",[]);q.Control("iron","pause");});
+        var ports=new Ports();ports.Set(1,20);ports.Set(2,10);var time=new ManualTime();
+        using var host=new AutomationCoordinator(new(config),queue,ports,()=>new(RepairEnabled:false,BackpackEnabled:false),time);
+        host.Start();queue.Edit(q=>q.Control("iron","continue"));ports.MetalFull=true;
+        for(var n=0;n<30&&ports.Crafts==0;n++)host.Tick();
+        Assert.Equal(1,ports.Crafts);Assert.Contains(ports.Navigation,n=>n.StartsWith("wood:recipe",StringComparison.Ordinal));
+        Assert.True(host.Status.Running);Assert.Null(host.Status.Fault);
     }
     [Fact] public void ManualWellResumesWhenLaterMapPacketSuppliesBottlesWithoutRestart()
     {
@@ -234,15 +444,28 @@ public sealed class HostLifecycleTests : IDisposable
         Assert.False(File.Exists(Path.Combine(directory,"decomposition.json")));
         queue.ResetAllExecution();Assert.Single(queue.Read().Jobs);
     }
-    [Fact] public void UnknownWithdrawalLeavesRequestsOneRefreshThenAccountsWithoutAnotherTransfer()
+    [Theory]
+    [InlineData(false,false)]
+    [InlineData(false,true)]
+    [InlineData(true,false)]
+    [InlineData(true,true)]
+    public void UnknownWithdrawalLeavesRequestsOneRefreshThenAccountsWithoutAnotherTransfer(bool relief,bool requestedBeforeRestart)
     {
         var queue=new RuntimeQueue(directory);queue.Edit(q=>q.Add("iron","production",3,1,"iron",[]));
         var ports=new Ports{BulkSync=true};ports.Set(1,0);ports.Stock.SetStorage("shared",new Dictionary<long,long?>{[1]=10});var time=new ManualTime();
         using(var host=Host(queue,ports,time)){host.Start();host.Tick();host.Tick();Assert.Single(ports.Store.Actions);}
         var path=Path.Combine(directory,"storage-supply.json");var store=new JsonWorkflowStore(path);var saved=store.Read()!;
         // Restore the exact final-transfer boundary with unavailable packet balances.
-        saved["pending"]!["kind"]="confirm_transfer";saved["pending"]!["deadline"]=101d;store.Flush(saved);
-        using var restored=Host(queue,ports,time);ports.Store.LeaveAllowed=true;ports.Store.Frame=ports.Store.Frame with{At=116,CaptureId="late",Available=null,BagQuantity=null};restored.Start();
+        saved["pending"]!["kind"]="confirm_transfer";saved["pending"]!["deadline"]=101d;
+        if(requestedBeforeRestart)
+        {saved["reconciliation_navigation_started"]=true;saved["reconciliation_navigation_released"]=true;saved["reconciliation_refresh_requested"]=true;}
+        store.Flush(saved);
+        if(relief)
+        {
+            var maintenance=new JsonWorkflowStore(Path.Combine(directory,"maintenance.json"));var state=maintenance.Read()!;
+            state["backpack"]!["phase"]="relief";state["backpack"]!["status"]="production_relief";maintenance.Flush(state);
+        }
+        using var restored=new AutomationCoordinator(Catalog(),queue,ports,()=>new(RepairEnabled:false,BackpackEnabled:relief),time);ports.Store.LeaveAllowed=true;ports.Store.Frame=ports.Store.Frame with{At=116,CaptureId="late",Available=null,BagQuantity=null};restored.Start();
         for(var n=0;n<5;n++)restored.Tick();
         Assert.True(restored.SafeToSwitch);Assert.True(restored.CanPrepareInventoryRefresh);Assert.Equal(1,ports.SyncRequests);Assert.Single(ports.Store.Actions);Assert.NotNull(store.Read()!["pending"]);
         for(var n=0;n<3;n++)restored.Tick();Assert.Equal(1,ports.SyncRequests);
@@ -527,6 +750,30 @@ public sealed class HostLifecycleTests : IDisposable
         var state=new JsonWorkflowStore(Path.Combine(directory,"storage-supply.json")).Read()!;
         Assert.Equal(20,state["plans"]![0]!["quantity"]!.GetValue<long>());Assert.Equal(0,ports.Purchases);
     }
+    [Theory][InlineData(false,false)][InlineData(true,false)][InlineData(true,true)]
+    public void ExistingWithdrawalSurvivesUnknownDependencyButExplicitPauseRetiresIt(bool unknownParent,bool independentKnownDemand)
+    {
+        var config=Catalog().Configuration;
+        if(unknownParent)
+        {
+            config["recipes"]!["iron"]!["materials"]=JsonNode.Parse("""[{"item_id":4,"quantity":1}]""");
+        }
+        var material=unknownParent?2L:1L;var queue=new RuntimeQueue(directory);queue.Edit(q=>q.Add("iron","production",3,1,"iron",[]));
+        var ports=new Ports();ports.Set(1,0);ports.Set(2,0);ports.Set(4,0);ports.Store.Frame=ports.Store.Frame with{Stable=false};
+        ports.Stock.SetStorage("character",new Dictionary<long,long?>{[1]=0,[2]=0,[4]=0});
+        ports.Stock.SetStorage("shared",new Dictionary<long,long?>{[1]=20,[2]=20,[4]=0});
+        var path=Path.Combine(directory,"storage-supply.json");using var host=new AutomationCoordinator(new(config),queue,ports,()=>new(RepairEnabled:false,BackpackEnabled:false),new ManualTime());host.Start();
+        for(var i=0;i<12&&!File.Exists(path);i++)host.Tick();
+        var original=new JsonWorkflowStore(path).Read()!;Assert.Equal(material,original["plans"]![0]!["item_id"]!.GetValue<long>());
+        var action=original["runtime_action"]!.GetValue<string>();
+        if(independentKnownDemand){queue.Edit(q=>q.Add("wood","production",4,1,"wood",[]));ports.Set(material,10);}
+        var unknown=unknownParent?4L:material;ports.Stock.Set(new(unknown,null,ports.Scope,"packet","gap",false,"capture_invalidated"));
+        for(var i=0;i<3;i++)Assert.Null(host.Tick().Fault);
+        var retained=new JsonWorkflowStore(path).Read()!;Assert.Equal(action,retained["runtime_action"]!.GetValue<string>());
+        Assert.NotEqual("complete",retained["status"]!.GetValue<string>());Assert.Empty(ports.Store.Actions);
+        queue.Edit(q=>q.Control("iron","pause"));host.SynchronizeQueue();for(var i=0;i<4&&File.Exists(path);i++)host.Tick();
+        Assert.False(File.Exists(path));Assert.Empty(ports.Store.Actions);
+    }
     [Fact] public void PausedWaterRetiresUnsentBottleWithdrawalAndCanPlanAgain()
     {
         var config=Catalog().Configuration;config["item_names"]!["5"]="空瓶";config["item_names"]!["6"]="水";
@@ -785,12 +1032,13 @@ public sealed class HostLifecycleTests : IDisposable
     private sealed class Ports:IAutomationPorts
     {
         public bool BulkSync;public int SyncRequests;public bool PreferBulkInventorySync=>BulkSync;public void RequestInventorySync()=>SyncRequests++;
-        public string Scope=>"character";public string? CurrentDevice{get;private set;}public InventorySnapshot Stock=new("character");public int Crafts,Leaves,IronInstances,Purchases,AuxiliaryCalls,Collections;public bool Ready,PlayerReady,MetalFull,PurchaseWasDurable,PurchaseVisible=true;
+        public string RuntimeScope="character";public string Scope=>RuntimeScope;public string? CurrentDevice{get;private set;}public InventorySnapshot Stock=new("character");public int Crafts,Leaves,IronInstances,Purchases,AuxiliaryCalls,Collections;public bool Ready,PlayerReady,MetalFull,PurchaseWasDurable,PurchaseVisible=true;
         public GatheringConsumables? Consumables;public IGatheringConsumables? GatheringConsumables=>Consumables;public Func<long,long?>? Reserve;
         public readonly MaintenancePort Maintain=new(){Frame=new("1","scene")};
         public readonly List<string> Navigation=[];
         public SurplusAdapter? Sale;
         public HashSet<long> ExplicitSurplus=[];public bool IsExplicitSurplusMaterial(long item)=>ExplicitSurplus.Contains(item);
+        public long MaterialMinimum=300;public long MaterialReserveMinimum(long item)=>MaterialMinimum;
         public DecompositionAdapter? Conversion;public IDecompositionPort? Decomposition(string batch,IWorkflowStore store)=>Conversion;
         public sealed class DecompositionAdapter:IDecompositionPort
         {

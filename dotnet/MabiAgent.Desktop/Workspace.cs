@@ -56,6 +56,8 @@ public sealed class Workspace(string root,string? stateDirectory=null)
         =>SaveSettingsPatch(settings=>Section(settings,"ui")["language"]=UiLanguageService.Normalize(language)??throw new ArgumentException("界面语言无效"));
     public void SaveStopHotkey(string hotkey)
     {ArgumentException.ThrowIfNullOrWhiteSpace(hotkey);SaveSettingsPatch(settings=>Section(settings,"input")["stop_hotkey"]=hotkey);}
+    public void SavePauseHotkey(string hotkey)
+    {ArgumentException.ThrowIfNullOrWhiteSpace(hotkey);SaveSettingsPatch(settings=>Section(settings,"input")["pause_hotkey"]=hotkey);}
     private static JsonObject Section(JsonObject settings,string key)
     {if(settings[key] is not JsonObject)settings[key]=new JsonObject();return settings[key]!.AsObject();}
     private static void PatchRepair(JsonObject settings,bool enabled,int minutes,long reserve,bool bottles)
@@ -173,7 +175,7 @@ public sealed class Workspace(string root,string? stateDirectory=null)
                 DeviceName(p.Value!["device"]!.GetValue<string>()),p.Value!["duration_s"]!.GetFiniteDouble(),p.Value!["output_per_round"]!.GetValue<long>())).ToArray();
             var jobs=(queue?.Jobs??[]).Select((j,index)=>new JobRow(j.Id,j.Kind=="idle_fishing"&&j.Recipe==MabiAgent.Workflows.FishingPlan.CurrentLocation?"当前位置":names.GetValueOrDefault(j.ItemId)??$"未关联道具 {j.ItemId}",
                 j.Kind switch{"production"=>"生产","gathering"=>"采集",_=>j.Recipe==MabiAgent.Workflows.FishingPlan.CurrentLocation?"原地钓鱼":"挂机钓鱼"},j.Target,j.Completed,
-                (config["custom_chain_issues"]?[j.Recipe??""] is not null?"任务链需更新":j.Kind=="idle_fishing"&&j.Pending?(j.Cancelled?"已取消 · 等待钓鱼轮次结束":j.Paused?"已暂停 · 保留钓鱼进度":"钓鱼进行中"):StatusName(queue!.Status(j.Id)))+(recovered.Contains(j.Id)?" · 历史收据缺失":""),j.Id.StartsWith("auto-material:"),index+1,j.Pending,j.Paused,j.Cancelled,dependencies.GetValueOrDefault(j.Id,""),actions.GetValueOrDefault(j.Id),j.Kind)).ToArray();
+                (config["custom_chain_issues"]?[j.Recipe??""] is not null?"任务链需更新":j.Kind=="idle_fishing"&&j.Pending?(j.Cancelled?"已取消 · 等待钓鱼轮次结束":j.Paused?"已暂停 · 保留钓鱼进度":"钓鱼进行中"):StatusName(queue!.Status(j.Id)))+(recovered.Contains(j.Id)?" · 历史操作记录缺失":""),j.Id.StartsWith("auto-material:"),index+1,j.Pending,j.Paused,j.Cancelled,dependencies.GetValueOrDefault(j.Id,""),actions.GetValueOrDefault(j.Id),j.Kind)).ToArray();
             var gathering=(config["gathering_routes"]?.AsObject()??[]).Where(p=>config["custom_chain_issues"]?[p.Key] is null&&p.Value?["alias_of"] is null).Select(p=>new GatheringChoice(p.Key,config["gathering_points"]?[p.Key]?["name"]?.GetValue<string>()??p.Value!["node"]!.GetValue<string>(),p.Key.StartsWith("point_fishing_",StringComparison.Ordinal)||p.Value!["skill"]?.GetValue<string>() is "fishing" or "釣魚" or "钓鱼",p.Value!["target_item_id"]!.GetValue<long>())).ToArray();
             return new(jobs,recipes,gathering);
         }
@@ -282,8 +284,8 @@ public sealed record JobRow(string Id,string Name,string Kind,long Target,long C
         }
         var next=queueStatus;
         if(Pending&&!Cancelled&&!Paused&&progress is not null&&progress.ActionId==ActionId&&!queueStatus.Contains("需更新",StringComparison.Ordinal))
-            next=progress.Status=="unknown"?"本批结果待核账":progress.Status=="paused"?"已暂停":progress.PendingConsumption?"动作结果确认中":progress.Phase=="waiting"?"设备加工中":progress.Phase=="leave"?"正在离开设备":progress.Phase is "preview_queue" or "preview_recipe" or "queue" or "navigate"?"正在前往或检查设备":progress.Phase=="recipe"?"正在安排生产":queueStatus;
-        if(next!=queueStatus&&queueStatus.EndsWith(" · 历史收据缺失",StringComparison.Ordinal))next+=" · 历史收据缺失";
+            next=progress.Status=="unknown"?"本批结果待确认":progress.PendingConsumption?"动作结果确认中":progress.Phase=="waiting"?"设备加工中":progress.Status=="paused"?"已暂停":progress.Phase=="leave"?"正在离开设备":progress.Phase is "preview_queue" or "preview_recipe" or "queue" or "navigate"?"正在前往或检查设备":progress.Phase=="recipe"?"正在安排生产":queueStatus;
+        if(next!=queueStatus&&queueStatus.EndsWith(" · 历史操作记录缺失",StringComparison.Ordinal))next+=" · 历史操作记录缺失";
         if(Status==next)return;Status=next;PropertyChanged?.Invoke(this,new(null));
     }
 
@@ -305,10 +307,11 @@ public sealed record DesktopPreferences(bool RepairEnabled,int RepairMinutes,lon
     bool BackpackEnabled,int BackpackThreshold,bool SellSurplus,long MaterialReserve,bool AutoUseWings,long WingReserve,IReadOnlyDictionary<string,long>? MaterialReserves=null,string? Theme=null,bool RecognitionLowCpu=false,string InputScheme="touch",bool TouchCenterOffset=true,bool LifeVip=false,string Language=UiLanguageService.SimplifiedChinese)
 {
     public bool IsExplicitSurplusMaterial(long item)=>MaterialReserves?.ContainsKey(item.ToString(System.Globalization.CultureInfo.InvariantCulture))==true;
+    public long MaterialReserveMinimum(long item)=>MaterialReserves is not null&&MaterialReserves.TryGetValue(item.ToString(System.Globalization.CultureInfo.InvariantCulture),out var individual)?individual:MaterialReserve;
     public long? RequiredMaterialReserve(long item,long? queueRequired)
     {
         if(queueRequired is null or <0)return null;
-        var configured=MaterialReserves is not null&&MaterialReserves.TryGetValue(item.ToString(System.Globalization.CultureInfo.InvariantCulture),out var individual)?individual:MaterialReserve;
+        var configured=MaterialReserveMinimum(item);
         return configured<0?null:Math.Max(queueRequired.Value,configured);
     }
     public void Validate()

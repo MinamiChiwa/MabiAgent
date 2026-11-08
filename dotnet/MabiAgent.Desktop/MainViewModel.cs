@@ -32,6 +32,7 @@ public partial class MainViewModel:ObservableObject
     public void AttachAutomation(AutomationService service)
     {
         automation=service;
+        PauseHotkeyText=workspace.ReadSettings()["input"]?["pause_hotkey"]?.GetValue<string>()??StopHotkey.PauseDefault;PauseHotkeyStatus=service.PauseHotkeyStatus;
         StopHotkeyText=workspace.ReadSettings()["input"]?["stop_hotkey"]?.GetValue<string>()??StopHotkey.Default;StopHotkeyStatus=service.StopHotkeyStatus;
         var repository=service.Repository;workspace.CatalogProvider=()=>PublishedCatalogCompiler.CompileAvailable(repository);
         _=Task.Run(()=>{try{var cleaned=repository.CleanupStorage();if(cleaned.Revisions+cleaned.DeletedChains>0)activity.Log($"已自动清理 {cleaned.Revisions} 个旧任务链版本、{cleaned.DeletedChains} 个过期的已删除任务链");}catch(Exception e){activity.Report(e);}});
@@ -40,11 +41,12 @@ public partial class MainViewModel:ObservableObject
         chainEditor=new(()=>new(repository,capture,detector));anchorEditor=new(()=>new(repository,capture,detector));AccountItems=new(service.Accounts,service.UpdateItemAssociationsAsync);
         if(workbench is {IsValueCreated:true})workbench.Value.Dispose();
         workbench=new(()=>new(this,repository,capture,detector,service.RunWorkbenchTestAsync));
+        reserveAccounts=service.Accounts;RefreshReserveChoices();
         AccountItems.AssociationsChanged+=(_,_)=>Dispatcher.UIThread.InvokeAsync(async()=>await RefreshAsync());
         repository.CatalogChanged+=()=>{gatheringSkillsLoaded=false;Dispatcher.UIThread.InvokeAsync(async()=>await RefreshAsync());};
         OnPropertyChanged(nameof(ChainEditor));OnPropertyChanged(nameof(AnchorEditor));OnPropertyChanged(nameof(Workbench));OnPropertyChanged(nameof(AccountItems));StartCommand.NotifyCanExecuteChanged();liveTimer.Start();
         service.Changed+=()=>{if(Interlocked.Exchange(ref runtimeNotificationQueued,1)!=0)return;Dispatcher.UIThread.Post(()=>
-        {try{if(!closing){StopHotkeyStatus=service.StopHotkeyStatus;ExecutionStatus=service.Status.Message;IsRunning=service.IsRunning;CaptureStatus=service.CaptureStatus.Message;UpdateCaptureDetails(service.CaptureStatus);UpdateRuntime();}}catch(Exception error){activity.Report(error);Error="状态显示失败："+error.Message;}finally{Interlocked.Exchange(ref runtimeNotificationQueued,0);}},DispatcherPriority.Background);};
+        {try{if(!closing){StopHotkeyStatus=service.StopHotkeyStatus;PauseHotkeyStatus=service.PauseHotkeyStatus;ExecutionStatus=service.Status.Message;IsRunning=service.IsRunning;CaptureStatus=service.CaptureStatus.Message;UpdateCaptureDetails(service.CaptureStatus);UpdateRuntime();}}catch(Exception error){activity.Report(error);Error="状态显示失败："+error.Message;}finally{Interlocked.Exchange(ref runtimeNotificationQueued,0);}},DispatcherPriority.Background);};
     }
     [RelayCommand(CanExecute=nameof(CanStart))] private async Task StartAsync()
     {
@@ -158,7 +160,7 @@ public partial class MainViewModel:ObservableObject
     public string LanguageButtonLabel=>language.Culture==UiLanguageService.TraditionalChinese?"繁中":"简中";
     public string LanguageButtonTooltip=>$"切换界面语言；当前为{language.LanguageName}";
     public string PageTitle=>SelectedPage switch{1=>"仓库",2=>"设置",_=>"任务队列"};
-    public string PageDescription=>SelectedPage switch{1=>"按账户查看角色与仓库数量，确认道具名称关联。",2=>"设置自动维护、材料留存、外观、数据监听与高级工作台。",_=>"安排目标顺序，查看进度、自动补料与待核账状态。"};
+    public string PageDescription=>SelectedPage switch{1=>"按账户查看角色与仓库数量，确认道具名称关联。",2=>"设置自动维护、材料留存、外观、数据监听与高级工作台。",_=>"安排任务，查看进度、自动补料和待确认的操作结果。"};
     public bool ShowGlobalSearch=>SelectedPage==0;
     public string SearchHint=>"搜索目标名称或状态";
     public bool CanStart=>automation is not null&&SelectedWindow is not null&&!IsBusy&&!IsRunning&&!closing;
@@ -343,6 +345,7 @@ public partial class MainViewModel:ObservableObject
         try
         {
         UpdateRuntime();
+        if(SelectedPage==2)RefreshReserveChoices();
         var inventory=automation?.CaptureStatus.Inventory;
         var nextStamp=inventory?.Scope?.SessionId+":"+inventory?.Revision+":"+inventory?.VerifiedThrough.HasValue+":"+automation?.Accounts.Version;
         if(nextStamp!=accountStamp&&SelectedPage==1&&!IsBusy&&!closing&&AccountItems?.IsCellEditing!=true){accountStamp=nextStamp;await AccountItems!.RefreshLiveAsync(nextStamp);}
@@ -413,7 +416,7 @@ public partial class MainViewModel:ObservableObject
     [RelayCommand(CanExecute=nameof(CanAddGoal))] private async Task AddGoalAsync()
     {if(!CanAddGoal)return;if(IsProductionGoal){await AddProductionAsync();return;}var route=IsInPlaceFishing?MabiAgent.Workflows.FishingPlan.CurrentLocation:SelectedGathering?.Id;if(route is null)return;long quantity;if(IsFishingGoal){if(!TryFishingDuration(out quantity))return;}else if(!FormNumbers.TryWhole(TargetQuantity,1,FormNumbers.Maximum,out quantity))return;if(await ChangeAsync(()=>workspace.AddGathering(IsFishingGoal?"idle_fishing":"gathering",route,quantity),IsInPlaceFishing?"已加入原地钓鱼目标":IsFishingGoal?"已加入挂机钓鱼目标":"已加入采集目标"))AddDialogOpen=false;else AddError=Error;}
     public void InitializeEditorSelfCheck(EditorRepository repository,MabiAgent.Capture.AccountItemService accounts)
-    {workspace.CatalogProvider=()=>PublishedCatalogCompiler.CompileAvailable(repository);gatheringSkillsLoaded=false;ChainEditor=new(repository);AnchorEditor=new(repository);Workbench=new(this,repository);AccountItems=new(accounts);OnPropertyChanged(nameof(ChainEditor));OnPropertyChanged(nameof(AnchorEditor));OnPropertyChanged(nameof(Workbench));OnPropertyChanged(nameof(AccountItems));}
+    {workspace.CatalogProvider=()=>PublishedCatalogCompiler.CompileAvailable(repository);gatheringSkillsLoaded=false;ChainEditor=new(repository);AnchorEditor=new(repository);Workbench=new(this,repository);AccountItems=new(accounts);reserveAccounts=accounts;RefreshReserveChoices();OnPropertyChanged(nameof(ChainEditor));OnPropertyChanged(nameof(AnchorEditor));OnPropertyChanged(nameof(Workbench));OnPropertyChanged(nameof(AccountItems));}
     [RelayCommand] private void OpenAdd(){AddError=null;AddDialogOpen=true;}
     [RelayCommand] private void CloseAdd(){if(!IsBusy)AddDialogOpen=false;}
     [RelayCommand(CanExecute=nameof(CanAdd))] private async Task AddProductionAsync()

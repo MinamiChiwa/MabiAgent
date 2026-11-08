@@ -45,7 +45,20 @@ public sealed class TouchInputOps:INativeWindowsOps,ICurrentClientFrameSource,IG
         ObjectDisposedException.ThrowIf(disposed,this);Guard.AuthorizeNativeTransport();if(keyboard is IKeyboardPointerPreparation preparation)preparation.PreparePointerInput();var before=VerifyIdentity();
         foreach(var point in client.Points.SelectMany(p=>p))if(!new PixelBox(0,0,before.Geometry.Width,before.Geometry.Height).Contains(point))throw new InputBlockedException("触控轨迹超出客户区");
         void Check(){Guard.AuthorizeNativeTransport();if(VerifyIdentity().Geometry!=before.Geometry)throw new InputBlockedException("触控期间窗口位置、尺寸或DPI变化");}
-        runner.Execute(client.Screen(before.Geometry),target.WindowId,holdMilliseconds,Check,()=>Guard.AuthorizeMouseRelease(holdMilliseconds==2000?Windows.MouseButton.Right:Windows.MouseButton.Left),VerifyIdentity);
+        ExecutePreparedGesture(()=>runner.Execute(client.Screen(before.Geometry),target.WindowId,holdMilliseconds,Check,()=>Guard.AuthorizeMouseRelease(holdMilliseconds==2000?Windows.MouseButton.Right:Windows.MouseButton.Left),VerifyIdentity),Check);
+    }
+    internal static void ExecutePreparedGesture(Action execute,Action check)
+    {
+        for(var attempt=1;;attempt++)
+        {
+            check();
+            try{execute();return;}
+            catch(LocalTouchFramesUnavailableException error)
+            {
+                if(attempt>=3)throw new MabiAgent.Workflows.InputRejectedBeforeDispatchException(error.Message);
+                Thread.Sleep(150);
+            }
+        }
     }
     public void Click(PixelPoint point,MouseButton button)
     {if(button is not(Windows.MouseButton.Left or Windows.MouseButton.Right))throw new ArgumentOutOfRangeException(nameof(button));Execute(new("click",[[point]]),button==Windows.MouseButton.Right?2000:40);}
@@ -134,7 +147,8 @@ internal sealed class ForwardedTouchGestureRunner(MabiAgent.Core.RuntimeDiagnost
             var message=$"触控辅助窗口未覆盖起始触点，未发送输入；锚定 {anchor.Hwnd}/{TouchNative.At(anchor.Point)}，覆盖 {cover.Hwnd}/{TouchNative.At(screen.Points[0][0])}，前台 {TouchNative.Foreground}";
             throw new MabiAgent.Workflows.InputRejectedBeforeDispatchException(message);
         }
-        Trace("prepared",new(){["anchor"]=(long)anchor.Hwnd,["cover"]=(long)cover.Hwnd,["foreground"]=(long)TouchNative.Foreground});FlushTraces();
+        var desktop=PhysicalDesktop.Bounds;
+        Trace("prepared",new(){["anchor"]=(long)anchor.Hwnd,["cover"]=(long)cover.Hwnd,["foreground"]=(long)TouchNative.Foreground,["virtual_desktop"]=new System.Text.Json.Nodes.JsonArray(desktop.Left,desktop.Top,desktop.Right,desktop.Bottom)});FlushTraces();
         using var device=new SyntheticTouchDevice(anchor.Point,anchor.Hwnd);
         System.Text.Json.Nodes.JsonObject? restoreTrace=null;
         void RestoreCursor()
@@ -167,7 +181,12 @@ internal sealed class ForwardedTouchGestureRunner(MabiAgent.Core.RuntimeDiagnost
             try{messages=screen.Collect(cover);}
             // Collection only reads our helper windows. No envelope has been
             // forwarded to the game yet, so a missing local frame is unsent.
-            catch(InputBlockedException error){throw new MabiAgent.Workflows.InputRejectedBeforeDispatchException(error.Message+"，覆盖窗消息 "+new System.Text.Json.Nodes.JsonArray(cover.Received.TakeLast(16).Select(row=>(System.Text.Json.Nodes.JsonNode)row.DeepClone()).ToArray()).ToJsonString()+"，锚定窗消息 "+new System.Text.Json.Nodes.JsonArray(anchor.Received.Take(10).Select(row=>(System.Text.Json.Nodes.JsonNode)row.DeepClone()).ToArray()).ToJsonString());}
+            catch(Exception error)when(error is InputBlockedException or LocalTouchFramesUnavailableException)
+            {
+                var detail=error.Message+"，覆盖窗消息 "+new System.Text.Json.Nodes.JsonArray(cover.Received.TakeLast(16).Select(row=>(System.Text.Json.Nodes.JsonNode)row.DeepClone()).ToArray()).ToJsonString()+"，锚定窗消息 "+new System.Text.Json.Nodes.JsonArray(anchor.Received.Take(10).Select(row=>(System.Text.Json.Nodes.JsonNode)row.DeepClone()).ToArray()).ToJsonString();
+                if(error is LocalTouchFramesUnavailableException)throw new LocalTouchFramesUnavailableException(detail);
+                throw new MabiAgent.Workflows.InputRejectedBeforeDispatchException(detail);
+            }
             Trace("collected",new(){["messages"]=messages.Count,["expected_max"]=screen.MessageCount});
             releaseIndex=messages.Count-screen.ContactCount;stage="forward";
             // Restore cursor presentation after releasing local touch resources.
@@ -175,7 +194,7 @@ internal sealed class ForwardedTouchGestureRunner(MabiAgent.Core.RuntimeDiagnost
             {authorize();verifyIdentity();if(i==0)beforeDelivery?.Invoke();Forward(messages[i]);down=true;if(i>=screen.ContactCount-1)Wait(i==0&&screen.Steps==0?holdMilliseconds:16,authorize);}
             stage="release";Wait(screen.ReleaseDelayMilliseconds,()=>{authorize();verifyIdentity();});authorizeRelease();Release(verifyIdentity);
         }
-        catch(Exception error){TraceFailure(error,stage);tracedFailure=error;throw;}
+        catch(Exception error){Trace("native_frames",new(){["frames"]=device.Frames.DeepClone()});TraceFailure(error,stage);tracedFailure=error;throw;}
         finally
         {
             stage="cleanup";
@@ -191,6 +210,7 @@ internal sealed class ForwardedTouchGestureRunner(MabiAgent.Core.RuntimeDiagnost
         catch(Exception error)
         {
             if(!ReferenceEquals(tracedFailure,error))TraceFailure(error,stage);
+            if(error is LocalTouchFramesUnavailableException&&forwardAttempts==0)throw;
             if(error is not OutOfMemoryException&&forwardAttempts==0)
                 throw new MabiAgent.Workflows.InputRejectedBeforeDispatchException(error.Message+"；本次触控未向游戏转交");
             throw;

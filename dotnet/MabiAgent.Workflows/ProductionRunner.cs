@@ -21,6 +21,7 @@ public interface IProductionPort : IForegroundWorkflowPort
 public sealed class ProductionRunner : PersistentWorkflow
 {
     public const double MinimumCollectionTripSeconds=300;
+    public const double DeviceTravelTimeoutSeconds=120;
     // A readiness retry belongs to the slot that just came due. It is capped so
     // one missed observation can never postpone every later slot for an hour.
     public const double MaximumCollectionRetrySeconds=900;
@@ -70,7 +71,7 @@ public sealed class ProductionRunner : PersistentWorkflow
         || S("status")=="unknown"&&port.CanReleaseForeground()
         || S("status")=="paused"&&(S("pause_reason") is "unrecognized_page" or "module_fault")&&port.CanReleaseForeground()
         || I("submitted")==0 && S("status")=="paused" && S("pause_reason") is "craft_unavailable" or "materials_unknown" or "device_full" or "device_batch_not_ready");
-    public bool CanIsolateFault => Pending is null && (S("phase")=="waiting" || S("phase")=="leave"&&I("submitted")>0 || I("submitted")==0 && port.CanReleaseForeground());
+    public bool CanIsolateFault => Pending is null && (S("phase")=="waiting" || S("phase")=="leave"&&I("submitted")>0 || port.CanReleaseForeground());
     public ProductionRunner(IProductionPort port, IWorkflowStore store, ProductionRecipe recipe, int count = 1,
         TimeProvider? time = null, double timeoutSeconds = 12, Func<string, int, int?>? availableRounds = null,
         Func<string, int?>? deviceReadyRounds = null, Func<string, double>? deviceQueueTail = null, Func<bool>? allowPartialRefill = null,Func<IReadOnlyDictionary<string,int[]>>? collectionOwners=null)
@@ -370,6 +371,12 @@ public sealed class ProductionRunner : PersistentWorkflow
                     Unknown(B("retired_collection")?"retired_production_output_not_visible":"collection_receipt_missing");return;
                 }
                 else if (TryCollectReady(f,empty,owned)) {}
+                else if(owned.Count==0&&empty.Count>0&&I("submitted")<I("count")&&!B("stop_requested"))
+                {
+                    // A former foreign-slot wait must not hide newly available capacity.
+                    // Keep foreign output untouched and resume the normal material check.
+                    Set(("phase","queue"),("reason",null));State.Remove("collection_retry_at");State.Remove("collection_checked_until");Save();
+                }
                 else
                 {
                     // Nothing of ours is ready. A device that only shows the
@@ -439,8 +446,9 @@ public sealed class ProductionRunner : PersistentWorkflow
             if (!frame.Foreground) return Pause("focus_lost");
             if(Pending is null&&frame.NavigationActive)
             {
+                CheckProgress("device_navigation",DeviceTravelTimeoutSeconds);
                 if(frame.Page=="device_travel_confirm"&&frame.Stable)port.Navigate("queue",recipe);
-                ResetPageWait();ResetProgressWait();return Snapshot();
+                ResetPageWait();return Snapshot();
             }
             if(Pending is null&&port.HasExtensionPending)
             {try{if(port.TickExtension())return Snapshot();}catch(Exception error)when(error is not OutOfMemoryException){RememberFault(error,"workbench");BlockPage("module_fault");return Snapshot();}}

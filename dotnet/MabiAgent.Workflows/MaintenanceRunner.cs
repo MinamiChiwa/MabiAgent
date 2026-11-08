@@ -125,7 +125,7 @@ public sealed class MaintenanceRunner : PersistentWorkflow
     {
         lock(Gate)
         {
-            if(!policy.BackpackEnabled||Pending is not null||Str(Bag,"status") is not "idle")return;
+            if(!policy.BackpackEnabled||Pending is not null||Str(Bag,"status") is not ("idle" or "production_relief"))return;
             Change(Bag,("phase","inspect"),("status","due"),("reads",0),("inspection_requested",true));Save();
         }
     }
@@ -146,7 +146,16 @@ public sealed class MaintenanceRunner : PersistentWorkflow
         }
     }
     public bool Blocked(string kind, bool dependsOnRepair = false)
-    { lock (Gate) return B("global_pause_required") || kind == "gathering" && (Str(Bag, "status")=="production_relief" || Str(Bag,"status")=="blocked"&&Bool(Bag,"capacity_blocked")) || dependsOnRepair && RepairRequired; }
+    {
+        lock (Gate)
+        {
+            var acquiring=kind is "gathering" or "idle_fishing";
+            var relieving=Str(Bag,"status")=="production_relief";
+            var capacityFailure=Str(Bag,"status")=="blocked"&&Bool(Bag,"capacity_blocked");
+            var room=Bag["weight"]?.GetValue<long>() is >=0 and var weight&&Bag["capacity"]?.GetValue<long>() is >0 and var capacity&&weight<capacity;
+            return B("global_pause_required")||acquiring&&(capacityFailure||Bool(Bag,"movement_blocked")||relieving&&!room)||dependsOnRepair&&RepairRequired;
+        }
+    }
     public void Pause(string reason = "manual")
     { port.Pause(reason); lock (Gate) { resumeRequested = false; if (S("paused") != "manual" || reason == "manual") State["paused"] = reason; if (Pending is null && Str(Bag, "phase") == "confirm") Bag["phase"] = "prepare"; Save(); } }
     private bool ValidWeight(MaintenanceFrame f) => f.Weight >= 0 && f.Capacity > 0;
@@ -177,6 +186,12 @@ public sealed class MaintenanceRunner : PersistentWorkflow
             { Set(("global_pause_required", false), ("active", "backpack"), ("reason", null)); Change(Bag, ("phase", "surplus"), ("status", "running")); }
             if (explicitRequest && B("global_pause_required") && S("reason") == "tidy_count_unknown" && Pending is null && f.Page == "tidy")
             { Set(("global_pause_required", false), ("active", "backpack"), ("reason", null)); Change(Bag, ("phase", "prepare"), ("status", "running"), ("reads", 0), ("last_capture", null)); }
+            if(explicitRequest&&B("global_pause_required")&&Pending?["action"]?.GetValue<string>()=="confirm_tidy"&&
+                f.CaptureId!=Pending["capture_id"]?.GetValue<string>()&&(f.TidyComplete||Bool(Bag,"outcome_seen")))
+            {
+                Set(("global_pause_required",false),("active","backpack"),("reason",null));
+                Change(Bag,("phase","verify"),("status","running"),("outcome_seen",true),("reads",0));
+            }
             if(explicitRequest&&B("global_pause_required")&&Pending is null&&
                 (S("reason")=="backpack_weight_unknown"||S("reason")=="backpack_progress_timeout"&&Str(Bag,"phase")=="inspect"))
             {
@@ -215,6 +230,7 @@ public sealed class MaintenanceRunner : PersistentWorkflow
             if (!policy.BackpackEnabled || !ValidWeight(f) || string.IsNullOrWhiteSpace(f.CaptureId) || f.CaptureId == Str(Bag, "last_capture")) return;
             Change(Bag, ("last_capture", f.CaptureId), ("weight", f.Weight), ("capacity", f.Capacity));
             Bag["capacity_blocked"]=Overweight(f);
+            Bag["movement_blocked"]=f.Weight>=f.Capacity;
             Bag["checked_at"]=Now;Bag["check_due_at"]=Now+policy.BackpackCheckIntervalSeconds;
             if (Str(Bag, "status") == "production_relief" && !Overweight(f))
             { Change(Bag, ("phase", "idle"), ("status", "idle"), ("reads", 0)); if (S("active") == "backpack") State["active"] = null; if (S("reason") == "backpack_production_relief") State["reason"] = null; }
@@ -232,6 +248,8 @@ public sealed class MaintenanceRunner : PersistentWorkflow
     private void ProductionRelief(string reason)
     {
         if (!policy.BackpackEnabled) { Manual(reason); return; }
+        if(Bool(Bag,"movement_blocked"))
+        {Change(Bag,("phase","prepare"),("status","due"),("cleanup_after_relief",true),("reads",0));Set(("active",null),("reason","backpack_full_navigation"));Save();return;}
         Change(Bag, ("phase", "relief"), ("status", "production_relief"), ("relief_reason", reason), ("reads", 0), ("outcome_seen", false), ("weight_checks", new JsonObject()));
         Set(("active", null), ("pending", null), ("global_pause_required", false), ("reason", "backpack_production_relief")); Save();
     }
@@ -241,7 +259,7 @@ public sealed class MaintenanceRunner : PersistentWorkflow
         {
             Bag["weight_checks"] ??= new JsonObject(); var checks = Bag["weight_checks"]!;
             if (Str(Bag, "status") == "production_relief" && Pending is null && submitted > (checks[actionId]?.GetValue<int>() ?? 0))
-            { checks[actionId] = submitted; Change(Bag, ("phase", "relief_weight"), ("reads", 0)); State["active"] = "backpack"; Save(); }
+            { if(Str(Bag,"phase")!="relief_weight")port.ResetNavigation(); checks[actionId] = submitted; Change(Bag, ("phase", "relief_weight"), ("reads", 0)); Save(); }
         }
     }
     public void ProductionReliefExhausted()
@@ -251,6 +269,27 @@ public sealed class MaintenanceRunner : PersistentWorkflow
             if (Str(Bag, "status") != "production_relief") return;
             if (surplus is not null && !Bool(Bag, "cleanup_after_relief")) { Change(Bag, ("status", "due"), ("phase", "prepare"), ("cleanup_after_relief", true), ("surplus_checked", false)); Set(("active", null), ("reason", "backpack_cleanup_after_production")); Save(); }
             else Manual("backpack_relief_exhausted");
+        }
+    }
+    public bool TrySellWhileProductionSlotsBusy()
+    {
+        lock(Gate)
+        {
+            if(Str(Bag,"status")!="production_relief"||Pending is not null||surplus is null||!policy.SellSurplus||Bool(Bag,"surplus_checked")||!Bool(Bag,"tidy_checked"))return false;
+            Change(Bag,("status","due"),("phase","prepare"),("cleanup_after_relief",true),("waiting_for_slots",true));
+            Set(("active",null),("reason","backpack_sell_while_processing"));Save();return true;
+        }
+    }
+    public void ProductionReliefAvailable()
+    {
+        lock (Gate)
+        {
+            if (!policy.BackpackEnabled || Pending is not null || surplus?.Snapshot()["pending"] is not null || B("global_pause_required") || Bool(Bag,"movement_blocked")) return;
+            if (!(Bool(Bag,"cleanup_after_relief") && Str(Bag,"phase")=="prepare") && S("reason")!="backpack_relief_exhausted") return;
+            // A new inventory plan can make production possible while the old
+            // cleanup is still exiting. Keep that exit before releasing the turn.
+            port.ResetNavigation();State["navigation_cleanup"]=!port.CanReleaseForeground();
+            Bag["cleanup_after_relief"]=false;Bag["waiting_for_slots"]=false;ProductionRelief("production_materials_available");
         }
     }
     private void BlockRepair(string reason, bool unknown = false) { Repair["status"] = unknown ? "unknown" : "blocked"; Set(("active", Pending is not null ? "repair" : null), ("reason", reason)); if(Pending is null)State["navigation_cleanup"]=!port.CanReleaseForeground(); Save(); }
@@ -289,7 +328,7 @@ public sealed class MaintenanceRunner : PersistentWorkflow
         {
             CancelDisabled(); if (policy.RepairEnabled && Str(Repair, "status") == "idle" && Now >= Repair["due_at"]!.GetFiniteDouble()) { Repair["status"] = "due"; Save(); }
             if (!allowPeriodicBackpackCheck) CancelPeriodicBackpackCheck();
-            if(allowPeriodicBackpackCheck&&policy.BackpackEnabled&&policy.BackpackCheckIntervalSeconds>0&&Str(Bag,"status")=="idle"&&Now>=Bag["check_due_at"]!.GetFiniteDouble())
+            if(allowPeriodicBackpackCheck&&policy.BackpackEnabled&&policy.BackpackCheckIntervalSeconds>0&&(Str(Bag,"status")=="idle"||Str(Bag,"status")=="production_relief"&&Str(Bag,"phase")=="relief")&&Now>=Bag["check_due_at"]!.GetFiniteDouble())
             {Change(Bag,("phase","inspect"),("status","due"),("reads",0));Save();}
             // An owned native round must not pay for unrelated full-page recognition
             // or OCR. Outstanding maintenance still keeps its reconciliation path.
@@ -307,14 +346,14 @@ public sealed class MaintenanceRunner : PersistentWorkflow
             if(Pending is{} outstanding&&Now>=outstanding["deadline"]!.GetFiniteDouble())
             {
                 if(S("active")=="repair"&&Str(Repair,"status")!="unknown")BlockRepair("repair_result_unknown",true);
-                else if(S("active")=="backpack"&&!B("global_pause_required"))Manual("tidy_result_unknown");
+                else if(S("active")=="backpack"&&!B("global_pause_required")&&!Bool(Bag,"outcome_seen")&&!(ReadyFrame(f)&&f.TidyComplete))Manual("tidy_result_unknown");
             }
             if (policy.BackpackEnabled && f.BackpackFull && ReadyFrame(f) && Pending is null && S("paused") is null && !B("global_pause_required"))
             {
                 Bag["capacity_blocked"]=true;
-                if (Str(Bag, "status") == "production_relief") Manual("backpack_travel_blocked");
-                else if (Str(Bag, "status") is not ("due" or "running"))
+                if (!Bool(Bag,"movement_blocked")&&Str(Bag, "status") is not ("due" or "running"))
                 { if (S("active") == "repair") Repair["status"] = "due"; port.ResetNavigation(); Change(Bag, ("phase", "prepare"), ("status", "due"), ("reads", 0), ("outcome_seen", false), ("tidy_checked", false), ("surplus_checked", false), ("cleanup_after_relief", false)); Set(("active", null), ("reason", "backpack_full_navigation")); Save(); }
+                Bag["movement_blocked"]=true;Save();
             }
             if (f.Page is "backpack" or "repair_tools" && Str(Bag, "phase") is not ("relief_weight" or "inspect")) ObserveBackpack(f);
             if (!f.Foreground) { Pause("focus_lost"); return StatusSnapshot(); }
@@ -338,6 +377,13 @@ public sealed class MaintenanceRunner : PersistentWorkflow
                 Save(); return StatusSnapshot();
             }
             if (S("paused") is not null || B("global_pause_required")) return StatusSnapshot();
+            if(policy.BackpackEnabled&&safeToSwitch&&ReadyFrame(f)&&f.Page=="tidy"&&Pending is null&&surplus?.Snapshot()["pending"] is null&&Str(Bag,"phase") is "idle" or "inspect" or "relief" or "relief_weight")
+            {
+                if(S("active")=="repair")Repair["status"]="due";
+                port.ResetNavigation();
+                Change(Bag,("phase","prepare"),("status","running"),("reads",0),("tidy_checked",false),("surplus_checked",false),("cleanup_after_relief",false));
+                Set(("active","backpack"),("navigation_cleanup",false),("reason",null));Save();
+            }
             if(S("active") is{} active)
             {
                 var key=active+":"+Str(State[active]!.AsObject(),"phase")+":"+f.Page;
@@ -359,7 +405,8 @@ public sealed class MaintenanceRunner : PersistentWorkflow
             if (S("active") is null)
             {
                 if (!safeToSwitch) return StatusSnapshot();
-                if (policy.BackpackEnabled && Str(Bag, "status") == "due") { State["active"] = "backpack"; Bag["status"] = "running"; }
+                if (policy.BackpackEnabled && (Str(Bag, "status") == "due" || Str(Bag,"status")=="production_relief"&&Str(Bag,"phase")=="relief_weight"))
+                { State["active"] = "backpack"; if(Str(Bag,"status")=="due")Bag["status"] = "running"; }
                 else if (allowRepair && Str(Bag, "status") != "production_relief" && policy.RepairEnabled && Str(Repair, "status") == "due")
                 { State["active"] = "repair"; Change(Repair, ("status", "running"), ("phase", "quote"), ("quote_reads", 0), ("gold_reads", 0), ("last_capture", null), ("before_gold", null), ("quote", null), ("post_gold", null), ("outcome_seen", false), ("reserve_violated", false)); }
                 else return StatusSnapshot(); Save();
@@ -437,7 +484,7 @@ public sealed class MaintenanceRunner : PersistentWorkflow
             if(f.Page is not ("backpack" or "repair_tools")||f.WeightTabRequired){NavigateBag("backpack_weight");return;}
             if(!NewCapture(Bag,f))return;
             if(!ValidWeight(f)){Bag["reads"]=Int(Bag,"reads")+1;if(Int(Bag,"reads")>=policy.ReadAttempts)Manual("backpack_weight_unknown");return;}
-            Change(Bag,("checked_at",Now),("check_due_at",Now+policy.BackpackCheckIntervalSeconds),("weight",f.Weight),("capacity",f.Capacity),("reads",0),("inspection_requested",false));
+            Change(Bag,("movement_blocked",f.Weight>=f.Capacity),("capacity_blocked",Overweight(f)),("checked_at",Now),("check_due_at",Now+policy.BackpackCheckIntervalSeconds),("weight",f.Weight),("capacity",f.Capacity),("reads",0),("inspection_requested",false));
             if(Overweight(f))Change(Bag,("phase","prepare"),("tidy_checked",false),("surplus_checked",false),("cleanup_after_relief",false));
             else {Change(Bag,("phase","idle"),("status","idle"));Set(("active",null),("navigation_cleanup",f.Page!="scene"));}
             return;
@@ -450,13 +497,15 @@ public sealed class MaintenanceRunner : PersistentWorkflow
         if (Pending is null && Str(Bag, "phase") == "prepare" && Bool(Bag,"tidy_checked") && !Bool(Bag, "surplus_checked") && policy.SellSurplus && surplus is not null)
         { var status = surplus.Begin(); Bag["surplus_checked"] = true; if (status == "unknown") Manual("surplus_result_unknown"); else Bag["phase"] = "surplus"; return; }
         if(Pending is null&&Str(Bag,"phase")=="prepare"&&Bool(Bag,"surplus_checked")&&ValidWeight(f)&&!Overweight(f))
-        {Change(Bag,("weight",f.Weight),("capacity",f.Capacity),("phase","idle"),("status","idle"),("reads",0));Set(("active",null),("reason",null),("navigation_cleanup",f.Page!="scene"));return;}
+        {Change(Bag,("weight",f.Weight),("capacity",f.Capacity),("phase","idle"),("status","idle"),("reads",0),("waiting_for_slots",false));Set(("active",null),("reason",null),("navigation_cleanup",f.Page!="scene"));return;}
         if(Pending is null&&Str(Bag,"phase")=="prepare"&&Bool(Bag,"tidy_checked")&&Bool(Bag,"cleanup_after_relief"))
         {
             if(f.Page is not ("backpack" or "repair_tools")||f.WeightTabRequired){NavigateBag("backpack_weight");return;}
             if(!ValidWeight(f)){Bag["reads"]=Int(Bag,"reads")+1;if(Int(Bag,"reads")>=policy.ReadAttempts)Manual("post_tidy_weight_unknown");return;}
-            if(Overweight(f))Manual("backpack_relief_exhausted");
-            else {Change(Bag,("weight",f.Weight),("capacity",f.Capacity),("phase","idle"),("status","idle"),("reads",0));Set(("active",null),("reason",null),("navigation_cleanup",true));}
+            if(Overweight(f)&&Bool(Bag,"waiting_for_slots"))
+            {Change(Bag,("weight",f.Weight),("capacity",f.Capacity),("phase","relief"),("status","production_relief"),("waiting_for_slots",false));Set(("active",null),("reason","backpack_production_relief"),("navigation_cleanup",f.Page!="scene"));}
+            else if(Overweight(f))Manual("backpack_relief_exhausted");
+            else {Change(Bag,("weight",f.Weight),("capacity",f.Capacity),("phase","idle"),("status","idle"),("reads",0),("waiting_for_slots",false));Set(("active",null),("reason",null),("navigation_cleanup",true));}
             return;
         }
         if (Str(Bag, "phase") == "relief_weight" && Pending is null)
@@ -464,7 +513,9 @@ public sealed class MaintenanceRunner : PersistentWorkflow
             if (f.Page is not ("backpack" or "repair_tools")||f.WeightTabRequired) NavigateBag("backpack_weight");
             else if (NewCapture(Bag, f))
             {
-                if (ValidWeight(f)) { var over = Overweight(f); Change(Bag, ("weight", f.Weight), ("capacity", f.Capacity), ("reads", 0), ("phase", over ? "relief" : "idle"), ("status", over ? "production_relief" : "idle")); Set(("active", null), ("reason", over ? "backpack_production_relief" : null)); }
+                if (ValidWeight(f)&&f.Weight>=f.Capacity)
+                {Change(Bag,("weight",f.Weight),("capacity",f.Capacity),("movement_blocked",true),("capacity_blocked",true),("phase","prepare"),("status","running"),("tidy_checked",false),("surplus_checked",false),("cleanup_after_relief",true),("reads",0));Set(("reason","backpack_full_navigation"));}
+                else if (ValidWeight(f)) { var over = Overweight(f); port.ResetNavigation(); Change(Bag, ("checked_at",Now),("check_due_at",Now+policy.BackpackCheckIntervalSeconds),("movement_blocked",false),("capacity_blocked",over),("weight", f.Weight), ("capacity", f.Capacity), ("reads", 0), ("phase", over ? "relief" : "idle"), ("status", over ? "production_relief" : "idle")); Set(("active", null), ("reason", over ? "backpack_production_relief" : null), ("navigation_cleanup", f.Page!="scene")); }
                 else { Bag["reads"] = Int(Bag, "reads") + 1; if (Int(Bag, "reads") >= policy.ReadAttempts) Manual("post_production_weight_unknown"); }
             }
             return;

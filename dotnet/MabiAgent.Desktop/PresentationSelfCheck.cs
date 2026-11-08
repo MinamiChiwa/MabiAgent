@@ -20,6 +20,17 @@ internal static class PresentationSelfCheck
         var originalTheme=window.RequestedThemeVariant;
         var applyHotkey=operationSection.GetVisualDescendants().OfType<Button>().Single(b=>b.Name=="GlobalStopHotkeyApply");
         Check(hotkey.IsEffectivelyVisible&&hotkey.Bounds.Width>80&&hotkey.Text==model.StopHotkeyText&&applyHotkey.Command==model.ApplyStopHotkeyCommand,"全局停止快捷键输入与应用入口绑定可用");
+        var pauseKey=operationSection.GetVisualDescendants().OfType<HotkeyRecorder>().Single(b=>b.Name=="GlobalPauseHotkeyInput");
+        var pauseApply=operationSection.GetVisualDescendants().OfType<Button>().Single(b=>b.Name=="GlobalPauseHotkeyApply");
+        Check(pauseKey.IsEffectivelyVisible&&pauseKey.Bounds.Width>80&&pauseKey.Text==model.PauseHotkeyText&&pauseApply.Command==model.ApplyPauseHotkeyCommand,"全局暂停快捷键输入与应用入口绑定可用");
+        var pauseRecord=operationSection.GetVisualDescendants().OfType<Button>().Single(b=>b.Name=="GlobalPauseHotkeyRecord");
+        var originalPause=model.PauseHotkeyText;
+        hotkey.BeginRecording();
+        typeof(Button).GetMethod("OnClick",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic)!.Invoke(pauseRecord,null);
+        Check(!hotkey.IsRecording&&pauseKey.IsRecording,"切换录入目标时取消另一快捷键录入");
+        pauseKey.RaiseEvent(new KeyEventArgs{RoutedEvent=InputElement.KeyDownEvent,Key=Key.F9});
+        Check(pauseKey.Text=="F9"&&model.PauseHotkeyText=="F9"&&!pauseKey.IsRecording&&model.StopHotkeyText==hotkey.Text,"暂停键直接录入单键且独立于停止键草稿");
+        model.PauseHotkeyText=originalPause;
         foreach(var theme in new[]{ThemeVariant.Dark,ThemeVariant.Light})
         {
             window.RequestedThemeVariant=theme;window.UpdateLayout();await Task.Delay(220);

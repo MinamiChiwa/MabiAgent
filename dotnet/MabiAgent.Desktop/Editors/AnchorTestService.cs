@@ -9,7 +9,7 @@ public sealed class NativeAnchorTestService(EditorRepository repository):IAnchor
 {
     public AnchorTestResult Test(AnchorEntry entry,JsonObject spec,Bitmap capture)
     {
-        if(entry.Id.StartsWith("reading:",StringComparison.Ordinal))return new(false,null,"数量读取请使用运行器的双帧核账，不把单图读数当库存。");
+        if(entry.Id.StartsWith("reading:",StringComparison.Ordinal))return new(false,null,"此读数由任务流程自动检查，请在运行记录中查看结果。");
         if(spec["box"] is null&&spec["crop_native"] is null)return new(false,null,"此内联图片需先配置原生区域和搜索 ROI。");
         var current=(JsonObject)spec.DeepClone();current["box"]??=current["crop_native"]!.DeepClone();current["search"]??=current["box"]!.DeepClone();if(EditorRepository.Text(current,"match_mode")=="gold_text")current["match_mode"]="yellow_text";
         var definition=new JsonObject{["client_size"]=repository.Catalog["client_size"]!.DeepClone(),["dpi"]=repository.Catalog["dpi"]!.DeepClone(),["templates"]=new JsonObject{["test"]=current},["pages"]=new JsonObject()};

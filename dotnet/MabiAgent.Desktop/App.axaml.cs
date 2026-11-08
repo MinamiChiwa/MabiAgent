@@ -53,7 +53,7 @@ public partial class App:Application
                 var acceptanceWindow=host.Services.GetRequiredService<MainWindow>();desktop.MainWindow=acceptanceWindow;
                 acceptanceWindow.CloseRequest=()=>CloseWindowAsync(acceptanceWindow,e.Args);
                 acceptanceWindow.Closed+=(_,_)=>Shutdown();acceptanceWindow.Show();
-                try{await service.RunLiveQueueAcceptanceAsync(Argument(e.Args,"--report")??throw new ArgumentException("缺少报告路径"),e.Args.Contains("--live-storage-acceptance"),e.Args.Contains("--acceptance-start-paused"));}
+                try{await service.RunLiveQueueAcceptanceAsync(Argument(e.Args,"--report")??throw new ArgumentException("缺少报告路径"),e.Args.Contains("--live-storage-acceptance"),e.Args.Contains("--acceptance-start-paused"),AcceptanceDeadline(e.Args));}
                 catch(Exception){Shutdown(1);return;} // The acceptance report already contains the failure; do not leave a modal dialog holding capture and input resources.
                 finally{acceptanceModel.PrepareClose();await StopHostAsync();}
                 Shutdown();return;
@@ -164,6 +164,12 @@ public partial class App:Application
     }
     private static string? Argument(string[] args,string key)
     {var i=Array.IndexOf(args,key);if(i<0)return null;if(i+1>=args.Length||args[i+1].StartsWith("--"))throw new ArgumentException(key+" 缺少目录");return Path.GetFullPath(args[i+1]);}
+    internal static DateTimeOffset? AcceptanceDeadline(string[] args)
+    {
+        var index=Array.IndexOf(args,"--acceptance-until");if(index<0)return null;
+        if(index+1>=args.Length)throw new ArgumentException("缺少验收截止时间");
+        return DateTimeOffset.Parse(args[index+1],System.Globalization.CultureInfo.InvariantCulture);
+    }
     private static string FindRoot(string[] args)
     {
         var i=Array.IndexOf(args,"--root");if(i>=0&&i+1<args.Length)return Path.GetFullPath(args[i+1]);

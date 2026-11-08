@@ -15,7 +15,7 @@ public static class NativeWindowActivation
     internal static void WaitForForeground(Func<bool> isForeground,Action wait)
     {
         for(var attempt=0;attempt<20;attempt++){if(isForeground())return;wait();}
-        if(!isForeground())throw new InputBlockedException("游戏尚未切到前台，请显式继续");
+        if(!isForeground())throw new InputBlockedException("游戏尚未切到前台，请点击继续");
     }
     [DllImport("user32.dll")]private static extern bool SetForegroundWindow(nint hwnd);
     [DllImport("user32.dll")]private static extern bool ShowWindow(nint hwnd,int command);
