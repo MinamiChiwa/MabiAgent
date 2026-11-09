@@ -25,9 +25,6 @@ public sealed class ProductionRunner : PersistentWorkflow
     // A readiness retry belongs to the slot that just came due. It is capped so
     // one missed observation can never postpone every later slot for an hour.
     public const double MaximumCollectionRetrySeconds=900;
-    // A device whose finished slots all belong to the player has nothing this
-    // batch may claim. Re-check slowly instead of a 15 second round trip.
-    public const double ForeignSlotRecheckSeconds=300;
     private readonly IProductionPort port;
     private readonly ProductionRecipe recipe;
     private readonly double timeout;
@@ -92,6 +89,12 @@ public sealed class ProductionRunner : PersistentWorkflow
             if (saved["schema_version"]?.GetValue<int>() != 1 || !JsonNode.DeepEquals(saved["recipe"], serialized) || saved["count"]?.GetValue<int>() != count
                 || saved["owned_slots"] is not JsonArray || saved["completed_steps"] is not JsonArray) throw new InvalidDataException("生产记录不匹配，保留待核对");
             State = saved;
+            if(Pending is null&&S("reason") is "collection_owner_unverified" or "collection_owner_ambiguous")
+            {
+                State["reason"]=null;State.Remove("collection_retry_at");State.Remove("collection_checked_until");
+                State["due_at"]=State["production_due_at"]?.DeepClone();
+            }
+            State.Remove("foreign_ready");State.Remove("collect_all_once");
             // Older waits stored a failed readiness check in due_at. Preserve
             // that bounded retry while separating it from the production tail.
             if(State["collection_retry_at"] is null&&State["slot_due_at"] is JsonObject {Count:>0}&&State["due_at"] is{} wake&&State["production_due_at"] is{} tail&&wake.GetFiniteDouble()!=tail.GetFiniteDouble())
@@ -207,30 +210,19 @@ public sealed class ProductionRunner : PersistentWorkflow
         if (B("visit_occupied") && !(B("visit_at_device") || atDevice) && !(allowPartialRefill?.Invoke() ?? false) && (ready is null || ready <= 0)) { Pause("device_batch_not_ready"); return false; }
         return available is not null ? true : null;
     }
-    private bool TryCollectReady(ProductionFrame frame,HashSet<int> empty,HashSet<int> owned)
+    private bool TryCollectReady(ProductionFrame frame,HashSet<int> empty)
     {
         if(!frame.CollectAvailable||frame.ReadySlots is null)return false;
-        var ready=frame.ReadySlots.ToHashSet();
-        if(ready.Count==0)return false;
-        var owners=collectionOwners?.Invoke();
-        var known=owners is null?owned:owners.Values.SelectMany(s=>s).ToHashSet();
-        var ambiguous=owners?.Values.SelectMany(s=>s).GroupBy(s=>s).Any(g=>g.Count()>1)==true;
-        var approval=State["collect_all_once"] as JsonObject;
-        var approved=approval?["device"]?.GetValue<string>()==recipe.Device&&approval?["source"]?.GetValue<string>()=="user_explicit"
-            &&approval?["expires_at"]?.GetFiniteDouble()>Now&&owned.Count>0&&ready.Overlaps(owned);
-        if(ambiguous){State["reason"]="collection_owner_ambiguous";Save();return false;}
-        // One click collects every completed slot, the player's included. Claim
-        // only what this batch and its peers own, and click only when that is the
-        // whole ready set unless the user explicitly approved clearing the rest.
-        var ours=ready.Intersect(known).ToHashSet();
-        var foreign=ready.Except(ours).Order().ToArray();
-        if(foreign.Length>0)State["foreign_ready"]=Array(foreign);else State.Remove("foreign_ready");
-        if(ours.Count==0||foreign.Length>0&&!approved)
-        {
-            State["reason"]="collection_owner_unverified";Save();return false;
-        }
-        if(approved&&ready.Count>ours.Count)ours=ready;
-        Consume("collect",empty,ours);return true;
+        var targets=CollectionTargets(frame);
+        if(targets is null)return false;
+        Consume("collect",empty,targets);return true;
+    }
+    private HashSet<int>? CollectionTargets(ProductionFrame frame)
+    {
+        var ready=frame.ReadySlots?.ToHashSet();
+        if(ready is not {Count:>0})return null;
+        State["reason"]=null;
+        return ready;
     }
     private void RemoveSlotTiming(IEnumerable<int> slots)
     {if(State["slot_due_at"] is JsonObject values)foreach(var slot in slots)values.Remove(slot.ToString(System.Globalization.CultureInfo.InvariantCulture));}
@@ -246,8 +238,6 @@ public sealed class ProductionRunner : PersistentWorkflow
             foreach(var (action,slots) in collectionOwners?.Invoke()??new Dictionary<string,int[]>())
             {var claimed=slots.Intersect(Slots(pending["target_slots"])).ToArray();if(claimed.Length>0)ownership[action]=Array(claimed);}
             pending["collection_owners"]=ownership;
-            if(State["foreign_ready"] is JsonArray foreign)pending["foreign_ready"]=foreign.DeepClone();
-            if(State["collect_all_once"] is JsonObject approval){pending["collect_all_approval"]=approval.DeepClone();State.Remove("collect_all_once");}
         }
         State.Remove("unsent_craft");
         Set(("pending", pending), ("phase", "confirm_" + kind)); Save();
@@ -363,45 +353,29 @@ public sealed class ProductionRunner : PersistentWorkflow
             if (phase == "queue" && !B("collect_existing") && I("submitted") < I("count") && !B("stop_requested") && VisitReady(f) == false) return;
             if (!QueuePage(f) || !f.AtDevice || f.EmptySlots is null) { port.Navigate("queue", recipe); return; }
             var empty = f.EmptySlots.ToHashSet();
-            if (phase == "queue" && B("collect_existing") && TryCollectReady(f,empty,owned)) { State["collect_existing"] = false;Save(); }
+            if (phase == "queue" && B("collect_existing") && TryCollectReady(f,empty)) { State["collect_existing"] = false;Save(); }
             else if (phase == "collect")
             {
                 if (owned.Count > 0 && owned.IsSubsetOf(empty))
                 {
                     Unknown(B("retired_collection")?"retired_production_output_not_visible":"collection_receipt_missing");return;
                 }
-                else if (TryCollectReady(f,empty,owned)) {}
+                else if (TryCollectReady(f,empty)) {}
                 else if(owned.Count==0&&empty.Count>0&&I("submitted")<I("count")&&!B("stop_requested"))
                 {
-                    // A former foreign-slot wait must not hide newly available capacity.
-                    // Keep foreign output untouched and resume the normal material check.
                     Set(("phase","queue"),("reason",null));State.Remove("collection_retry_at");State.Remove("collection_checked_until");Save();
                 }
                 else
                 {
-                    // Nothing of ours is ready. A device that only shows the
-                    // player's finished slots gets a slow recheck, not a 15
-                    // second navigation round trip that starves other work.
-                    var foreign=S("reason") is "collection_owner_unverified" or "collection_owner_ambiguous";
-                    var retry=Now+(foreign?ForeignSlotRecheckSeconds:Math.Min(Duration(f), 15));
-                    // Leaving the device would bounce back at once while an empty
-                    // slot remains, so a foreign-only device waits instead.
-                    if(foreign)Set(("status","waiting"),("phase","waiting"),("due_at",retry),("collection_retry_at",retry),("collection_checked_until",Now),("collect_existing",false));
-                    else Set(("phase", "leave"), ("due_at", retry), ("collection_retry_at",retry),("collection_checked_until",Now));
+                    var retry=Now+Math.Min(Duration(f),15);
+                    Set(("phase","leave"),("due_at",retry),("collection_retry_at",retry),("collection_checked_until",Now));
                     Save();
                 }
             }
             else if (B("stop_requested") || I("submitted") >= I("count") || empty.Count == 0 && owned.Count > 0) { State["phase"] = "leave"; Save(); }
             else if (empty.Count == 0)
             {
-                if(TryCollectReady(f,empty,owned)){}
-                else if(S("reason") is "collection_owner_unverified" or "collection_owner_ambiguous")
-                {
-                    // The device is full of finished slots that are not ours.
-                    // Keep the batch, stop holding the turn, re-check slowly.
-                    var retry=Now+ForeignSlotRecheckSeconds;
-                    Set(("collect_existing",false),("status","waiting"),("phase","waiting"),("due_at",retry),("collection_retry_at",retry),("collection_checked_until",Now));Save();
-                }
+                if(TryCollectReady(f,empty)){}
                 else Pause("device_full");
             }
             else { Set(("before_empty", Array(empty)), ("phase", "recipe")); Save(); port.Navigate("recipe", recipe); }

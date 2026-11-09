@@ -1740,33 +1740,35 @@
       },
       "preset_wood_title": {
         "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_wood_title.png",
-        "sha256": "fddc8f4fcced8431378a66cbcff2e9a64c13381fdff0deb6689a82172c46fe76",
+        "sha256": "212c16c1fffec0599005b7c1a8dfc68aa7b2e82afa4dfec17fbf23da6f109102",
         "box": [
-          70,
-          24,
-          180,
-          55
+          23,
+          25,
+          133,
+          54
         ],
         "search": [
-          70,
-          24,
-          180,
-          55
+          18,
+          20,
+          184,
+          60
         ],
         "threshold": 0.97,
-        "match_mode": "grayscale",
-        "source": "release_catalog",
-        "source_sha256": "e5d7a4a8bf7365e64d6f6d5a50c8e1aadb156005718f6ef57e7f15af8d172327",
+        "match_mode": "light_text",
+        "source": "tests/fixtures/production/wood-arrived-20261102.jpg",
         "crop_native": [
-          70,
-          24,
-          180,
-          55
+          23,
+          25,
+          133,
+          54
         ],
         "scale": [
           1,
           1
-        ]
+        ],
+        "bytes": 6892,
+        "light_threshold": 180,
+        "glyph_threshold": 0.95
       },
       "preset_wood_equipment": {
         "path": "assets/templates/screen_ui/preset-expansion-2026-10-24/preset_wood_equipment.png",

@@ -20611,6 +20611,27 @@
           608
         ]
       },
+      "navigation_task_prefix": {
+        "path": "assets/templates/screen_ui/storage/navigation_task_prefix.png",
+        "sha256": "ffbc9cbf626af2cb0fd0021a38e53854adfdb9fed4d14f6e33292d9b1a5b6a83",
+        "bytes": 2220,
+        "box": [
+          1148,
+          199,
+          1196,
+          223
+        ],
+        "search": [
+          1060,
+          140,
+          1280,
+          360
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "glyph_threshold": 0.9,
+        "light_threshold": 180
+      },
       "fishing_navigation_task_current": {
         "path": "assets/templates/screen_ui/storage/fishing_navigation_task_current.png",
         "sha256": "c41bdb08d28bcd2450da7793a04c77a128108759de3beae3e043363145f7085c",

@@ -197,6 +197,9 @@ public sealed class IdleFishingRunner : PersistentWorkflow
         var f = port.Observe(); if (!double.IsFinite(f.At) || string.IsNullOrWhiteSpace(f.CaptureId)) throw new ArgumentException("需要新截图与时间");
         if (!f.Foreground) { if (S("status") != "paused" || S("pause_reason") == "focus_lost") Pause("focus_lost"); return; }
         UpdateClock(f);
+        if(S("status")=="running"&&State["unexpected_navigation_deadline"] is{} externalDeadline
+            &&f.At>=externalDeadline.GetFiniteDouble()&&f.NavigationActive!=false)
+            throw new TimeoutException("钓鱼等待其他导航结束超时");
         if (!PageReady(f.Page, f.Foreground, f.Stable, Pause, pauseOnUnrecognized: false))
         {
             if(S("status") == "running" && S("phase") == "navigate" && State["navigation_deadline"] is not null && f.At >= D("navigation_deadline"))Unknown("navigation_not_observed");
@@ -218,6 +221,14 @@ public sealed class IdleFishingRunner : PersistentWorkflow
         {Set(("pending",null),("round_seen",false));ResetRoundSamples();Perform(new("confirm_mode"),f,true);return;}
         if(f.LeisureConfirm){Perform(new("cancel_mode"),f);return;}
         if (!ReconcilePending(f)) { Save(); return; }
+        if(f.NavigationActive==true&&!B("round_seen")&&!f.RoundActive&&Pending is null
+            &&(S("phase")!="navigate"||State["navigation_deadline"] is null))
+        {
+            State["unexpected_navigation_deadline"]??=f.At+navigationTimeout;
+            if(f.At>=D("unexpected_navigation_deadline"))throw new TimeoutException("钓鱼等待其他导航结束超时");
+            ResetClock();Save();return;
+        }
+        State.Remove("unexpected_navigation_deadline");
         if (S("phase") == "navigate")
         {
             if (Boundary(f)) return;

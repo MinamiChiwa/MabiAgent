@@ -6,6 +6,7 @@ import tempfile
 import unittest
 import hashlib
 import zipfile
+import xml.etree.ElementTree as ET
 from unittest.mock import patch
 
 SPEC = importlib.util.spec_from_file_location('native_portable', Path(__file__).resolve().parents[1]/'tools/native_portable.py')
@@ -17,6 +18,16 @@ UPDATE_SPEC.loader.exec_module(UPDATE_ASSETS)
 
 
 class NativePortableTests(unittest.TestCase):
+    def test_packaged_projects_cover_the_desktop_reference_graph(self):
+        root=Path(__file__).resolve().parents[1]/'dotnet'
+        pending=[root/'MabiAgent.Desktop/MabiAgent.Desktop.csproj'];projects=set()
+        while pending:
+            project=pending.pop().resolve()
+            if project.stem in projects:continue
+            projects.add(project.stem)
+            pending.extend(project.parent/ref.attrib['Include'] for ref in ET.parse(project).getroot().iter('ProjectReference'))
+        self.assertEqual(projects,set(NATIVE.PROJECTS))
+
     def test_current_export_names_version_and_removes_only_obsolete_packages(self):
         install=self.update_fixture(self.base/'install',{'MabiAgent.exe':b'entry'})
         for name in ('MabiAgent-0.5.3-win-x64.zip','MabiAgent-干净交付.zip','unrelated.zip'):
@@ -204,12 +215,14 @@ class NativePortableTests(unittest.TestCase):
         return receipt
 
     def test_reviewed_project_hash_allows_exact_replacement_even_if_manifests_match(self):
-        name="app/MabiAgent.Core.dll"
-        target=self.update_fixture(self.root/"发布包/current/MabiAgent", {"MabiAgent.exe":b"old",name:b"manifest"})
-        stage=self.update_fixture(self.root/"build/staging/MabiAgent", {"MabiAgent.exe":b"new",name:b"manifest"})
-        (target/name).write_bytes(b"reviewed")
-        NATIVE.install_native_update(self.root,target,stage,reviewed_receipt=self.reviewed({name:b"reviewed"}))
-        self.assertEqual(b"manifest",(target/name).read_bytes())
+        for project in ("MabiAgent.Core","MabiAgent.Update"):
+            with self.subTest(project=project):
+                name=f"app/{project}.dll"
+                target=self.update_fixture(self.root/f"发布包/{project}/MabiAgent", {"MabiAgent.exe":b"old",name:b"manifest"})
+                stage=self.update_fixture(self.root/f"build/{project}/MabiAgent", {"MabiAgent.exe":b"new",name:b"manifest"})
+                (target/name).write_bytes(b"reviewed")
+                NATIVE.install_native_update(self.root,target,stage,reviewed_receipt=self.reviewed({name:b"reviewed"}))
+                self.assertEqual(b"manifest",(target/name).read_bytes())
 
     def test_reviewed_stale_hash_and_unowned_project_file_are_rejected(self):
         name="app/MabiAgent.Core.dll"

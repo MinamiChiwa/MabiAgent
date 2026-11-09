@@ -135,7 +135,9 @@ public sealed class ScreenFishingPort:ScreenWorkflowPort,IFishingPort
         if(o.View.Page is "scene" or "fishing"&&backpackExit is not null)
         {backpackExit.ResetNavigation();backpackExit=null;}
         var navNow=navigationTime.GetUtcNow().ToUnixTimeMilliseconds()/1000d;
-        var navigationActive=navigating&&c is not null&&Session.Hit(c,Anchor("nav"));
+        var navigationActive=c is not null&&(navigating||!waiting)
+            &&(Session.Hit(c,Anchor("nav"))||Session.Hit(c,"navigation_task_prefix"));
+        if(navigationActive&&!navigating)arrivalRevision=null;
         if(c is not null&&o.Stable&&Session.InputAvailable)
         {
             if((hook||gauge is not null)&&!reelIssued&&state["round_observed"]?.GetValue<bool>()!=true){state["round_observed"]=true;state["mode_prepared"]=true;Session.SavePortState("fishing:"+BatchId,state);}

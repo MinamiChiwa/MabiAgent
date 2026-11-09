@@ -6,6 +6,7 @@ using MabiAgent.Windows;
 using Xunit;
 namespace MabiAgent.Windows.Tests;
 
+[Collection("Native process metadata")]
 public sealed class NativeMessageDeliveryTests
 {
     // Diagnostic only: real cross-process WM_TOUCH, with the receiver deliberately
