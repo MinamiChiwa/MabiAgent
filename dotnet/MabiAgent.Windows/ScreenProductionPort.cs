@@ -7,7 +7,7 @@ public sealed class ScreenProductionPort:ScreenWorkflowPort,IProductionPort
 {
     private readonly RecipeRoute recipe;private readonly DeviceRoute device;private readonly ScreenWorkbenchFlow workbench;
     private string? observedRecipe;private int[]? empty,ready;private bool arrived;
-    private int[]? queueEmpty;private double queueAt;private long queueEpoch;private bool queueArrived;
+    private int[]? queueEmpty;private double queueAt;private long queueEpoch,queueLocationRevision;private bool queueArrived;
     private string? pendingNavigation;private string? pendingFrom;private double navigationAt;private int scrollCount,navigationRetries;
     private readonly JsonObject navigationState;
     private ScreenMaintenancePort? releaseNavigation;
@@ -52,17 +52,21 @@ public sealed class ScreenProductionPort:ScreenWorkflowPort,IProductionPort
         {
             empty=SlotRecognition.EmptyIndices(c.Image,boxes)?.ToArray();ready=SlotRecognition.ReadyIndices(c.Image,boxes)?.ToArray();
             arrived=automaticArrival||!view.NeedsDeviceArrival&&Session.All(c,device.ArrivalAnchors);
-            if(view.Page==device.QueuePage){queueEmpty=empty;queueAt=c.CapturedAt;queueEpoch=Session.InputEpoch;queueArrived=arrived;}
+            if(view.Page==device.QueuePage)
+            {
+                queueEmpty=empty;queueAt=c.CapturedAt;queueEpoch=Session.InputEpoch;queueLocationRevision=Session.LocationRevision;queueArrived=arrived;
+                if(arrived)Session.ConfirmDeviceArrival(device.Key);
+            }
             if(view.Page==recipe.Page)
             {
-                // Detail overlays can cover the slot grid. Reuse only the immediately preceding
-                // same-guard queue inspection; any pause/resume or age expiration invalidates it.
-                if(empty is null&&queueEpoch==Session.InputEpoch&&queueArrived&&(automaticArrival||c.CapturedAt-queueAt<=5))empty=queueEmpty;
+                // Detail overlays can cover the slot grid. Keep the onsite inspection across
+                // slow recipe rendering while its input epoch and location remain current.
+                if(empty is null&&queueEpoch==Session.InputEpoch&&queueLocationRevision==Session.LocationRevision&&queueArrived&&(automaticArrival||c.CapturedAt-queueAt<=5))empty=queueEmpty;
                 observedRecipe=recipe.Key;var hit=Session.Matcher.Anchor(c.Image,recipe.CraftAnchor);var button=Session.Box(recipe.CraftButtonBox);
                 if(hit is not null&&button.Contains(hit.Box.Center)&&Enabled(c.Image,button)&&empty is {Length:>0}&&!view.NeedsDeviceArrival)
                     view=Session.AddTarget(view,"production.craft",hit);
                 // Detail equipment anchors also positively identify the device.
-                arrived=!view.NeedsDeviceArrival&&queueArrived&&queueEpoch==Session.InputEpoch&&empty is not null
+                arrived=!view.NeedsDeviceArrival&&queueArrived&&queueEpoch==Session.InputEpoch&&queueLocationRevision==Session.LocationRevision&&empty is not null
                     &&(automaticArrival||c.CapturedAt-queueAt<=5);
             }
             else if(ready is {Length:>0})

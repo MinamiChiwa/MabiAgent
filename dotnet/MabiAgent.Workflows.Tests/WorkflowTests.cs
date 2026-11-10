@@ -5,6 +5,22 @@ namespace MabiAgent.Workflows.Tests;
 
 public sealed class WorkflowTests
 {
+    [Fact]
+    public void RecipePageRoundTripsDoNotResetProductionProgressDeadline()
+    {
+        var time=new ManualTime();var port=new ProductionPort();var store=new MemoryStore();
+        var runner=new ProductionRunner(port,store,new("iron","furnace",60),time:time);runner.Resume(true);runner.Tick();
+        for(var i=0;i<4;i++)
+        {
+            time.Seconds=i*30;
+            port.Frame=port.Frame with{Page=i%2==0?"recipe_detail":"furnace_panel",AtDevice=false};
+            runner.Tick();
+        }
+        time.Seconds=120;port.Frame=port.Frame with{Page="furnace_panel"};
+        Assert.Throws<TimeoutException>(()=>runner.Tick());
+        Assert.Empty(port.Clicks);Assert.Equal(0,runner.Snapshot()["submitted"]!.GetValue<int>());
+        Assert.Null(runner.Snapshot()["pending"]);
+    }
     [Theory][InlineData(false,61)][InlineData(true,30.5)]
     public void VipDurationIsSavedBeforeCraftAndNotRecomputedAfterToggle(bool vip,double expected)
     {
