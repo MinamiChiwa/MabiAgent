@@ -433,8 +433,75 @@ public sealed class ScreenWorkflowSessionTests
         Assert.Equal(2,clicks.Count);Assert.Empty(native.Keys);
         Assert.InRange(clicks[1].X,730,777);Assert.InRange(clicks[1].Y,850,878);
         now=now.AddSeconds(1);refresh.Tick(now);
+        Assert.Empty(native.Keys);
+        now=now.AddSeconds(2);refresh.Tick(now);
         Assert.Equal(new ushort[]{27},native.Keys);
         Assert.Equal(2,clicks.Count);
+    }
+    [Fact] public void QuickReentryKeepsObservedFieldWhenExitFadesBeforeDispatch()
+    {
+        var routes=ScreenRoutes.Load(RecognitionTests.Root());routes.Configuration["notifications"]=new JsonObject();
+        routes.Profile.Definition.Remove("page_variants");
+        routes.Profile.Definition["pages"]=JsonNode.Parse("""{"scene":{"anchors":["scene_bag","maint_scene_map"],"targets":{"storage.room_exit":"storage_room_exit_icon"}}}""");
+        var field=Stamp(routes.Profile,"scene_bag","maint_scene_map","storage_room_exit_icon");var town=Stamp(routes.Profile,"scene_bag","maint_scene_map");
+        var clicks=new List<PixelPoint>();var native=new NoInputOps(field,clicks);
+        using var session=new ScreenWorkflowSession(routes,Window(),native,new EmptyOcr(),new MemoryStore());session.Start();session.Observe();session.Observe();
+        native.CurrentImage=town;
+        var now=DateTimeOffset.UnixEpoch;var refresh=new ScreenQuickReentry(session,()=>now);refresh.Start(now);
+        refresh.Tick(now);refresh.Tick(now.AddSeconds(1));Assert.Empty(native.Keys);Assert.Empty(clicks);
+        native.CurrentImage=field;native.OnPointerDown=()=>native.CurrentImage=town;
+        refresh.Tick(now.AddSeconds(2));Assert.Single(clicks);Assert.Empty(native.Keys);
+        refresh.Tick(now.AddSeconds(3));Assert.Empty(native.Keys);
+        refresh.Tick(now.AddSeconds(5));Assert.Equal(new ushort[]{27},native.Keys);Assert.Single(clicks);
+    }
+    [Theory][InlineData(false)][InlineData(true)]
+    public void QuickReentryChecksFieldAfterPreparationObservationChanges(bool confirmationAlreadyOpen)
+    {
+        var routes=ScreenRoutes.Load(RecognitionTests.Root());routes.Configuration["notifications"]=new JsonObject();
+        routes.Profile.Definition.Remove("page_variants");
+        routes.Profile.Definition["pages"]=JsonNode.Parse("""{"scene":{"anchors":["scene_bag","maint_scene_map"],"targets":{"storage.room_exit":"storage_room_exit_icon"}},"storage_room_exit":{"anchors":["storage_room_exit_title","storage_room_exit_cancel"],"targets":{"storage.exit_room":"storage_room_exit_button"}}}""");
+        var field=Stamp(routes.Profile,"scene_bag","maint_scene_map","storage_room_exit_icon");var town=Stamp(routes.Profile,"scene_bag","maint_scene_map");
+        var confirm=Stamp(routes.Profile,"storage_room_exit_title","storage_room_exit_cancel","storage_room_exit_button");var loading=new RgbImage(1280,960,new byte[1280*960*3]);
+        var clicks=new List<PixelPoint>();var native=new NoInputOps(loading,clicks){CaptureFrame=number=>number==1?loading:confirmationAlreadyOpen?confirm:field};
+        using var session=new ScreenWorkflowSession(routes,Window(),native,new EmptyOcr(),new MemoryStore());session.Start();
+        var now=DateTimeOffset.UnixEpoch;var refresh=new ScreenQuickReentry(session,()=>now);refresh.Start(now);refresh.Tick(now);
+        Assert.Empty(clicks);Assert.Empty(native.Keys);
+        native.CaptureFrame=null;native.CurrentImage=town;refresh.Tick(now.AddSeconds(3));Assert.Empty(native.Keys);Assert.Empty(clicks);
+        native.CurrentImage=confirmationAlreadyOpen?confirm:field;native.OnPointerDown=()=>native.CurrentImage=town;
+        refresh.Tick(now.AddSeconds(4));Assert.Single(clicks);Assert.Empty(native.Keys);
+        refresh.Tick(now.AddSeconds(5));Assert.Empty(native.Keys);
+        refresh.Tick(now.AddSeconds(7));Assert.Equal(new ushort[]{27},native.Keys);Assert.Single(clicks);
+    }
+    [Fact] public void QuickReentryRejectsOneExitFreeFrameUntilTownRemainsStable()
+    {
+        var routes=ScreenRoutes.Load(RecognitionTests.Root());routes.Configuration["notifications"]=new JsonObject();
+        routes.Profile.Definition.Remove("page_variants");
+        routes.Profile.Definition["pages"]=JsonNode.Parse("""{"scene":{"anchors":["scene_bag","maint_scene_map"],"targets":{"storage.room_exit":"storage_room_exit_icon"}}}""");
+        var field=Stamp(routes.Profile,"scene_bag","maint_scene_map","storage_room_exit_icon");var town=Stamp(routes.Profile,"scene_bag","maint_scene_map");
+        var clicks=new List<PixelPoint>();var native=new NoInputOps(field,clicks){OnPointerDown=null};
+        using var session=new ScreenWorkflowSession(routes,Window(),native,new EmptyOcr(),new MemoryStore());session.Start();
+        var now=DateTimeOffset.UnixEpoch;var refresh=new ScreenQuickReentry(session,()=>now);refresh.Start(now);refresh.Tick(now);Assert.Single(clicks);
+        native.CurrentImage=town;refresh.Tick(now.AddSeconds(1));Assert.Empty(native.Keys);
+        native.CurrentImage=field;refresh.Tick(now.AddSeconds(2));Assert.Empty(native.Keys);Assert.Single(clicks);
+        native.CurrentImage=town;refresh.Tick(now.AddSeconds(3));Assert.Empty(native.Keys);
+        refresh.Tick(now.AddSeconds(5));Assert.Equal(new ushort[]{27},native.Keys);Assert.Single(clicks);
+    }
+    [Theory][InlineData(false)][InlineData(true)]
+    public void QuickReentryUsesExitAnchorAcrossSceneDefinitions(bool confirmationAlreadyOpen)
+    {
+        var routes=ScreenRoutes.Load(RecognitionTests.Root());routes.Configuration["notifications"]=new JsonObject();
+        routes.Profile.Definition.Remove("page_variants");
+        routes.Profile.Definition["pages"]=JsonNode.Parse("""{"scene":{"anchors":["scene_bag","maint_scene_map"]},"storage_room_exit":{"anchors":["storage_room_exit_title","storage_room_exit_cancel"],"targets":{"storage.exit_room":"storage_room_exit_button"}}}""");
+        var field=Stamp(routes.Profile,"scene_bag","maint_scene_map","storage_room_exit_icon");var town=Stamp(routes.Profile,"scene_bag","maint_scene_map");
+        var confirm=Stamp(routes.Profile,"storage_room_exit_title","storage_room_exit_cancel","storage_room_exit_button");
+        var clicks=new List<PixelPoint>();var native=new NoInputOps(confirmationAlreadyOpen?confirm:field,clicks);
+        native.OnPointerDown=()=>native.CurrentImage=town;
+        using var session=new ScreenWorkflowSession(routes,Window(),native,new EmptyOcr(),new MemoryStore());session.Start();
+        var now=DateTimeOffset.UnixEpoch;var refresh=new ScreenQuickReentry(session,()=>now);refresh.Start(now);refresh.Tick(now);
+        Assert.Single(clicks);Assert.Empty(native.Keys);
+        Assert.InRange(clicks[0].X,confirmationAlreadyOpen?730:1225,confirmationAlreadyOpen?777:1265);
+        refresh.Tick(now.AddSeconds(1));Assert.Empty(native.Keys);
+        refresh.Tick(now.AddSeconds(3));Assert.Equal(new ushort[]{27},native.Keys);Assert.Single(clicks);
     }
     [Fact] public void QuickReentryWaitsThroughDirectLoadingBeforeEscape()
     {
@@ -2496,7 +2563,7 @@ public sealed class ScreenWorkflowSessionTests
         port.ObserveOnly(route,"a");port.ObserveOnly(route,"a");Assert.NotEqual("complete",port.ObserveOnly(route,"a").TaskStatus);
         if(witnessedTask)
         {
-            native.CurrentImage=Stamp(routes.Profile,"scene_bag","maint_scene_map","gathering_observer.task_title","gathering_observer.iron_vein_objective");
+            native.CurrentImage=Stamp(routes.Profile,"scene_bag","maint_scene_map","gathering_observer.task_title","gathering_observer.iron_vein_objective","gathering_observer.running_control");
             Assert.Equal("active",port.ObserveOnly(route,"a").TaskStatus);
             Assert.Equal("gathering:observed",session.CurrentNavigationId);
             native.CurrentImage=Stamp(routes.Profile,"scene_bag","maint_scene_map","gathering_observer.task_title");
@@ -2506,6 +2573,77 @@ public sealed class ScreenWorkflowSessionTests
         var absent=port.ObserveOnly(route,"a");Assert.NotEqual("complete",absent.TaskStatus);
         absent=port.ObserveOnly(route,"a");Assert.Equal(witnessedTask?"complete":"unknown",absent.TaskStatus);
         Assert.Equal(witnessedTask?null:"gathering:observed",session.CurrentNavigationId);
+    }
+    [Fact] public void GatheringRunnerWaitsThroughMissingTaskLabelsWhileControlIsRunning()
+    {
+        var routes=ScreenRoutes.Load(RecognitionTests.Root());routes.Configuration["notifications"]=new JsonObject();
+        routes.Configuration["gathering_observer"]!["completion_idle_seconds"]=0;routes.Configuration["gathering_observer"]!["completion_idle_observations"]=2;
+        var native=new NoInputOps(Stamp(routes.Profile,"scene_bag","maint_scene_map","gathering_observer.running_control"),[]);
+        using var session=new ScreenWorkflowSession(routes,Window(),native,new EmptyOcr(),new MemoryStore());session.Start();
+        var route=new RuntimeCatalog(routes.Configuration).Gathering["gathering_material_4599909297832614"];
+        var taskId="screen-gathering:"+route.Key+":a";var store=new MemoryStore();var port=session.CreateGatheringPort(route.Key,"running",store);
+        session.SavePortState("gathering:running",new JsonObject{["started"]=true,["action_id"]="a",["session"]=session.Scope.SessionId,["bound"]=true,["progressed"]=true,["task_id"]=taskId});
+        port=session.CreateGatheringPort(route.Key,"running",store);
+        var runner=new GatheringRunner(port,store,route,"a");var saved=runner.Snapshot();
+        saved["submitted"]=1;saved["status"]="waiting";saved["phase"]="gathering";saved["task_id"]=taskId;saved["batch_deadline"]=DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()/1000d+600;store.Flush(saved);
+        runner=new GatheringRunner(port,store,route,"a");runner.Resume(explicitRequest:true);
+        for(var observation=0;observation<6;observation++)
+        {
+            var state=runner.Tick();Assert.Equal("waiting",state["status"]!.GetValue<string>());Assert.Equal(0,state["completed"]!.GetValue<int>());
+            Assert.False(runner.SafeToSwitch);Assert.False(runner.NavigationReleased);
+        }
+        native.CurrentImage=Stamp(routes.Profile,"scene_bag","maint_scene_map");
+        runner.Tick();Assert.False(runner.SafeToSwitch);
+        Assert.Equal("complete",runner.Tick()["status"]!.GetValue<string>());Assert.True(runner.SafeToSwitch);Assert.Empty(native.Keys);
+    }
+    [Fact] public void GatheringArrivalTitleAloneDoesNotProveACompletedNativeBatch()
+    {
+        var routes=ScreenRoutes.Load(RecognitionTests.Root());routes.Configuration["notifications"]=new JsonObject();
+        routes.Configuration["gathering_observer"]!["completion_idle_seconds"]=0;routes.Configuration["gathering_observer"]!["completion_idle_observations"]=2;
+        var native=new NoInputOps(Stamp(routes.Profile,"scene_bag","maint_scene_map","gathering_observer.task_title"),[]);
+        using var session=new ScreenWorkflowSession(routes,Window(),native,new EmptyOcr(),new MemoryStore());session.Start();
+        session.SavePortState("gathering:arrival-only",new JsonObject{["started"]=true,["action_id"]="a",["session"]=session.Scope.SessionId,["awaiting_task_until"]=DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()/1000d+300});
+        var route=new RuntimeCatalog(routes.Configuration).Gathering["point_herb_09"];var port=session.CreateGatheringPort(route.Key,"arrival-only",new MemoryStore());
+        Assert.Equal("active",port.ObserveOnly(route,"a").TaskStatus);
+        native.CurrentImage=Stamp(routes.Profile,"scene_bag","maint_scene_map");
+        for(var observation=0;observation<4;observation++)
+        {
+            var frame=port.ObserveOnly(route,"a");Assert.NotEqual("complete",frame.TaskStatus);Assert.False(frame.Evidence!["navigation_idle_confirmed"]!.GetValue<bool>());
+        }
+        native.CurrentImage=Stamp(routes.Profile,"scene_bag","maint_scene_map","gathering_observer.running_control");Assert.Equal("active",port.ObserveOnly(route,"a").TaskStatus);
+        native.CurrentImage=Stamp(routes.Profile,"scene_bag","maint_scene_map");port.ObserveOnly(route,"a");Assert.Equal("complete",port.ObserveOnly(route,"a").TaskStatus);
+    }
+    [Theory][InlineData(-70)][InlineData(130)]
+    public void GatheringTaskTitleRemainsBoundWhenTrackerMoves(int titleShift)
+    {
+        var routes=ScreenRoutes.Load(RecognitionTests.Root());routes.Configuration["notifications"]=new JsonObject();
+        var native=new NoInputOps(StampShifted(routes.Profile,"gathering_observer.task_title",0,titleShift,"scene_bag","maint_scene_map"),[]);
+        using var session=new ScreenWorkflowSession(routes,Window(),native,new EmptyOcr(),new MemoryStore());session.Start();
+        session.SavePortState("gathering:moved-title",new JsonObject{["started"]=true,["action_id"]="a",["session"]=session.Scope.SessionId,["awaiting_task_until"]=DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()/1000d+300});
+        var route=new RuntimeCatalog(routes.Configuration).Gathering["point_herb_09"];var port=session.CreateGatheringPort(route.Key,"moved-title",new MemoryStore());
+        Assert.Equal("active",port.ObserveOnly(route,"a").TaskStatus);Assert.Empty(native.Keys);
+    }
+    [Theory][InlineData("ore-task-current.jpg")][InlineData("hard-log-task-current.jpg")]
+    public void RecordedRunningControlKeepsGatheringActiveWithTaskTrackerHidden(string fixture)
+    {
+        var routes=ScreenRoutes.Load(RecognitionTests.Root());routes.Configuration["notifications"]=new JsonObject();
+        var frame=FishingFeedbackTests.ReadImage(Path.Combine(RecognitionTests.Root(),"tests/fixtures/production",fixture));
+        using var matcher=new TemplateMatcher(routes.Profile);
+        Assert.NotNull(matcher.Anchor(frame,"gathering_observer.running_control"));
+        var pixels=frame.CopyPixels();for(var y=140;y<650;y++)Array.Clear(pixels,(y*frame.Width+1020)*3,260*3);
+        var native=new NoInputOps(new RgbImage(frame.Width,frame.Height,pixels),[]);
+        using var session=new ScreenWorkflowSession(routes,Window(),native,new EmptyOcr(),new MemoryStore());session.Start();
+        session.SavePortState("gathering:hidden-tracker",new JsonObject{["started"]=true,["action_id"]="a",["session"]=session.Scope.SessionId,["bound"]=true,["task_id"]="recorded-task"});
+        var route=new RuntimeCatalog(routes.Configuration).Gathering["point_herb_09"];var port=session.CreateGatheringPort(route.Key,"hidden-tracker",new MemoryStore());
+        for(var observation=0;observation<4;observation++)Assert.Equal("active",port.ObserveOnly(route,"a").TaskStatus);
+    }
+    [Theory][InlineData("clay-task-current.jpg")][InlineData("harvest-idle-current.jpg")]
+    public void RecordedRunningControlDoesNotMatchIdleScenes(string fixture)
+    {
+        var routes=ScreenRoutes.Load(RecognitionTests.Root());
+        var frame=FishingFeedbackTests.ReadImage(Path.Combine(RecognitionTests.Root(),"tests/fixtures/production",fixture));
+        using var matcher=new TemplateMatcher(routes.Profile);
+        Assert.Null(matcher.Anchor(frame,"gathering_observer.running_control"));
     }
     [Fact] public void GatheringNavigationScrollsSkillListWhenPointIsOffscreen()
     {

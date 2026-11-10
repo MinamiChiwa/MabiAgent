@@ -114,6 +114,10 @@ public sealed class ScreenWorkflowSession : IDisposable
             return new("notification_"+name,false,hits.Select(h=>h!).ToArray(),new Dictionary<string,PixelPoint>{{"notification.close",Box(close.ControlBox??close.Box).Center}},hits.Select(h=>h!.Box).ToArray());
         }
         var page=focusedRecognition?.Invoke(c)??recognizer.Recognize(c);
+        if(page.Page=="scene"&&Routes.Configuration["quick_reentry"]?["field_exit"] is JsonObject fieldExit
+            &&S(fieldExit,"exit_target") is{} exitTarget&&!page.Targets.ContainsKey(exitTarget)
+            &&S(fieldExit,"exit_template") is{} exitTemplate&&Matcher.Anchor(c.Image,exitTemplate) is{} exit)
+            page=AddTarget(page,exitTarget,exit);
         if(!page.Targets.ContainsKey("page.close")&&(page.Page.EndsWith("_panel",StringComparison.Ordinal)||page.Page is "category_page" or "skills" or "recipe_detail"))
             foreach(var anchor in Names(Routes.Profile.Definition["close_anchors"]))
             {var hit=Matcher.Anchor(c.Image,anchor);if(hit is not null){page=AddTarget(page,"page.close",hit);break;}}

@@ -9,6 +9,7 @@
     "capture_wait_s": 8,
     "field_exit": {
       "exit_target": "storage.room_exit",
+      "exit_template": "storage_room_exit_icon",
       "confirmation_page": "storage_room_exit",
       "timeout_s": 45
     },
@@ -2445,6 +2446,7 @@
     ],
     "completion_idle_seconds": 2,
     "completion_idle_observations": 3,
+    "running_template": "running_control",
     "templates": {
       "task_title": {
         "source": "release_catalog",
@@ -2456,12 +2458,13 @@
           223
         ],
         "search": [
-          1118,
-          187,
-          1278,
-          234
+          1030,
+          110,
+          1280,
+          650
         ],
         "match_mode": "light_text",
+        "relative_contrast": true,
         "threshold": 0.9,
         "path": "assets/templates/gathering_ui/observer_task_title.png",
         "sha256": "d6c28dfea52045622a6fe82ce07be60e474df8d75bcfd851faf68f3b13d3b8e1",
@@ -2472,6 +2475,19 @@
         ],
         "light_threshold": 200,
         "matching_notes": "Pure stable task glyph mask; no source background, progress digits, count or dynamic icon."
+      },
+      "running_control": {
+        "source": "tests/fixtures/production/ore-task-current.jpg",
+        "source_sha256": "8ea6fa7521b39da8fe45003529c00215d36a06d96213e159b3f06528102368a8",
+        "crop_native": [1176, 855, 1231, 910],
+        "search": [1140, 830, 1260, 940],
+        "match_mode": "light_text",
+        "threshold": 0.92,
+        "path": "assets/templates/gathering_ui/observer_running_control.png",
+        "sha256": "15bdd0a4ba9c6561df5778dab216c297e460a1f7bf7a7e7ca9395e14f4351304",
+        "bytes": 186,
+        "light_threshold": 220,
+        "matching_notes": "Stable stop-square glyph; observation only, never an input target."
       },
       "iron_vein_objective": {
         "source": "release_catalog",
@@ -2511,7 +2527,7 @@
         "total": 10
       }
     },
-    "evidence_note": "A bound native task completes only after its stable task labels disappear on the scene for the declared settle interval; no stop/idle icon or quantity is recognized.",
+    "evidence_note": "A bound native task must show its running control, then lose both its task labels and running control on a stable scene for the declared settle interval. Native attempts are not material quantity.",
     "task_title_template": "task_title"
   },
   "calibration": {

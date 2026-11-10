@@ -58,6 +58,7 @@ public sealed class ScreenGatheringPort:ScreenWorkflowPort,IGatheringPort
         if(o.View.Page=="gathering_missing_consumables")return new(o.View.Page,true,true,key,MissingConsumables:true);
         var c=Session.LastCapture!;var cfg=Session.Routes.Configuration["gathering_observer"];var started=state["started"]?.GetValue<bool>()==true&&S(state,"session")==Session.Scope.SessionId&&S(state,"action_id")==actionId;
         var taskTitle=Match(c,S(cfg,"task_title_template"));
+        var runningControl=Match(c,S(cfg,"running_template"));
         // The exact selected detail and durable start intent already bind this native task.
         // During that start's bounded arrival window, its shared stable title is enough;
         // old unknown actions cannot claim a later unrelated task through this path.
@@ -74,21 +75,24 @@ public sealed class ScreenGatheringPort:ScreenWorkflowPort,IGatheringPort
             // The native task title appears while still travelling. Keep the
             // navigation instance alive so a later first wing quote is handled.
             state["bound"]=true;state["task_id"]="screen-gathering:"+key+":"+actionId;status="active";idleCount=0;idleSince=null;
-            // Progress digits are mutable UI and are not recognition anchors.
-            // A started native task is sufficient to enter the active phase;
-            // completion waits for the stable task labels to disappear below.
-            state["progressed"]=true;
+            // The title also appears during arrival. Witness the running control
+            // before accepting this native batch's later idle boundary.
+            if(runningControl)state["progressed"]=true;
             Save();
         }
-        else if(started&&state["bound"]?.GetValue<bool>()==true&&taskTitle)
-        {idleCount=0;idleSince=null;status="active";}
-        else if(o.View.Page=="scene"&&!taskTitle&&!expected&&!(started&&state["bound"]?.GetValue<bool>()!=true&&Session.CurrentNavigationId=="gathering:"+BatchId))
+        else if(started&&state["bound"]?.GetValue<bool>()==true&&(taskTitle||runningControl))
+        {
+            idleCount=0;idleSince=null;status="active";
+            if(runningControl&&state["progressed"]?.GetValue<bool>()!=true){state["progressed"]=true;Save();}
+        }
+        else if(o.View.Page=="scene"&&!taskTitle&&!expected&&!runningControl&&!(started&&state["bound"]?.GetValue<bool>()!=true&&Session.CurrentNavigationId=="gathering:"+BatchId))
         {
             idleSince??=c.CapturedAt;idleCount++;var settled=idleCount>=(cfg?["completion_idle_observations"]?.GetValue<int>()??3)&&c.CapturedAt-idleSince>=(cfg?["completion_idle_seconds"]?.GetFiniteDouble()??2);
             evidence["task_labels_absent"]=true;
-            evidence["navigation_idle_confirmed"]=settled;status=!started?"idle":settled&&state["bound"]?.GetValue<bool>()==true&&state["progressed"]?.GetValue<bool>()==true?"complete":"unknown";
+            evidence["navigation_idle_confirmed"]=settled&&(!started||state["progressed"]?.GetValue<bool>()==true);status=!started?"idle":settled&&state["bound"]?.GetValue<bool>()==true&&state["progressed"]?.GetValue<bool>()==true?"complete":"unknown";
         }
         else{idleCount=0;idleSince=null;}
+        evidence["running_control_visible"]=runningControl;
         // Native attempts are never treated as produced quantity. Unknown yield frees navigation for independent work.
         if(status=="complete")evidence["navigation_idle_confirmed"]=true;
         if(status=="complete"){state["complete"]=true;Session.EndNavigation("gathering:"+BatchId);Save();}

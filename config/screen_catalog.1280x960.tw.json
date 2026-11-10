@@ -27555,7 +27555,7 @@
       }
     },
     "task_title_template": "task_title",
-    "evidence_note": "A bound native task completes only after its stable task labels disappear on the scene for the declared settle interval; no stop/idle icon or quantity is recognized."
+    "evidence_note": "A bound native task must show its running control, then lose both its task labels and running control on a stable scene for the declared settle interval. Native attempts are not material quantity."
   },
   "quantity": {},
   "promoted_chains": {
