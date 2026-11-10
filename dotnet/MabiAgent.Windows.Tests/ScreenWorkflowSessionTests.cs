@@ -2302,17 +2302,46 @@ public sealed class ScreenWorkflowSessionTests
     {
         var routes=ScreenRoutes.Load(RecognitionTests.Root());routes.Configuration["notifications"]=new JsonObject();
         routes.Profile.Definition.Remove("page_variants");routes.Profile.Definition.Remove("coordinate_control_targets");
-        routes.Profile.Definition["pages"]=JsonNode.Parse("""{"scene":{"anchors":["scene_bag"],"targets":{"storage.room_exit":"storage_room_exit_icon"}},"storage_room_exit":{"anchors":["scene_skills"],"coordinate_targets":{"storage.exit_room":[645,833,862,895]}}}""");
+        routes.Profile.Definition["pages"]=JsonNode.Parse("""{"storage_character":{"anchors":["preset_life_header"],"coordinate_targets":{"storage_character.close":[1200,100,1240,140]}},"scene":{"anchors":["scene_bag"],"targets":{"storage.room_exit":"storage_room_exit_icon"}},"storage_room_exit":{"anchors":["scene_skills"],"coordinate_targets":{"storage.exit_room":[645,833,862,895]}}}""");
+        var clicks=new List<PixelPoint>();var native=new NoInputOps(Stamp(routes.Profile,"preset_life_header"),clicks);
+        using var session=new ScreenWorkflowSession(routes,Window(),native,new EmptyOcr(),new MemoryStore());session.Start();
+        var port=session.CreateStoragePort(new WithdrawalPlan(1,"ore",1,"character_storage"),"room-exit",new MemoryStore());Assert.False(port.ReleaseNavigation());Assert.Single(clicks);
+        native.CurrentImage=Stamp(routes.Profile,"scene_bag","storage_room_exit_icon");Thread.Sleep(320);
+        Assert.False(port.ReleaseNavigation());Assert.Equal(2,clicks.Count);Assert.True(port.ReleaseAdvanced);Assert.True(port.ReleaseWaiting);
+        Assert.False(port.ReleaseNavigation());Assert.Equal(2,clicks.Count);Assert.False(port.ReleaseAdvanced);
+        native.CurrentImage=new RgbImage(1280,960,new byte[1280*960*3]);port.Observe();
+        Assert.False(port.ReleaseNavigation());Assert.True(port.ReleaseWaiting);Assert.False(port.ReleaseAdvanced);
+        Assert.True(new PixelBox(1220,8,1275,60).Contains(clicks[1]));
+        native.CurrentImage=Stamp(routes.Profile,"scene_skills");Thread.Sleep(320);port.Observe();Assert.False(port.ReleaseNavigation());Assert.Equal(3,clicks.Count);
+        native.CurrentImage=Stamp(routes.Profile,"scene_bag");port.Observe();Assert.True(port.ReleaseNavigation());Assert.Equal(3,clicks.Count);Assert.Empty(native.Keys);
+    }
+    [Theory][InlineData(true)][InlineData(false)]
+    public void OrdinaryNavigationReleaseKeepsSceneForRepeatedGathering(bool inField)
+    {
+        var routes=ScreenRoutes.Load(RecognitionTests.Root());routes.Configuration["notifications"]=new JsonObject();
+        routes.Profile.Definition.Remove("page_variants");routes.Profile.Definition.Remove("coordinate_control_targets");
+        routes.Profile.Definition["pages"]=JsonNode.Parse("""{"scene":{"anchors":["scene_bag"],"targets":{"storage.room_exit":"storage_room_exit_icon"}}}""");
+        var image=inField?Stamp(routes.Profile,"scene_bag","storage_room_exit_icon"):Stamp(routes.Profile,"scene_bag");
+        var clicks=new List<PixelPoint>();var native=new NoInputOps(image,clicks);
+        using var session=new ScreenWorkflowSession(routes,Window(),native,new EmptyOcr(),new MemoryStore());session.Start();
+        var port=session.CreateMaintenancePort("round-release",new MemoryStore());
+        for(var round=0;round<3;round++)
+        {
+            session.BeginNavigation("maintenance:round-release");port.Observe();
+            Assert.True(port.ReleaseNavigation());Assert.False(port.LastReleaseDispatched);Assert.False(port.ReleaseWaiting);Assert.Null(session.CurrentNavigationId);
+        }
+        Assert.Empty(clicks);Assert.Empty(native.Keys);
+    }
+    [Fact] public void SatisfiedStoragePlanKeepsHuntingSceneWithoutStartingRoomExit()
+    {
+        var routes=ScreenRoutes.Load(RecognitionTests.Root());routes.Configuration["notifications"]=new JsonObject();
+        routes.Profile.Definition.Remove("page_variants");routes.Profile.Definition.Remove("coordinate_control_targets");
+        routes.Profile.Definition["pages"]=JsonNode.Parse("""{"scene":{"anchors":["scene_bag"],"targets":{"storage.room_exit":"storage_room_exit_icon"}}}""");
         var clicks=new List<PixelPoint>();var native=new NoInputOps(Stamp(routes.Profile,"scene_bag","storage_room_exit_icon"),clicks);
         using var session=new ScreenWorkflowSession(routes,Window(),native,new EmptyOcr(),new MemoryStore());session.Start();
-        var port=session.CreateMaintenancePort("room-exit",new MemoryStore());port.Observe();Assert.False(port.ReleaseNavigation());Assert.Single(clicks);
-        Assert.True(port.LastReleaseDispatched);Assert.True(port.ReleaseWaiting);
-        Assert.False(port.ReleaseNavigation());Assert.Single(clicks);Assert.False(port.LastReleaseDispatched);
-        native.CurrentImage=new RgbImage(1280,960,new byte[1280*960*3]);port.Observe();
-        Assert.False(port.ReleaseNavigation());Assert.True(port.ReleaseWaiting);Assert.False(port.LastReleaseDispatched);
-        Assert.True(new PixelBox(1220,8,1275,60).Contains(clicks[0]));
-        native.CurrentImage=Stamp(routes.Profile,"scene_skills");Thread.Sleep(320);port.Observe();Assert.False(port.ReleaseNavigation());Assert.Equal(2,clicks.Count);
-        native.CurrentImage=Stamp(routes.Profile,"scene_bag");port.Observe();Assert.True(port.ReleaseNavigation());Assert.Equal(2,clicks.Count);Assert.Empty(native.Keys);
+        var plan=new WithdrawalPlan(1,"ore",1,"character_storage");var port=session.CreateStoragePort(plan,"satisfied-in-field",new MemoryStore());
+        var runner=new StorageSupplyRunner([plan],port,new MemoryStore());Assert.True(runner.RetireSatisfiedPlans(_=>true));
+        Assert.True(runner.ReleaseNavigation());Assert.False(runner.ExitPageUnverified);Assert.False(port.ReleaseAdvanced);Assert.Empty(clicks);Assert.Empty(native.Keys);
     }
     [Fact] public void MaintenanceClosesAttendanceInterruptionAndResumesThePendingRoute()
     {
@@ -2492,6 +2521,43 @@ public sealed class ScreenWorkflowSessionTests
         port.ObserveOnly(route,"scroll");var captures=native.Captures;port.Navigate(route);
         Assert.Equal(3,native.WheelDeltas.Count);Assert.Equal(captures,native.Captures);Assert.Single(clicks);
     }
+    [Theory][InlineData(-180)][InlineData(-80)][InlineData(0)]
+    public void HerbListUsesItsTitleWhenScrollingRowsAreAbsent(int titleShift)
+    {
+        var routes=ScreenRoutes.Load(RecognitionTests.Root());routes.Configuration["notifications"]=new JsonObject();
+        var image=StampShifted(routes.Profile,"preset_herb_title",0,titleShift,"preset_life_header","skills_close","preset_life_3");
+        var clicks=new List<PixelPoint>();var native=new NoInputOps(image,clicks);
+        using var session=new ScreenWorkflowSession(routes,Window(),native,new EmptyOcr(),new MemoryStore());session.Start();
+        var route=new RuntimeCatalog(routes.Configuration).Gathering["point_herb_11"];
+        var port=session.CreateGatheringPort(route.Key,"herb-title",new MemoryStore());
+        Assert.Equal("herb_nodes",port.ObserveOnly(route,"a").Page);port.Navigate(route);
+        Assert.Equal(3,native.WheelDeltas.Count);Assert.All(native.WheelPoints,p=>Assert.True(new PixelBox(800,275,1190,885).Contains(p)));Assert.Empty(clicks);
+        native.CurrentImage=StampShifted(routes.Profile,"preset_herb_title",0,titleShift,"preset_life_header","skills_close","preset_life_3","preset_catalog_point_herb_11_node");
+        Assert.Equal("herb_nodes",port.ObserveOnly(route,"a").Page);port.Navigate(route);
+        Assert.Equal(3,native.WheelDeltas.Count);Assert.True(new PixelBox(800,850,930,930).Contains(Assert.Single(clicks)));
+    }
+    [Fact] public void GatheringListSearchBudgetSurvivesPageReentry()
+    {
+        var routes=ScreenRoutes.Load(RecognitionTests.Root());routes.Configuration["notifications"]=new JsonObject();
+        routes.Profile.Definition.Remove("page_variants");routes.Profile.Definition.Remove("coordinate_control_targets");
+        routes.Profile.Definition["pages"]=JsonNode.Parse("""{"character_life_skills":{"anchors":["scene_bag"],"coordinate_targets":{"gathering.open_skill_3":[600,100,640,140]}},"herb_nodes":{"anchors":["scene_skills"],"surfaces":{"list.scroll":[800,275,1190,885]}}}""");
+        var life=Stamp(routes.Profile,"scene_bag");var list=Stamp(routes.Profile,"scene_skills");
+        var native=new NoInputOps(list,[]);
+        using var session=new ScreenWorkflowSession(routes,Window(),native,new EmptyOcr(),new MemoryStore());session.Start();
+        var route=new RuntimeCatalog(routes.Configuration).Gathering["point_herb_11"];
+        var port=session.CreateGatheringPort(route.Key,"reentered-list",new MemoryStore());port.ObserveOnly(route,"a");
+        for(var attempt=0;attempt<ScreenWorkflowSession.ListSearchLimit;attempt++)
+        {
+            port.Navigate(route);
+            native.CurrentImage=life;port.ObserveOnly(route,"a");port.Navigate(route);
+            native.CurrentImage=list;port.ObserveOnly(route,"a");
+        }
+        Assert.Throws<InputBlockedException>(()=>port.Navigate(route));
+        Assert.Equal(ScreenWorkflowSession.ListSearchLimit*3,native.WheelDeltas.Count);
+        Assert.All(native.WheelDeltas.Take(ScreenWorkflowSession.ListSearchPassLength*3),d=>Assert.Equal(-120,d));
+        Assert.All(native.WheelDeltas.Skip(ScreenWorkflowSession.ListSearchPassLength*3),d=>Assert.Equal(120,d));
+        Assert.All(native.WheelPoints,p=>Assert.True(new PixelBox(800,275,1190,885).Contains(p)));
+    }
     [Fact] public void CurrentWoolSelectionClicksOrdinarySheepWithoutScrolling()
     {
         var routes=ScreenRoutes.Load(RecognitionTests.Root());routes.Configuration["notifications"]=new JsonObject();
@@ -2564,9 +2630,9 @@ public sealed class ScreenWorkflowSessionTests
         public RgbImage? CurrentImage;public Func<int,RgbImage>? CaptureFrame;public NativeWindowState? State;
         public double CaptureMilliseconds;public Action? OnPointerDown;public Action<ushort>? OnKeyDown;public HashSet<ushort> HeldKeys=[];
         public bool Background,Minimized;public nint OtherForeground=99;public int Captures;public List<ushort> Keys {get;}=[];public bool RequiresForeground=>!Background;public void BindGuard(ForegroundInputGuard guard){}
-        private PixelPoint point;public int Wheels;public List<int> WheelDeltas {get;}=[];
+        private PixelPoint point;public int Wheels;public List<int> WheelDeltas {get;}=[];public List<PixelPoint> WheelPoints {get;}=[];
         public NativeWindowState ReadWindow(nint hwnd)=>State??(Window() with{ForegroundId=Background?OtherForeground:1,Minimized=Minimized});public RgbImage CaptureClient(NativeWindowState state){var began=System.Diagnostics.Stopwatch.GetTimestamp();Captures++;var result=CaptureFrame?.Invoke(Captures)??CurrentImage??image??throw new InvalidOperationException("no capture in construction tests");CaptureMilliseconds+=System.Diagnostics.Stopwatch.GetElapsedTime(began).TotalMilliseconds;return result;}
-        public void MoveClient(nint hwnd,PixelPoint position){if(clicks is null)throw new InvalidOperationException("no input");point=position;}public void MouseButton(MouseButton button,bool down){if(clicks is null)throw new InvalidOperationException("no input");if(down){OnPointerDown?.Invoke();clicks.Add(point);}}public void Wheel(int delta){if(clicks is null)throw new InvalidOperationException("no input");Wheels++;WheelDeltas.Add(delta);}public void Key(ushort key,bool down,bool unicode=false){if(down){OnKeyDown?.Invoke(key);Keys.Add(key);HeldKeys.Add(key);}else HeldKeys.Remove(key);}public bool AnyPhysicalKeyDown()=>false;
+        public void MoveClient(nint hwnd,PixelPoint position){if(clicks is null)throw new InvalidOperationException("no input");point=position;}public void MouseButton(MouseButton button,bool down){if(clicks is null)throw new InvalidOperationException("no input");if(down){OnPointerDown?.Invoke();clicks.Add(point);}}public void Wheel(int delta){if(clicks is null)throw new InvalidOperationException("no input");Wheels++;WheelDeltas.Add(delta);WheelPoints.Add(point);}public void Key(ushort key,bool down,bool unicode=false){if(down){OnKeyDown?.Invoke(key);Keys.Add(key);HeldKeys.Add(key);}else HeldKeys.Remove(key);}public bool AnyPhysicalKeyDown()=>false;
     }
 }
 

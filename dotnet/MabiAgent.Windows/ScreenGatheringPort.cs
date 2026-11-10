@@ -6,7 +6,7 @@ namespace MabiAgent.Windows;
 public sealed class ScreenGatheringPort:ScreenWorkflowPort,IGatheringPort
 {
     private readonly string key;private readonly JsonNode route;private JsonNode nav;private JsonNode? observer;private readonly JsonObject state;private readonly ScreenWorkbenchFlow workbench;
-    private int idleCount;private double? idleSince;private string? pendingPage,pendingExpectedPage;private double pendingAt,pendingSince;private JsonNode? pendingStep;private int navigationRetries;private int scrollCount;private ScreenMaintenancePort? releaseNavigation;
+    private int idleCount;private double? idleSince;private string? pendingPage,pendingExpectedPage;private double pendingAt,pendingSince;private JsonNode? pendingStep;private int navigationRetries;private readonly Dictionary<string,int> scrollCounts=[];private ScreenMaintenancePort? releaseNavigation;
     public bool HasExtensionPending=>workbench.Available&&workbench.Progress.State!=WorkbenchFlowState.Completed;
     public bool TickExtension()
     {
@@ -30,7 +30,7 @@ public sealed class ScreenGatheringPort:ScreenWorkflowPort,IGatheringPort
         var next=(state["source_fallback_index"]?.GetValue<int>()??-1)+1;
         if(route["fallback_sources"] is not JsonArray choices||next>=choices.Count)return false;
         var source=choices[next]!;nav=source["navigation"]!;observer=source["observer"];state["source_fallback_index"]=next;state["source_node"]=source["node"]!.DeepClone();Save();
-        scrollCount=navigationRetries=0;pendingPage=pendingExpectedPage=null;pendingStep=null;Session.TraceNavigation(BatchId,S(source,"node")??"fallback","unavailable_source_fallback");return true;
+        scrollCounts.Clear();navigationRetries=0;pendingPage=pendingExpectedPage=null;pendingStep=null;Session.TraceNavigation(BatchId,S(source,"node")??"fallback","unavailable_source_fallback");return true;
     }
     protected override PageView Decorate(ClientCapture capture,PageView view)
     {
@@ -105,7 +105,7 @@ public sealed class ScreenGatheringPort:ScreenWorkflowPort,IGatheringPort
         if(pendingPage is not null)
         {
             if((pendingExpectedPage is{} expected?o.View.Page==expected:o.View.Page!=pendingPage)||o.View.Page!=S(nav,"detail_page")&&o.View.Page.StartsWith("point_detail_",StringComparison.Ordinal))
-            {pendingPage=pendingExpectedPage=null;pendingStep=null;scrollCount=navigationRetries=0;}
+            {pendingPage=pendingExpectedPage=null;pendingStep=null;navigationRetries=0;}
             else
             {
                 var now=Session.LastCapture!.CapturedAt;var retry=Session.Routes.Configuration["navigation_retry"];
@@ -146,8 +146,10 @@ public sealed class ScreenGatheringPort:ScreenWorkflowPort,IGatheringPort
         var target=S(step,"target");
         if(target is not null&&!o.View.Targets.ContainsKey(target)&&o.View.Targets.ContainsKey("list.scroll"))
         {
+            // Keep each list's search budget when recognition or navigation returns to it.
+            var scrollCount=scrollCounts.GetValueOrDefault(o.View.Page);
             if(scrollCount>=ScreenWorkflowSession.ListSearchLimit){if(TryNextSource())return;throw new InputBlockedException("采集点列表搜索已到上限");}
-            Session.ScrollListSearch(o,scrollCount++);
+            Session.ScrollListSearch(o,scrollCount);scrollCounts[o.View.Page]=scrollCount+1;
             return;
         }
         Session.Step(step);WaitForNavigation(o,step);

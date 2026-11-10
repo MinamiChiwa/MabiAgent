@@ -1745,13 +1745,14 @@
           414
         ],
         "search": [
-          702,
-          382,
-          860,
-          414
+          690,
+          180,
+          880,
+          450
         ],
         "threshold": 0.97,
         "match_mode": "light_text",
+        "relative_contrast": true,
         "source": "release_catalog",
         "source_sha256": "e16eadc315532e5b78bdba792ef2ee920b4cee24188ed119f07c9c08d7a387b3",
         "crop_native": [

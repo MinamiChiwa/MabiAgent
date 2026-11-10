@@ -16,6 +16,7 @@ public sealed class ScreenMaintenancePort:ScreenWorkflowPort,IMaintenancePort
     private bool zoomCentering,zoomScaleChanged;private int mapRecoveries;
     private int dialogueSteps,releaseRetries;
     private int releaseDialogueSteps;private double lastReleaseDialogueAt=-1;
+    private bool releaseStorageRoom;
     private double? releaseLoadStartedAt;
     private long? previewQuote;private long previewEpoch;
     private string? rejectedKey;private double rejectedAt;
@@ -119,7 +120,7 @@ public sealed class ScreenMaintenancePort:ScreenWorkflowPort,IMaintenancePort
         }
         return null;
     }
-    public void ResetNavigation(){previewQuote=null;routeKey=stage=lastPage=rejectedKey=awaitingSignature=null;awaiting=null;beforeMap=null;beforeTerrain=null;searches=zoomPasses=mapRecoveries=dialogueSteps=releaseDialogueSteps=releaseRetries=0;zoomCentering=zoomScaleChanged=false;lastReleaseDialogueAt=-1;nextAt=0;dispatchedSearch=false;LastTestNavigationTrace=null;dispatched.Clear();Session.EndNavigation("maintenance:"+BatchId);}
+    public void ResetNavigation(){previewQuote=null;routeKey=stage=lastPage=rejectedKey=awaitingSignature=null;awaiting=null;beforeMap=null;beforeTerrain=null;searches=zoomPasses=mapRecoveries=dialogueSteps=releaseDialogueSteps=releaseRetries=0;zoomCentering=zoomScaleChanged=releaseStorageRoom=false;lastReleaseDialogueAt=-1;nextAt=0;dispatchedSearch=false;LastTestNavigationTrace=null;dispatched.Clear();Session.EndNavigation("maintenance:"+BatchId);}
     private RgbImage Terrain()=>Session.LastCapture!.Image.Crop(Session.Box(new PixelBox(200,150,1050,780)));
     private bool ZoomStillChangesScale()
     {
@@ -139,7 +140,14 @@ public sealed class ScreenMaintenancePort:ScreenWorkflowPort,IMaintenancePort
     }
     internal static bool MapChanged(byte[] before,byte[] after)
     {var changed=0;for(var i=0;i<before.Length;i+=3)if(Math.Max(Math.Abs(before[i]-after[i]),Math.Max(Math.Abs(before[i+1]-after[i+1]),Math.Abs(before[i+2]-after[i+2])))>25)changed++;return changed>before.Length/3*.10;}
-    public bool ReleaseNavigation()
+    public bool ReleaseNavigation()=>ReleaseNavigation(false);
+    internal bool ReleaseStorageNavigation()
+    {
+        // A storage-page origin owns the inn-room departure until the scene is confirmed.
+        if(Session.LastObservation?.View.Page is "storage_dialog" or "storage_character" or "storage_account" or "storage_detail" or "storage_transfer")releaseStorageRoom=true;
+        return ReleaseNavigation(releaseStorageRoom);
+    }
+    private bool ReleaseNavigation(bool leaveRoom)
     {
         LastReleaseDispatched=false;
         var o=Session.LastObservation;
@@ -165,7 +173,7 @@ public sealed class ScreenMaintenancePort:ScreenWorkflowPort,IMaintenancePort
         }
         if(o.View.Page=="scene")
         {
-            if(o.View.Targets.ContainsKey("storage.room_exit"))
+            if(leaveRoom&&o.View.Targets.ContainsKey("storage.room_exit"))
             {
                 var exit=new JsonObject{["target"]="storage.room_exit",["wait_for_pages"]=new JsonArray("storage_room_exit"),["timeout_s"]=15};
                 var prior=LastTestNavigationTrace;
