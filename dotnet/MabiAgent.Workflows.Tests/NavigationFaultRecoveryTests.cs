@@ -116,6 +116,30 @@ public sealed class NavigationFaultRecoveryTests
         Assert.Equal(1, faults);
     }
 
+    [Fact]
+    public void OtherNavigationCompletionReleasesFaultedWaitWithoutSendingInput()
+    {
+        var clock = new Clock();
+        var port = new Port(clock) { NavigationActive = true };
+        var runner = new IdleFishingRunner(new("point", 3600), port, new MemoryStore(), time: clock);
+        var dispatcher = new WorkflowDispatcher(clock);
+        dispatcher.Register("fish", runner);
+        dispatcher.Continue();
+        WorkCandidate[] plan = [new("fish", "idle_fishing", null, true, 0, 0)];
+        dispatcher.Tick(plan, null);
+        dispatcher.Tick(plan, null);
+        clock.Seconds = 181;
+        Assert.Throws<TimeoutException>(() => dispatcher.Tick(plan, null));
+        Assert.Equal("fish", dispatcher.ActiveId);
+
+        port.NavigationActive = false;
+        clock.Seconds = 182;
+        dispatcher.Tick(plan, null);
+        Assert.Null(dispatcher.ActiveId);
+        Assert.Contains("fish", dispatcher.Faults.Keys);
+        Assert.Empty(port.Actions);
+    }
+
     private sealed class Clock : TimeProvider
     {
         public double Seconds;

@@ -178,7 +178,7 @@ public sealed class IdleFishingRunner : PersistentWorkflow
         lock (Gate)
         {
             if (S("status") is "complete" or "yielded") return;
-            if (Pending is null && !B("round_seen") && !(S("phase") == "navigate" && (B("navigation_seen") || port.NavigationIssued || State["navigation_deadline"] is not null))) return;
+            if (Pending is null && !B("round_seen") && !(S("phase") == "navigate" && (B("navigation_seen") || port.NavigationIssued || State["navigation_deadline"] is not null || State["unexpected_navigation_deadline"] is not null))) return;
             var f = port.ObserveOnly();
             if (!double.IsFinite(f.At) || string.IsNullOrWhiteSpace(f.CaptureId) || !Ready(f.Page, f.Foreground, f.Stable)) return;
             var reason = S("pause_reason") ?? "fishing_action_confirmed";

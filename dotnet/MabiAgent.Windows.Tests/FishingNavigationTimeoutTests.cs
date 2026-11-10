@@ -93,6 +93,37 @@ public sealed class FishingNavigationTimeoutTests
         Assert.Equal(actions, ops.Actions);
     }
 
+    [Fact]
+    public void SelectionTimeoutRetainsObservedNavigationAcrossUnknownFrames()
+    {
+        var routes = ScreenRoutes.Load(RecognitionTests.Root());
+        routes.Configuration["notifications"] = new JsonObject();
+        var clock = new Clock();
+        var ops = new Ops(Stamp(routes.Profile, "scene_bag", "maint_scene_map"));
+        using var session = new ScreenWorkflowSession(routes, Window(), ops, new EmptyOcr(), new Store());
+        session.Start();
+        var store = new Store(new() { ["status"] = "running", ["phase"] = "navigate" });
+        var port = new ScreenFishingPort(session, "point_fishing_03", "external-navigation", store, clock);
+        port.Observe();
+        port.Perform(new("navigate", "point_fishing_03"));
+        var actions = ops.Actions;
+        ops.Image = Stamp(routes.Profile, "scene_bag", "maint_scene_map", "navigation_task_prefix");
+        clock.Seconds = 1;
+        Assert.True(port.Observe().NavigationActive);
+        clock.Seconds = 90;
+        Assert.Throws<TimeoutException>(() => port.Observe());
+        Assert.False(port.CanReleaseForeground());
+
+        ops.Image = new(1280, 960, new byte[1280 * 960 * 3]);
+        port.ObserveOnly();
+        Assert.False(port.CanReleaseForeground());
+        ops.Image = Stamp(routes.Profile, "scene_bag", "maint_scene_map");
+        clock.Seconds = 91;
+        Assert.False(port.ObserveOnly().NavigationActive);
+        Assert.True(port.CanReleaseForeground());
+        Assert.Equal(actions, ops.Actions);
+    }
+
     private static RgbImage Stamp(NavigationProfile profile, params string[] names)
     {
         var pixels = new byte[1280 * 960 * 3];

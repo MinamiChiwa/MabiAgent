@@ -8,7 +8,7 @@ public sealed class ScreenFishingPort:ScreenWorkflowPort,IFishingPort
 {
     private const double ReelAnimationSeconds=3,RecastWindowSeconds=2;
     private readonly string pointKey;private readonly JsonNode config,nav;private readonly JsonObject state;
-    private bool movingForCast;private ushort? castMovementKey;private bool cast,compass,active,confirm,leisureConfirm,hook,mounted,reelIssued;private bool? leisure;private double? gauge;private bool navigationSeen;
+    private bool movingForCast;private ushort? castMovementKey;private bool cast,compass,active,confirm,leisureConfirm,hook,mounted,reelIssued;private bool? leisure;private double? gauge;private bool navigationSeen,observedNavigationActive;
     private string? pendingPage;private double pendingAt;private bool navigating;
     private JsonNode? pendingStep;private int navigationRetries,scrollCount;private readonly TimeProvider navigationTime;
     private double? unsentNavigationSince,navigationStartedAt;private int pointReselections;private bool navigationFailed;
@@ -21,7 +21,7 @@ public sealed class ScreenFishingPort:ScreenWorkflowPort,IFishingPort
     public FishingFrame? LastFrame {get;private set;}
     public override bool CanReleaseForeground()
     {
-        if(pendingPage is not null||navigating||active)return false;
+        if(pendingPage is not null||navigating||active||observedNavigationActive)return false;
         // 尚未发出旅行的选点失败后，由后续任务接手退出遗留菜单。
         if(navigationFailed&&!Session.Guard.Paused&&Session.InputAvailable&&Session.CurrentNavigationId is null
             &&state["travel_issued"]?.GetValue<bool>()!=true)return true;
@@ -30,7 +30,8 @@ public sealed class ScreenFishingPort:ScreenWorkflowPort,IFishingPort
     public ScreenFishingPort(ScreenWorkflowSession session,string pointKey,string batchId,IWorkflowStore store,TimeProvider? navigationTime=null):base(session,batchId,store)
     {
         this.navigationTime=navigationTime??TimeProvider.System;this.pointKey=pointKey;nav=pointKey==FishingPlan.CurrentLocation?new JsonObject():session.Routes.Configuration["gathering_routes"]?[pointKey]?["navigation"]??throw new ArgumentException("钓鱼点未配置");config=session.Routes.Profile.Definition["idle_fishing"]??new JsonObject();state=session.PortState("fishing:"+batchId);navigationSeen=state["navigation_seen"]?.GetValue<bool>()==true;
-        if(NavigationIssued&&S(store.Read(),"phase")=="navigate"){navigating=true;travelIssuedAt=this.navigationTime.GetUtcNow().ToUnixTimeMilliseconds()/1000d;}
+        var workflow=store.Read();observedNavigationActive=workflow?["unexpected_navigation_deadline"] is not null;
+        if(NavigationIssued&&S(workflow,"phase")=="navigate"){navigating=true;travelIssuedAt=this.navigationTime.GetUtcNow().ToUnixTimeMilliseconds()/1000d;}
     }
     private string? Anchor(string role)=>S(config["anchors"],role);
     protected override PageView Decorate(ClientCapture c,PageView view)
@@ -140,6 +141,9 @@ public sealed class ScreenFishingPort:ScreenWorkflowPort,IFishingPort
         var navigationActive=c is not null&&(navigating||!waiting)
             &&(Session.Hit(c,Anchor("nav"))||Session.Hit(c,"navigation_task_prefix"));
         if(navigationActive&&!navigating)arrivalRevision=null;
+        if(navigationActive)observedNavigationActive=true;
+        else if(observedNavigationActive&&o.Stable&&o.View.Page is "scene" or "fishing")
+        {observedNavigationActive=false;if(!navigating)navigationSettled=true;}
         if(allowInput&&!Session.Guard.Paused&&S(workflow,"status")=="running")CheckSelectionBudget();
         if(c is not null&&o.Stable&&Session.InputAvailable)
         {
@@ -158,7 +162,7 @@ public sealed class ScreenFishingPort:ScreenWorkflowPort,IFishingPort
                 }
             }
             if(navigating&&navigationActive!=true&&o.View.Page is not ("scene" or "fishing"))navigationIdleSince=null;
-            if(allowInput&&navigating&&!navigationSeen&&!Session.Guard.Paused&&S(Store.Read(),"status")=="running")
+            if(allowInput&&navigating&&!navigationSeen&&!navigationActive&&!Session.Guard.Paused&&S(Store.Read(),"status")=="running")
             {
                 try{NavigationStep(o);}
                 catch(Exception e)when(!Session.Guard.Paused&&e is InputBlockedException or InputRejectedBeforeDispatchException){Session.ReportWarning("fishing_navigation",e.Message,BatchId);}
