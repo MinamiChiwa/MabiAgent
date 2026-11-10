@@ -114,6 +114,10 @@ public sealed class ScreenWorkflowSession : IDisposable
             return new("notification_"+name,false,hits.Select(h=>h!).ToArray(),new Dictionary<string,PixelPoint>{{"notification.close",Box(close.ControlBox??close.Box).Center}},hits.Select(h=>h!.Box).ToArray());
         }
         var page=focusedRecognition?.Invoke(c)??recognizer.Recognize(c);
+        if(page.Page=="scene"&&Routes.Configuration["quick_reentry"]?["field_exit"] is JsonObject fieldExit
+            &&S(fieldExit,"exit_target") is{} exitTarget&&!page.Targets.ContainsKey(exitTarget)
+            &&S(fieldExit,"exit_template") is{} exitTemplate&&Matcher.Anchor(c.Image,exitTemplate) is{} exit)
+            page=AddTarget(page,exitTarget,exit);
         if(!page.Targets.ContainsKey("page.close")&&(page.Page.EndsWith("_panel",StringComparison.Ordinal)||page.Page is "category_page" or "skills" or "recipe_detail"))
             foreach(var anchor in Names(Routes.Profile.Definition["close_anchors"]))
             {var hit=Matcher.Anchor(c.Image,anchor);if(hit is not null){page=AddTarget(page,"page.close",hit);break;}}
@@ -255,7 +259,7 @@ public sealed class ScreenWorkflowSession : IDisposable
         try{proof=Guard.ObserveCurrentTarget(target,lastObservationContext==observer?LastObservation:null);}
         catch(InputBlockedException e){ReportWarning("consume_not_dispatched",e.Message,batch);throw new InputRejectedBeforeDispatchException(e.Message);}
         if(movementKey is not null&&target!="fishing.start")throw new InputBlockedException("移动抛竿仅用于已声明钓鱼步骤");
-        Guard.Consume(proof,id,new DurableAuthority(journal,state,Scope,batch,hash,kind,validate,VerifiedOwner),beforeDelivery:beforeDelivery,key:target is "production.craft" or "fishing.start"?(ushort)32:null,movementKey:movementKey);
+        Guard.Consume(proof,id,new DurableAuthority(journal,state,Scope,batch,hash,kind,validate,VerifiedOwner),beforeDelivery:beforeDelivery,key:target is "production.craft" or "fishing.start" or "fishing.reel"?(ushort)32:null,movementKey:movementKey);
     }
     internal sealed class DurableAuthority(IWorkflowStore journal,IWorkflowStore workflow,SessionScope scope,string batch,string pendingHash,string kind,Func<UiObservation,bool> validate,SessionScope? verifiedOwner=null):IProcessScopedConsumptionAuthorization
     {

@@ -36,7 +36,7 @@ public sealed class ScreenStorageSupplyPort:ScreenWorkflowPort,IStorageSupplyPor
     public bool ReleaseAdvanced{get;private set;}
     public bool ReleaseWaiting=>exit?.ReleaseWaiting==true;
     public bool ReleaseNavigation()
-    {exit??=Session.CreateMaintenancePort(BatchId+":exit",Store);exit.Observe();var released=exit.ReleaseNavigation();ReleaseAdvanced=!released&&exit.LastReleaseDispatched;if(released)navigator?.ResetNavigation();return released;}
+    {exit??=Session.CreateMaintenancePort(BatchId+":exit",Store);exit.Observe();var released=exit.ReleaseStorageNavigation();ReleaseAdvanced=!released&&exit.LastReleaseDispatched;if(released)navigator?.ResetNavigation();return released;}
     public ScreenStorageSupplyPort(ScreenWorkflowSession session,WithdrawalPlan plan,string batchId,IWorkflowStore store,Func<InventorySnapshot>? packetInventory=null):base(session,batchId,store)
     {this.plan=plan;this.packetInventory=packetInventory;config=session.Routes.Profile.Definition["storage_supply"]??throw new ArgumentException("仓库缺少校准");scopeType=plan.Scope.Split(':')[0] switch{"character"=>"character_storage","account"=>"account_storage",var value=>value};container=config["containers"]?[scopeType]??throw new ArgumentException("仓库范围未配置");}
     public static bool ScopeMatches(string scope,SessionScope current)

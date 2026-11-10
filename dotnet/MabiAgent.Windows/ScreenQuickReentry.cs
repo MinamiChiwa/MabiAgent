@@ -12,6 +12,7 @@ public sealed class ScreenQuickReentry
     DateTimeOffset preparationNextAt;int dismountAttempts,menuCloseAttempts,rebirthExitAttempts;
     readonly string fieldExitTarget;readonly string fieldExitPage;readonly TimeSpan fieldExitTimeout;
     DateTimeOffset? fieldExitStartedAt;bool fieldExitDispatched;
+    DateTimeOffset? townIdleSince;int townIdleObservations;bool fieldExitConfirmationRequired,fieldExitConfirmationDispatched;
     int appearanceAttempts;DateTimeOffset appearanceRetryAt;DateTimeOffset appearanceClickedAt;DateTimeOffset? pendingClickAt;PixelPoint? stableAppearancePoint;
     string? dialogKind;
     int menuOpenAttempts;DateTimeOffset menuRetryAt;
@@ -40,7 +41,20 @@ public sealed class ScreenQuickReentry
         fieldExitTimeout=TimeSpan.FromSeconds(Math.Clamp(fieldExit?["timeout_s"]?.GetValue<int>()??45,1,120));
         script=new(new(rows.Select(s=>new QuickReentryStep(s["id"]!.GetValue<string>(),s["kind"]!.GetValue<string>() switch{"key"=>QuickReentryStepKind.PressKey,"click_text"=>QuickReentryStepKind.ClickText,"click"=>QuickReentryStepKind.Click,"wait"=>QuickReentryStepKind.WaitForStable,_=>throw new InvalidDataException("快速重进步骤类型无效")},s["id"]!.GetValue<string>(),TimeSpan.FromMilliseconds(s["delay_ms"]?.GetValue<int>()??500)){Timeout=TimeSpan.FromSeconds(s["timeout_s"]?.GetValue<int>()??30)}).ToArray()),completedAt??(()=>DateTimeOffset.UtcNow));
     }
-    public void Start(DateTimeOffset now){session.BeginRecoveryRecognition();preparationDeadline=now.AddSeconds(120);script.Start(now);}
+    void RememberFieldExit(UiObservation? observed,DateTimeOffset now)
+    {
+        if(observed is not{Stable:true})return;
+        var confirmation=observed.View.Page==fieldExitPage;
+        if(confirmation)fieldExitConfirmationRequired=true;
+        if(fieldExitStartedAt is not null||!(confirmation||observed.View.Page=="scene"&&observed.View.Targets.ContainsKey(fieldExitTarget)))return;
+        fieldExitStartedAt=now;fieldExitDispatched=false;
+        session.TraceNavigation("quick_reentry",$"field_exit_required; target={fieldExitTarget}","wait");
+    }
+    public void Start(DateTimeOffset now)
+    {
+        RememberFieldExit(session.LastObservation,now);
+        session.BeginRecoveryRecognition();preparationDeadline=now.AddSeconds(120);script.Start(now);
+    }
     public void Pause()=>script.Pause();
     public bool Tick(DateTimeOffset now)
     {
@@ -55,7 +69,16 @@ public sealed class ScreenQuickReentry
             var stableScene=observed.Stable&&observed.View.Page=="scene";
             var inField=stableScene&&observed.View.Targets.ContainsKey(fieldExitTarget);
             var onFieldExitPage=observed.Stable&&observed.View.Page==fieldExitPage;
-            if(stableScene&&!inField&&observed.View.Targets.ContainsKey("scene.dismount"))
+            RememberFieldExit(observed,now);
+            var townReady=stableScene&&!inField&&fieldExitStartedAt is null;
+            if(stableScene&&!inField&&fieldExitStartedAt is not null&&fieldExitDispatched
+                &&(!fieldExitConfirmationRequired||fieldExitConfirmationDispatched))
+            {
+                townIdleSince??=now;townIdleObservations++;
+                townReady=townIdleObservations>=2&&now-townIdleSince.Value>=TimeSpan.FromSeconds(2);
+            }
+            else{townIdleSince=null;townIdleObservations=0;}
+            if(townReady&&observed.View.Targets.ContainsKey("scene.dismount"))
             {
                 if(++dismountAttempts>3){script.Fail("快速重进前下坐骑未生效");return false;}
                 session.NavigateTarget("scene.dismount");preparationNextAt=now.AddSeconds(1);
@@ -77,19 +100,14 @@ public sealed class ScreenQuickReentry
                     session.TraceNavigation("quick_reentry",cancel?"existing_rebirth.cancel":"existing_rebirth.back","input_dispatched");return false;
                 }
             }
-            if(stableScene&&!inField)
+            if(townReady)
             {
                 if(fieldExitStartedAt is not null)session.TraceNavigation("quick_reentry","town_ready; field_exit_cleared","wait");
                 fieldExitStartedAt=null;prepared=true;script.Pause();script.Continue(now);
             }
-            else if(fieldExitStartedAt is not null||inField||onFieldExitPage)
+            else if(fieldExitStartedAt is not null)
             {
                 preparation??=session.CreateMaintenancePort("quick-reentry-prepare",new PreparationStore());
-                if(fieldExitStartedAt is null)
-                {
-                    fieldExitStartedAt=now;fieldExitDispatched=false;
-                    session.TraceNavigation("quick_reentry",$"field_exit_required; target={fieldExitTarget}","wait");
-                }
                 if(now-fieldExitStartedAt.Value>=fieldExitTimeout)
                 {
                     script.Fail("地图出口超时：未确认回到城镇，未发送重生");
@@ -118,16 +136,8 @@ public sealed class ScreenQuickReentry
                     preparation.Observe();
                     try
                     {
-                        if(preparation.ReleaseNavigation())
-                        {
-                            var after=session.LastObservation;
-                            if(after is{Stable:true}&&after.View.Page=="scene"&&!after.View.Targets.ContainsKey(fieldExitTarget))
-                            {
-                                fieldExitStartedAt=null;prepared=true;
-                                session.TraceNavigation("quick_reentry","town_ready; field_exit_cleared","wait");
-                                script.Pause();script.Continue(now.AddSeconds(2));
-                            }
-                        }
+                        preparation.ReleaseNavigation();
+                        if(preparation.LastReleaseDispatched){fieldExitConfirmationDispatched=true;fieldExitDispatched=true;}
                     }
                     catch(Exception error) when(error is InvalidOperationException or InputRejectedBeforeDispatchException)
                     {
@@ -140,8 +150,9 @@ public sealed class ScreenQuickReentry
             {
                 preparation??=session.CreateMaintenancePort("quick-reentry-prepare",new PreparationStore());
                 preparation.Observe();
-                if(preparation.ReleaseNavigation())
-                {session.BeginRecoveryRecognition();prepared=true;script.Pause();script.Continue(now.AddSeconds(2));}
+                RememberFieldExit(session.LastObservation,now);
+                if(fieldExitStartedAt is not null)return false;
+                if(preparation.ReleaseNavigation())session.BeginRecoveryRecognition();
                 return false;
             }
             else

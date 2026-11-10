@@ -12,7 +12,13 @@ public sealed class FaultIsolationTests
         var port=new ProductionPort{Frame=new("metal_panel",EmptySlots:foreignReady?[1]:[0,1],ReadySlots:foreignReady?[0]:[],CollectAvailable:foreignReady,SlotCount:2)};
         var runner=new ProductionRunner(port,store,new("a","metal",60),time:time);var state=runner.Snapshot();
         state["phase"]="collect";state["status"]="running";state["reason"]="collection_owner_unverified";store.Flush(state);
-        runner=new(port,store,new("a","metal",60),time:time);runner.Resume(true);runner.Tick();runner.Tick();
+        runner=new(port,store,new("a","metal",60),time:time);runner.Resume(true);runner.Tick();
+        if(foreignReady)
+        {
+            Assert.Equal("collect",Assert.Single(port.Clicks));port.Frame=port.Frame with{EmptySlots=[0,1],ReadySlots=[]};runner.Tick();
+            Assert.Equal(0,runner.Snapshot()["completed"]!.GetValue<int>());Assert.Null(runner.Snapshot()["pending"]);return;
+        }
+        runner.Tick();
         Assert.Equal("recipe",runner.Snapshot()["phase"]!.GetValue<string>());Assert.Contains("recipe",port.Navigation);Assert.Empty(port.Clicks);
         Assert.Equal(0,runner.Snapshot()["completed"]!.GetValue<int>());Assert.Empty(runner.Snapshot()["owned_slots"]!.AsArray());
     }
@@ -58,16 +64,17 @@ public sealed class FaultIsolationTests
         peer=new(new ProductionPort(),peerStore,new("b","wood",60),3,time);Assert.False(peer.ReconcilePeerCollection([0],"compact-one",true));Assert.Equal(new[]{0,1,2},peer.Snapshot()["owned_slots"]!.AsArray().Select(n=>n!.GetValue<int>()));Assert.True(peer.HasAppliedCollection("compact-one"));
     }
     [Theory][InlineData(true)][InlineData(false)]
-    public void ExplicitCollectAllApprovalIsOneShotAndCreditsOnlyOwnedSlots(bool valid)
+    public void LegacyApprovalExpiryDoesNotBlockCollectionAndOnlyOwnedSlotsAreCredited(bool valid)
     {
         var time=new ManualTime();var store=new MemoryStore();var port=new ProductionPort{Frame=new("metal_panel",EmptySlots:[],ReadySlots:[0,1],CollectAvailable:true,SlotCount:2)};
         var runner=new ProductionRunner(port,store,new("a","metal",60),time:time);var state=runner.Snapshot();
         state["submitted"]=1;state["owned_slots"]=new JsonArray(1);state["phase"]="collect";state["status"]="running";
         state["collect_all_once"]=new JsonObject{["source"]="user_explicit",["device"]="metal",["expires_at"]=valid?10000d:0d};store.Flush(state);
         runner=new(port,store,new("a","metal",60),time:time);runner.Resume(true);runner.Tick();
-        if(!valid){Assert.Empty(port.Clicks);Assert.Equal("collection_owner_unverified",runner.Snapshot()["reason"]!.GetValue<string>());return;}
-        Assert.Equal("collect",Assert.Single(port.Clicks));Assert.Null(store.Read()!["collect_all_once"]);Assert.NotNull(store.Read()!["pending"]!["collect_all_approval"]);
-        port.Frame=port.Frame with{EmptySlots=[0,1],ReadySlots=[]};runner.Tick();Assert.Equal(1,runner.Snapshot()["completed"]!.GetValue<int>());Assert.Null(runner.Snapshot()["pending"]);
+        Assert.Equal("collect",Assert.Single(port.Clicks));Assert.Null(store.Read()!["collect_all_once"]);
+        Assert.Equal(new[]{0,1},store.Read()!["pending"]!["target_slots"]!.AsArray().Select(n=>n!.GetValue<int>()));
+        port.Frame=port.Frame with{EmptySlots=[0,1],ReadySlots=[]};runner.Tick();
+        Assert.Equal(1,runner.Snapshot()["completed"]!.GetValue<int>());Assert.Null(runner.Snapshot()["pending"]);
     }
     [Fact] public void EmptyOwnedSlotWithoutCollectionIntentNeverCreditsOutput()
     {
@@ -95,7 +102,7 @@ public sealed class FaultIsolationTests
         Assert.Empty(port.Clicks);Assert.Contains("recipe",otherPort.Navigation);Assert.False(dispatcher.IsPaused);
     }
     [Theory][InlineData(false)][InlineData(true)]
-    public void PlayerOccupiedDeviceDoesNotCollectPlayerJobsOrBlockAnotherDevice(bool ready)
+    public void OccupiedDeviceCollectsFinishedSlotsAndReleasesOtherDevices(bool ready)
     {
         var time=new ManualTime();var native=new ProductionPort{Frame=new("metal_panel",EmptySlots:[],ReadySlots:ready?[0,1]:[],CollectAvailable:ready,SlotCount:2)};
         var otherPort=new ProductionPort{Frame=new("wood_panel",EmptySlots:[0],SlotCount:1)};
@@ -103,8 +110,13 @@ public sealed class FaultIsolationTests
         var second=new ProductionRunner(otherPort,new MemoryStore(),new("b","wood",60),time:time);
         var dispatcher=new WorkflowDispatcher(time);dispatcher.Register("a",first,"metal");dispatcher.Register("b",second,"wood");dispatcher.Continue();
         WorkCandidate[] plan=[new("a","production","metal",true,5,0),new("b","production","wood",true,5,1)];
-        for(var i=0;i<6;i++)dispatcher.Tick(plan,null);
-        Assert.Empty(native.Clicks);Assert.Contains("recipe",otherPort.Navigation);Assert.False(dispatcher.IsPaused);
+        for(var i=0;i<10;i++)
+        {
+            dispatcher.Tick(plan,null);
+            if(native.Clicks.Count>0){first.StopSubmitting();native.Frame=native.Frame with{EmptySlots=[0,1],ReadySlots=[],CollectAvailable=false};}
+            if(native.Navigation.Contains("leave"))native.Frame=new("scene");
+        }
+        Assert.Equal(ready?1:0,native.Clicks.Count);Assert.Contains("recipe",otherPort.Navigation);Assert.False(dispatcher.IsPaused);
     }
     [Theory][InlineData(false)][InlineData(true)]
     public void PlayerOccupiedSlotStillAllowsCraftInFreeSlotWithoutCollectingPlayerTask(bool ready)
@@ -154,32 +166,7 @@ public sealed class FaultIsolationTests
         Assert.Equal(1,peer.Snapshot()["completed"]!.GetValue<int>());Assert.Equal(new[]{2},peer.Snapshot()["owned_slots"]!.AsArray().Select(n=>n!.GetValue<int>()));Assert.Equal("waiting",peer.Snapshot()["phase"]!.GetValue<string>());Assert.Equal("paused",peer.Snapshot()["status"]!.GetValue<string>());
         runner.AcknowledgeCollection(receipt["id"]!.GetValue<string>());Assert.Empty(runner.Snapshot()["collection_receipts"]!.AsArray());Assert.Single(port.Clicks);
     }
-    [Fact] public void ReadySlotWithUnknownOwnerPreventsCollectAll()
-    {
-        var time=new ManualTime();var store=new MemoryStore();var port=new ProductionPort{Frame=new("metal_panel",EmptySlots:[],ReadySlots:[0,1],CollectAvailable:true,SlotCount:2)};
-        var runner=new ProductionRunner(port,store,new("a","metal",60),time:time);var saved=runner.Snapshot();saved["submitted"]=1;saved["owned_slots"]=new JsonArray(0);saved["phase"]="waiting";saved["due_at"]=90d;store.Flush(saved);
-        runner=new(port,store,new("a","metal",60),time:time);runner.Resume(true);runner.Tick();Assert.Empty(port.Clicks);Assert.Equal("collection_owner_unverified",runner.Snapshot()["reason"]!.GetValue<string>());
-    }
-    [Theory][InlineData(false)][InlineData(true)]
-    public void ForeignReadySlotIsClearedOnlyWithExplicitApproval(bool approved)
-    {
-        var time=new ManualTime();var store=new MemoryStore();var port=new ProductionPort{Frame=new("metal_panel",EmptySlots:[],ReadySlots:[0,1],CollectAvailable:true,SlotCount:3)};
-        IReadOnlyDictionary<string,int[]> Owners()=>new Dictionary<string,int[]>{{"a",[0]}};
-        var runner=new ProductionRunner(port,store,new("a","metal",60),time:time,collectionOwners:Owners);var saved=runner.Snapshot();
-        saved["submitted"]=1;saved["owned_slots"]=new JsonArray(0);saved["phase"]="waiting";saved["status"]="waiting";saved["due_at"]=90d;saved["production_due_at"]=90d;
-        if(approved)saved["collect_all_once"]=new JsonObject{["source"]="user_explicit",["device"]="metal",["expires_at"]=10000d};
-        store.Flush(saved);
-        runner=new(port,store,new("a","metal",60),time:time,collectionOwners:Owners);time.Seconds=91;runner.Resume(true);runner.Tick();
-        // One click clears both slots, so the neighbour is never silently included.
-        Assert.Equal(new[]{1},runner.Snapshot()["foreign_ready"]!.AsArray().Select(n=>n!.GetValue<int>()));
-        if(!approved)
-        {
-            Assert.Empty(port.Clicks);Assert.Equal("collection_owner_unverified",runner.Snapshot()["reason"]!.GetValue<string>());
-            Assert.Equal("waiting",runner.Snapshot()["phase"]!.GetValue<string>());Assert.Equal(391,runner.NextCollectionAt(true));return;
-        }
-        Assert.Equal("collect",Assert.Single(port.Clicks));
-        Assert.Equal(new[]{0,1},store.Read()!["pending"]!["target_slots"]!.AsArray().Select(n=>n!.GetValue<int>()));
-    }
+
     [Fact] public void LaterSlotKeepsItsOwnDueWhenEarlierCheckBacksOff()
     {
         var time=new ManualTime();var store=new MemoryStore();var port=new ProductionPort{Frame=new("metal_panel",EmptySlots:[],ReadySlots:[],SlotCount:2)};
@@ -238,14 +225,7 @@ public sealed class FaultIsolationTests
         runner=new(port,store,new("a","metal",60),3,time);
         Assert.Equal(315,runner.NextCollectionAt(true));
     }
-    [Fact] public void PlayerFullDeviceRechecksSlowlyInsteadOfParkingTheBatch()
-    {
-        var time=new ManualTime();var port=new ProductionPort{Frame=new("metal_panel",EmptySlots:[],ReadySlots:[0,1],CollectAvailable:true,SlotCount:2)};
-        var runner=new ProductionRunner(port,new MemoryStore(),new("a","metal",60),time:time);runner.Resume(true);runner.Tick();
-        Assert.Empty(port.Clicks);Assert.Equal("waiting",runner.Snapshot()["phase"]!.GetValue<string>());
-        Assert.Equal("waiting",runner.Snapshot()["status"]!.GetValue<string>());Assert.Equal(400,runner.Snapshot()["due_at"]!.GetFiniteDouble());
-        Assert.Equal(400,runner.NextCollectionAt());Assert.Equal("collection_owner_unverified",runner.Snapshot()["reason"]!.GetValue<string>());
-    }
+
     [Fact] public void SafeNavigationFailureQuarantinesOnlyTaskAndSupplyCannotRetryIt()
     {
         var bad=new FaultPort{FailNavigation=true,Releasable=true};var good=new FaultPort();
@@ -271,12 +251,19 @@ public sealed class FaultIsolationTests
         Assert.NotEqual("paused",runner.Snapshot()["status"]!.GetValue<string>());
     }
     [Theory] [InlineData(false)] [InlineData(true)]
-    public void UnprovenReleaseOrPersistenceErrorNeverQuarantines(bool persistence)
+    public void PersistenceFailurePropagatesAndUnprovenReleaseRetainsOwnership(bool persistence)
     {
         var port=new FaultPort{FailNavigation=true,Releasable=persistence,PersistenceFailure=persistence};
         var dispatcher=new WorkflowDispatcher();dispatcher.Register("a",new ProductionRunner(port,new MemoryStore(),new("a","metal",60)),"metal");dispatcher.Continue();
         WorkCandidate[] plan=[new("a","production","metal",true,5,0)];dispatcher.Tick(plan,null);
-        Assert.ThrowsAny<Exception>(()=>dispatcher.Tick(plan,null));Assert.Empty(dispatcher.Faults);Assert.Equal("a",dispatcher.ActiveId);
+        Assert.ThrowsAny<Exception>(()=>dispatcher.Tick(plan,null));Assert.Equal("a",dispatcher.ActiveId);
+        if(persistence)Assert.Empty(dispatcher.Faults);
+        else
+        {
+            Assert.Contains("a",dispatcher.Faults.Keys);
+            for(var i=0;i<5;i++)Assert.Null(Record.Exception(()=>dispatcher.Tick(plan,null)));
+            Assert.Equal(1,port.Navigations);Assert.Equal("a",dispatcher.ActiveId);
+        }
     }
     [Fact] public void FailedObservationAcrossPendingInputRetainsIntentAndOwnership()
     {
@@ -285,7 +272,8 @@ public sealed class FaultIsolationTests
         WorkCandidate[] plan=[new("a","production","metal",true,1,0)];dispatcher.Tick(plan,null);dispatcher.Tick(plan,null);
         port.Frame=new("recipe_detail",RecipeKey:"a",CraftAvailable:true);dispatcher.Tick(plan,null);Assert.NotNull(store.Read()!["pending"]);Assert.Equal(1,port.Crafts);
         port.FailObserve=true;Assert.Throws<InvalidOperationException>(()=>dispatcher.Tick(plan,null));
-        Assert.Empty(dispatcher.Faults);Assert.Equal("a",dispatcher.ActiveId);Assert.NotNull(store.Read()!["pending"]);Assert.Equal(1,port.Crafts);
+        for(var i=0;i<5;i++)Assert.Null(Record.Exception(()=>dispatcher.Tick(plan,null)));
+        Assert.Contains("a",dispatcher.Faults.Keys);Assert.Equal("a",dispatcher.ActiveId);Assert.NotNull(store.Read()!["pending"]);Assert.Equal(1,port.Crafts);
     }
     [Fact] public void StalledMaintenanceReleasesOnlyRepairAndBlocksDependentGathering()
     {

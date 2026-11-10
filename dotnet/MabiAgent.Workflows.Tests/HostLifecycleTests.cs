@@ -150,11 +150,9 @@ public sealed class HostLifecycleTests : IDisposable
         Assert.True(ports.Store.Releases<=StorageSupplyRunner.MaximumReleaseAttempts+1,ports.Store.Releases.ToString());
         Assert.Equal("release_attempts_exhausted",store.Read()!["release_reason"]!.GetValue<string>());
     }
-    [Fact] public void ForeignOnlyDeviceReleasesTheTurnSoIndependentGatheringNavigates()
+    [Theory][InlineData(420)][InlineData(4200)]
+    public void FinishedUnknownSlotsAreCollectedBeforeIndependentGatheringNavigates(double checkAt)
     {
-        // Live evidence: a device holds finished player-native slots, so our own
-        // collection is refused. The batch must keep its due time without pinning
-        // the device page, and an unrelated job must still get the turn and navigate.
         var queue=new RuntimeQueue(directory);
         queue.Edit(q=>{q.Add("iron","production",3,1,"iron",[]);q.Add("ore","gathering",1,1,"ore",[]);});
         var ports=new Ports{PlayerReady=true};ports.Set(1,10);var time=new ManualTime();
@@ -166,15 +164,12 @@ public sealed class HostLifecycleTests : IDisposable
         for(var n=0;n<4;n++)host.Tick();
         // Come due while only the player's finished slot is ready. The gathering job
         // is not at its node yet, so it has to navigate once it gets the turn.
-        ports.Set(1,0);ports.Gather.Frame=ports.Gather.Frame with{RouteKey="scene"};time.Seconds=420;
+        ports.Set(1,0);ports.Gather.Frame=ports.Gather.Frame with{RouteKey="scene"};time.Seconds=checkAt;
         for(var n=0;n<8;n++)host.Tick();
         var file=Directory.GetFiles(directory,"production.json",SearchOption.AllDirectories).Single();
         var state=JsonNode.Parse(File.ReadAllText(file))!.AsObject();
-        Assert.Equal("collection_owner_unverified",state["reason"]?.GetValue<string>()??state.ToJsonString());
-        Assert.Equal("waiting",state["phase"]?.GetValue<string>()??state.ToJsonString());
-        Assert.Equal(0,ports.Collections);
-        // The waiting batch does not keep walking back to the device; the released
-        // turn goes to the gathering job, which navigates and starts.
+        Assert.Null(state["reason"]);Assert.Equal(1,ports.Collections);
+        Assert.Equal(1,queue.Read().Jobs.Single(j=>j.Id=="iron").Completed);
         var ironMoves=ports.Navigation.Count(x=>x.StartsWith("iron:",StringComparison.Ordinal));
         for(var n=0;n<10&&ports.Gather.Navigations==0;n++)host.Tick();
         Assert.True(ports.Gather.Navigations>0,string.Join(";",ports.Navigation));
@@ -1098,7 +1093,7 @@ public sealed class HostLifecycleTests : IDisposable
             public void Navigate(string destination,ProductionRecipe recipe)
             {if(host.FailIronNavigation&&key=="iron")throw new InvalidOperationException("iron target unavailable");host.Navigation.Add(key+":"+destination+":crafts="+host.Crafts+":collects="+host.Collections);if(destination=="leave"){host.Leaves++;host.page="scene";host.CurrentDevice=null;}else{host.CurrentDevice=Device;host.page=destination=="recipe"?"recipe_detail":Device+"_panel";host.recipe=key;}}
             public void Click(string kind,ProductionRecipe recipe)
-            {if(kind=="craft"){host.Crafts++;host.occupied[Device]=host.occupied.GetValueOrDefault(Device)+1;}else{host.Collections++;host.occupied[Device]=0;}host.page=Device+"_panel";}
+            {if(kind=="craft"){host.Crafts++;host.occupied[Device]=host.occupied.GetValueOrDefault(Device)+1;}else{host.Collections++;host.occupied[Device]=0;host.PlayerReady=false;}host.page=Device+"_panel";}
             public void Pause(string reason){}public void Resume(){}
         }
     }

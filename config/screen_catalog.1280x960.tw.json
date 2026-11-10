@@ -18083,6 +18083,8 @@
         ],
         "threshold": 0.97,
         "match_mode": "light_text",
+        "relative_contrast": true,
+        "relative_contrast_threshold": 150,
         "source": "tests/fixtures/production/wood-arrived-20261102.jpg",
         "crop_native": [
           77,
@@ -18636,6 +18638,8 @@
         ],
         "threshold": 0.97,
         "match_mode": "light_text",
+        "relative_contrast": true,
+        "relative_contrast_threshold": 40,
         "source": "tests/fixtures/production/wood-arrived-20261102.jpg",
         "crop_native": [
           23,
@@ -20610,6 +20614,27 @@
           675,
           608
         ]
+      },
+      "navigation_task_prefix": {
+        "path": "assets/templates/screen_ui/storage/navigation_task_prefix.png",
+        "sha256": "ffbc9cbf626af2cb0fd0021a38e53854adfdb9fed4d14f6e33292d9b1a5b6a83",
+        "bytes": 2220,
+        "box": [
+          1148,
+          199,
+          1196,
+          223
+        ],
+        "search": [
+          1060,
+          140,
+          1280,
+          360
+        ],
+        "threshold": 0.97,
+        "match_mode": "light_text",
+        "glyph_threshold": 0.9,
+        "light_threshold": 180
       },
       "fishing_navigation_task_current": {
         "path": "assets/templates/screen_ui/storage/fishing_navigation_task_current.png",
@@ -27530,7 +27555,7 @@
       }
     },
     "task_title_template": "task_title",
-    "evidence_note": "A bound native task completes only after its stable task labels disappear on the scene for the declared settle interval; no stop/idle icon or quantity is recognized."
+    "evidence_note": "A bound native task must show its running control, then lose both its task labels and running control on a stable scene for the declared settle interval. Native attempts are not material quantity."
   },
   "quantity": {},
   "promoted_chains": {

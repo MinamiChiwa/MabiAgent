@@ -83,11 +83,16 @@ public sealed class WorkflowDispatcher(TimeProvider? time=null,Action<string,Exc
         try{return TickCore(planned,currentDevice,backpackRelief,locationVerified?onsiteDevice:currentDevice);}
         catch(Exception error)when(error is not (IOException or UnauthorizedAccessException or OutOfMemoryException))
         {
-            var id=ActiveId;var isolated=false;
-            try{isolated=id is not null&&entries.TryGetValue(id,out var entry)&&entry.Isolatable?.Invoke()==true;}catch(Exception checkError)when(checkError is not OutOfMemoryException){error.Data["release_check_failure"]=checkError.ToString();}
-            if(!isolated){if(id is not null)fault?.Invoke(id,error,"foreground");throw;}
-            quarantined[id!]=error.Message;explicitlyResumable.Remove(id!);supplyChanged.Remove(id!);
-            fault?.Invoke(id!,error,"task");ActiveId=null;Status="单个任务异常已隔离，继续独立任务";return null;
+            var id=ActiveId;
+            if(id is null||!entries.TryGetValue(id,out var entry))throw;
+            if(quarantined.ContainsKey(id)){Status="任务异常已隔离，等待上次操作确认或点击继续";return id;}
+            var isolated=false;
+            try{isolated=entry.Isolatable?.Invoke()==true;}catch(Exception checkError)when(checkError is not OutOfMemoryException){error.Data["release_check_failure"]=checkError.ToString();}
+            entry.Pause("module_fault");
+            quarantined[id]=error.Message;explicitlyResumable.Remove(id);supplyChanged.Remove(id);
+            fault?.Invoke(id,error,isolated?"task":"foreground");
+            if(!isolated){Status="任务异常已隔离，保留上次操作占用";throw;}
+            ActiveId=null;Status="单个任务异常已隔离，继续独立任务";return null;
         }
     }
     private string? TickCore(IEnumerable<WorkCandidate> planned,string? currentDevice,bool backpackRelief,string? onsiteDevice)
@@ -97,6 +102,13 @@ public sealed class WorkflowDispatcher(TimeProvider? time=null,Action<string,Exc
         var candidates=planned.Where(p=>entries.ContainsKey(p.Id)&&!held.Contains(p.Id)&&!quarantined.ContainsKey(p.Id)).ToArray();
         if(ActiveId is not null&&entries.TryGetValue(ActiveId,out var active))
         {
+            if(quarantined.ContainsKey(ActiveId))
+            {
+                active.Observe?.Invoke();
+                if(active.Safe()||active.Isolatable?.Invoke()==true||active.Snapshot()["status"]?.GetValue<string>()=="complete")
+                {ActiveId=null;Status="上次操作已确认，继续独立任务";return null;}
+                Status="任务异常已隔离，等待上次操作确认或点击继续";return ActiveId;
+            }
             var state=active.Snapshot();
             var status=state["status"]?.GetValue<string>();
             if(explicitlyResumable.Remove(ActiveId)){active.Resume(true);Status="核验任务页面";return ActiveId;}

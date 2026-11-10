@@ -13,7 +13,7 @@ import xml.etree.ElementTree as ET
 import re
 from pathlib import PurePosixPath
 
-PROJECTS = ('MabiAgent.Core', 'MabiAgent.Workflows', 'MabiAgent.Windows', 'MabiAgent.Capture', 'MabiAgent.Desktop')
+PROJECTS = ('MabiAgent.Core', 'MabiAgent.Workflows', 'MabiAgent.Windows', 'MabiAgent.Capture', 'MabiAgent.Update', 'MabiAgent.Desktop')
 CONFIGS = ('screen_catalog.1280x960.tw.json', 'screen_overlays.1280x960.tw.json', 'screen_travel.1280x960.tw.json', 'screen_relogin.1280x960.tw.json', 'session_notifications.1280x960.tw.json', 'screen_purchase.1280x960.tw.json', 'items.verified.tw.json', 'client-item-names.tw.json', 'item-name-candidates.tw.json')
 MODEL = 'ch_PP-OCRv5_rec_mobile.onnx'
 

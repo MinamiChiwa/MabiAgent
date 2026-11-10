@@ -125,15 +125,9 @@ public sealed class ScreenProductionPort:ScreenWorkflowPort,IProductionPort
             if(empty is null||before is null||!before.SetEquals(empty)||!arrived)return false;
             if(kind=="craft")return observedRecipe==recipe.Key&&empty.Length>0;
             var targets=pending?["target_slots"]?.AsArray().Select(v=>v!.GetValue<int>()).ToHashSet();
-            var owned=Store.Read()?["owned_slots"]?.AsArray().Select(v=>v!.GetValue<int>()).ToHashSet()??[];
-            if(pending?["collection_owners"] is JsonObject owners)foreach(var row in owners)foreach(var slot in row.Value!.AsArray())owned.Add(slot!.GetValue<int>());
-            var approval=pending?["collect_all_approval"];
-            var approved=approval?["source"]?.GetValue<string>()=="user_explicit"&&approval?["device"]?.GetValue<string>()==recipe.Device
-                &&approval?["expires_at"]?.GetFiniteDouble()>DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()/1000d
-                &&targets is not null&&targets.Overlaps(owned);
             // One click collects every ready slot, so the current ready set
             // must exactly match the persisted target_slots.
-            return targets is {Count:>0}&&(targets.IsSubsetOf(owned)||approved)&&ready is not null&&targets.SetEquals(ready);
+            return targets is {Count:>0}&&ready is not null&&targets.SetEquals(ready);
         });
     }
     public void Navigate(string destination,ProductionRecipe requested)

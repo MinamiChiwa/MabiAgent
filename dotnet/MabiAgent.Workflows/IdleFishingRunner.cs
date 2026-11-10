@@ -15,6 +15,8 @@ public interface IFishingPort : IForegroundWorkflowPort
 {
     FishingFrame Observe();
     FishingFrame ObserveOnly() => Observe();
+    bool NavigationIssued=>false;
+    void AbandonUnsentNavigation(){}
     void InvalidatePreparation(){}
     void ReleaseBackpack(){}
     bool CanResumeAtPoint=>false;
@@ -33,7 +35,7 @@ public sealed class IdleFishingRunner : PersistentWorkflow
     public bool NeedsRapidObservation => S("status")=="running" && (B("round_seen") || Pending?["kind"]?.GetValue<string>() is "start" or "reel");
     public bool PeriodicBackpackCheckAllowed => I("completed") - I("inspection_round") >= 20;
     public bool SafeToSwitch => S("status") is "complete" or "yielded" || S("status") == "paused" && Pending is null && !B("round_seen") && S("phase") == "refresh";
-    public bool CanIsolateFault => Pending is null && !B("round_seen") && !B("navigation_seen") && port.CanReleaseForeground();
+    public bool CanIsolateFault => Pending is null && !B("round_seen") && !B("navigation_seen") && !port.NavigationIssued && port.CanReleaseForeground();
     public IdleFishingRunner(FishingPlan plan, IFishingPort port, IWorkflowStore store, double navigationTimeoutSeconds = 180,
         double actionTimeoutSeconds = 15, double reboundThreshold = .12, double lowWatermark = .30, TimeProvider? time = null,
         double castObservationTimeoutSeconds = 20) : base(store, time, new JsonObject())
@@ -83,7 +85,7 @@ public sealed class IdleFishingRunner : PersistentWorkflow
             if (S("status") == "yielded") {port.InvalidatePreparation();ResetRoundSamples();Set(("phase", plan.InPlace||port.CanResumeAtPoint?"refresh":"navigate"), ("navigation_seen", false), ("navigation_deadline", null), ("round_seen", false), ("yield_requested", false), ("inspection_round", I("completed")), ("backpack_check_requested", false));}
             // Recreate only reversible menu navigation after explicit resume/restart.
             // A witnessed native trip or unresolved fishing action remains observation-only.
-            if(explicitRequest&&S("phase")=="navigate"&&!B("navigation_seen")&&Pending is null)State["navigation_deadline"]=null;
+            if(explicitRequest&&S("phase")=="navigate"&&!B("navigation_seen")&&!port.NavigationIssued&&Pending is null)State["navigation_deadline"]=null;
             if(explicitRequest&&Pending is null)State["cast_preflight_rejections"]=0;
             Set(("status", "running"), ("pause_reason", null), ("reason", null)); ResetClock(); ResetPageWait(); ResetProgressWait(); port.Resume(); Save();
         }
@@ -176,13 +178,17 @@ public sealed class IdleFishingRunner : PersistentWorkflow
         lock (Gate)
         {
             if (S("status") is "complete" or "yielded") return;
-            if (Pending is null && !B("round_seen") && !(S("phase") == "navigate" && B("navigation_seen"))) return;
+            if (Pending is null && !B("round_seen") && !(S("phase") == "navigate" && (B("navigation_seen") || port.NavigationIssued || State["navigation_deadline"] is not null || State["unexpected_navigation_deadline"] is not null))) return;
             var f = port.ObserveOnly();
             if (!double.IsFinite(f.At) || string.IsNullOrWhiteSpace(f.CaptureId) || !Ready(f.Page, f.Foreground, f.Stable)) return;
             var reason = S("pause_reason") ?? "fishing_action_confirmed";
             if (Pending is not null) ReconcilePending(f, true);
             if (Pending is null && B("round_seen") && RoundEnded(f)) FinishRound();
-            else if (S("phase") == "navigate" && B("navigation_seen") && f.NavigationActive == false) Set(("phase", "refresh"), ("navigation_seen", false), ("navigation_deadline", null), ("reason", null));
+            else if (S("phase") == "navigate")
+            {
+                if (f.NavigationActive == true) State["navigation_seen"] = true;
+                else if (f.NavigationActive == false) Set(("phase", "refresh"), ("navigation_seen", false), ("navigation_deadline", null), ("reason", null));
+            }
             if (Pending is null && S("phase") is "round" or "refresh")
                 Set(("status", B("stop_requested") && !B("round_seen") ? "complete" : "paused"), ("pause_reason", reason));
             ResetClock(); Save();
@@ -191,12 +197,23 @@ public sealed class IdleFishingRunner : PersistentWorkflow
     private void Step()
     {
         if (S("status") is "complete" or "yielded") { Save(); return; }
-        if(S("status")=="running"&&S("phase")=="navigate")CheckProgress("navigate",navigationTimeout);
+        if(S("status")=="running"&&S("phase")=="navigate")
+        {
+            try{CheckProgress("navigate",navigationTimeout);}
+            catch(TimeoutException)
+            {
+                if(Pending is null&&!B("round_seen")&&!B("navigation_seen")&&!port.NavigationIssued)port.AbandonUnsentNavigation();
+                throw;
+            }
+        }
         else if(S("status")=="running"&&S("phase")=="backpack_exit")CheckProgress("backpack_exit",actionTimeout);
         else ResetProgressWait();
         var f = port.Observe(); if (!double.IsFinite(f.At) || string.IsNullOrWhiteSpace(f.CaptureId)) throw new ArgumentException("需要新截图与时间");
         if (!f.Foreground) { if (S("status") != "paused" || S("pause_reason") == "focus_lost") Pause("focus_lost"); return; }
         UpdateClock(f);
+        if(S("status")=="running"&&State["unexpected_navigation_deadline"] is{} externalDeadline
+            &&f.At>=externalDeadline.GetFiniteDouble()&&f.NavigationActive!=false)
+            throw new TimeoutException("钓鱼等待其他导航结束超时");
         if (!PageReady(f.Page, f.Foreground, f.Stable, Pause, pauseOnUnrecognized: false))
         {
             if(S("status") == "running" && S("phase") == "navigate" && State["navigation_deadline"] is not null && f.At >= D("navigation_deadline"))Unknown("navigation_not_observed");
@@ -218,6 +235,14 @@ public sealed class IdleFishingRunner : PersistentWorkflow
         {Set(("pending",null),("round_seen",false));ResetRoundSamples();Perform(new("confirm_mode"),f,true);return;}
         if(f.LeisureConfirm){Perform(new("cancel_mode"),f);return;}
         if (!ReconcilePending(f)) { Save(); return; }
+        if(f.NavigationActive==true&&!B("round_seen")&&!f.RoundActive&&Pending is null
+            &&(S("phase")!="navigate"||State["navigation_deadline"] is null))
+        {
+            State["unexpected_navigation_deadline"]??=f.At+navigationTimeout;
+            if(f.At>=D("unexpected_navigation_deadline"))throw new TimeoutException("钓鱼等待其他导航结束超时");
+            ResetClock();Save();return;
+        }
+        State.Remove("unexpected_navigation_deadline");
         if (S("phase") == "navigate")
         {
             if (Boundary(f)) return;
