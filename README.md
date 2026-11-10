@@ -13,7 +13,7 @@
 
 MabiAgent 可以为《洛奇 Mobile》繁体中文服安排生产、采集和钓鱼任务，并在运行期间修理装备、补充材料和整理背包。
 
-当前正式版本：0.6.2，可从 [Releases](https://github.com/MinamiChiwa/MabiAgent/releases) 下载。适用 Windows 10 / 11，64 位。
+当前正式版本：0.6.3，可从 [Releases](https://github.com/MinamiChiwa/MabiAgent/releases) 下载。适用 Windows 10 / 11，64 位。
 
 抓包出现未关联道具时，可在“仓库 → 更新物品关联”从已绑定游戏目录只读更新客户端名称表，无需安装 Python 或重启。工具只为已抓包类型补名，库存数量和容器覆盖仍来自抓包；手动确认、清除和其他可信来源优先，同名多 ID 按具体类型区分。自动定位失败时，可在“设置 → 数据同步 → 抓包设置”填写游戏程序所在目录。
 
