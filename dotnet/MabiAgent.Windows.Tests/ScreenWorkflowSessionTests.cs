@@ -2674,7 +2674,8 @@ public sealed class ScreenWorkflowSessionTests
         Assert.Equal("herb_nodes",port.ObserveOnly(route,"a").Page);port.Navigate(route);
         Assert.Equal(3,native.WheelDeltas.Count);Assert.True(new PixelBox(800,850,930,930).Contains(Assert.Single(clicks)));
     }
-    [Fact] public void GatheringListSearchBudgetSurvivesPageReentry()
+    [Theory][InlineData(false,false)][InlineData(true,true)][InlineData(true,false)]
+    public void GatheringListSearchRestartsDirectionOnlyWhenListReopens(bool reopen,bool navigate)
     {
         var routes=ScreenRoutes.Load(RecognitionTests.Root());routes.Configuration["notifications"]=new JsonObject();
         routes.Profile.Definition.Remove("page_variants");routes.Profile.Definition.Remove("coordinate_control_targets");
@@ -2687,13 +2688,15 @@ public sealed class ScreenWorkflowSessionTests
         for(var attempt=0;attempt<ScreenWorkflowSession.ListSearchLimit;attempt++)
         {
             port.Navigate(route);
-            native.CurrentImage=life;port.ObserveOnly(route,"a");port.Navigate(route);
+            native.CurrentImage=reopen?life:new RgbImage(1280,960,new byte[1280*960*3]);
+            Assert.Equal(reopen?"character_life_skills":"unknown",port.ObserveOnly(route,"a").Page);
+            if(navigate)port.Navigate(route);
             native.CurrentImage=list;port.ObserveOnly(route,"a");
         }
         Assert.Throws<InputBlockedException>(()=>port.Navigate(route));
         Assert.Equal(ScreenWorkflowSession.ListSearchLimit*3,native.WheelDeltas.Count);
         Assert.All(native.WheelDeltas.Take(ScreenWorkflowSession.ListSearchPassLength*3),d=>Assert.Equal(-120,d));
-        Assert.All(native.WheelDeltas.Skip(ScreenWorkflowSession.ListSearchPassLength*3),d=>Assert.Equal(120,d));
+        Assert.All(native.WheelDeltas.Skip(ScreenWorkflowSession.ListSearchPassLength*3),d=>Assert.Equal(reopen?-120:120,d));
         Assert.All(native.WheelPoints,p=>Assert.True(new PixelBox(800,275,1190,885).Contains(p)));
     }
     [Fact] public void CurrentWoolSelectionClicksOrdinarySheepWithoutScrolling()
