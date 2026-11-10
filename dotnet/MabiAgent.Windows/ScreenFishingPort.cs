@@ -14,6 +14,7 @@ public sealed class ScreenFishingPort:ScreenWorkflowPort,IFishingPort
     private double? unsentNavigationSince,navigationStartedAt;private int pointReselections;private bool navigationFailed;
     private double? travelIssuedAt,navigationIdleSince;private bool navigationSettled;private long? arrivalRevision;
     public bool CanResumeAtPoint=>pointKey==FishingPlan.CurrentLocation||arrivalRevision==Session.LocationRevision;
+    public bool NavigationIssued=>state["travel_issued"]?.GetValue<bool>()==true;
     public bool ModePreparationRequired=>config["controls"]?["switch_mode"] is not null&&state["mode_prepared"]?.GetValue<bool>()!=true;
     private PixelBox? lastGaugeBox;private double? clearSceneSince,recastUntil;
     private ScreenMaintenancePort? backpackExit;
@@ -21,15 +22,16 @@ public sealed class ScreenFishingPort:ScreenWorkflowPort,IFishingPort
     public override bool CanReleaseForeground()
     {
         if(pendingPage is not null||navigating||active)return false;
-        // 可逆选点失败后，已识别列表与详情可交给其他任务的公共退出。
+        // 尚未发出旅行的选点失败后，由后续任务接手退出遗留菜单。
         if(navigationFailed&&!Session.Guard.Paused&&Session.InputAvailable&&Session.CurrentNavigationId is null
-            &&Session.LastObservation is {Stable:true,View.Modal:false} o
-            &&(o.View.Page=="fishing_nodes"||o.View.Page.StartsWith("point_detail_",StringComparison.Ordinal)
-                ||nav["steps"]?.AsArray().Any(s=>S(s,"page")==o.View.Page)==true))return true;
+            &&state["travel_issued"]?.GetValue<bool>()!=true)return true;
         return base.CanReleaseForeground();
     }
     public ScreenFishingPort(ScreenWorkflowSession session,string pointKey,string batchId,IWorkflowStore store,TimeProvider? navigationTime=null):base(session,batchId,store)
-    {this.navigationTime=navigationTime??TimeProvider.System;this.pointKey=pointKey;nav=pointKey==FishingPlan.CurrentLocation?new JsonObject():session.Routes.Configuration["gathering_routes"]?[pointKey]?["navigation"]??throw new ArgumentException("钓鱼点未配置");config=session.Routes.Profile.Definition["idle_fishing"]??new JsonObject();state=session.PortState("fishing:"+batchId);navigationSeen=state["navigation_seen"]?.GetValue<bool>()==true;}
+    {
+        this.navigationTime=navigationTime??TimeProvider.System;this.pointKey=pointKey;nav=pointKey==FishingPlan.CurrentLocation?new JsonObject():session.Routes.Configuration["gathering_routes"]?[pointKey]?["navigation"]??throw new ArgumentException("钓鱼点未配置");config=session.Routes.Profile.Definition["idle_fishing"]??new JsonObject();state=session.PortState("fishing:"+batchId);navigationSeen=state["navigation_seen"]?.GetValue<bool>()==true;
+        if(NavigationIssued&&S(store.Read(),"phase")=="navigate"){navigating=true;travelIssuedAt=this.navigationTime.GetUtcNow().ToUnixTimeMilliseconds()/1000d;}
+    }
     private string? Anchor(string role)=>S(config["anchors"],role);
     protected override PageView Decorate(ClientCapture c,PageView view)
     {
@@ -136,6 +138,7 @@ public sealed class ScreenFishingPort:ScreenWorkflowPort,IFishingPort
         {backpackExit.ResetNavigation();backpackExit=null;}
         var navNow=navigationTime.GetUtcNow().ToUnixTimeMilliseconds()/1000d;
         var navigationActive=navigating&&c is not null&&Session.Hit(c,Anchor("nav"));
+        if(allowInput&&!Session.Guard.Paused&&S(workflow,"status")=="running")CheckSelectionBudget();
         if(c is not null&&o.Stable&&Session.InputAvailable)
         {
             if((hook||gauge is not null)&&!reelIssued&&state["round_observed"]?.GetValue<bool>()!=true){state["round_observed"]=true;state["mode_prepared"]=true;Session.SavePortState("fishing:"+BatchId,state);}
@@ -146,7 +149,11 @@ public sealed class ScreenFishingPort:ScreenWorkflowPort,IFishingPort
                 // fixed title to be absent on the scene for three seconds in both cases.
                 navigationIdleSince??=navNow;
                 if(navNow-navigationIdleSince>=3)
-                {navigationSettled=true;navigating=false;pendingPage=null;arrivalRevision=Session.LocationRevision;Session.EndNavigation("fishing:"+BatchId);}
+                {
+                    navigationSettled=true;navigating=false;pendingPage=null;arrivalRevision=Session.LocationRevision;
+                    navigationSeen=false;state["navigation_seen"]=false;state["travel_issued"]=false;
+                    Session.SavePortState("fishing:"+BatchId,state);Session.EndNavigation("fishing:"+BatchId);
+                }
             }
             if(navigating&&navigationActive!=true&&o.View.Page is not ("scene" or "fishing"))navigationIdleSince=null;
             if(allowInput&&navigating&&!navigationSeen&&!Session.Guard.Paused&&S(Store.Read(),"status")=="running")
@@ -191,14 +198,28 @@ public sealed class ScreenFishingPort:ScreenWorkflowPort,IFishingPort
         navigating=false;navigationFailed=true;pendingPage=null;pendingStep=null;unsentNavigationSince=navigationStartedAt=null;
         navigationRetries=scrollCount=0;Session.EndNavigation("fishing:"+BatchId);
     }
+    public void AbandonUnsentNavigation()
+    {
+        if(navigationSeen||active||state["travel_issued"]?.GetValue<bool>()==true
+            ||state["round_observed"]?.GetValue<bool>()==true||state["reel_issued"]?.GetValue<bool>()==true
+            ||Store.Read()?["pending"] is not null)return;
+        EndFailedNavigation();
+    }
+    private void CheckSelectionBudget()
+    {
+        if(!navigating||state["travel_issued"]?.GetValue<bool>()==true||navigationStartedAt is not{} began)return;
+        var now=navigationTime.GetUtcNow().ToUnixTimeMilliseconds()/1000d;
+        if(now-began<(Session.Routes.Configuration["navigation_retry"]?["timeout_s"]?.GetFiniteDouble()??90))return;
+        EndFailedNavigation();
+        throw new TimeoutException("钓鱼选点导航已到总等待上限");
+    }
     private void NavigationStepCore(UiObservation o)
     {
         // Once travel has been dispatched, only observe its result. In particular,
         // a short trip must not reopen the route from the scene before its task is seen.
         if(state["travel_issued"]?.GetValue<bool>()==true)return;
+        CheckSelectionBudget();
         var now=navigationTime.GetUtcNow().ToUnixTimeMilliseconds()/1000d;
-        if(navigationStartedAt is{} began&&now-began>=(Session.Routes.Configuration["navigation_retry"]?["timeout_s"]?.GetFiniteDouble()??90))
-            throw new TimeoutException("钓鱼选点导航已到总等待上限");
         var wrongDetail=o.View.Page!=S(nav,"detail_page")&&o.View.Page.StartsWith("point_detail_",StringComparison.Ordinal);
         if(pendingPage is not null)
         {

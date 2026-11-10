@@ -271,12 +271,19 @@ public sealed class FaultIsolationTests
         Assert.NotEqual("paused",runner.Snapshot()["status"]!.GetValue<string>());
     }
     [Theory] [InlineData(false)] [InlineData(true)]
-    public void UnprovenReleaseOrPersistenceErrorNeverQuarantines(bool persistence)
+    public void PersistenceFailurePropagatesAndUnprovenReleaseRetainsOwnership(bool persistence)
     {
         var port=new FaultPort{FailNavigation=true,Releasable=persistence,PersistenceFailure=persistence};
         var dispatcher=new WorkflowDispatcher();dispatcher.Register("a",new ProductionRunner(port,new MemoryStore(),new("a","metal",60)),"metal");dispatcher.Continue();
         WorkCandidate[] plan=[new("a","production","metal",true,5,0)];dispatcher.Tick(plan,null);
-        Assert.ThrowsAny<Exception>(()=>dispatcher.Tick(plan,null));Assert.Empty(dispatcher.Faults);Assert.Equal("a",dispatcher.ActiveId);
+        Assert.ThrowsAny<Exception>(()=>dispatcher.Tick(plan,null));Assert.Equal("a",dispatcher.ActiveId);
+        if(persistence)Assert.Empty(dispatcher.Faults);
+        else
+        {
+            Assert.Contains("a",dispatcher.Faults.Keys);
+            for(var i=0;i<5;i++)Assert.Null(Record.Exception(()=>dispatcher.Tick(plan,null)));
+            Assert.Equal(1,port.Navigations);Assert.Equal("a",dispatcher.ActiveId);
+        }
     }
     [Fact] public void FailedObservationAcrossPendingInputRetainsIntentAndOwnership()
     {
@@ -285,7 +292,8 @@ public sealed class FaultIsolationTests
         WorkCandidate[] plan=[new("a","production","metal",true,1,0)];dispatcher.Tick(plan,null);dispatcher.Tick(plan,null);
         port.Frame=new("recipe_detail",RecipeKey:"a",CraftAvailable:true);dispatcher.Tick(plan,null);Assert.NotNull(store.Read()!["pending"]);Assert.Equal(1,port.Crafts);
         port.FailObserve=true;Assert.Throws<InvalidOperationException>(()=>dispatcher.Tick(plan,null));
-        Assert.Empty(dispatcher.Faults);Assert.Equal("a",dispatcher.ActiveId);Assert.NotNull(store.Read()!["pending"]);Assert.Equal(1,port.Crafts);
+        for(var i=0;i<5;i++)Assert.Null(Record.Exception(()=>dispatcher.Tick(plan,null)));
+        Assert.Contains("a",dispatcher.Faults.Keys);Assert.Equal("a",dispatcher.ActiveId);Assert.NotNull(store.Read()!["pending"]);Assert.Equal(1,port.Crafts);
     }
     [Fact] public void StalledMaintenanceReleasesOnlyRepairAndBlocksDependentGathering()
     {
