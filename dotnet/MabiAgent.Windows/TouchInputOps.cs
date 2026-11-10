@@ -85,8 +85,9 @@ public sealed class TouchInputOps:INativeWindowsOps,ICurrentClientFrameSource,IG
         else
         {
             var center=surface.Center;
-            for(var remaining=Math.Abs(steps);remaining>0;remaining-=3)
-            {var distance=Math.Min(surface.Height*3/5,Math.Max(12,Math.Min(remaining,3)*40));var half=distance/2;
+            // Use one swipe over at most three fifths of the reviewed list.
+            // The overlap keeps boundary rows visible for the next recognition.
+            var distance=Math.Min(surface.Height*3/5,Math.Max(12,Math.Abs(steps)*surface.Height/5));var half=distance/2;
             // Wheel up reveals earlier rows: finger moves down. Wheel down moves the finger up.
             // A fast swipe flings Unity lists past the requested rows. Ease out
             // and keep the contact still before releasing to stop inertia.
@@ -97,7 +98,6 @@ public sealed class TouchInputOps:INativeWindowsOps,ICurrentClientFrameSource,IG
                 return new[]{new PixelPoint(from.X,from.Y+(int)Math.Round((to.Y-from.Y)*progress))};
             }).ToArray();
             Execute(new("drag",frames,ReleaseDelayMilliseconds:160));
-            }
         }
     }
     public void Dispose(){if(disposed)return;disposed=true;runner.Dispose();}

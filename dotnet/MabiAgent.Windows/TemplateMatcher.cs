@@ -12,7 +12,7 @@ public sealed class TemplateMatcher(NavigationProfile configuration):IDisposable
     private RgbImage? frame;private bool disposed;private long queries,nativeMatches,resultHits;
     public RecognitionCacheStatistics CacheStatistics{get{lock(gate)return new(queries,nativeMatches,resultHits,references.Bytes,regions.Bytes,references.Count,regions.Count,results.Count);}}
     private readonly record struct TransformKey(string? Mode,int Light,bool Relative,int? Contrast);
-    private readonly record struct ReferenceKey(string Sha,int Width,int Height,TransformKey Transform);
+    private readonly record struct ReferenceKey(string Sha,int Width,int Height,TransformKey Transform,int Phase=0);
     private readonly record struct RegionKey(PixelBox Box,TransformKey Transform);
     private readonly record struct MatchKey(string Revision,TemplateDefinition Definition,PixelBox Box,double Minimum,bool Unique,double? Threshold);
     public TemplateHit? Match(RgbImage image,string name,double minimum=.97,bool unique=true,double? thresholdOverride=null,PixelBox? searchOverride=null)
@@ -34,14 +34,24 @@ public sealed class TemplateMatcher(NavigationProfile configuration):IDisposable
         // space so a short name cannot match the prefix of a longer name.
         var labelInset=spec.Mode=="list_label"?layout.TemplateSize(12,1).Width:0;
         if(labelInset>0){roi=new(roi.Left-labelInset,roi.Top,roi.Right+labelInset,roi.Bottom);if(!roi.IsInside(image.Width,image.Height))return null;}
-        using var referenceLease=references.Get(new ReferenceKey(spec.Image.Sha256,size.Width,size.Height,transform),()=>
+        Prepared PrepareReference(int phase)
         {
             using var original=spec.Image.ToMat();using var resized=new Mat();Cv2.Resize(original,resized,size,0,0,size.Width<original.Width?InterpolationFlags.Area:InterpolationFlags.Cubic);
-            var transformed=Transform(resized,spec);if(labelInset==0)return new Prepared(transformed);
+            using var shifted=new Mat();
+            if(phase!=0)
+            {
+                using var offset=new Mat(2,3,MatType.CV_64FC1);offset.Set(0,0,1d);offset.Set(0,1,0d);offset.Set(0,2,0d);offset.Set(1,0,0d);offset.Set(1,1,1d);offset.Set(1,2,phase/4d);
+                Cv2.WarpAffine(resized,shifted,offset,size,InterpolationFlags.Linear,BorderTypes.Replicate);
+            }
+            var transformed=Transform(phase==0?resized:shifted,spec);if(labelInset==0)return new Prepared(transformed);
             using(transformed){var padded=new Mat();Cv2.CopyMakeBorder(transformed,padded,0,0,labelInset,labelInset,BorderTypes.Constant,Scalar.All(0));return new Prepared(padded);}
-        });
+        }
+        using var referenceLease=references.Get(new ReferenceKey(spec.Image.Sha256,size.Width,size.Height,transform),()=>PrepareReference(0));
         var reference=referenceLease.Value.Image;if(roi.Width<reference.Width||roi.Height<reference.Height||referenceLease.Value.Std<2)return null;
         using var regionLease=regions.Get(new RegionKey(roi,transform),()=>{using var source=image.ToMat(roi);return new Prepared(Transform(source,spec));});var gray=regionLease.Value.Image;if(regionLease.Value.Std<2)return null;nativeMatches++;
+        var threshold=thresholdOverride??Math.Max(minimum,spec.Threshold);
+        if(spec.Mode is "list_label" or "list_name")threshold=spec.GlyphThreshold??threshold;
+        else if(spec.Mode is "light_text" or "bright_text" or "blue_text" or "color_glyph" or "yellow_text" or "red_glyph")threshold=spec.GlyphThreshold??Math.Min(threshold,.93);
         using var scores=new Mat();Cv2.MatchTemplate(gray,reference,scores,TemplateMatchModes.CCoeffNormed);
         if(spec.Mode=="list_name")
         {
@@ -51,13 +61,49 @@ public sealed class TemplateMatcher(NavigationProfile configuration):IDisposable
             using var leadingScores=new Mat();Cv2.MatchTemplate(gray,leading,leadingScores,TemplateMatchModes.CCoeffNormed);nativeMatches++;
             using var aligned=new Mat(leadingScores,new Rect(0,0,scores.Width,scores.Height));Cv2.Min(scores,aligned,scores);
         }
+        if(spec.Mode=="list_label")
+        {
+            // Scroll offsets render the same name at different subpixel phases.
+            // Merge accepted positions before testing duplicate-row ambiguity.
+            FilterListLabelScores(gray,reference,scores,threshold,referenceLease.Value.Mean);
+            for(var phase=1;phase<4;phase++)
+            {
+                using var variant=references.Get(new ReferenceKey(spec.Image.Sha256,size.Width,size.Height,transform,phase),()=>PrepareReference(phase));
+                if(variant.Value.Std<2)continue;
+                using var variantScores=new Mat();Cv2.MatchTemplate(gray,variant.Value.Image,variantScores,TemplateMatchModes.CCoeffNormed);nativeMatches++;
+                FilterListLabelScores(gray,variant.Value.Image,variantScores,threshold,variant.Value.Mean);Cv2.Max(scores,variantScores,scores);
+            }
+        }
         Cv2.MinMaxLoc(scores,out _,out var score,out _,out var peak);using var selected=new Mat(gray,new Rect(peak.X,peak.Y,reference.Width,reference.Height));
-        var ratio=Cv2.Mean(selected).Val0/Math.Max(1,referenceLease.Value.Mean);var threshold=thresholdOverride??Math.Max(minimum,spec.Threshold);
-        if(spec.Mode is "list_label" or "list_name")threshold=spec.GlyphThreshold??threshold;
-        else if(spec.Mode is "light_text" or "bright_text" or "blue_text" or "color_glyph" or "yellow_text" or "red_glyph")threshold=spec.GlyphThreshold??Math.Min(threshold,.93);
+        var ratio=Cv2.Mean(selected).Val0/Math.Max(1,referenceLease.Value.Mean);
         if(!double.IsFinite(score)||score<threshold||spec.Mode!="list_name"&&(ratio is <.65 or >1.5))return null;
         if(unique){int l=Math.Max(0,peak.X-reference.Width/2),t=Math.Max(0,peak.Y-reference.Height/2),r=Math.Min(scores.Width,peak.X+reference.Width/2+1),b=Math.Min(scores.Height,peak.Y+reference.Height/2+1);using(var exclusion=new Mat(scores,new Rect(l,t,r-l,b-t)))exclusion.SetTo(-1);Cv2.MinMaxLoc(scores,out double _,out double runnerUp);if(runnerUp>=threshold)return null;}
         var box=new PixelBox(roi.Left+peak.X+labelInset,roi.Top+peak.Y,roi.Left+peak.X+reference.Width-labelInset,roi.Top+peak.Y+reference.Height);return new(spec.Name,score,box,spec.Sha256);
+    }
+    private void FilterListLabelScores(Mat gray,Mat reference,Mat scores,double threshold,double referenceMean)
+    {
+        using var remaining=scores.Clone();scores.SetTo(-1);
+        while(true)
+        {
+            Cv2.MinMaxLoc(remaining,out _,out var confidence,out _,out var peak);if(!double.IsFinite(confidence)||confidence<threshold)return;
+            using var selected=new Mat(gray,new Rect(peak.X,peak.Y,reference.Width,reference.Height));
+            if(Cv2.Mean(selected).Val0/Math.Max(1,referenceMean) is >=.65 and <=1.5)
+            {
+                // Compare overlapping strokes at this exact position; a shared
+                // prefix or suffix cannot compensate for a different character.
+                var width=Math.Min(reference.Width,Math.Max(1,reference.Height/2));var last=reference.Width-width;
+                for(var left=0;;left=Math.Min(last,left+Math.Max(1,width/2)))
+                {
+                    using var glyphs=new Mat(reference,new Rect(left,0,width,reference.Height));using var actual=new Mat(selected,new Rect(left,0,width,reference.Height));
+                    using var glyphScore=new Mat();Cv2.MatchTemplate(actual,glyphs,glyphScore,TemplateMatchModes.CCoeffNormed);nativeMatches++;
+                    confidence=Math.Min(confidence,glyphScore.At<float>(0,0));if(confidence<threshold||left==last)break;
+                }
+                if(confidence>=threshold)scores.Set(peak.Y,peak.X,(float)confidence);
+            }
+            var leftBound=Math.Max(0,peak.X-reference.Width/2);var top=Math.Max(0,peak.Y-reference.Height/2);
+            var right=Math.Min(remaining.Width,peak.X+reference.Width/2+1);var bottom=Math.Min(remaining.Height,peak.Y+reference.Height/2+1);
+            using var exclusion=new Mat(remaining,new Rect(leftBound,top,right-leftBound,bottom-top));exclusion.SetTo(-1);
+        }
     }
     public TemplateHit? Anchor(RgbImage image,string name,double minimum=.97,bool unique=true,double? thresholdOverride=null)
     {
@@ -82,15 +128,13 @@ public sealed class TemplateMatcher(NavigationProfile configuration):IDisposable
             if(spec.RelativeContrast)
             {
                 using var kernel=Cv2.GetStructuringElement(MorphShapes.Rect,new Size(15,15));Cv2.MorphologyEx(gray,gray,MorphTypes.TopHat,kernel);
-                // A different row's brightness must not change this row's glyph.
-                if(spec.Mode=="list_label")Cv2.Threshold(gray,gray,spec.RelativeContrastThreshold??40,255,ThresholdTypes.Binary);
+                // Retain local stroke intensities through subpixel scrolling.
+                if(spec.Mode=="list_label")Cv2.Threshold(gray,gray,spec.RelativeContrastThreshold??40,255,ThresholdTypes.Tozero);
                 else{Cv2.MinMaxLoc(gray,out double _,out double max);if(max<16)gray.SetTo(0);else{Cv2.Normalize(gray,gray,0,255,NormTypes.MinMax);if(spec.RelativeContrastThreshold is {} t)Cv2.Threshold(gray,gray,t,255,ThresholdTypes.Binary);}}
             }
             else Cv2.Threshold(gray,gray,spec.LightThreshold,255,ThresholdTypes.Binary);
         }
-        // Smoothing makes different full names (e.g. iron/copper/silver veins)
-        // nearly identical. Preserve the calibrated binary strokes for lists.
-        if(spec.Mode!="list_label")Cv2.GaussianBlur(gray,gray,new Size(5,5),1.2);return gray;
+        Cv2.GaussianBlur(gray,gray,new Size(5,5),spec.Mode=="list_label"?.6:1.2);return gray;
     }
     private sealed class Prepared:IDisposable
     {

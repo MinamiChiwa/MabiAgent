@@ -325,6 +325,19 @@ public sealed class TouchTransportTests
         Assert.All(plan.Points,f=>Assert.True(new PixelBox(10,10,90,90).Contains(f[0])));
         guard.Scroll(guard.ObserveTarget("scene.open_bag"),4,zoom:true);Assert.Equal(6,runner.Plan!.Steps);Assert.Equal(0,runner.Plan.ReleaseDelayMilliseconds);
     }
+    [Theory][InlineData(-12,1280,960)][InlineData(-3,1280,960)][InlineData(3,1280,960)][InlineData(12,1280,960)][InlineData(-3,1920,1440)][InlineData(3,1920,1440)]
+    public void LargeListScrollAdvancesSeveralRowsWithOverlap(int steps,int width,int height)
+    {
+        var state=new NativeWindowState(1,3,42,@"C:\Games\mabinogimobile.exe","UnityWndClass",new(0,0,width,height,96),new(0,0,width,height),99,true,false,true,new(0,0));
+        var surface=new PixelBox(800*width/1280,275*height/960,1190*width/1280,885*height/960);var rowHeight=96*height/960;
+        var runner=new Runner();var passive=new Passive(state);using var ops=new TouchInputOps(state,passive,passive,runner);var scope=new SessionScope("list-scroll",null,null);
+        using var guard=new ForegroundInputGuard(state,scope,ops,c=>new(c.Image.Sha256,c.CapturedAt,scope,new("herb_nodes",false,[],new Dictionary<string,PixelPoint>{{"list.scroll",surface.Center}},[],TargetRegions:new Dictionary<string,PixelBox>{{"list.scroll",surface}}),true,true),maxFrameAgeSeconds:5,inputOptions:new("touch"));
+        guard.Start();guard.Scroll(guard.ObserveTarget("list.scroll"),steps);
+        var plan=runner.Plan!;var distance=Math.Abs(plan.Points[^1][0].Y-plan.Points[0][0].Y);
+        Assert.Equal(1,runner.Deliveries);Assert.Equal(Math.Sign(steps),Math.Sign(plan.Points[^1][0].Y-plan.Points[0][0].Y));
+        Assert.InRange(distance,rowHeight*3,surface.Height-rowHeight*2);Assert.All(plan.Points,frame=>Assert.True(surface.Contains(frame[0])));
+        Assert.Equal(160,plan.ReleaseDelayMilliseconds);
+    }
     [Theory][InlineData(ClickRegionShape.Rectangle)][InlineData(ClickRegionShape.Ellipse)]
     public void CenterOffsetStaysAwayFromEdgesIncludingTinyTargets(ClickRegionShape shape)
     {foreach(var box in new[]{new PixelBox(0,0,1,1),new PixelBox(100,20,110,28),new PixelBox(0,0,200,200)})for(var i=0;i<100;i++){var p=box.CenterOffsetPoint(shape:shape);Assert.True(box.Contains(p,shape));Assert.InRange(Math.Abs(p.X-box.Center.X),0,3);Assert.InRange(Math.Abs(p.Y-box.Center.Y),0,3);}}
@@ -361,6 +374,6 @@ public sealed class TouchTransportTests
     private sealed class FixedTime(DateTimeOffset value):TimeProvider{public override DateTimeOffset GetUtcNow()=>value;}
     private sealed class Runner:ITouchGestureRunner
     {public TouchGesturePlan? Plan;public int Hold,Calls,Releases;public bool Fail;public int Deliveries;public Action? OnStart,OnPrepared,OnDelivered;private Action? beforeDelivery;public bool SupportsPreparedReview=>true;public void SetBeforeDelivery(Action check)=>beforeDelivery=check;public void Execute(TouchGesturePlan p,nint target,int hold,Action check,Action release,Func<NativeWindowState> verify){Calls++;Plan=p;Hold=hold;OnStart?.Invoke();check();OnPrepared?.Invoke();beforeDelivery?.Invoke();Deliveries++;if(Fail)throw new InputOutcomeUnknownException("test");if(OnDelivered is not null){OnDelivered();check();release();}}public void Release(Func<NativeWindowState> verify){verify();Releases++;}public void Dispose(){}}
-    private sealed class Passive:INativeWindowsOps,ICurrentClientFrameSource,IKeyboardPointerPreparation
-    {private long sequence;public int Keys,MouseWrites;public Action<ushort,bool>? OnKey;public Action? OnPointerPreparation;public void PreparePointerInput()=>OnPointerPreparation?.Invoke();public NativeWindowState ReadWindow(nint hwnd)=>State;public RgbImage CaptureClient(NativeWindowState state)=>new(100,100,new byte[30000]);public CurrentClientFrame CaptureCurrentClientFrame(NativeWindowState state)=>new(CaptureClient(state),new("test",1,++sequence,System.Diagnostics.Stopwatch.GetTimestamp()/(double)System.Diagnostics.Stopwatch.Frequency));public void MoveClient(nint hwnd,PixelPoint p)=>MouseWrites++;public void MouseButton(MouseButton b,bool down)=>MouseWrites++;public void Wheel(int delta)=>MouseWrites++;public void Key(ushort key,bool down,bool unicode=false){Keys++;OnKey?.Invoke(key,down);}public bool AnyPhysicalKeyDown()=>false;}
+    private sealed class Passive(NativeWindowState? window=null):INativeWindowsOps,ICurrentClientFrameSource,IKeyboardPointerPreparation
+    {private long sequence;public int Keys,MouseWrites;public Action<ushort,bool>? OnKey;public Action? OnPointerPreparation;public void PreparePointerInput()=>OnPointerPreparation?.Invoke();public NativeWindowState ReadWindow(nint hwnd)=>window??State;public RgbImage CaptureClient(NativeWindowState state)=>new(state.Geometry.Width,state.Geometry.Height,new byte[state.Geometry.Width*state.Geometry.Height*3]);public CurrentClientFrame CaptureCurrentClientFrame(NativeWindowState state)=>new(CaptureClient(state),new("test",1,++sequence,System.Diagnostics.Stopwatch.GetTimestamp()/(double)System.Diagnostics.Stopwatch.Frequency));public void MoveClient(nint hwnd,PixelPoint p)=>MouseWrites++;public void MouseButton(MouseButton b,bool down)=>MouseWrites++;public void Wheel(int delta)=>MouseWrites++;public void Key(ushort key,bool down,bool unicode=false){Keys++;OnKey?.Invoke(key,down);}public bool AnyPhysicalKeyDown()=>false;}
 }

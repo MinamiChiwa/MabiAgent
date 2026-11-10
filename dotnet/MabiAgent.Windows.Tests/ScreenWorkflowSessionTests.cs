@@ -2699,6 +2699,23 @@ public sealed class ScreenWorkflowSessionTests
         Assert.All(native.WheelDeltas.Skip(ScreenWorkflowSession.ListSearchPassLength*3),d=>Assert.Equal(reopen?-120:120,d));
         Assert.All(native.WheelPoints,p=>Assert.True(new PixelBox(800,275,1190,885).Contains(p)));
     }
+    [Fact] public void RecordedGatheringScrollKeepsInputInsideListUntilTargetSelection()
+    {
+        var routes=ScreenRoutes.Load(RecognitionTests.Root());routes.Configuration["notifications"]=new JsonObject();
+        var clicks=new List<PixelPoint>();var native=new NoInputOps(GatheringLabelRecognitionTests.HerbFrame("gathering-herb-scroll-early.png"),clicks);
+        using var session=new ScreenWorkflowSession(routes,Window(),native,new EmptyOcr(),new MemoryStore());session.Start();
+        var route=new RuntimeCatalog(routes.Configuration).Gathering["point_herb_09"];var port=session.CreateGatheringPort(route.Key,"recorded-herb-scroll",new MemoryStore());
+        foreach(var fixture in new[]{"gathering-herb-scroll-early.png","gathering-herb-scroll-middle.png"})
+        {
+            native.CurrentImage=GatheringLabelRecognitionTests.HerbFrame(fixture);port.ObserveOnly(route,"scroll");
+            Assert.Equal("herb_nodes",port.ObserveOnly(route,"scroll").Page);port.Navigate(route);
+        }
+        Assert.Equal(6,native.WheelDeltas.Count);Assert.All(native.WheelDeltas,delta=>Assert.Equal(-120,delta));
+        Assert.All(native.WheelPoints,point=>Assert.True(new PixelBox(800,275,1190,885).Contains(point)));Assert.Empty(clicks);
+        native.CurrentImage=GatheringLabelRecognitionTests.HerbFrame("gathering-herb-scroll-target.png");port.ObserveOnly(route,"scroll");
+        Assert.Equal("herb_nodes",port.ObserveOnly(route,"scroll").Page);port.Navigate(route);
+        Assert.Equal(6,native.WheelDeltas.Count);Assert.True(new PixelBox(803,849,909,883).Contains(Assert.Single(clicks)));
+    }
     [Fact] public void CurrentWoolSelectionClicksOrdinarySheepWithoutScrolling()
     {
         var routes=ScreenRoutes.Load(RecognitionTests.Root());routes.Configuration["notifications"]=new JsonObject();

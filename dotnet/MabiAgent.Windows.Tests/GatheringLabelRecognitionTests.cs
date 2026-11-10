@@ -14,6 +14,22 @@ public sealed class GatheringLabelRecognitionTests
         return new(rgb.Width,rgb.Height,pixels);
     }
 
+    internal static RgbImage HerbFrame(string name)=>FishingFeedbackTests.ReadImage(Path.Combine(RecognitionTests.Root(),"tests/fixtures/screen_ui",name));
+
+    [Theory]
+    [InlineData("gathering-herb-scroll-early.png",0,4)]
+    [InlineData("gathering-herb-scroll-middle.png",2,6)]
+    [InlineData("gathering-herb-scroll-target.png",5,9)]
+    public void RecordedScrolledHerbRowsKeepListIdentityAndCompleteTargets(string fixture,int first,int last)
+    {
+        var routes=ScreenRoutes.Load(RecognitionTests.Root());var frame=HerbFrame(fixture);
+        using var matcher=new TemplateMatcher(routes.Profile);using var recognizer=new ScreenPageRecognizer(routes.Profile,matcher);
+        var view=recognizer.Recognize(frame);Assert.Equal("herb_nodes",view.Page);
+        for(var i=first;i<=last;i++)Assert.Contains($"gathering.open_point_herb_{i:00}",view.Targets.Keys);
+        Assert.Equal(new PixelBox(800,275,1190,885),view.TargetRegions!["list.scroll"]);
+        Assert.DoesNotContain("gathering.open_point_herb_11",view.Targets.Keys);
+    }
+
     [Fact] public void CurrentWoolListDistinguishesAllThreeCompleteNames()
     {
         var routes=ScreenRoutes.Load(RecognitionTests.Root());var frame=WoolFrame();
@@ -27,8 +43,10 @@ public sealed class GatheringLabelRecognitionTests
     public static IEnumerable<object[]> Labels()=>ScreenRoutes.Load(RecognitionTests.Root()).Configuration["gathering_routes"]!.AsObject()
         .Where(p=>p.Key.StartsWith("point_",StringComparison.Ordinal)).Select(p=>new object[]{p.Key});
 
-    [Theory][MemberData(nameof(Labels))]
-    public void CompleteNamesRemainDistinctFromOtherRowsAfterScrolling(string key)
+    public static IEnumerable<object[]> ScrollPhases()=>Labels().SelectMany(row=>new[]{0d,.5d}.Select(phase=>new object[]{row[0],phase}));
+
+    [Theory][MemberData(nameof(ScrollPhases))]
+    public void CompleteNamesRemainDistinctFromOtherRowsAfterScrolling(string key,double phase)
     {
         var routes=ScreenRoutes.Load(RecognitionTests.Root());var profile=routes.Profile;
         var node=routes.Configuration["gathering_routes"]![key]!;
@@ -38,20 +56,27 @@ public sealed class GatheringLabelRecognitionTests
         foreach(var sibling in siblings)
         {
             var other=$"preset_catalog_{sibling}_node";
-            var frame=Rows(profile,(name,350),(other,650));
+            var frame=Rows(profile,phase,(name,350),(other,650));
             Assert.True(matcher.Anchor(frame,name) is not null,$"Missing {key} beside {sibling}");
             Assert.True(matcher.Anchor(frame,other) is not null,$"Missing {sibling} beside {key}");
-            Assert.Null(matcher.Anchor(Rows(profile,(other,480)),name));
+            Assert.Null(matcher.Anchor(Rows(profile,phase,(other,480)),name));
         }
-        Assert.Null(matcher.Anchor(Rows(profile,(name,350),(name,650)),name));
+        Assert.Null(matcher.Anchor(Rows(profile,phase,(name,350),(name,650)),name));
     }
 
-    private static RgbImage Rows(NavigationProfile profile,params (string Name,int Top)[] rows)
+    private static RgbImage Rows(NavigationProfile profile,double phase,params (string Name,int Top)[] rows)
     {
         var pixels=new byte[1280*960*3];Array.Fill(pixels,(byte)32);
         foreach(var (name,top) in rows)
         {
             var template=profile.Templates[name];var source=template.Image.CopyPixels();
+            if(phase!=0)
+            {
+                using var original=new Mat(template.Image.Height,template.Image.Width,MatType.CV_8UC3);System.Runtime.InteropServices.Marshal.Copy(source,0,original.Data,source.Length);
+                using var transform=new Mat(2,3,MatType.CV_64FC1);transform.Set(0,0,1d);transform.Set(0,1,0d);transform.Set(0,2,0d);transform.Set(1,0,0d);transform.Set(1,1,1d);transform.Set(1,2,phase);
+                using var shifted=new Mat();Cv2.WarpAffine(original,shifted,transform,original.Size(),InterpolationFlags.Linear,BorderTypes.Constant,Scalar.All(32));
+                System.Runtime.InteropServices.Marshal.Copy(shifted.Data,source,0,source.Length);
+            }
             for(var y=0;y<template.Image.Height;y++)Array.Copy(source,y*template.Image.Width*3,pixels,((top+y)*1280+template.Box.Left)*3,template.Image.Width*3);
         }
         return new(1280,960,pixels);
