@@ -30,8 +30,6 @@ public sealed class RuntimeInventory(IWorkflowStore store)
         var row=System.Text.Json.JsonSerializer.SerializeToNode(basis)!.AsObject();row["required_through"]=after;
         Refreshes[key]=row;seen[key]=true;store.Flush(state);
     }
-    public double? RefreshRequestedAt(long item,string scope)=>Refreshes.Select(p=>p.Value!).Where(r=>r["ItemId"]?.GetValue<long>()==item&&r["Scope"]?.GetValue<string>()==scope)
-        .Select(r=>r["required_through"]?.GetFiniteDouble()).Max();
     public long ReservedQuantity(long item,string scope)
     {
         long total=0;

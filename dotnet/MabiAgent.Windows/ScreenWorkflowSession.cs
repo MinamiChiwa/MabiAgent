@@ -255,7 +255,7 @@ public sealed class ScreenWorkflowSession : IDisposable
         try{proof=Guard.ObserveCurrentTarget(target,lastObservationContext==observer?LastObservation:null);}
         catch(InputBlockedException e){ReportWarning("consume_not_dispatched",e.Message,batch);throw new InputRejectedBeforeDispatchException(e.Message);}
         if(movementKey is not null&&target!="fishing.start")throw new InputBlockedException("移动抛竿仅用于已声明钓鱼步骤");
-        Guard.Consume(proof,id,new DurableAuthority(journal,state,Scope,batch,hash,kind,validate,VerifiedOwner),beforeDelivery:beforeDelivery,key:target is "production.craft" or "fishing.start"?(ushort)32:null,movementKey:movementKey);
+        Guard.Consume(proof,id,new DurableAuthority(journal,state,Scope,batch,hash,kind,validate,VerifiedOwner),beforeDelivery:beforeDelivery,key:target is "production.craft" or "fishing.start" or "fishing.reel"?(ushort)32:null,movementKey:movementKey);
     }
     internal sealed class DurableAuthority(IWorkflowStore journal,IWorkflowStore workflow,SessionScope scope,string batch,string pendingHash,string kind,Func<UiObservation,bool> validate,SessionScope? verifiedOwner=null):IProcessScopedConsumptionAuthorization
     {

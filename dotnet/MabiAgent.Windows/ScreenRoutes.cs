@@ -169,6 +169,15 @@ public sealed class ScreenRoutes
             foreach(var (destination,shop,npc,travel) in new[]{("repair_quote","map.blacksmith","map.repair_npc","repair_travel"),("purchase_shop","map.general_store","map.shop_npc","shop_travel"),("storage","map.inn","map.storage_box","storage_travel")})
                 if(config["maintenance"]?["navigation"]?[destination]?["region_map"]?["workbench_override"]?.GetValue<bool>()!=true)config["maintenance"]!["navigation"]![destination]!["region_map"]=Bind(mapRoute,shop,npc,travel);
         }
+        // 配方与前往确认浮层覆盖遮罩下仍能识别的设备列表。
+        var equipmentPages=config["devices"]!.AsObject().Select(p=>p.Value!["queue_page"]!.GetValue<string>()).ToArray();
+        foreach(var section in new[]{"pages","page_variants"})
+        foreach(var (key,node) in profile[section]?.AsObject()??[])
+        {
+            var spec=node!.AsObject();if((spec["page"]?.GetValue<string>()??key) is not ("recipe_detail" or "device_travel_confirm"))continue;
+            var covered=NavigationProfile.Names(spec["covers_pages"]).Concat(equipmentPages).Distinct(StringComparer.Ordinal);
+            spec["covers_pages"]=new JsonArray(covered.Select(p=>(JsonNode?)JsonValue.Create(p)).ToArray());
+        }
         var result=NavigationProfile.FromDefinition(root,profile,userAssetRoot);var devices=new Dictionary<string,DeviceRoute>();
         foreach(var (key,node) in config["devices"]!.AsObject()){var e=node!;var page=e["queue_page"]!.GetValue<string>();var slots=e["slot_boxes"]!.AsArray().Select(x=>NavigationProfile.ReadBox(x!)).ToArray();if(page!=key+"_panel"||slots.Length==0||slots.Any(b=>!b.IsInside(result.Width,result.Height)))throw new InvalidDataException("设备页面或槽位无效");devices[key]=new(key,page,e["category_target"]!.GetValue<string>(),e["goto_target"]!.GetValue<string>(),slots,NavigationProfile.Names(e["collect_anchors"]),NavigationProfile.Names(e["arrival_anchors"]),e["recipe_close_target"]?.GetValue<string>()??"recipe_detail.close");}
         var recipes=new Dictionary<string,RecipeRoute>();foreach(var (key,node) in config["recipes"]!.AsObject()){var e=node!;var device=e["device"]!.GetValue<string>();var duration=e["duration_s"]!.GetFiniteDouble();var page=e["page"]?.GetValue<string>()??"recipe_detail";var output=e["output_item_id"]!.GetValue<long>();var count=e["output_per_round"]!.GetValue<int>();var offset=e["open_click_offset"]?.AsArray();var point=offset is null?new PixelPoint(0,0):new(offset[0]!.GetValue<int>(),offset[1]!.GetValue<int>());var box=NavigationProfile.ReadBox(e["craft_button_box"]!);if(!devices.ContainsKey(device)||!double.IsFinite(duration)||duration<=0||output<=0||count<=0||page!="recipe_detail"||Math.Abs((long)point.X)>120||Math.Abs((long)point.Y)>120||!box.IsInside(result.Width,result.Height))throw new InvalidDataException("配方设备、耗时或产出无效："+key);recipes[key]=new(key,device,duration,e["open_target"]!.GetValue<string>(),page,NavigationProfile.Names(e["confirm_anchors"]),e["craft_anchor"]!.GetValue<string>(),box,output,count,point);}

@@ -6,6 +6,19 @@ using Xunit;
 namespace MabiAgent.Windows.Tests;
 public sealed class ScreenWorkflowSessionTests
 {
+    [Theory][InlineData(FishingPlan.CurrentLocation)][InlineData("point_fishing_03")]
+    public void FishingReelUsesSpaceWithDurableIntentAndNeverClicksTaskArea(string point)
+    {
+        var routes=ScreenRoutes.Load(RecognitionTests.Root());routes.Configuration["notifications"]=new JsonObject();
+        routes.Profile.Definition.Remove("page_variants");routes.Profile.Definition.Remove("coordinate_control_targets");
+        var clicks=new List<PixelPoint>();var native=new NoInputOps(Stamp(routes.Profile,"scene_bag","maint_scene_map","fishing_hook","navigation_task_prefix"),clicks);
+        using var session=new ScreenWorkflowSession(routes,Window(),native,new EmptyOcr(),new MemoryStore());session.Start();
+        var store=new MemoryStore(new JsonObject{["phase"]="round",["pending"]=new JsonObject{["kind"]="reel",["at"]=0d}});
+        var port=new ScreenFishingPort(session,point,"space-reel",store);port.ObserveOnly();port.Perform(new("reel"));
+        Assert.Empty(clicks);Assert.Equal((ushort)32,Assert.Single(native.Keys));
+        Assert.Throws<InputRejectedBeforeDispatchException>(()=>port.Perform(new("reel")));Assert.Single(native.Keys);
+    }
+
     [Theory][InlineData(false)][InlineData(true)]
     public void SharedExitClosesExistingSkillsBeforeRefresh(bool reentry)
     {
@@ -1577,7 +1590,8 @@ public sealed class ScreenWorkflowSessionTests
         var restored=port.ObserveOnly();Assert.False(restored.FishingButton);Assert.False(restored.RoundActive);
         Assert.Empty(native.Keys);
     }
-    [Fact] public void DispatchedFishingTravelDoesNotReopenNavigationBeforeTaskIsObserved()
+    [Theory][InlineData(false)][InlineData(true)]
+    public void DispatchedFishingTravelDoesNotReopenNavigationBeforeTaskIsObserved(bool otherDestination)
     {
         var routes=ScreenRoutes.Load(RecognitionTests.Root());routes.Configuration["notifications"]=new JsonObject();
         routes.Profile.Definition.Remove("page_variants");routes.Profile.Definition.Remove("coordinate_control_targets");
@@ -1590,8 +1604,9 @@ public sealed class ScreenWorkflowSessionTests
         Assert.Single(clicks);native.CurrentImage=Stamp(routes.Profile,"scene_skills");
         Assert.Null(port.Observe().NavigationActive);Assert.Null(port.Observe().NavigationActive);
         Assert.Single(clicks);Assert.NotNull(session.CurrentNavigationId);
-        native.CurrentImage=Stamp(routes.Profile,"scene_skills","fishing_navigation_task");time.Seconds=1;Assert.True(port.Observe().NavigationActive);
-        native.CurrentImage=Stamp(routes.Profile,"scene_skills");time.Seconds=2;Assert.Null(port.Observe().NavigationActive);time.Seconds=5;Assert.False(port.Observe().NavigationActive);
+        native.CurrentImage=Stamp(routes.Profile,"scene_skills",otherDestination?"navigation_task_prefix":"fishing_navigation_task");time.Seconds=1;Assert.True(port.Observe().NavigationActive);
+        time.Seconds=5;Assert.True(port.Observe().NavigationActive);Assert.False(port.CanResumeAtPoint);
+        native.CurrentImage=Stamp(routes.Profile,"scene_skills");time.Seconds=6;Assert.Null(port.Observe().NavigationActive);time.Seconds=9;Assert.False(port.Observe().NavigationActive);
         Assert.True(port.CanResumeAtPoint);Assert.Null(session.CurrentNavigationId);session.BeginNavigation("other");Assert.False(port.CanResumeAtPoint);
         Assert.Single(clicks);
     }

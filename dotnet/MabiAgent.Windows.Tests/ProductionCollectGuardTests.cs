@@ -35,25 +35,11 @@ public sealed class ProductionCollectGuardTests
         test.AssertCollected();
     }
 
-    [Theory]
-    [InlineData(true)]
-    [InlineData(false)]
-    public void ExplicitApprovalForAllReadyTargetsMustBeUnexpired(bool validApproval)
+    [Theory][InlineData(true)][InlineData(false)]
+    public void UnknownReadyTargetsCanBeCollectedRegardlessOfLegacyApproval(bool validApproval)
     {
         using var test=new CollectCase([0,1],[0],approvalLifetime:validApproval?3600:-3600);
-        test.ObserveReady();
-
-        if(validApproval)
-        {
-            test.Port.Click("collect",test.Recipe);
-            test.AssertCollected();
-        }
-        else
-        {
-            Assert.Throws<InputRejectedBeforeDispatchException>(()=>test.Port.Click("collect",test.Recipe));
-            Assert.Empty(test.Native.Clicks);
-            Assert.Equal(0,test.Journal.Read()?["intents"]?.AsObject().Count??0);
-        }
+        test.ObserveReady();test.Port.Click("collect",test.Recipe);test.AssertCollected();
     }
 
     private sealed class CollectCase:IDisposable

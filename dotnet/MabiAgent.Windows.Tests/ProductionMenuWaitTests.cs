@@ -5,6 +5,27 @@ namespace MabiAgent.Windows.Tests;
 
 public sealed class ProductionMenuWaitTests
 {
+    [Theory]
+    [InlineData("metal")][InlineData("wood")][InlineData("leather")]
+    [InlineData("fabric")][InlineData("chemical")][InlineData("food")]
+    public void DeviceTravelConfirmationCoversEveryEquipmentPageAndDismissalRestoresIt(string deviceKey)
+    {
+        var routes=ScreenRoutes.Load(RecognitionTests.Root());var device=routes.Devices[deviceKey];var profile=routes.Profile;
+        var confirmation=profile.Definition["pages"]!["device_travel_confirm"]!.DeepClone();
+        confirmation["anchors"]=new JsonArray("scene_skills");
+        profile.Definition["pages"]=new JsonObject
+        {
+            [device.QueuePage]=new JsonObject{["anchors"]=new JsonArray("scene_bag")},
+            ["device_travel_confirm"]=confirmation
+        };
+        profile.Definition.Remove("page_variants");
+        using var recognizer=new ScreenPageRecognizer(profile);
+        var view=recognizer.Recognize(Stamp(profile,"scene_bag","scene_skills"));
+        Assert.Equal("device_travel_confirm",view.Page);Assert.Contains("device.confirm_travel",view.Targets.Keys);
+        Assert.Contains("device.cancel_travel",view.Targets.Keys);
+        Assert.Equal(device.QueuePage,recognizer.Recognize(Stamp(profile,"scene_bag")).Page);
+    }
+
     [Theory][InlineData(10)][InlineData(90)][InlineData(150)]
     public void StableEquipmentGlyphsIgnoreSceneBackground(byte background)
     {
