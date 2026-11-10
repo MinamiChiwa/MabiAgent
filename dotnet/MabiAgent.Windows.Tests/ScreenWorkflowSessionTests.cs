@@ -892,6 +892,42 @@ public sealed class ScreenWorkflowSessionTests
         Assert.Equal("metal_panel",port.Observe().Page);Assert.Contains("page.close",session.LastObservation!.View.Targets.Keys);
         port.Navigate("leave",requested);Assert.Equal(2,clicks.Count);Assert.InRange(clicks[^1].X,24,52);Assert.InRange(clicks[^1].Y,23,57);
     }
+    [Theory]
+    [InlineData(false,false,10,true)]
+    [InlineData(true,false,10,false)]
+    [InlineData(true,false,0,false)]
+    [InlineData(false,true,10,false)]
+    public void ObservedWoodArrivalSurvivesSlowRecipeOpeningWithinSamePositionAndInputEpoch(bool moved,bool resumed,int inspectionAge,bool expectedArrival)
+    {
+        var root=RecognitionTests.Root();var routes=ScreenRoutes.Load(root);routes.Configuration.Remove("workbench_chains");
+        var native=new NoInputOps(FishingFeedbackTests.ReadImage(Path.Combine(root,"tests/fixtures/production/wood-arrived-current.jpg")),[]);
+        using var session=new ScreenWorkflowSession(routes,Window(),native,new EmptyOcr(),new MemoryStore());session.Start();
+        var port=session.CreateProductionPort("wood_first","slow-wood-recipe",new MemoryStore());
+        var queue=port.Observe();Assert.Equal("wood_panel",queue.Page);Assert.True(queue.AtDevice);Assert.NotNull(queue.EmptySlots);
+        var flags=System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic;
+        typeof(ScreenProductionPort).GetField("queueAt",flags)!.SetValue(port,session.LastCapture!.CapturedAt-inspectionAge);
+        if(moved)session.BeginNavigation("other-location");
+        if(resumed){session.Pause();session.ResumeExplicit();}
+        native.CurrentImage=FishingFeedbackTests.ReadImage(Path.Combine(root,"tests/fixtures/production/wood-recipe-current.png"));
+        var detail=port.Observe();Assert.Equal("recipe_detail",detail.Page);Assert.Equal("wood_first",detail.RecipeKey);
+        Assert.Equal(expectedArrival,detail.AtDevice);
+        if(expectedArrival)Assert.Equal(queue.EmptySlots,detail.EmptySlots);
+    }
+    [Theory]
+    [InlineData("decomposition-confirm.jpg","bag_decompose","bag.decompose_cancel")]
+    [InlineData("decomposition-preview.jpg","decomposition_preview","decomposition.back")]
+    public void SurplusSaleCancelsUnexpectedDecompositionBeforeReturningToItemDetail(string fixture,string page,string cancelTarget)
+    {
+        var root=RecognitionTests.Root();var routes=ScreenRoutes.Load(root);
+        var state=new JsonObject{["status"]="running",["phase"]="input",["item_id"]=1L,["name"]="木材",["amount"]=1L};
+        var clicks=new List<PixelPoint>();var native=new NoInputOps(FishingFeedbackTests.ReadImage(Path.Combine(root,"tests/fixtures/production",fixture)),clicks);
+        using var session=new ScreenWorkflowSession(routes,Window(),native,new EmptyOcr(),new MemoryStore());session.Start();
+        var port=session.CreateSurplusPort("recover-sale",new MemoryStore(state),_=>1);
+        Assert.Equal("running",port.Tick());Assert.Equal(page,session.CurrentPage);
+        Assert.Equal(session.LastObservation!.View.Targets[cancelTarget],Assert.Single(clicks));
+        Assert.Equal("detail",port.Snapshot()["phase"]!.GetValue<string>());Assert.Null(port.Snapshot()["pending"]);
+        Assert.Equal("running",port.Tick());Assert.Single(clicks);
+    }
     [Fact] public void ConfirmedDeviceArrivalDoesNotExpireWhileReadingItsCurrentRecipe()
     {
         var root=RecognitionTests.Root();var routes=ScreenRoutes.Load(root);

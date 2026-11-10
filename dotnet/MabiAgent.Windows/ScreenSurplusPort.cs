@@ -122,6 +122,13 @@ public sealed class ScreenSurplusPort : ScreenWorkflowPort, ISurplusMaintenanceP
             &&Now>(state["selection_deadline"]?.GetFiniteDouble()??double.MaxValue))
         {state["phase"]="search_clear";state["reason"]="surplus_item_not_visible";state["selection_deadline"]=Now+30;Save();phase="search_clear";}
         var observation = Read(); if (!observation.Stable || !Session.InputAvailable || Session.Guard.Paused) return "running";
+        if(state["pending"] is null&&(phase is "detail" or "input" or "verify")
+            &&observation.View.Page is "bag_decompose" or "decomposition_preview")
+        {
+            var error=navigation.NavigateObserved("release",observation);
+            if(error is not null)return Finish("complete",error);
+            state["phase"]="detail";Save();return "running";
+        }
         if(phase=="select"&&observation.View.Page is not ("scene" or "bag" or "repair_tools" or "bag_search")
             &&Session.Routes.Configuration["maintenance"]?["exit_navigation"]?[observation.View.Page] is not null)
         {
@@ -156,7 +163,12 @@ public sealed class ScreenSurplusPort : ScreenWorkflowPort, ISurplusMaintenanceP
             state["search_dirty"]=false;state["phase"]="plan";Save();
             if(state["search_finish"]?.GetValue<bool>()==true){state.Remove("search_finish");return Finish("complete");}
         }
-        else if (phase == "detail" && observation.View.Page == "bag_item_detail") { if (!identity) return Finish("complete", "surplus_identity_unknown"); state["phase"] = "input"; Save(); Session.NavigateTarget("bag.sell_open"); }
+        else if (phase == "detail" && observation.View.Page == "bag_item_detail")
+        {
+            if (!identity) return Finish("complete", "surplus_identity_unknown");
+            if(!observation.View.Targets.ContainsKey("bag.sell_open"))return Finish("complete","surplus_sell_button_not_visible");
+            navigation.ResetNavigation();state["phase"] = "input"; Save(); Session.NavigateTarget("bag.sell_open");
+        }
         else if (phase == "input" && observation.View.Page == "bag_sale") { if (!identity) return Finish("complete", "surplus_identity_unknown"); state["phase"] = "verify"; Save(); EditQuantity(observation); }
         else if (phase == "verify" && observation.View.Page == "bag_sale" && identity)
         {

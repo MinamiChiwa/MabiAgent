@@ -3491,7 +3491,6 @@
     "storage.travel",
     "storage.exit_room",
     "storage.cancel_exit",
-    "bag.sell_open",
     "bag.sale_cancel",
     "gathering.start",
     "gathering.close",

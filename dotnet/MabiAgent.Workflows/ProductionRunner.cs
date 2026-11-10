@@ -429,7 +429,7 @@ public sealed class ProductionRunner : PersistentWorkflow
             if(S("phase")=="workbench_finish"&&!port.HasExtensionPending){Set(("status","complete"),("reason",null));Save();return Snapshot();}
             if (!PageReady(frame.Page, frame.Foreground, frame.Stable, BlockPage)) { if (Pending is { } pending && Now >= pending["deadline"]!.GetFiniteDouble()) Unknown("consuming_result_not_visible"); return Snapshot(); }
             if (S("status") == "paused" || resumeRequested) { ResumeFrame(); return Snapshot(); }
-            if(Pending is null&&S("phase")!="waiting")CheckProgress(S("phase")+":"+frame.Page+":"+I("submitted")+":"+I("completed"));else ResetProgressWait();
+            if(Pending is null&&S("phase")!="waiting")CheckProgress(S("phase")+":"+I("submitted")+":"+I("completed"));else ResetProgressWait();
             if (QueuePage(frame) && frame.AtDevice && frame.EmptySlots is not null && frame.SlotCount is not null) QueueObservation = frame;
             Step(frame);if(S("status")=="complete"&&port.HasExtensionPending){Set(("status","running"),("phase","workbench_finish"));Save();}return Snapshot();
         }

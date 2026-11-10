@@ -42,6 +42,29 @@ public class RecognitionTests
         return new MabiAgent.Capture.GameClientLayoutResolver(NativeWindowsOps.ReadProcessIdentity).Resolve(new(game.State.ProcessId,new DateTime(game.State.ProcessStartUtcTicks,DateTimeKind.Utc)),default);
     }
 
+    [Theory]
+    [InlineData("surplus-detail-native.png",701)]
+    [InlineData("surplus-raw-log-detail-current.jpg",701)]
+    [InlineData("surplus-branch-detail-current.png",803)]
+    public void SaleTargetFollowsSellButtonWhenDecompositionChangesButtonLayout(string fixture,int expectedX)
+    {
+        var root=Root();var frame=FishingFeedbackTests.ReadImage(Path.Combine(root,"tests/fixtures/production",fixture));
+        using var recognizer=new ScreenPageRecognizer(ScreenRoutes.Load(root).Profile);
+        var view=recognizer.Recognize(frame);Assert.Equal("bag_item_detail",view.Page);
+        Assert.True(view.Targets.TryGetValue("bag.sell_open",out var target));
+        Assert.InRange(target.X,expectedX-12,expectedX+12);Assert.InRange(target.Y,880,903);
+    }
+    [Fact]
+    public void DecompositionButtonCannotSupplyMissingSellTarget()
+    {
+        var root=Root();var frame=FishingFeedbackTests.ReadImage(Path.Combine(root,"tests/fixtures/production/surplus-branch-detail-current.png"));
+        var pixels=frame.CopyPixels();
+        for(var y=860;y<922;y++)for(var x=736;x<854;x++)
+        {var offset=(y*frame.Width+x)*3;pixels[offset]=pixels[offset+1]=pixels[offset+2]=0;}
+        using var recognizer=new ScreenPageRecognizer(ScreenRoutes.Load(root).Profile);
+        var view=recognizer.Recognize(new RgbImage(frame.Width,frame.Height,pixels));
+        Assert.DoesNotContain("bag.sell_open",view.Targets.Keys);
+    }
     [Fact] public void LongItemDescriptionKeepsFunctionalDetailAnchorAndSaleTarget()
     {
         var routes=ScreenRoutes.Load(Root());using var bgr=OpenCvSharp.Cv2.ImRead(Path.Combine(Root(),"tests/fixtures/production/high-log-plus-detail-current.jpg"));
