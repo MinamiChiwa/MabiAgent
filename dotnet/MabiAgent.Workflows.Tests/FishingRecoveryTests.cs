@@ -7,6 +7,29 @@ namespace MabiAgent.Workflows.Tests;
 
 public sealed class FishingRecoveryTests
 {
+    [Fact] public void SharedInspectionClearsAnOldFishingRequestBeforeTheRunnerIsSelectedAgain()
+    {
+        var port=new FishingPort{ReleaseAllowed=true};var store=new MemoryStore();
+        var runner=new IdleFishingRunner(new(FishingPlan.CurrentLocation,300),port,store);var state=runner.Snapshot();
+        state["status"]="yielded";state["phase"]="yielded";state["submitted"]=20;state["completed"]=20;state["backpack_check_requested"]=true;store.Flush(state);
+        runner=new(new(FishingPlan.CurrentLocation,300),port,store);Assert.True(runner.NeedsBackpackCheck);
+        runner.BackpackInspectionCompleted();Assert.False(runner.NeedsBackpackCheck);Assert.False(runner.PeriodicBackpackCheckAllowed);
+        runner=new(new(FishingPlan.CurrentLocation,300),port,store);Assert.False(runner.NeedsBackpackCheck);Assert.False(runner.PeriodicBackpackCheckAllowed);Assert.Empty(port.Actions);
+    }
+    [Theory][InlineData(false)][InlineData(true)]
+    public void NewTurnDoesNotReuseThePreviousDismountDeadline(bool restart)
+    {
+        var port=new FishingPort{ReleaseAllowed=true};var store=new MemoryStore();
+        var runner=new IdleFishingRunner(new(FishingPlan.CurrentLocation,300),port,store);
+        port.Frame=new(1,"mounted","scene",Compass:true,Mounted:true);runner.Tick();
+        Assert.Equal("dismount",Assert.Single(port.Actions).Kind);
+        if(restart){runner.Pause();runner=new(new(FishingPlan.CurrentLocation,300),port,store);runner.Resume();}
+        else{runner.RequestYield();port.Frame=new(2,"yield","scene",Compass:true,Mounted:true);runner.Tick();runner.Resume();}
+        port.Frame=new(100,"new-mounted","scene",Compass:true,Mounted:true);runner.Tick();
+        Assert.Equal(2,port.Actions.Count(a=>a.Kind=="dismount"));Assert.Equal("running",runner.Snapshot()["status"]!.GetValue<string>());
+        port.Frame=new(101.1,"new-ready","fishing",FishingButton:true);runner.Tick();
+        Assert.Equal("start",port.Actions.Last().Kind);Assert.Null(runner.Snapshot()["reason"]);
+    }
     [Fact] public void RejectedNavigationCannotResetTheWallClockBudget()
     {
         var clock=new ManualTime();var port=new FishingPort{Error=new InputRejectedBeforeDispatchException("unsent")};
@@ -52,6 +75,18 @@ public sealed class FishingRecoveryTests
         port.Frame=new(21,"hook","fishing",RoundActive:true,LeisureMode:false,HookVisible:true,Gauge:.7);runner.Tick();
         Assert.Null(runner.Snapshot()["pending"]);Assert.Single(port.Actions);
         Assert.Equal("round",runner.Snapshot()["phase"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public void FailedCastWhileMountedReturnsToDismountBeforeRetrying()
+    {
+        var (runner,port,_) = AtPoint();
+        port.Frame=new(1,"cast","fishing",FishingButton:true);runner.Tick();
+        port.Frame=new(21,"mounted","scene",Compass:true,Mounted:true);runner.Tick();
+        Assert.Null(runner.Snapshot()["pending"]);Assert.Equal(new[]{"start","dismount"},port.Actions.Select(a=>a.Kind));
+        Assert.Equal(0,runner.Snapshot()["completed"]!.GetValue<int>());
+        port.Frame=new(21.5,"transition","scene",Compass:true);runner.Tick();Assert.Equal(2,port.Actions.Count);
+        port.Frame=new(22.1,"ready","fishing",FishingButton:true);runner.Tick();Assert.Equal(new[]{"start","dismount","start"},port.Actions.Select(a=>a.Kind));
     }
 
     [Fact]

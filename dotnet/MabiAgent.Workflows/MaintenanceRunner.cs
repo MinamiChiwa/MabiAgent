@@ -310,6 +310,8 @@ public sealed class MaintenanceRunner : PersistentWorkflow
     private void CancelPeriodicBackpackCheck()
     {
         if (Str(Bag, "phase") != "inspect" || Pending is not null || surplus?.Snapshot()["pending"] is not null || Bool(Bag,"inspection_requested")) return;
+        // 下一任务的周期限制只决定是否开始检查，已取得维护占用的检查继续完成。
+        if(S("active")=="backpack"&&Str(Bag,"status")=="running"&&S("paused") is null)return;
         var inspectionBlocked = S("reason") is "backpack_weight_unknown" or "backpack_progress_timeout";
         if (B("global_pause_required") && !inspectionBlocked) return;
         Change(Bag, ("phase", "idle"), ("status", "idle"), ("reads", 0), ("last_capture", null));

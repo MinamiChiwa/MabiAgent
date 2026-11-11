@@ -70,8 +70,8 @@ public static class TcpPacketDecoder
     }
 }
 
-/// <summary>One capture worker and bounded live streams. Raw diagnostics require an explicit trace opt-in.</summary>
-public sealed class PassiveCaptureService(StreamingInventory inventory, Func<IPassivePacketSource> sourceFactory, Func<TcpEndpoint,bool> allowServerEndpoint,Action<GameFrame,string,double>? observeFrame=null,CapturePacketTrace? packetTrace=null) : IDisposable
+/// <summary>One capture worker and bounded live streams; raw payloads are never written to files.</summary>
+public sealed class PassiveCaptureService(StreamingInventory inventory, Func<IPassivePacketSource> sourceFactory, Func<TcpEndpoint,bool> allowServerEndpoint,Action<GameFrame,string,double>? observeFrame=null) : IDisposable
 {
     private sealed record Connection(RollingTcpStream Stream, string Id, double LastSeen, uint? SynSequence);
     private readonly object gate = new();
@@ -80,7 +80,6 @@ public sealed class PassiveCaptureService(StreamingInventory inventory, Func<IPa
     private bool disposed;
     private long lifetime;
     private long payloadBytes,decodedFrames,invalidations;
-    private readonly CapturePacketTrace? trace = packetTrace ?? CapturePacketTrace.FromEnvironment();
     public CaptureMetrics MetricsSnapshot()
     {lock(gate)return new(CapturedPackets,payloadBytes,decodedFrames,connections.Count,connections.Values.Sum(c=>c.Stream.BufferedBytes),invalidations);}
     public bool IsRunning { get { lock (gate) return cancellation is not null; } }
@@ -104,7 +103,7 @@ public sealed class PassiveCaptureService(StreamingInventory inventory, Func<IPa
             catch (Exception error) { Invalidate(error.Message); throw; }
             finally
             {
-                lock (gate) { connections.Clear(); inventory.Invalidate("Capture stopped"); cancellation = null; owned.Dispose(); trace?.Dispose(); }
+                lock (gate) { connections.Clear(); inventory.Invalidate("Capture stopped"); cancellation = null; owned.Dispose(); }
             }
         }, CancellationToken.None);
     }
@@ -120,7 +119,7 @@ public sealed class PassiveCaptureService(StreamingInventory inventory, Func<IPa
             if (packet.Reset || packet.Fin)
             {
                 if (connections.Remove(streamKey, out var closed))
-                { trace?.Record(packet, closed.Id, closed.Stream.TraceState(), null); InvalidateConnection(closed.Id, "Connection closed"); }
+                { InvalidateConnection(closed.Id, "Connection closed"); }
                 return;
             }
             if (packet.Payload.Length == 0 && !packet.Syn) return;
@@ -131,8 +130,6 @@ public sealed class PassiveCaptureService(StreamingInventory inventory, Func<IPa
                 connection = new(new RollingTcpStream(inventory.ValidateFullSync,inventory.Protocol.Login), (++lifetime).ToString(System.Globalization.CultureInfo.InvariantCulture), packet.ReceivedAt, packet.Syn ? packet.Sequence : null);
                 connections[streamKey] = connection;
             }
-            var before = trace is null ? null : connection.Stream.TraceState();
-            string? traceError = null;
             try
             {
                 foreach (var frame in connection.Stream.Feed(packet.Sequence, packet.Payload, packet.Syn, packet.Acknowledgement)){observeFrame?.Invoke(frame,connection.Id,packet.ReceivedAt);inventory.Accept(frame, connection.Id, packet.ReceivedAt);decodedFrames++;}
@@ -144,7 +141,6 @@ public sealed class PassiveCaptureService(StreamingInventory inventory, Func<IPa
             }
             catch (Exception error) when (error is InvalidDataException or ArgumentException or OverflowException)
             {
-                traceError = error.Message;
                 error.Data["capture_source"]=packet.CaptureSource;error.Data["endpoint"]=packet.Endpoint.ToString();
                 error.Data["sequence"]=packet.Sequence;error.Data["payload_bytes"]=packet.Payload.Length;error.Data["buffered_bytes"]=connection.Stream.BufferedBytes;
                 connections.Remove(streamKey);InvalidateConnection(connection.Id,error.Message);LastError=error.Message;LastException=error;
@@ -165,7 +161,6 @@ public sealed class PassiveCaptureService(StreamingInventory inventory, Func<IPa
                     {InvalidateConnection(replacement.Id,recoveryError.Message);}
                 }
             }
-            finally { trace?.Record(packet, connection.Id, before, connection.Stream.TraceState(), traceError); }
         }
     }
     private void InvalidateConnection(string connectionId, string reason)
@@ -173,6 +168,6 @@ public sealed class PassiveCaptureService(StreamingInventory inventory, Func<IPa
     private void Invalidate(string reason)
     { lock (gate) { connections.Clear(); inventory.Invalidate(reason); LastError = reason;invalidations++; } }
     public void Stop() { lock (gate) cancellation?.Cancel(); }
-    public void Dispose() { lock (gate) { disposed = true; cancellation?.Cancel(); if(cancellation is null)trace?.Dispose(); } GC.SuppressFinalize(this); }
+    public void Dispose() { lock (gate) { disposed = true; cancellation?.Cancel(); } GC.SuppressFinalize(this); }
 }
 

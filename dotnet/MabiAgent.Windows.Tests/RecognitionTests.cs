@@ -3,6 +3,64 @@ using Xunit;
 namespace MabiAgent.Windows.Tests;
 public class RecognitionTests
 {
+    [Theory]
+    [InlineData("surplus-detail-native.png", 672, 730)]
+    [InlineData("surplus-branch-detail-current.png", 780, 826)]
+    public void SaleTargetFollowsItsGlyphAcrossItemActionLayouts(string file, int left, int right)
+    {
+        var routes=ScreenRoutes.Load(Root());
+        var frame=FishingFeedbackTests.ReadImage(Path.Combine(Root(),"tests/fixtures/production",file));
+        using var recognizer=new ScreenPageRecognizer(routes.Profile);
+        var view=recognizer.Recognize(frame);
+        Assert.Equal("bag_item_detail",view.Page);
+        Assert.True(view.Targets.TryGetValue("bag.sell_open",out var point));
+        Assert.InRange(point.X,left,right);
+        Assert.InRange(point.Y,878,902);
+        Assert.Null(routes.Profile.Definition["page_variants"]!["surplus_item_detail"]!["coordinate_targets"]?["bag.sell_open"]);
+    }
+
+    [Theory][InlineData("missing")][InlineData("decompose")][InlineData("moved")][InlineData("duplicate")]
+    public void SaleGlyphRejectsWrongOrAmbiguousActionsAndFollowsExtraButtons(string change)
+    {
+        var routes=ScreenRoutes.Load(Root());
+        var frame=FishingFeedbackTests.ReadImage(Path.Combine(Root(),"tests/fixtures/production/surplus-branch-detail-current.png"));
+        var original=frame.CopyPixels();var pixels=original.ToArray();
+        for(var y=866;y<915;y++)Array.Clear(pixels,(y*frame.Width+735)*3,104*3);
+        var source=change=="decompose"?new PixelBox(665,878,711,902):new PixelBox(780,878,826,902);
+        var destination=change=="moved"?new PixelPoint(895,878):new PixelPoint(780,878);
+        if(change!="missing")Copy(source,destination);
+        if(change=="duplicate")Copy(source,new(540,878));
+        using var matcher=new TemplateMatcher(routes.Profile);
+        var hit=matcher.Anchor(new RgbImage(frame.Width,frame.Height,pixels),"surplus_item_sell");
+        if(change=="moved"){Assert.NotNull(hit);Assert.InRange(hit.Box.Center.X,895,941);}
+        else Assert.Null(hit);
+        void Copy(PixelBox box,PixelPoint to)
+        {for(var y=0;y<box.Height;y++)Array.Copy(original,((box.Top+y)*frame.Width+box.Left)*3,pixels,((to.Y+y)*frame.Width+to.X)*3,box.Width*3);}
+    }
+
+    [Theory][InlineData(50)][InlineData(170)]
+    public void SaleGlyphIgnoresButtonBackdropAndHotkeyChanges(byte shade)
+    {
+        var routes=ScreenRoutes.Load(Root());
+        var frame=FishingFeedbackTests.ReadImage(Path.Combine(Root(),"tests/fixtures/production/surplus-branch-detail-current.png"));
+        var pixels=frame.CopyPixels();
+        for(var y=872;y<910;y++)for(var x=735;x<839;x++)
+        {var i=(y*frame.Width+x)*3;if(pixels[i]<=180&&pixels[i+1]<=180&&pixels[i+2]<=180)pixels[i]=pixels[i+1]=pixels[i+2]=shade;}
+        for(var y=920;y<940;y++)Array.Fill(pixels,shade,(y*frame.Width+735)*3,104*3);
+        using var matcher=new TemplateMatcher(routes.Profile);
+        var hit=matcher.Anchor(new RgbImage(frame.Width,frame.Height,pixels),"surplus_item_sell");
+        Assert.NotNull(hit);Assert.InRange(hit.Box.Center.X,780,826);
+    }
+
+    [Theory][InlineData("decomposition-open.jpg",623,670)][InlineData("surplus-branch-detail-current.png",665,711)]
+    public void DecompositionEntryAlsoFollowsItsOwnActionGlyph(string fixture,int left,int right)
+    {
+        using var recognizer=new ScreenPageRecognizer(ScreenRoutes.Load(Root()).Profile);
+        var view=recognizer.Recognize(FishingFeedbackTests.ReadImage(Path.Combine(Root(),"tests/fixtures/production",fixture)));
+        Assert.Equal("bag_item_detail",view.Page);
+        Assert.True(view.Targets.TryGetValue("bag.decompose_open",out var point));Assert.InRange(point.X,left,right);
+    }
+
     [Fact] public void CompletedHarvestSceneWithNearbyCharactersRemainsRecognizable()
     {
         var routes=ScreenRoutes.Load(Root());var frame=FishingFeedbackTests.ReadImage(Path.Combine(Root(),"tests/fixtures/production/harvest-idle-current.jpg"));
@@ -144,16 +202,56 @@ public class RecognitionTests
         Assert.NotNull(matcher.Anchor(frame,"preset_fabric_title"));Assert.NotNull(matcher.Anchor(frame,"preset_fabric_equipment"));
         var view=recognizer.Recognize(frame);Assert.Equal("fabric_panel",view.Page);Assert.Contains("fabric.open_fabric_first",view.Targets.Keys);
     }
-    [Fact] public void CurrentArrivedWoodPanelUsesStableTitleAndEquipmentText()
+    [Theory]
+    [InlineData("wood-arrived-20261102.jpg")]
+    [InlineData("wood-bright-current.png")]
+    public void CurrentArrivedWoodPanelUsesStableTitleAndEquipmentText(string fixture)
     {
         var profile=ScreenRoutes.Load(Root()).Profile;
-        using var bgr=OpenCvSharp.Cv2.ImRead(Path.Combine(Root(),"tests/fixtures/production/wood-arrived-20261102.jpg"));
+        using var bgr=OpenCvSharp.Cv2.ImRead(Path.Combine(Root(),"tests/fixtures/production",fixture));
         using var rgb=new OpenCvSharp.Mat();OpenCvSharp.Cv2.CvtColor(bgr,rgb,OpenCvSharp.ColorConversionCodes.BGR2RGB);
         var pixels=new byte[rgb.Width*rgb.Height*3];System.Runtime.InteropServices.Marshal.Copy(rgb.Data,pixels,0,pixels.Length);
         var frame=new RgbImage(rgb.Width,rgb.Height,pixels);using var matcher=new TemplateMatcher(profile);using var recognizer=new ScreenPageRecognizer(profile,matcher);
         Assert.NotNull(matcher.Anchor(frame,"preset_wood_title"));Assert.NotNull(matcher.Anchor(frame,"preset_wood_equipment"));
         var view=recognizer.Recognize(frame);Assert.Equal("wood_panel",view.Page);Assert.Contains("wood.open_catalog_wood_03",view.Targets.Keys);
         Assert.Null(matcher.Anchor(frame,"preset_fabric_title"));
+    }
+    [Theory]
+    [InlineData("metal-arrived-20261102.jpg")]
+    [InlineData("fabric-arrived-current.png")]
+    [InlineData("chemical-panel-ready-current.jpg")]
+    public void WoodPageAnchorsDoNotMatchOtherEquipmentPages(string fixture)
+    {
+        var profile=ScreenRoutes.Load(Root()).Profile;
+        var frame=FishingFeedbackTests.ReadImage(Path.Combine(Root(),"tests/fixtures/production",fixture));
+        using var matcher=new TemplateMatcher(profile);using var recognizer=new ScreenPageRecognizer(profile,matcher);
+        Assert.Null(matcher.Anchor(frame,"screen_wood_title"));
+        Assert.Null(matcher.Anchor(frame,"preset_wood_title"));
+        Assert.NotEqual("wood_panel",recognizer.Recognize(frame).Page);
+    }
+    [Fact]
+    public void CurrentWoodRecipeOverlayCoversDimmedEquipmentPage()
+    {
+        var routes=ScreenRoutes.Load(Root());
+        var frame=FishingFeedbackTests.ReadImage(Path.Combine(Root(),"tests/fixtures/production/wood-plus-recipe-current.png"));
+        using var matcher=new TemplateMatcher(routes.Profile);using var recognizer=new ScreenPageRecognizer(routes.Profile,matcher);
+        foreach(var name in routes.Recipes["catalog_wood_01"].ConfirmAnchors)Assert.NotNull(matcher.Anchor(frame,name));
+        Assert.NotNull(matcher.Anchor(frame,"screen_wood_title"));
+        var view=recognizer.Recognize(frame);
+        Assert.Equal("recipe_detail",view.Page);Assert.Contains("recipe_detail.close",view.Targets.Keys);
+        Assert.DoesNotContain("wood.open_catalog_wood_01",view.Targets.Keys);
+    }
+    [Theory][InlineData(0)][InlineData(120)][InlineData(255)]
+    public void WoodRecipeIdentityExcludesQuantityLevelTimeAndAnimatedCraftButton(byte value)
+    {
+        var profile=ScreenRoutes.Load(Root()).Profile;
+        var frame=FishingFeedbackTests.ReadImage(Path.Combine(Root(),"tests/fixtures/production/wood-plus-recipe-current.png"));
+        var pixels=frame.CopyPixels();
+        foreach(var box in new[]{new PixelBox(972,572,1055,596),new(826,600,950,625),new(878,730,954,756),new(996,730,1060,756),new(825,875,1230,945)})
+        for(var y=box.Top;y<box.Bottom;y++)for(var x=box.Left;x<box.Right;x++)
+        {var i=(y*frame.Width+x)*3;pixels[i]=pixels[i+1]=pixels[i+2]=value;}
+        using var recognizer=new ScreenPageRecognizer(profile);var view=recognizer.Recognize(new RgbImage(frame.Width,frame.Height,pixels));
+        Assert.Equal("recipe_detail",view.Page);Assert.Contains("recipe_detail.close",view.Targets.Keys);
     }
     [Fact] public void CurrentTidyResultUsesItsOwnStableCompletionTitle()
     {

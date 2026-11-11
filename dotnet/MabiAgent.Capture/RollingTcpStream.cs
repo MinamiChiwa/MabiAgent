@@ -13,21 +13,6 @@ public sealed class RollingTcpStream(Func<GameFrame, bool>? fullSyncValidator = 
     private bool framed;
     public int BufferedBytes => buffer.Count + history.Count + pending.Values.Sum(x => x.Length);
     public bool Healthy => framed && pending.Count == 0 && buffer.Count == 0;
-    internal object TraceState()
-    {
-        var bytes = CollectionsMarshal.AsSpan(buffer);
-        return new
-        {
-            expected_sequence = expected, syn_sequence = synSequence, framed,
-            contiguous_bytes = buffer.Count, history_bytes = history.Count,
-            pending_segments = pending.Count, pending_bytes = pending.Values.Sum(x => x.Length),
-            next_pending_sequence = pending.Count == 0 ? (uint?)null : pending.Keys.MinBy(k => unchecked((int)(k - expected!.Value))),
-            head_hex = Convert.ToHexStringLower(bytes[..Math.Min(32, bytes.Length)]),
-            head_opcode = bytes.Length >= 4 ? BinaryPrimitives.ReadUInt32LittleEndian(bytes) : (uint?)null,
-            head_body_length = bytes.Length >= 8 ? BinaryPrimitives.ReadUInt32LittleEndian(bytes[4..]) : (uint?)null,
-            head_flag = bytes.Length >= 9 ? bytes[8] : (byte?)null
-        };
-    }
     public IReadOnlyList<GameFrame> Feed(uint sequence, ReadOnlySpan<byte> payload, bool syn = false, bool acknowledgement = false)
     {
         if (syn)

@@ -1,5 +1,6 @@
 using System.Text.Json.Nodes;
 using MabiAgent.Desktop.Editors;
+using MabiAgent.Windows;
 using Xunit;
 
 public sealed class WorkbenchTests
@@ -151,13 +152,19 @@ public sealed class WorkbenchTests
             chain.Enabled=true;var first=chain.Cards.First(c=>c.Action=="zoom_max");first.Action="scroll";first.ScrollSteps=2;
         }
         var configuration=PublishedCatalogCompiler.Compile(editor,includeWorkbench:false);
-        var regionTargets=configuration["ui"]!["pages"]!["region_map"]!["targets"]!.AsObject();regionTargets.Remove("map.storage_bank");regionTargets.Remove("map.storage_npc");regionTargets["map.inn"]="maint_tir_town";regionTargets["map.storage_box"]="storage_bank_npc";
+        var regionTargets=configuration["ui"]!["pages"]!["region_map"]!["targets"]!.AsObject();regionTargets["map.inn"]="map_inn_label";regionTargets["map.storage_box"]="map_storage_box";
         WorkbenchCompiler.Apply(editor,document,configuration);
         foreach(var destination in new[]{"repair_quote","purchase_shop","storage"})Assert.True(configuration["maintenance"]!["navigation"]![destination]!["region_map"]!["workbench_override"]!.GetValue<bool>());
         var storageRoute=configuration["maintenance"]!["navigation"]!["storage"]!["region_map"]!;
         Assert.Contains("map.inn",storageRoute.ToJsonString());Assert.Contains("map.storage_box",storageRoute.ToJsonString());Assert.Contains("storage_travel",storageRoute.ToJsonString());
         Assert.DoesNotContain("map.storage_bank",storageRoute.ToJsonString());
         Assert.NotNull(configuration["ui"]!["pages"]!["storage_travel"]);Assert.NotNull(configuration["ui"]!["pages"]!["storage_dialog"]);
+        var runtime=ScreenRoutes.FromConfiguration(Root,configuration);
+        var runtimeTargets=runtime.Profile.Definition["pages"]!["region_map"]!["targets"]!.AsObject();
+        Assert.Equal("map_inn_label",runtimeTargets["map.inn"]!.GetValue<string>());
+        Assert.Equal("map_storage_box",runtimeTargets["map.storage_box"]!.GetValue<string>());
+        Assert.Contains("map_inn_label",runtime.Profile.Templates.Keys);
+        Assert.Contains("map_storage_box",runtime.Profile.Templates.Keys);
     }
     [Fact] public void InstalledPageCannotSilentlyKeepItsOldIdentityAfterAllAnchorsAreRemoved()
     {

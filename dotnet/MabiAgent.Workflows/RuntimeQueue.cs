@@ -57,11 +57,11 @@ public sealed class RuntimeQueue(string directory)
         if(!File.Exists(Path.Combine(folder,"batch.json")))
         {
             var owner=ScopeOwner(scope);var root=Path.Combine(DirectoryPath,"windows");
-            if(owner is null||job["kind"]?.GetValue<string>()!="production"||!Directory.Exists(root))return null;
+            if(owner is null||job["kind"]?.GetValue<string>() is not ("production" or "idle_fishing")||!Directory.Exists(root))return null;
             var scopes=Directory.EnumerateDirectories(root).Take(10001).ToArray();if(scopes.Length>10000)return null;
             var candidates=scopes.Select(s=>Path.Combine(s,"targets",Hash(id),Hash(action)))
                 .Where(f=>File.Exists(Path.Combine(f,"batch.json"))).Select(f=>(Folder:f,Batch:JsonNode.Parse(File.ReadAllText(Path.Combine(f,"batch.json")))!.AsObject()))
-                .Where(c=>ScopeOwner(c.Batch["scope"]?.GetValue<string>())==owner&&(isRetired??ProcessIsRetired)(c.Batch["scope"]!.GetValue<string>())).Take(2).ToArray();
+                .Where(c=>ScopeOwner(c.Batch["scope"]?.GetValue<string>())==owner&&(isRetired??ProcessIsRetired)(c.Batch["scope"]!.GetValue<string>())&&CanRebind(c.Batch,c.Folder)).Take(2).ToArray();
             if(candidates.Length!=1)return null;
             var candidate=candidates[0];var oldScope=candidate.Batch["scope"]!.GetValue<string>();
             // Validate the queue binding before carrying the unchanged journal to the new process.
@@ -76,11 +76,26 @@ public sealed class RuntimeQueue(string directory)
         if(batch["scope"]?.GetValue<string>()!=scope)
         {
             var prior=batch["scope"]?.GetValue<string>();
-            if(job["kind"]?.GetValue<string>()!="production"||ScopeOwner(scope) is not {} owner||ScopeOwner(prior)!=owner||prior is null||!(isRetired??ProcessIsRetired)(prior))throw new InvalidDataException("批次角色范围或类型不匹配");
+            if(!CanRebind(batch,folder)||ScopeOwner(scope) is not {} owner||ScopeOwner(prior)!=owner||prior is null||!(isRetired??ProcessIsRetired)(prior))throw new InvalidDataException("批次角色范围或类型不匹配");
             batch["previous_scope"]=prior;batch["scope"]=scope;
             AtomicJson.Write(Path.Combine(folder,"batch.json"),batch);
         }
         return (batch,folder);
+    }
+    private static bool CanRebind(JsonObject batch,string folder)
+    {
+        if(batch["kind"]?.GetValue<string>()=="production")return true;
+        if(batch["kind"]?.GetValue<string>()!="idle_fishing")return false;
+        var file=Path.Combine(folder,"idle-fishing.json");if(!File.Exists(file))return false;
+        var state=JsonNode.Parse(File.ReadAllText(file))!.AsObject();
+        // 安全让位后的钓鱼只恢复原时长与轮次，不承接旧进程的原生动作。
+        return state["schema_version"]?.GetValue<int>()==1&&state["status"]?.GetValue<string>()=="yielded"
+            &&state["phase"]?.GetValue<string>()=="yielded"&&state.ContainsKey("pending")&&state["pending"] is null
+            &&state["round_seen"]?.GetValue<bool>()==false&&state["navigation_seen"]?.GetValue<bool>()==false
+            &&state["owned_slots"] is JsonArray{Count:0}
+            &&state["plan"]?["point_key"]?.GetValue<string>()==batch["point_key"]?.GetValue<string>()
+            &&state["plan"]?["duration_s"]?.GetFiniteDouble()==batch["duration_s"]?.GetFiniteDouble()
+            &&state["elapsed_s"]?.GetFiniteDouble() is >=0;
     }
     private static string? ScopeOwner(string? scope)
     {

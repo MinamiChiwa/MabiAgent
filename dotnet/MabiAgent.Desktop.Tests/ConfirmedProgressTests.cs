@@ -16,6 +16,22 @@ public sealed class ConfirmedProgressTests
     private static JobRow Fishing()=>new("fish","海滨","挂机钓鱼",120,10,"执行",false,0,true,false,false,ActionId:"cast-batch");
 
     [Fact]
+    public void FishingNavigationTextFollowsExecutionOwnership()
+    {
+        var row=Fishing();row.ApplyRuntime(new("cast-batch","running","navigate",null,false));Assert.Equal("等待调度",row.Status);
+        row.ApplyRuntime(new("cast-batch","running","navigate",null,false){Executing=true});Assert.Equal("正在前往钓鱼点",row.Status);
+        row.ApplyRuntime(new("cast-batch","running","navigate",null,false));Assert.Equal("等待调度",row.Status);
+    }
+
+    [Fact]
+    public void IsolatedTaskShowsBlockedAndRetainsConfirmedProgress()
+    {
+        var row=Fishing();row.ApplyRuntime(new("cast-batch","blocked","navigate","钓鱼选点导航已到总等待上限",false){Confirmed=23});
+        Assert.Equal("任务受阻，请点击继续",row.Status);Assert.True(row.IsWarningState);Assert.False(row.IsActiveState);Assert.Equal(33,row.ConfirmedQuantity);
+    }
+
+
+    [Fact]
     public void CurrentBatchProgressNotifiesTheConfirmedCellWithoutAQueueFileChange()
     {
         var row=Fishing();var changes=new List<string?>();row.PropertyChanged+=(_,e)=>changes.Add(e.PropertyName);

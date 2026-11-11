@@ -22,6 +22,7 @@ public sealed class ScreenSurplusPort : ScreenWorkflowPort, ISurplusMaintenanceP
     private readonly ScreenBagItemSearch search;
     private double quantityEditedAt;
     private int quantityEditAttempts;
+    private readonly TimeProvider time;
 
 
     private long Item => state["item_id"]?.GetValue<long>() ?? 0;
@@ -29,8 +30,9 @@ public sealed class ScreenSurplusPort : ScreenWorkflowPort, ISurplusMaintenanceP
     private long Amount => state["amount"]?.GetValue<long>() ?? 0;
 
     public ScreenSurplusPort(ScreenWorkflowSession session, string batchId, IWorkflowStore store,
-        Func<long, long?> requiredReserve, Func<InventorySnapshot>? packetInventory = null,Func<long,string?>? itemName=null) : base(session, batchId, store)
+        Func<long, long?> requiredReserve, Func<InventorySnapshot>? packetInventory = null,Func<long,string?>? itemName=null,TimeProvider? time=null) : base(session, batchId, store)
     {
+        this.time=time??TimeProvider.System;
         search=new(session);
         reserve = requiredReserve;
         inventory = packetInventory ?? (() => new InventorySnapshot(Session.Scope.SessionId));
@@ -39,11 +41,11 @@ public sealed class ScreenSurplusPort : ScreenWorkflowPort, ISurplusMaintenanceP
         config = session.Routes.Configuration["maintenance"]?["surplus"];
         state = store.Read() ?? new JsonObject { ["status"] = "idle", ["phase"] = "plan", ["attempted"] = new JsonArray(), ["receipts"] = new JsonArray() };
         if (state["pending"] is not null) state["status"] = "unknown";
-        else if(S(state,"status")=="running") {state["deadline"]=Now+300;state["selection_deadline"]=Now+45;Save();}
+        else if(S(state,"status")=="running") {state["deadline"]??=Now+300;state["selection_deadline"]??=Now+45;Save();}
     }
 
     private void Save() => Store.Flush(state);
-    private static double Now => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() / 1000d;
+    private double Now => time.GetUtcNow().ToUnixTimeMilliseconds() / 1000d;
 
     public void ObserveOnly()
     {
@@ -76,7 +78,7 @@ public sealed class ScreenSurplusPort : ScreenWorkflowPort, ISurplusMaintenanceP
         if (state["pending"] is not null) return "unknown";
         navigation.ResetNavigation();search.Reset();quantityEditedAt=0;quantityEditAttempts=0;
         state["status"] = "running"; state["phase"] = "plan"; state["reason"]=null;
-        state.Remove("search_finish");state["attempted"] = new JsonArray(); state["deadline"] = Now + 300; Save(); return "running";
+        state.Remove("search_finish");state.Remove("page_wait_at");state["attempted"] = new JsonArray(); state["deadline"] = Now + 300; Save(); return "running";
     }
     public string Reconcile() { if (state["pending"] is null) return S(state, "status")!; state["status"] = "running"; state["phase"] = "reconcile"; state["deadline"] = Now + 120; Save(); return "running"; }
 
@@ -106,7 +108,7 @@ public sealed class ScreenSurplusPort : ScreenWorkflowPort, ISurplusMaintenanceP
         if (config is null) return Finish("complete", "surplus_calibration_missing");
         if (Now > (state["deadline"]?.GetFiniteDouble() ?? 0)) return Finish(state["pending"] is null ? "complete" : "unknown", "surplus_check_timeout");
         var phase = S(state, "phase");
-        if(phase is "search_clear_apply" or "search_cleared"&&Now>(state["selection_deadline"]?.GetFiniteDouble()??0))return Finish("complete","surplus_search_clear_timeout");
+        if(phase is "search_clear" or "search_clear_apply" or "search_cleared"&&Now>(state["selection_deadline"]?.GetFiniteDouble()??0))return Finish("complete","surplus_search_clear_timeout");
         if (phase == "plan")
         {
             var attempted = state["attempted"]!.AsArray().Select(v => v!.GetValue<long>()).ToHashSet();
@@ -118,25 +120,25 @@ public sealed class ScreenSurplusPort : ScreenWorkflowPort, ISurplusMaintenanceP
             search.Reset();quantityEditAttempts=0;state["selection_deadline"]=Now+45;state["item_id"] = row.ItemId; state["name"] = CatalogName(row.ItemId); state["attempted"]!.AsArray().Add(row.ItemId);
             state["before"] = row.Quantity; state["before_version"] = row.Version; state["minimum_keep"]=keepAmount.Value;state["amount"] = row.Quantity!.Value - keepAmount.Value; state["phase"] = "select"; Save(); return "running";
         }
-        if(state["pending"] is null&&phase=="select"
+        if(state["pending"] is null&&(phase is "select" or "detail" or "input" or "verify")
             &&Now>(state["selection_deadline"]?.GetFiniteDouble()??double.MaxValue))
-        {state["phase"]="search_clear";state["reason"]="surplus_item_not_visible";state["selection_deadline"]=Now+30;Save();phase="search_clear";}
+        {state["phase"]="search_clear";state["reason"]=phase=="select"?"surplus_item_not_visible":"surplus_item_path_timeout";state["selection_deadline"]=Now+30;navigation.ResetNavigation();Save();phase="search_clear";}
         var observation = Read(); if (!observation.Stable || !Session.InputAvailable || Session.Guard.Paused) return "running";
         if(state["pending"] is null&&(phase is "detail" or "input" or "verify")
-            &&observation.View.Page is "bag_decompose" or "decomposition_preview")
+            &&observation.View.Page!=(phase=="detail"?"bag_item_detail":"bag_sale"))
         {
-            var error=navigation.NavigateObserved("release",observation);
-            if(error is not null)return Finish("complete",error);
-            state["phase"]="detail";Save();return "running";
+            if(observation.View.Page=="bag_item_detail"&&Now-(state["page_wait_at"]?.GetFiniteDouble()??0)<2)return "running";
+            // Return an unsent item path to selection; the shared exit route
+            // cancels incompatible dialogs within the original selection deadline.
+            state["phase"]="select";search.Reset();Save();phase="select";
+            if(observation.View.Page is "scene" or "bag" or "repair_tools")return "running";
         }
-        if(phase=="select"&&observation.View.Page is not ("scene" or "bag" or "repair_tools" or "bag_search")
-            &&Session.Routes.Configuration["maintenance"]?["exit_navigation"]?[observation.View.Page] is not null)
+        if(phase is "select" or "search_clear"&&observation.View.Page is not ("scene" or "bag" or "repair_tools" or "bag_search")
+            &&navigation.CanExit(observation.View))
         {
             var error=navigation.NavigateObserved("release",observation);
             return error is null?"running":Finish("complete",error);
         }
-        if(state["pending"] is null&&(phase is "detail" or "input" or "verify")&&(observation.View.Page is "scene" or "bag" or "repair_tools"))
-        {state["phase"]="select";search.Reset();Save();return "running";}
         if(phase=="select")
         {
             state["search_dirty"]=true;Save();
@@ -166,8 +168,8 @@ public sealed class ScreenSurplusPort : ScreenWorkflowPort, ISurplusMaintenanceP
         else if (phase == "detail" && observation.View.Page == "bag_item_detail")
         {
             if (!identity) return Finish("complete", "surplus_identity_unknown");
-            if(!observation.View.Targets.ContainsKey("bag.sell_open"))return Finish("complete","surplus_sell_button_not_visible");
-            navigation.ResetNavigation();state["phase"] = "input"; Save(); Session.NavigateTarget("bag.sell_open");
+            if(!observation.View.Targets.ContainsKey("bag.sell_open"))return "running";
+            navigation.ResetNavigation();Session.NavigateTarget("bag.sell_open");state["phase"]="input";state["page_wait_at"]=Now;Save();
         }
         else if (phase == "input" && observation.View.Page == "bag_sale") { if (!identity) return Finish("complete", "surplus_identity_unknown"); state["phase"] = "verify"; Save(); EditQuantity(observation); }
         else if (phase == "verify" && observation.View.Page == "bag_sale" && identity)

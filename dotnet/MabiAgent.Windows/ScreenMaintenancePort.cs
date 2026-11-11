@@ -182,8 +182,7 @@ public sealed class ScreenMaintenancePort:ScreenWorkflowPort,IMaintenancePort
             }
             ResetNavigation();return true;
         }
-        var step=config["exit_navigation"]?[o.View.Page]??(o.View.Targets.ContainsKey("page.close")?new JsonObject{["target"]="page.close"}:null)
-            ??(o.View.Page=="recipe_detail"&&o.View.Targets.ContainsKey("recipe_detail.close")?new JsonObject{["target"]="recipe_detail.close"}:null);
+        var step=ExitRoute(o.View);
         if(step is null)return false;
         var previous=LastTestNavigationTrace;
         var reason=NavigateCore("release",step as JsonObject,false,false,o);if(reason is not null)throw new InputBlockedException("维护页面退出未确认："+reason);
@@ -198,6 +197,14 @@ public sealed class ScreenMaintenancePort:ScreenWorkflowPort,IMaintenancePort
     }
     public string? Navigate(string destination)=>NavigateCore(destination,null,false,false,Session.LastObservation??throw new InputRejectedBeforeDispatchException("缺少维护等待观察"));
     internal string? NavigateObserved(string destination,UiObservation observation)=>NavigateCore(destination,null,false,false,observation);
+    internal bool CanExit(PageView view)=>ExitRoute(view) is not null;
+    private JsonNode? ExitRoute(PageView view)
+    {
+        if(config["exit_navigation"]?[view.Page] is{} configured)return configured;
+        var target=view.Page=="recipe_detail"&&view.Targets.ContainsKey("recipe_detail.close")?"recipe_detail.close"
+            :view.Targets.ContainsKey("page.close")?"page.close":null;
+        return target is null?null:new JsonObject{["target"]=target,["wait_for_page_change"]=true,["timeout_s"]=2,["retry_delay_s"]=.3};
+    }
     /// <summary>Tests an explicit non-consuming navigation step through the existing navigation confirmation state.</summary>
     public NavigationTestProgress TestNavigationStep(JsonObject step)
     {
@@ -272,7 +279,7 @@ public sealed class ScreenMaintenancePort:ScreenWorkflowPort,IMaintenancePort
             var expected=Names(sent["wait_for_pages"]);if(expected.Length==0&&S(sent,"expected_page") is{} expectedPage)expected=[expectedPage];
             // Dialogue text is mutable content and cannot be a completion anchor.
             // Progress is driven by page/target transitions or declared map changes.
-            var changed=expected.Length>0?expected.Contains(page):true;
+            var changed=expected.Length>0?expected.Contains(page):sent["wait_for_page_change"]?.GetValue<bool>()==true?page!=lastPage:true;
             if(sent["wait_for_targets"] is{} expectedTargets)changed=changed&&Names(expectedTargets).All(o.View.Targets.ContainsKey);
             if(testRoute is not null&&expected.Length>0&&page==lastPage)
                 changed=changed&&(beforeTargets!=TargetSignature(o.View)||beforeMap is not null&&MapChanged(beforeMap,MapSample(Session.LastCapture.Image)));
@@ -301,7 +308,7 @@ public sealed class ScreenMaintenancePort:ScreenWorkflowPort,IMaintenancePort
             }
         }
         if(key!=routeKey){routeKey=key;stage=null;searches=dialogueSteps=mapRecoveries=0;dispatched.Clear();}
-        var route=testRoute??config["navigation"]?[destination]?[page]??config["exit_navigation"]?[page]??(o.View.Targets.ContainsKey("page.close")?new JsonObject{["target"]="page.close"}:null);if(route is null)return "navigation_calibration_missing:"+destination+":"+page;
+        var route=testRoute??config["navigation"]?[destination]?[page]??ExitRoute(o.View);if(route is null)return "navigation_calibration_missing:"+destination+":"+page;
         if(testRoute is null&&destination=="backpack_tidy"&&page=="bag"&&!o.View.Targets.ContainsKey("bag.items_selected"))
             route=new JsonObject{["target"]="bag.open_items"};
         JsonNode? step=route;

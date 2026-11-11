@@ -2,18 +2,19 @@ using System.Runtime.InteropServices;
 namespace MabiAgent.Windows;
 
 /// <summary>Shared background keyboard transport. Pointer actions use the shared touch transport.</summary>
-public sealed class WindowMessageInputOps(NativeWindowState target,bool notifyActivation=false,Action<WindowMessageTrace>? trace=null):INativeWindowsOps,ICurrentClientFrameSource,IGuardedWindowTransport,IKeyboardPointerPreparation
+public sealed class WindowMessageInputOps(NativeWindowState target,bool notifyActivation=false,Action<WindowMessageTrace>? trace=null):INativeWindowsOps,ICurrentClientFrameSource,IGuardedWindowTransport,IKeyboardPointerPreparation,IDisposable
 {
     private readonly NativeWindowsOps passive=new();
     private ForegroundInputGuard? guard;
+    private bool disposed;
     public bool RequiresForeground=>false;
     public void BindGuard(ForegroundInputGuard owner)
-    {if(guard is not null&&!ReferenceEquals(guard,owner))throw new InputBlockedException("消息通道已绑定其他守卫");guard=owner;}
+    {ThrowDisposed();if(guard is not null&&!ReferenceEquals(guard,owner))throw new InputBlockedException("消息通道已绑定其他守卫");guard=owner;}
     private ForegroundInputGuard Guard=>guard??throw new InputBlockedException("消息输入必须经共享守卫");
-    public NativeWindowState ReadWindow(nint hwnd)=>passive.ReadWindow(hwnd);
-    public RgbImage CaptureClient(NativeWindowState state)=>passive.CaptureClient(state);
-    public CurrentClientFrame CaptureCurrentClientFrame(NativeWindowState state)=>passive.CaptureCurrentClientFrame(state);
-    public bool AnyPhysicalKeyDown()=>passive.AnyPhysicalKeyDown();
+    public NativeWindowState ReadWindow(nint hwnd){ThrowDisposed();return passive.ReadWindow(hwnd);}
+    public RgbImage CaptureClient(NativeWindowState state){ThrowDisposed();return passive.CaptureClient(state);}
+    public CurrentClientFrame CaptureCurrentClientFrame(NativeWindowState state){ThrowDisposed();return passive.CaptureCurrentClientFrame(state);}
+    public bool AnyPhysicalKeyDown(){ThrowDisposed();return passive.AnyPhysicalKeyDown();}
     private NativeWindowState VerifyTarget()
     {
         var current=passive.ReadWindow(target.WindowId);
@@ -21,15 +22,17 @@ public sealed class WindowMessageInputOps(NativeWindowState target,bool notifyAc
             throw new InputOutcomeUnknownException("消息目标身份已变化，停止输入及释放");
         return current;
     }
-    public void MoveClient(nint hwnd,PixelPoint point)=>throw new InputBlockedException("窗口消息通道仅支持键盘；指针操作须使用共享触控");
+    public void MoveClient(nint hwnd,PixelPoint point){ThrowDisposed();throw new InputBlockedException("窗口消息通道仅支持键盘；指针操作须使用共享触控");}
     public void MouseButton(MouseButton button,bool down)
     {
+        ThrowDisposed();
         if(down)throw new InputBlockedException("窗口消息通道不支持鼠标点击");
         Guard.AuthorizeMouseRelease(button);
     }
-    public void Wheel(int delta)=>throw new InputBlockedException("窗口消息通道不支持滚轮");
+    public void Wheel(int delta){ThrowDisposed();throw new InputBlockedException("窗口消息通道不支持滚轮");}
     public void Key(ushort key,bool down,bool unicode=false)
     {
+        ThrowDisposed();
         if(down)Guard.AuthorizeNativeTransport();else Guard.AuthorizeKeyRelease(key,unicode);
         VerifyTarget();if(down)NotifyActivation();
         if(unicode){if(down)Post(0x0102,key,1);return;}
@@ -40,6 +43,7 @@ public sealed class WindowMessageInputOps(NativeWindowState target,bool notifyAc
     }
     internal void PreparePointerInput()
     {
+        ThrowDisposed();
         // Allow the game to consume queued keys before restoring the actual
         // background state at the next guarded pointer action.
         // A previous session or process may have sent the keyboard activation
@@ -49,6 +53,8 @@ public sealed class WindowMessageInputOps(NativeWindowState target,bool notifyAc
         if(current.ForegroundId!=target.WindowId)Post(0x0006,0,current.ForegroundId);
     }
     void IKeyboardPointerPreparation.PreparePointerInput()=>PreparePointerInput();
+    public void Dispose(){if(disposed)return;disposed=true;passive.Dispose();}
+    private void ThrowDisposed()=>ObjectDisposedException.ThrowIf(disposed,this);
     private void NotifyActivation()
     {
         if(!notifyActivation)return;

@@ -1,21 +1,27 @@
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text;
 using Microsoft.Win32.SafeHandles;
 namespace MabiAgent.Windows;
 
-/// <summary>Foreground SendInput and passive GDI capture. No activation, process memory, injection, messages or background input.</summary>
-public sealed class NativeWindowsOps:INativeWindowsOps,ICurrentClientFrameSource
+/// <summary>Foreground SendInput and client-area PrintWindow capture. No activation, process memory, injection or background input.</summary>
+public sealed class NativeWindowsOps:INativeWindowsOps,ICurrentClientFrameSource,IDisposable
 {
     private static long captureGeneration;
     private readonly long generation=Interlocked.Increment(ref captureGeneration);
     private long captureSequence;
+    private readonly PrintWindowCaptureClient captureClient;
+    private int disposed;
     private ForegroundInputGuard? guard;
+    public NativeWindowsOps():this(null){}
+    internal NativeWindowsOps(Func<string,int,long,ProcessStartInfo>? helperLauncher,TimeSpan? startupTimeout=null,TimeSpan? frameTimeout=null,Action<Process>? helperStarted=null,Action<Process>? helperReady=null)
+    {captureClient=new(helperLauncher,startupTimeout,frameTimeout,helperStarted,helperReady);}
     internal void Bind(ForegroundInputGuard owner){if(guard is not null&&!ReferenceEquals(owner,guard))throw new InputBlockedException("原生输入适配器已绑定其他守卫");guard=owner;}
     private ForegroundInputGuard Guard=>guard??throw new InputBlockedException("原生输入必须经共享守卫");
     public NativeWindowState ReadWindow(nint hwnd)
     {
-        EnsureWindows();using var dpi=new DpiContext();
+        ThrowDisposed();EnsureWindows();using var dpi=new DpiContext();
         if(hwnd==0||!IsWindow(hwnd))throw new InputBlockedException("窗口不存在");
         GetWindowThreadProcessId(hwnd,out var pid);var identity=ReadProcessIdentity(pid);
         var cls=new StringBuilder(256);if(GetClassName(hwnd,cls,cls.Capacity)==0)throw Error();
@@ -50,37 +56,26 @@ public sealed class NativeWindowsOps:INativeWindowsOps,ICurrentClientFrameSource
         return new(CaptureClient(state),new("PrintWindow",generation,sequence,at));
     }
     public RgbImage CaptureClient(NativeWindowState state)
-    {
-        EnsureWindows();using var dpi=new DpiContext();var w=state.Geometry.Width;var h=state.Geometry.Height;
-        if(w<=0||h<=0||(long)w*h>16_777_216)throw new InputBlockedException("客户区图像超过上限");
-        var dc=GetDC(state.WindowId);if(dc==0)throw Error();nint memory=0,bitmap=0,previous=0;
-        try
-        {
-            memory=CreateCompatibleDC(dc);if(memory==0)throw Error();
-            var info=new BitmapInfo{Header=new BitmapInfoHeader{Size=(uint)Marshal.SizeOf<BitmapInfoHeader>(),Width=w,Height=-h,Planes=1,BitCount=32,SizeImage=(uint)(w*h*4)}};
-            bitmap=CreateDIBSection(dc,ref info,0,out var data,0,0);if(bitmap==0||data==0)throw Error();previous=SelectObject(memory,bitmap);if(previous==0||previous==-1)throw Error();
-            if(!PrintWindow(state.WindowId,memory,3))throw new InputBlockedException("PrintWindow 截图失败");
-            var bgra=new byte[w*h*4];Marshal.Copy(data,bgra,0,bgra.Length);var rgb=new byte[w*h*3];
-            for(var i=0;i<w*h;i++){rgb[i*3]=bgra[i*4+2];rgb[i*3+1]=bgra[i*4+1];rgb[i*3+2]=bgra[i*4];}
-            return new(w,h,rgb);
-        }finally{if(previous!=0&&previous!=-1&&memory!=0)SelectObject(memory,previous);if(memory!=0)DeleteDC(memory);if(bitmap!=0)DeleteObject(bitmap);ReleaseDC(state.WindowId,dc);}
-    }
+        =>CaptureClient(state,CancellationToken.None);
+    public RgbImage CaptureClient(NativeWindowState state,CancellationToken cancellationToken)
+    {ThrowDisposed();cancellationToken.ThrowIfCancellationRequested();EnsureWindows();var frame=captureClient.Capture(new(state.WindowId,state.ProcessId,state.ProcessStartUtcTicks,state.Geometry),cancellationToken);cancellationToken.ThrowIfCancellationRequested();return new(state.Geometry.Width,state.Geometry.Height,frame);}
     public void MoveClient(nint hwnd,PixelPoint point)
     {
-        Guard.AuthorizeNativeTransport();EnsureWindows();using var dpi=new DpiContext();if(!GetClientRect(hwnd,out var client))throw Error();if(!new PixelBox(0,0,client.Right-client.Left,client.Bottom-client.Top).Contains(point))throw new InputBlockedException("鼠标目标越出客户区");var p=new Point{X=point.X,Y=point.Y};if(!ClientToScreen(hwnd,ref p))throw Error();
+        ThrowDisposed();Guard.AuthorizeNativeTransport();EnsureWindows();using var dpi=new DpiContext();if(!GetClientRect(hwnd,out var client))throw Error();if(!new PixelBox(0,0,client.Right-client.Left,client.Bottom-client.Top).Contains(point))throw new InputBlockedException("鼠标目标越出客户区");var p=new Point{X=point.X,Y=point.Y};if(!ClientToScreen(hwnd,ref p))throw Error();
         int left=GetSystemMetrics(76),top=GetSystemMetrics(77),width=GetSystemMetrics(78),height=GetSystemMetrics(79);
         if(width<=1||height<=1||p.X<left||p.X>=left+width||p.Y<top||p.Y>=top+height)throw new InputBlockedException("鼠标目标越出虚拟桌面");
         Send(new Input{Type=0,Data=new InputUnion{Mouse=new MouseInput{X=(int)Math.Round((p.X-left)*65535d/(width-1)),Y=(int)Math.Round((p.Y-top)*65535d/(height-1)),Flags=0x0001|0x8000|0x4000}}});
     }
-    public void MouseButton(MouseButton button,bool down){if(down)Guard.AuthorizeNativeTransport();else Guard.AuthorizeMouseRelease(button);Send(new Input{Type=0,Data=new InputUnion{Mouse=new MouseInput{Flags=button switch{Windows.MouseButton.Left=>down?0x0002u:0x0004u,Windows.MouseButton.Right=>down?0x0008u:0x0010u,_=>throw new ArgumentException("未知鼠标按钮")}}}});}
-    public void Wheel(int delta){Guard.AuthorizeNativeTransport();if(delta==0||delta%120!=0||Math.Abs((long)delta)>1440)throw new ArgumentOutOfRangeException(nameof(delta));Send(new Input{Type=0,Data=new InputUnion{Mouse=new MouseInput{Data=unchecked((uint)delta),Flags=0x0800}}});}
+    public void MouseButton(MouseButton button,bool down){ThrowDisposed();if(down)Guard.AuthorizeNativeTransport();else Guard.AuthorizeMouseRelease(button);Send(new Input{Type=0,Data=new InputUnion{Mouse=new MouseInput{Flags=button switch{Windows.MouseButton.Left=>down?0x0002u:0x0004u,Windows.MouseButton.Right=>down?0x0008u:0x0010u,_=>throw new ArgumentException("未知鼠标按钮")}}}});}
+    public void Wheel(int delta){ThrowDisposed();Guard.AuthorizeNativeTransport();if(delta==0||delta%120!=0||Math.Abs((long)delta)>1440)throw new ArgumentOutOfRangeException(nameof(delta));Send(new Input{Type=0,Data=new InputUnion{Mouse=new MouseInput{Data=unchecked((uint)delta),Flags=0x0800}}});}
     public void Key(ushort key,bool down,bool unicode=false)
     {
+        ThrowDisposed();
         if(down)Guard.AuthorizeNativeTransport();else Guard.AuthorizeKeyRelease(key,unicode);
         if(!unicode&&!InputKeyPolicy.IsSupported(key))throw new InputBlockedException("键未获支持");
         Send(new Input{Type=1,Data=new InputUnion{Keyboard=new KeyInput{VirtualKey=unicode?(ushort)0:key,Scan=unicode?key:(ushort)0,Flags=(unicode?0x0004u:0)|(down?0:0x0002u)}}});
     }
-    public bool AnyPhysicalKeyDown(){EnsureWindows();for(var i=8;i<255;i++)if(IsPhysicalKeyDown(i,GetAsyncKeyState,key=>MapVirtualKey((uint)key,4)))return true;return false;}
+    public bool AnyPhysicalKeyDown(){ThrowDisposed();EnsureWindows();for(var i=8;i<255;i++)if(IsPhysicalKeyDown(i,GetAsyncKeyState,key=>MapVirtualKey((uint)key,4)))return true;return false;}
     internal static bool IsPhysicalKeyDown(int key,Func<int,short> state,Func<int,uint> scanCode)
     {
         if((state(key)&0x8000)==0)return false;
@@ -91,6 +86,8 @@ public sealed class NativeWindowsOps:INativeWindowsOps,ICurrentClientFrameSource
     private static void Send(Input input){EnsureWindows();if(SendInput(1,[input],Marshal.SizeOf<Input>())!=1)throw new InputOutcomeUnknownException("SendInput 未确认；禁止自动重放");}
     private static void EnsureWindows(){if(!OperatingSystem.IsWindows())throw new PlatformNotSupportedException("仅支持 Windows");}
     private static Win32Exception Error()=>new(Marshal.GetLastWin32Error());
+    private void ThrowDisposed()=>ObjectDisposedException.ThrowIf(Volatile.Read(ref disposed)!=0,this);
+    public void Dispose(){if(Interlocked.Exchange(ref disposed,1)==0)captureClient.Dispose();}
     private sealed class DpiContext:IDisposable
     {
         readonly nint old;
@@ -99,8 +96,6 @@ public sealed class NativeWindowsOps:INativeWindowsOps,ICurrentClientFrameSource
     }
     [StructLayout(LayoutKind.Sequential)]private struct Point{public int X,Y;}
     [StructLayout(LayoutKind.Sequential)]private struct Rect{public int Left,Top,Right,Bottom;}
-    [StructLayout(LayoutKind.Sequential)]private struct BitmapInfoHeader{public uint Size;public int Width,Height;public ushort Planes,BitCount;public uint Compression,SizeImage;public int XPelsPerMeter,YPelsPerMeter;public uint ClrUsed,ClrImportant;}
-    [StructLayout(LayoutKind.Sequential)]private struct BitmapInfo{public BitmapInfoHeader Header;public uint Colors;}
     [StructLayout(LayoutKind.Sequential)]private struct Input{public uint Type;public InputUnion Data;}
     [StructLayout(LayoutKind.Explicit)]private struct InputUnion{[FieldOffset(0)]public MouseInput Mouse;[FieldOffset(0)]public KeyInput Keyboard;}
     [StructLayout(LayoutKind.Sequential)]private struct MouseInput{public int X,Y;public uint Data,Flags,Time;public nuint ExtraInfo;}
@@ -123,14 +118,6 @@ public sealed class NativeWindowsOps:INativeWindowsOps,ICurrentClientFrameSource
     [DllImport("user32.dll")]private static extern short GetAsyncKeyState(int key);
     [DllImport("user32.dll",EntryPoint="MapVirtualKeyW")]private static extern uint MapVirtualKey(uint key,uint mapType);
     [DllImport("user32.dll")]private static extern nint SetThreadDpiAwarenessContext(nint context);
-    [DllImport("user32.dll")]private static extern nint GetDC(nint hwnd);
-    [DllImport("user32.dll")]private static extern int ReleaseDC(nint hwnd,nint dc);
-    [DllImport("user32.dll",SetLastError=true)]private static extern bool PrintWindow(nint hwnd,nint dc,uint flags);
-    [DllImport("gdi32.dll",SetLastError=true)]private static extern nint CreateCompatibleDC(nint dc);
-    [DllImport("gdi32.dll",SetLastError=true)]private static extern nint CreateDIBSection(nint dc,ref BitmapInfo info,uint usage,out nint bits,nint section,uint offset);
-    [DllImport("gdi32.dll",SetLastError=true)]private static extern nint SelectObject(nint dc,nint obj);
-    [DllImport("gdi32.dll")]private static extern bool DeleteDC(nint dc);
-    [DllImport("gdi32.dll")]private static extern bool DeleteObject(nint obj);
     [DllImport("user32.dll")]private static extern int GetSystemMetrics(int index);
     [DllImport("user32.dll",SetLastError=true)]private static extern uint SendInput(uint count,Input[] inputs,int size);
 }

@@ -9,7 +9,8 @@ namespace MabiAgent.Desktop.Tests;
 
 public sealed class DesktopInventorySnapshotTests
 {
-    [Fact] public void MapTransitionCannotMixCaptureScopesWithinOneInventoryRead()
+    [Theory][InlineData(false)][InlineData(true)]
+    public void MapTransitionCannotMixCaptureScopesWithinOneInventoryRead(bool initiallyReady)
     {
         var root=new DirectoryInfo(AppContext.BaseDirectory);while(root is not null&&!File.Exists(Path.Combine(root.FullName,"config/screen_routes.1280x960.tw.json")))root=root.Parent;
         Assert.NotNull(root);var directory=Path.Combine(Path.GetTempPath(),"mabi-inventory-snapshot-"+Guid.NewGuid().ToString("N"));
@@ -30,16 +31,20 @@ public sealed class DesktopInventorySnapshotTests
             var target=new CaptureTarget(window.ProcessId,new DateTime(window.ProcessStartUtcTicks,DateTimeKind.Utc));
             var ready=new CaptureStatus(CaptureState.Listening,"ready",target,raw);
             var unavailable=ready with{Inventory=raw with{Error="Connection closed"}};
-            var reads=0;
+            var reads=initiallyReady?0:1;CaptureStatus? forced=null;
             var type=typeof(AutomationService).Assembly.GetType("MabiAgent.Desktop.DesktopPorts",true)!;
-            var ports=Activator.CreateInstance(type,session,(Func<CaptureStatus>)(()=>reads++%2==0?ready:unavailable),window,mapping,new RuntimeCatalog(routes.Configuration),(Func<JsonObject>)(()=>new JsonObject()))!;
+            var ports=Activator.CreateInstance(type,session,(Func<CaptureStatus>)(()=>forced??(reads++%2==0?ready:unavailable)),window,mapping,new RuntimeCatalog(routes.Configuration),(Func<JsonObject>)(()=>new JsonObject()))!;
             var read=type.GetMethod("Inventory",System.Reflection.BindingFlags.Public|System.Reflection.BindingFlags.Instance)!;
             MabiAgent.Core.InventorySnapshot Inventory()=>(MabiAgent.Core.InventorySnapshot)read.Invoke(ports,null)!;
             reads=0;
             var inventory=Inventory();
             Assert.Equal(1,reads);Assert.Equal(7,inventory.Query(9001).Quantity);Assert.Equal(20,inventory.Query(9002).Quantity);
             Assert.All(inventory.Observations.Values,row=>Assert.Equal(inventory.Scope,row.Scope));Assert.Equal(2,inventory.Storage.Count);
+            Assert.Equal(inventory.Scope,type.GetProperty("Scope")!.GetValue(ports));Assert.Equal(1,reads);
             var disconnected=Inventory();Assert.Equal(2,reads);Assert.Null(disconnected.Query(9001).Quantity);
+            Assert.Equal(inventory.Scope,disconnected.Scope);Assert.Equal(disconnected.Scope,type.GetProperty("Scope")!.GetValue(ports));Assert.Equal(2,reads);
+            forced=ready with{Inventory=raw with{Scope=new("a","other","capture-2"),Identity=new("a","other","另一角色")}};
+            Assert.Throws<InvalidOperationException>(()=>((IAutomationPorts)ports).Inventory());
         }
         finally{if(Directory.Exists(directory))Directory.Delete(directory,true);}
     }

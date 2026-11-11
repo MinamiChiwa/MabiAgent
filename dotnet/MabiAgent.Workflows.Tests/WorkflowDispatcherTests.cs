@@ -5,6 +5,20 @@ using Xunit;
 namespace MabiAgent.Workflows.Tests;
 public sealed class WorkflowDispatcherTests
 {
+    [Theory][InlineData("inventory_sync","start",true)][InlineData("manual","start",false)][InlineData("inventory_sync","reel",false)]
+    public void DeferredCastWaitCarriesStartAuthorizationWithoutReplayingPending(string pause,string kind,bool resumes)
+    {
+        var port=new FishingPort{Frame=new(1,"cast","fishing",FishingButton:true)};var store=new MemoryStore();
+        var runner=new IdleFishingRunner(new(FishingPlan.CurrentLocation,120),port,store);runner.Tick();runner.Pause("restart");
+        var saved=runner.Snapshot();saved["pending"]!["kind"]=kind;store.Flush(saved);var pending=saved["pending"]!.ToJsonString();
+        runner=new(new(FishingPlan.CurrentLocation,120),port,store);port.Actions.Clear();port.Frame=new(2,"unknown","unknown",Stable:false);
+        var dispatcher=new WorkflowDispatcher();dispatcher.Continue();dispatcher.Pause(pause);dispatcher.Register("fish",runner);dispatcher.RestoreOwnership("fish");dispatcher.Continue(false);
+        WorkCandidate[] plan=[new("fish","idle_fishing",null,true,0,0)];dispatcher.Tick(plan,null);
+        Assert.Equal(resumes?"running":"paused",runner.Snapshot()["status"]!.GetValue<string>());
+        Assert.Equal(pending,runner.Snapshot()["pending"]!.ToJsonString());Assert.Empty(port.Actions);
+        if(resumes)
+        {port.Frame=new(21,"mounted","scene",Mounted:true,Compass:true);dispatcher.Tick(plan,null);Assert.Equal("dismount",Assert.Single(port.Actions).Kind);Assert.Null(runner.Snapshot()["pending"]);}
+    }
     [Theory][InlineData(false)][InlineData(true)]
     public void ShortSlotWaitsForTripIntervalButCollectsImmediatelyOnsite(bool onsite)
     {
@@ -50,6 +64,20 @@ public sealed class WorkflowDispatcherTests
         Assert.Equal("waiting",restored.Snapshot()["status"]!.GetValue<string>());Assert.Null(restored.Snapshot()["pause_reason"]);
         Assert.Equal("manual",manual.Snapshot()["pause_reason"]!.GetValue<string>());
     }
+    [Theory][InlineData("inventory_sync",true)][InlineData("manual",false)]
+    public void DeferredRestartCarriesStartThroughInventorySyncAndManualPauseRevokesIt(string pause,bool resumes)
+    {
+        var time=new ManualTime{Seconds=100};var port=new ProductionPort();
+        var restored=Waiting(port,time,"restored","wood");restored.RestoreDeviceTiming(110);restored.Pause("restart");
+        var gatherPort=new GatheringPort();var store=new MemoryStore();
+        _=new GatheringRunner(gatherPort,store,new("ore",1,"mining","node"),"g",time);
+        var gathering=new GatheringRunner(gatherPort,store,new("ore",1,"mining","node"),"g",time);
+        var d=new WorkflowDispatcher(time);d.Continue();d.Pause(pause);d.Register("restored",restored,"wood");d.Register("g",gathering);
+        WorkCandidate[] plan=[new("restored","production","wood",true,0,0),new("g","gathering",null,true,0,0)];
+        Assert.Null(d.Tick(plan,null));Assert.Empty(port.Navigation);Assert.Equal(0,gatherPort.Starts);
+        d.Continue(false);Assert.Equal(resumes,d.CanSchedule("restored"));Assert.Equal(resumes,d.CanSchedule("g"));
+        if(!resumes){Assert.Null(d.Tick(plan,null));d.Continue();Assert.True(d.CanSchedule("restored"));Assert.True(d.CanSchedule("g"));}
+    }
     [Fact] public void ConfirmedProductionExitFaultIsIsolatedAndOtherDeviceAndGatheringContinue()
     {
         var time=new ManualTime();var port=new ProductionPort{Frame=new("chemical_panel",EmptySlots:[1,2,3,4],SlotCount:5)};
@@ -89,7 +117,9 @@ public sealed class WorkflowDispatcherTests
         var other=new ProductionRunner(new ProductionPort(),new MemoryStore(),new("r2","wood",60),time:time);
         var d=new WorkflowDispatcher(time);d.Register("blocked",blocked,"furnace");d.Register("other",other,"wood");d.Continue();
         WorkCandidate b=new("blocked","production","furnace",true,5,0);d.Tick([b],null);d.Tick([b],null);
-        Assert.True(blocked.SafeToSwitch);Assert.Empty(port.Navigation);
+        Assert.False(blocked.SafeToSwitch);Assert.Empty(port.Navigation);
+        d.Tick([b],null);Assert.Equal("leave",Assert.Single(port.Navigation));
+        port.Frame=new("scene");d.Tick([b],null);Assert.True(blocked.SafeToSwitch);
         Assert.Equal("other",d.Tick([b,new("other","production","wood",true,5,1)],null));
         Assert.Equal("paused",blocked.Snapshot()["status"]!.GetValue<string>());
         available=1;d.SupplyChanged("blocked");Assert.Equal("paused",blocked.Snapshot()["status"]!.GetValue<string>());

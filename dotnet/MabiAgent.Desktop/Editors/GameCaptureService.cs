@@ -3,7 +3,7 @@ using Avalonia.Media.Imaging;
 using MabiAgent.Windows;
 namespace MabiAgent.Desktop.Editors;
 // One explicit screenshot grants one activation attempt, never clicks or keys.
-public sealed class SelectedGameCaptureService(GameWindowSelection selection,INativeWindowsOps ops,Func<bool>? isRunning=null):ILiveTargetCaptureService
+public sealed class SelectedGameCaptureService(GameWindowSelection selection,INativeWindowsOps ops,Func<bool>? isRunning=null):ILiveTargetCaptureService,IDisposable
 {
     public async Task<EditorTargetSession> PrepareSelectionAsync(CancellationToken cancellationToken=default)
     {
@@ -26,7 +26,7 @@ public sealed class SelectedGameCaptureService(GameWindowSelection selection,INa
         }
         Bitmap Capture()
         {
-            Validate();var image=ops.CaptureClient(state);Validate();
+            cancellationToken.ThrowIfCancellationRequested();Validate();var image=ops is NativeWindowsOps native?native.CaptureClient(state,cancellationToken):ops.CaptureClient(state);cancellationToken.ThrowIfCancellationRequested();Validate();
             return ImagePixels.FromRgb(image.Width,image.Height,image.CopyPixels());
         }
         return new(state.Geometry,Validate,Capture,handle=>overlay=handle);
@@ -39,9 +39,11 @@ public sealed class SelectedGameCaptureService(GameWindowSelection selection,INa
         if(before.Minimized)throw new InputBlockedException("请先还原游戏窗口");
         if(before.ForegroundId!=before.WindowId){cancellationToken.ThrowIfCancellationRequested();NativeWindowActivation.Activate(before);await Task.Delay(150,cancellationToken);}
         var state=ops.ReadWindow(before.WindowId);Verify(before,state);if(state.ForegroundId!=state.WindowId)throw new InputBlockedException("游戏未在前台");
-        cancellationToken.ThrowIfCancellationRequested();var image=ops.CaptureClient(state);var after=ops.ReadWindow(state.WindowId);Verify(state,after);if(after.ForegroundId!=after.WindowId||after.Geometry!=state.Geometry||after.WindowRect!=state.WindowRect||selection.Selected?.State.WindowId!=state.WindowId)throw new InputBlockedException("截图期间窗口或选择已变化");
+        cancellationToken.ThrowIfCancellationRequested();var image=ops is NativeWindowsOps native?native.CaptureClient(state,cancellationToken):ops.CaptureClient(state);cancellationToken.ThrowIfCancellationRequested();var after=ops.ReadWindow(state.WindowId);Verify(state,after);if(after.ForegroundId!=after.WindowId||after.Geometry!=state.Geometry||after.WindowRect!=state.WindowRect||selection.Selected?.State.WindowId!=state.WindowId)throw new InputBlockedException("截图期间窗口或选择已变化");cancellationToken.ThrowIfCancellationRequested();
         return ImagePixels.FromRgb(image.Width,image.Height,image.CopyPixels());
     }
+
+    public void Dispose()=>(ops as IDisposable)?.Dispose();
     static void Verify(NativeWindowState expected,NativeWindowState actual)
     {
         if(!GameWindowSelection.IsGame(actual)||actual.WindowId!=expected.WindowId||actual.ProcessId!=expected.ProcessId||actual.ProcessStartUtcTicks!=expected.ProcessStartUtcTicks||!string.Equals(actual.Executable,expected.Executable,StringComparison.OrdinalIgnoreCase))

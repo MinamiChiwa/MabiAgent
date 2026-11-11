@@ -4,6 +4,20 @@ using Xunit;
 namespace MabiAgent.Workflows.Tests;
 public sealed class TransitionTests
 {
+    [Theory][InlineData(false)][InlineData(true)]
+    public void RemoteCollectionTravelsForAllReadySlotsRegardlessOfLegacyApproval(bool approved)
+    {
+        var time=new ManualTime();var store=new MemoryStore();
+        var port=new RemoteProductionPort{Frame=new("furnace_panel",EmptySlots:[2],AtDevice:false,SlotCount:3,ReadySlots:[0,1])};
+        var recipe=new ProductionRecipe("iron","furnace",30);var runner=new ProductionRunner(port,store,recipe,time:time);
+        var state=runner.Snapshot();state["submitted"]=1;state["owned_slots"]=new JsonArray(0);
+        state["status"]="waiting";state["phase"]="waiting";state["due_at"]=90d;state["production_due_at"]=90d;
+        if(approved)state["collect_all_once"]=new JsonObject{["source"]="user_explicit",["device"]="furnace",["expires_at"]=10000d};
+        store.Flush(state);runner=new(port,store,recipe,time:time);runner.Resume(true);runner.Tick();
+        Assert.Equal("collect",runner.Snapshot()["phase"]!.GetValue<string>());
+        runner.Tick();Assert.Equal("queue",Assert.Single(port.Actions));Assert.Null(runner.Snapshot()["pending"]);
+    }
+
     [Fact] public void OccupiedRemoteDeviceAcceptsOneReadyRoundWithoutWaitingToFillAllSlots()
     {
         var port=new RemoteProductionPort{Frame=new("furnace_panel",EmptySlots:[1,2,3,4],AtDevice:false,SlotCount:5,ReadySlots:[])};

@@ -4,6 +4,24 @@ using Xunit;
 namespace MabiAgent.Workflows.Tests;
 public sealed class RuntimeIntegrationTests
 {
+    [Fact] public void IsolatedFishingFaultIsPublishedAndIndependentGatheringContinues()
+    {
+        var dir=Path.Combine(Path.GetTempPath(),"mabi-fish-isolated-status-"+Guid.NewGuid().ToString("N"));
+        try
+        {
+            var config=Catalog().Configuration;config["gathering_routes"]!["point_fishing_lake"]=JsonNode.Parse("""{"target_item_id":1,"skill":"fishing","node":"lake","attempts_per_batch":1}""");
+            var queue=new RuntimeQueue(dir);queue.Edit(q=>q.Add("fish","idle_fishing",1,600,"point_fishing_lake",[]));
+            var ports=new RuntimePorts();using var host=new AutomationCoordinator(new(config),queue,ports,()=>new(RepairEnabled:false,BackpackEnabled:false),new ManualTime());
+            host.Start();host.Tick();host.Tick();Assert.Equal("navigate",ports.Fish.Actions.Last().Kind);
+            ports.Fish.ObserveError=new TimeoutException("钓鱼选点导航已到总等待上限");ports.Fish.ReleaseAllowed=true;
+            host.Tick();
+            var progress=host.Status.Jobs["fish"];Assert.Equal("blocked",progress.Status);Assert.Equal(ports.Fish.ObserveError.Message,progress.Reason);Assert.Contains(progress.Reason!,host.Status.Issues["fish"]);
+            Assert.True(host.Status.Running);Assert.Equal(0,progress.Confirmed);Assert.NotEmpty(progress.ActionId);
+            queue.Edit(q=>q.Add("ore","gathering",1,1,"ore",[]));host.SynchronizeQueue();
+            for(var i=0;i<6;i++)host.Tick();Assert.Equal(1,ports.Gather.Starts);Assert.Equal("blocked",host.Status.Jobs["fish"].Status);
+        }
+        finally{if(Directory.Exists(dir))Directory.Delete(dir,true);}
+    }
     [Fact] public void AlreadyRequestedInventoryVersionDoesNotRepeatedlyYieldFishing()
     {
         var dir=Path.Combine(Path.GetTempPath(),"mabi-fishing-refresh-handoff-"+Guid.NewGuid().ToString("N"));
@@ -147,6 +165,26 @@ public sealed class RuntimeIntegrationTests
             {ports.Fish.Frame=new(65+i,"maintenance-"+i,Compass:true);host.Tick();}
             Assert.True(ports.Maintain.Navigations>0);Assert.Contains(ports.Fish.Actions,a=>a.Kind=="leave");
             Assert.True(host.Status.Running);Assert.Null(host.Status.Fault);
+        }
+        finally{if(Directory.Exists(dir))Directory.Delete(dir,true);}
+    }
+    [Fact] public void CompletedSharedWeightCheckAcknowledgesFishingBeforeNavigationResumes()
+    {
+        var dir=Path.Combine(Path.GetTempPath(),"mabi-fish-inspection-handoff-"+Guid.NewGuid().ToString("N"));
+        try
+        {
+            var queue=new RuntimeQueue(dir);queue.Edit(q=>q.Add("fish","idle_fishing",1,1000,FishingPlan.CurrentLocation,[]));
+            var ports=new RuntimePorts();var time=new ManualTime();var policy=new MaintenancePolicy(RepairEnabled:false,BackpackCheckIntervalSeconds:120);
+            using(var seedHost=new AutomationCoordinator(Catalog(),queue,ports,()=>policy,time)){seedHost.Start();seedHost.Tick();}
+            var file=Directory.GetFiles(dir,"idle-fishing.json",SearchOption.AllDirectories).Single();var seed=JsonNode.Parse(File.ReadAllText(file))!.AsObject();
+            seed["status"]="yielded";seed["phase"]="yielded";seed["submitted"]=20;seed["completed"]=20;seed["backpack_check_requested"]=true;File.WriteAllText(file,seed.ToJsonString());
+            using var host=new AutomationCoordinator(Catalog(),queue,ports,()=>policy,time);host.Start();host.Tick();
+            Assert.Equal(1,ports.Maintain.Navigations);
+            ports.Maintain.Frame=new("checked","backpack",Weight:50,Capacity:100);host.Tick();
+            var after=JsonNode.Parse(File.ReadAllText(file))!;Assert.Equal("yielded",after["status"]!.GetValue<string>());
+            Assert.False(after["backpack_check_requested"]!.GetValue<bool>());Assert.Equal(20,after["inspection_round"]!.GetValue<int>());
+            ports.Maintain.Frame=new("closed","scene");for(var i=0;i<3;i++)host.Tick();
+            Assert.Equal(1,ports.Maintain.Navigations);Assert.Null(host.Status.Fault);Assert.True(host.Status.Running);
         }
         finally{if(Directory.Exists(dir))Directory.Delete(dir,true);}
     }

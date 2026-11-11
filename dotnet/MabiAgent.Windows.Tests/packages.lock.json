@@ -121,7 +121,7 @@
       "mabiagent.capture": {
         "type": "Project",
         "dependencies": {
-          "MabiAgent.Core": "[1.0.0, )"
+          "MabiAgent.Core": "[0.6.4, )"
         }
       },
       "mabiagent.core": {
@@ -130,17 +130,20 @@
       "mabiagent.windows": {
         "type": "Project",
         "dependencies": {
-          "MabiAgent.Core": "[1.0.0, )",
-          "MabiAgent.Workflows": "[1.0.0, )",
+          "MabiAgent.Core": "[0.6.4, )",
+          "MabiAgent.Workflows": "[0.6.4, )",
           "Microsoft.ML.OnnxRuntime": "[1.31.0, )",
           "OpenCvSharp4": "[4.13.0.20260627, )",
           "OpenCvSharp4.runtime.win": "[4.13.0.20260627, )"
         }
       },
+      "mabiagent.windows.capturefixture": {
+        "type": "Project"
+      },
       "mabiagent.workflows": {
         "type": "Project",
         "dependencies": {
-          "MabiAgent.Core": "[1.0.0, )"
+          "MabiAgent.Core": "[0.6.4, )"
         }
       }
     }

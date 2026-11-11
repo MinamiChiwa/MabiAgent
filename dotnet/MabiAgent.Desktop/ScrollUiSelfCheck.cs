@@ -20,6 +20,7 @@ internal static class ScrollUiSelfCheck
    foreach(var page in new[]{0,1,2,0,1,2}){
     var watch=System.Diagnostics.Stopwatch.StartNew();vm.SelectedPage=page;window.UpdateLayout();watch.Stop();await Task.Delay(60);window.UpdateLayout();
     if(page==1){var accounts=window.FindControl<Accounts.AccountItemsPanel>("AccountsPanel")!;for(var wait=0;wait<250&&!accounts.IsGridReady;wait++){window.UpdateLayout();await Task.Delay(20);}Check(accounts.IsGridReady,"仓库分批列与行数据完成接入");}
+    if(page==2){window.FindControl<SettingsPanel>("SettingsPage")!.FindControl<Controls.DeferredSettingsSection>("VipSettingsSection")!.EnsureBuilt();window.UpdateLayout();}
     var panel=window.FindControl<Grid>("PageHost")!.Children.First(c=>c.IsVisible);
     foreach(var grid in panel.GetVisualDescendants().OfType<DataGrid>()){
      var cell=grid.GetVisualDescendants().OfType<DataGridCell>().FirstOrDefault();
@@ -37,7 +38,7 @@ internal static class ScrollUiSelfCheck
      grid.ScrollIntoView(rows.First(),null);window.UpdateLayout();
     }
     foreach(var viewer in panel.GetVisualDescendants().OfType<ScrollViewer>().Where(v=>v.IsEffectivelyVisible&&v.Extent.Height>v.Viewport.Height+1&&!v.GetVisualAncestors().OfType<DataGrid>().Any())){
-     viewer.Offset=default;window.UpdateLayout();var before=viewer.Offset.Y;Wheel(viewer.GetVisualDescendants().OfType<TextBlock>().FirstOrDefault(t=>t.IsEffectivelyVisible)??(Control)viewer,window,-1);window.UpdateLayout();Check(viewer.Offset.Y>before,$"页面{page+1} 长内容接受滚轮");
+     viewer.Offset=default;window.UpdateLayout();var before=viewer.Offset.Y;var source=WheelSource(viewer,window);Check(source is not null,$"页面{page+1} 长内容存在视口内滚轮目标");Wheel(source!,window,-1);window.UpdateLayout();Check(viewer.Offset.Y>before,$"页面{page+1} 长内容接受滚轮");
     }
     checks.Add($"页面{page+1} 切换及布局 {watch.Elapsed.TotalMilliseconds:F1}ms");
    }
@@ -55,4 +56,16 @@ internal static class ScrollUiSelfCheck
  }
  internal static void Wheel(Control target,Window window,double delta)
  {var mouse=new Pointer(Pointer.GetNextFreeId(),PointerType.Mouse,true);var at=target.TranslatePoint(new Point(10,10),window)??default;target.RaiseEvent(new PointerWheelEventArgs(target,mouse,window,at,0,new PointerPointProperties(RawInputModifiers.None,PointerUpdateKind.Other),KeyModifiers.None,new Vector(0,delta)));}
+ private static TextBlock? WheelSource(ScrollViewer viewer,Window window)
+ {
+  var origin=viewer.TranslatePoint(default,window);if(origin is null)return null;var viewport=new Rect(origin.Value,viewer.Viewport);
+  return viewer.GetVisualDescendants().OfType<TextBlock>().FirstOrDefault(text=>
+  {
+   if(!text.IsEffectivelyVisible||!text.IsHitTestVisible||text.Bounds.Width<=0||text.Bounds.Height<=0)return false;
+   if(text.GetVisualAncestors().TakeWhile(ancestor=>!ReferenceEquals(ancestor,viewer)).OfType<ScrollViewer>().Any())return false;
+   if(text.GetVisualAncestors().OfType<Avalonia.Controls.Primitives.ScrollBar>().Any())return false;
+   var point=text.TranslatePoint(new Point(Math.Min(10,text.Bounds.Width/2),Math.Min(10,text.Bounds.Height/2)),window);
+   return point is { } value&&viewport.Contains(value);
+  });
+ }
 }

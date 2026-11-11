@@ -42,6 +42,7 @@ dotnet run --project dotnet/MabiAgent.Desktop -- --root . --state-dir .tmp/dev-s
 | MabiAgent.Workflows | 选择下一项任务，执行生产、采集、钓鱼、取料和维护流程 |
 | MabiAgent.Windows | 截图、图像与文字识别、游戏输入、各页面的操作脚本 |
 | MabiAgent.Capture | 接收本机游戏网络数据，按账号、角色和容器保存库存 |
+| MabiAgent.Update | 校验更新清单、暂存文件、备份并原子替换已安装文件 |
 | MabiAgent.Desktop | Avalonia 界面、设置、主程序和编辑工作台 |
 | config | 配方、道具、地点、页面和操作配置 |
 | assets/templates | 识别按钮及页面所用的小图 |
@@ -126,10 +127,13 @@ dotnet test dotnet/MabiAgent.Tests
 dotnet test dotnet/MabiAgent.Workflows.Tests
 dotnet test dotnet/MabiAgent.Capture.Tests
 dotnet test dotnet/MabiAgent.Editor.Tests --filter "FullyQualifiedName!~ProcessingNavigationTests"
+dotnet test dotnet/MabiAgent.Desktop.Tests
+dotnet test dotnet/MabiAgent.Update.Tests
+dotnet test dotnet/MabiAgent.Windows.Tests
 python -B -m unittest discover -s tests -p test_native_portable.py
 ```
 
-ProcessingNavigationTests 和部分 Windows 测试使用本地游戏截图、抓包或交互式桌面。运行这些测试前需要准备对应资料，并单独安排输入测试，避免与 UI 检查争用窗口焦点。仓库中的合成测试数据可直接使用。
+以上命令覆盖七个 .NET 测试项目。ProcessingNavigationTests 和部分 Windows 测试使用本地游戏截图、抓包或交互式桌面；运行这些测试前需要准备对应资料，并单独安排输入测试，避免与 UI 检查争用窗口焦点。仓库中的合成测试数据可直接使用。
 
 UI 检查会创建实际窗口，依次切换主题、窗口尺寸和页面。运行命令中的路径请换成自己的位置：
 

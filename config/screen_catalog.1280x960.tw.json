@@ -18673,6 +18673,8 @@
         ],
         "threshold": 0.97,
         "match_mode": "light_text",
+        "relative_contrast": true,
+        "relative_contrast_threshold": 40,
         "source": "release_catalog",
         "source_sha256": "15591db7959241cbab1ae7abb365cfb5a559fb70e4aa3d9d32476e9be4d536bf",
         "source_size": [
@@ -19224,29 +19226,31 @@
       "surplus_item_sell": {
         "path": "assets/templates/maintenance_ui/surplus/item_sell.png",
         "box": [
-          672,
-          872,
-          730,
-          910
+          780,
+          878,
+          826,
+          902
         ],
         "search": [
-          422,
-          860,
-          922,
-          922
-        ],
-        "match_mode": "grayscale",
-        "threshold": 0.97,
-        "bytes": 1204,
-        "sha256": "1249f0794c97451152248e599666a91e004e04a1ea58edf101024d2d360a2607",
-        "source": "tests/fixtures/production/surplus-detail-native.png",
-        "source_sha256": "14974f25b9270ce420ae4de81913c0157b71603f240fa26ad044468c06159ad6",
-        "crop_native": [
-          672,
+          350,
           872,
-          730,
+          1010,
           910
-        ]
+        ],
+        "match_mode": "light_text",
+        "threshold": 0.97,
+        "bytes": 1220,
+        "sha256": "010df958b0d7d78aee58d31fe79f2659065b48bf15f455b2fdf4fab140f12ca2",
+        "source": "tests/fixtures/production/surplus-branch-detail-current.png",
+        "source_sha256": "d9e37fa6e97f8b765c51a0d420d2faa38d3f44340e1f3fb63c3ab22b378bd522",
+        "crop_native": [
+          780,
+          878,
+          826,
+          902
+        ],
+        "light_threshold": 180,
+        "glyph_threshold": 0.97
       },
       "surplus_item_source": {
         "path": "assets/templates/maintenance_ui/surplus/item_source.png",
@@ -20479,9 +20483,9 @@
           903
         ],
         "search": [
-          615,
+          350,
           868,
-          678,
+          1010,
           911
         ],
         "match_mode": "light_text",
@@ -25489,14 +25493,6 @@
         "anchors": [
           "decomposition_open"
         ],
-        "coordinate_targets": {
-          "bag.decompose_open": [
-            578,
-            866,
-            679,
-            914
-          ]
-        },
         "surfaces": {
           "bag.detail_close": [
             900,
@@ -25504,6 +25500,9 @@
             940,
             640
           ]
+        },
+        "targets": {
+          "bag.decompose_open": "decomposition_open"
         }
       },
       "decomposition_quantity": {

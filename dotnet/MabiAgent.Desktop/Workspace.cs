@@ -284,14 +284,14 @@ public sealed record JobRow(string Id,string Name,string Kind,long Target,long C
         }
         var next=queueStatus;
         if(Pending&&!Cancelled&&!Paused&&progress is not null&&progress.ActionId==ActionId&&!queueStatus.Contains("需更新",StringComparison.Ordinal))
-            next=progress.Status=="unknown"?"本批结果待确认":progress.PendingConsumption?"动作结果确认中":progress.Phase=="waiting"?"设备加工中":progress.Status=="paused"?"已暂停":progress.Phase=="leave"?"正在离开设备":progress.Phase is "preview_queue" or "preview_recipe" or "queue" or "navigate"?"正在前往或检查设备":progress.Phase=="recipe"?"正在安排生产":queueStatus;
+            next=progress.Status=="blocked"?"任务受阻，请点击继续":progress.Status=="unknown"?"本批结果待确认":progress.PendingConsumption?"动作结果确认中":progress.Phase=="waiting"?"设备加工中":progress.Status=="paused"?"已暂停":progress.Phase=="leave"?"正在离开设备":progress.Phase is "preview_queue" or "preview_recipe" or "queue" or "navigate"?(!progress.Executing?"等待调度":IsFishing?"正在前往钓鱼点":"正在前往或检查设备"):progress.Phase=="recipe"?"正在安排生产":queueStatus;
         if(next!=queueStatus&&queueStatus.EndsWith(" · 历史操作记录缺失",StringComparison.Ordinal))next+=" · 历史操作记录缺失";
         if(Status==next)return;Status=next;PropertyChanged?.Invoke(this,new(null));
     }
 
     public bool IsFishing=>TaskKind=="idle_fishing"||TaskKind.Length==0&&Kind is "挂机钓鱼" or "原地钓鱼" or "掛機釣魚" or "原地釣魚" or "idle_fishing";
     public bool IsCompleteState=>!Cancelled&&!IsWarningState&&Completed>=Target;
-    public bool IsWarningState=>!Cancelled&&(Paused||Status.Contains("待确认",StringComparison.Ordinal)||Status.Contains("待核账",StringComparison.Ordinal)||Status=="已暂停"||Status.Contains("需更新",StringComparison.Ordinal)||Status.Contains("缺失",StringComparison.Ordinal)||Status.Contains("待核对",StringComparison.Ordinal));
+    public bool IsWarningState=>!Cancelled&&(Paused||Status.Contains("受阻",StringComparison.Ordinal)||Status.Contains("待确认",StringComparison.Ordinal)||Status.Contains("待核账",StringComparison.Ordinal)||Status=="已暂停"||Status.Contains("需更新",StringComparison.Ordinal)||Status.Contains("缺失",StringComparison.Ordinal)||Status.Contains("待核对",StringComparison.Ordinal));
     public bool IsActiveState=>!Cancelled&&!Paused&&!IsWarningState&&!IsCompleteState&&Pending;
     public string TargetLabel=>IsFishing?Duration(Target):$"{Target}{QuantityUnit}";
     public string CompletedLabel=>IsFishing?Duration(ConfirmedQuantity):$"{ConfirmedQuantity}{QuantityUnit}";

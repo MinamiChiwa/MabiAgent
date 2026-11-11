@@ -17,15 +17,22 @@ public sealed class ScreenFishingPort:ScreenWorkflowPort,IFishingPort
     public bool NavigationIssued=>state["travel_issued"]?.GetValue<bool>()==true;
     public bool ModePreparationRequired=>config["controls"]?["switch_mode"] is not null&&state["mode_prepared"]?.GetValue<bool>()!=true;
     private PixelBox? lastGaugeBox;private double? clearSceneSince,recastUntil;
-    private ScreenMaintenancePort? backpackExit;
+    private ScreenMaintenancePort? backpackExit,releaseNavigation;
     public FishingFrame? LastFrame {get;private set;}
     public override bool CanReleaseForeground()
     {
         if(pendingPage is not null||navigating||active||observedNavigationActive)return false;
-        // 尚未发出旅行的选点失败后，由后续任务接手退出遗留菜单。
-        if(navigationFailed&&!Session.Guard.Paused&&Session.InputAvailable&&Session.CurrentNavigationId is null
-            &&state["travel_issued"]?.GetValue<bool>()!=true)return true;
+        // 可逆准备已结束时只释放调度占用；下一任务仍从自己的当前页面继续。
+        if(navigationFailed&&CanAbandonPreparation)return true;
         return base.CanReleaseForeground();
+    }
+    private bool CanAbandonPreparation=>!active&&!navigationSeen&&!observedNavigationActive&&!NavigationIssued
+        &&state["round_observed"]?.GetValue<bool>()!=true&&state["reel_issued"]?.GetValue<bool>()!=true
+        &&Store.Read()?["pending"] is null&&!Session.Guard.Paused&&Session.InputAvailable&&Session.CurrentNavigationId is null;
+    public bool TryReleasePreparation()
+    {
+        if(navigating||pendingPage is not null||!CanAbandonPreparation)return false;
+        backpackExit?.ResetNavigation();backpackExit=null;EndFailedNavigation();return true;
     }
     public ScreenFishingPort(ScreenWorkflowSession session,string pointKey,string batchId,IWorkflowStore store,TimeProvider? navigationTime=null):base(session,batchId,store)
     {
@@ -128,7 +135,10 @@ public sealed class ScreenFishingPort:ScreenWorkflowPort,IFishingPort
         // Reuse the common scene recognizer's calibrated HUD tolerance. Its
         // controls fade during the animation; unknown frames still send no cast.
         var bag=Session.Matcher.Anchor(capture.Image,"scene_bag",.85,thresholdOverride:.85);var map=Session.Matcher.Anchor(capture.Image,"maint_scene_map",.85,thresholdOverride:.85);
-        return bag is not null&&map is not null?new("scene",false,[bag,map],new Dictionary<string,PixelPoint>(),[bag.Box,map.Box]):PageView.Unknown();
+        if(bag is null||map is null)return PageView.Unknown();
+        var scene=new PageView("scene",false,[bag,map],new Dictionary<string,PixelPoint>(),[bag.Box,map.Box]);
+        // 抛竿等待沿用共享下坐骑标记，避免丢失它后把骑乘场景当作可续抛。
+        return Session.Matcher.Anchor(capture.Image,"maint_dismount") is{} dismount?Session.AddTarget(scene,"scene.dismount",dismount):scene;
     }
     private FishingFrame ObserveFrame(bool allowInput)
     {
@@ -144,7 +154,7 @@ public sealed class ScreenFishingPort:ScreenWorkflowPort,IFishingPort
         if(navigationActive)observedNavigationActive=true;
         else if(observedNavigationActive&&o.Stable&&o.View.Page is "scene" or "fishing")
         {observedNavigationActive=false;if(!navigating)navigationSettled=true;}
-        if(allowInput&&!Session.Guard.Paused&&S(workflow,"status")=="running")CheckSelectionBudget();
+        if(allowInput&&!Session.Guard.Paused&&S(workflow,"status")=="running")CheckMenuNavigationDeadline(navNow);
         if(c is not null&&o.Stable&&Session.InputAvailable)
         {
             if((hook||gauge is not null)&&!reelIssued&&state["round_observed"]?.GetValue<bool>()!=true){state["round_observed"]=true;state["mode_prepared"]=true;Session.SavePortState("fishing:"+BatchId,state);}
@@ -156,9 +166,9 @@ public sealed class ScreenFishingPort:ScreenWorkflowPort,IFishingPort
                 navigationIdleSince??=navNow;
                 if(navNow-navigationIdleSince>=3)
                 {
-                    navigationSettled=true;navigating=false;pendingPage=null;arrivalRevision=Session.LocationRevision;
-                    navigationSeen=false;state["navigation_seen"]=false;state["travel_issued"]=false;
-                    Session.SavePortState("fishing:"+BatchId,state);Session.EndNavigation("fishing:"+BatchId);
+                    navigationSettled=true;ResetNavigation();arrivalRevision=Session.LocationRevision;
+                    navigationSeen=observedNavigationActive=false;state["navigation_seen"]=false;state["travel_issued"]=false;
+                    Session.SavePortState("fishing:"+BatchId,state);
                 }
             }
             if(navigating&&navigationActive!=true&&o.View.Page is not ("scene" or "fishing"))navigationIdleSince=null;
@@ -201,31 +211,32 @@ public sealed class ScreenFishingPort:ScreenWorkflowPort,IFishingPort
     }
     private void EndFailedNavigation()
     {
-        navigating=false;navigationFailed=true;pendingPage=null;pendingStep=null;unsentNavigationSince=navigationStartedAt=null;
+        ResetNavigation();navigationFailed=true;
+    }
+    public void ResetNavigation()
+    {
+        releaseNavigation?.ResetNavigation();releaseNavigation=null;
+        navigating=false;pendingPage=null;pendingStep=null;unsentNavigationSince=navigationStartedAt=null;
         navigationRetries=scrollCount=0;Session.EndNavigation("fishing:"+BatchId);
     }
     public void AbandonUnsentNavigation()
     {
-        if(navigationSeen||active||state["travel_issued"]?.GetValue<bool>()==true
-            ||state["round_observed"]?.GetValue<bool>()==true||state["reel_issued"]?.GetValue<bool>()==true
-            ||Store.Read()?["pending"] is not null)return;
+        if(!CanAbandonPreparation)return;
         EndFailedNavigation();
     }
-    private void CheckSelectionBudget()
+    private void CheckMenuNavigationDeadline(double now)
     {
         if(!navigating||state["travel_issued"]?.GetValue<bool>()==true||navigationStartedAt is not{} began)return;
-        var now=navigationTime.GetUtcNow().ToUnixTimeMilliseconds()/1000d;
         if(now-began<(Session.Routes.Configuration["navigation_retry"]?["timeout_s"]?.GetFiniteDouble()??90))return;
-        EndFailedNavigation();
-        throw new TimeoutException("钓鱼选点导航已到总等待上限");
+        EndFailedNavigation();throw new TimeoutException("钓鱼选点导航已到总等待上限");
     }
     private void NavigationStepCore(UiObservation o)
     {
         // Once travel has been dispatched, only observe its result. In particular,
         // a short trip must not reopen the route from the scene before its task is seen.
         if(state["travel_issued"]?.GetValue<bool>()==true)return;
-        CheckSelectionBudget();
         var now=navigationTime.GetUtcNow().ToUnixTimeMilliseconds()/1000d;
+        CheckMenuNavigationDeadline(now);
         var wrongDetail=o.View.Page!=S(nav,"detail_page")&&o.View.Page.StartsWith("point_detail_",StringComparison.Ordinal);
         if(pendingPage is not null)
         {
@@ -242,6 +253,7 @@ public sealed class ScreenFishingPort:ScreenWorkflowPort,IFishingPort
                 Session.ReportWarning("fishing_navigation",reason,BatchId);throw new TimeoutException(reason);
             }
         }
+        if(releaseNavigation is not null){if(!releaseNavigation.ReleaseNavigation())return;releaseNavigation=null;}
         if(wrongDetail&&o.View.Targets.ContainsKey("gathering.close"))
         {
             if(pointReselections>=3)throw new TimeoutException("钓鱼点连续误选，重选已到三次上限");
@@ -253,7 +265,16 @@ public sealed class ScreenFishingPort:ScreenWorkflowPort,IFishingPort
         {
             Session.NavigateTarget(S(nav,"start_target")!);travelIssuedAt=navigationTime.GetUtcNow().ToUnixTimeMilliseconds()/1000d;state["travel_issued"]=true;Session.SavePortState("fishing:"+BatchId,state);Session.BeginNavigation("fishing:"+BatchId);Session.TraceNavigation(BatchId,S(nav,"start_target")!,"travel_dispatched");return;
         }
-        var step=nav["steps"]!.AsArray().FirstOrDefault(s=>S(s,"page")==o.View.Page)??Session.Routes.Configuration["maintenance"]?["exit_navigation"]?[o.View.Page];if(step is null)return;
+        var step=nav["steps"]!.AsArray().FirstOrDefault(s=>S(s,"page")==o.View.Page);
+        if(step is null)
+        {
+            // 接手遗留设备、地图与对话时共用维护退出及其有界等待。
+            if(o.View.Targets.ContainsKey("page.close")||o.View.Targets.ContainsKey("recipe_detail.close")
+                ||Session.Routes.Configuration["maintenance"]?["exit_navigation"]?[o.View.Page] is not null
+                ||o.View.Page.StartsWith("storage_",StringComparison.Ordinal)||o.View.Page=="npc_dialogue")
+            {releaseNavigation=Session.CreateMaintenancePort(BatchId+":release",Store);releaseNavigation.ReleaseNavigation();}
+            return;
+        }
         var target=S(step,"target");
         if(target is not null&&!o.View.Targets.ContainsKey(target)&&o.View.Targets.ContainsKey("list.scroll"))
         {
@@ -292,7 +313,7 @@ public sealed class ScreenFishingPort:ScreenWorkflowPort,IFishingPort
         {
             // ObserveFrame already selected this port's decoration context. Consume
             // reuses that review for its proof; dispatch checks system boundaries only.
-            Consume("fishing."+action.Kind,action.Kind,_=>action.Kind switch{"start"=>!active&&(movingForCast||cast&&recastUntil is {} until&&navigationTime.GetUtcNow().ToUnixTimeMilliseconds()/1000d<until),"reel"=>(hook||gauge is not null)&&leisure==false,"switch_mode"=>leisure==true,_=>confirm},null,movementKey:action.Kind=="start"?castMovementKey:null);
+            Consume("fishing."+action.Kind,action.Kind,_=>action.Kind switch{"start"=>!mounted&&!active&&(movingForCast||cast&&recastUntil is {} until&&navigationTime.GetUtcNow().ToUnixTimeMilliseconds()/1000d<until),"reel"=>(hook||gauge is not null)&&leisure==false,"switch_mode"=>leisure==true,_=>confirm},null,movementKey:action.Kind=="start"?castMovementKey:null);
             if(action.Kind=="start"){InvalidatePreparation();state.Remove("round_started");}
             else if(action.Kind=="reel"){clearSceneSince=null;state["reel_issued"]=true;Session.SavePortState("fishing:"+BatchId,state);}
             return;
@@ -301,9 +322,9 @@ public sealed class ScreenFishingPort:ScreenWorkflowPort,IFishingPort
         try{o=Session.LastObservation??throw new InputBlockedException("缺少钓鱼等待观察");if(!o.Stable||!Session.InputAvailable)throw new InputBlockedException("钓鱼画面未确认");}
         catch(InputBlockedException e){throw new InputRejectedBeforeDispatchException(e.Message);}
         if(action.Kind=="dismount"){Session.NavigateTarget("scene.dismount");return;}
-        if(action.Kind=="navigate"){if(action.PointKey!=pointKey)throw new InputBlockedException("钓鱼点不匹配");navigationSeen=navigationSettled=navigationFailed=false;travelIssuedAt=navigationIdleSince=null;navigationStartedAt=navigationTime.GetUtcNow().ToUnixTimeMilliseconds()/1000d;pointReselections=0;arrivalRevision=null;state["navigation_seen"]=false;state["travel_issued"]=false;Session.SavePortState("fishing:"+BatchId,state);pendingPage=null;pendingStep=null;navigationRetries=scrollCount=0;navigating=true;NavigationStep(o);return;}
+        if(action.Kind=="navigate"){if(action.PointKey!=pointKey)throw new InputBlockedException("钓鱼点不匹配");releaseNavigation?.ResetNavigation();releaseNavigation=null;navigationSeen=navigationSettled=navigationFailed=false;travelIssuedAt=navigationIdleSince=null;navigationStartedAt=navigationTime.GetUtcNow().ToUnixTimeMilliseconds()/1000d;pointReselections=0;arrivalRevision=null;state["navigation_seen"]=false;state["travel_issued"]=false;Session.SavePortState("fishing:"+BatchId,state);pendingPage=null;pendingStep=null;navigationRetries=scrollCount=0;navigating=true;NavigationStep(o);return;}
         if(action.Kind=="move"){if(action.Direction is not ("w" or "s")||action.DurationSeconds is null or <=0 or >.3)throw new InputBlockedException("钓鱼移动参数无效");Session.Guard.PressKey(Session.Guard.ObserveCurrentTarget("fishing.move",o),action.Direction=="w"?(ushort)87:(ushort)83,TimeSpan.FromSeconds(action.DurationSeconds.Value));return;}
-        if(action.Kind=="leave"){Session.Guard.PressKey(Session.Guard.ObserveCurrentTarget(o.View.Page=="scene"?"fishing.move":"fishing.leave",o),87,TimeSpan.FromMilliseconds(120));InvalidatePreparation();navigating=false;Session.EndNavigation("fishing:"+BatchId);return;}
+        if(action.Kind=="leave"){Session.Guard.PressKey(Session.Guard.ObserveCurrentTarget(o.View.Page=="scene"?"fishing.move":"fishing.leave",o),87,TimeSpan.FromMilliseconds(120));InvalidatePreparation();ResetNavigation();return;}
         throw new InputBlockedException("钓鱼操作未配置");
     }
     public void InvalidatePreparation()

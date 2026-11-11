@@ -57,7 +57,7 @@ goto state_args
 :state_ready
 start "" "%~dp0MabiAgent.exe" %MABI_ARGS% --root "%~dp0." --state-dir "%MABI_STATE%"
 '''
-NATIVE_ASSETS = tuple('assets/templates/session_interruptions/'+name for name in ('session_expired_message.png','session_expired_end.png'))
+NATIVE_ASSETS = tuple('assets/templates/session_interruptions/'+name for name in ('session_expired_message.png',))
 INSTALL_FOLDERS = frozenset(('app', 'assets', 'config', 'models', 'docs', 'licenses', 'build-locks'))
 INSTALL_FILES = frozenset(('MabiAgent.exe', 'Start-MabiAgent.cmd', '使用说明.txt'))
 
@@ -83,8 +83,8 @@ Npcap 官方下载页：https://npcap.com/#download
 游戏更新后会自动读取所选游戏进程对应的客户端文件。读取失败时，请在抓包设置中填写游戏程序所在目录，再点击重新解析。
 
 1. 点击顶部“查找”，选择游戏窗口。
-2. 到“维护设置”查看修理、金币留存、背包整理和精灵之翼。有生活 VIP 时再打开对应开关。
-3. 回到“任务队列”，点击“新增目标”。生产填成品件数，采集填轮数，钓鱼填时长。1 轮为 10 次采集尝试。
+2. 到“设置”查看修理、金币留存、背包整理和精灵之翼。有生活 VIP 时再打开对应开关。
+3. 回到“队列”，点击“新增目标”。生产填成品件数，采集填轮数，钓鱼填时长。1 轮为 10 次采集尝试。
 4. 点击“开始／继续”。当前任务和进度显示在窗口顶部。
 
 任务会根据材料、加工时间和当前状态自动安排。拖动任务仅整理列表。

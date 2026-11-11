@@ -22,8 +22,7 @@ public sealed class ProductionRunner : PersistentWorkflow
 {
     public const double MinimumCollectionTripSeconds=300;
     public const double DeviceTravelTimeoutSeconds=120;
-    // A readiness retry belongs to the slot that just came due. It is capped so
-    // one missed observation can never postpone every later slot for an hour.
+    // 每次领取检查的退避有界，尚未检查的后续槽仍按自身到期时间唤醒。
     public const double MaximumCollectionRetrySeconds=900;
     private readonly IProductionPort port;
     private readonly ProductionRecipe recipe;
@@ -48,12 +47,14 @@ public sealed class ProductionRunner : PersistentWorkflow
         var due=dues.Length>0?dues[0]:state["due_at"]?.GetFiniteDouble();
         if(due is{} at&&state["collection_retry_at"] is{} retry)
         {
-            var bounded=Math.Max(at,Math.Min(retry.GetFiniteDouble(),at+MaximumCollectionRetrySeconds));
             // A readiness retry belongs to the slots that had already come due when
             // the check failed, so the cutoff is when that check happened. Records
             // written before the cutoff existed fall back to the earliest due, which
             // is exactly what they used to mean.
             var checkedUntil=state["collection_checked_until"]?.GetFiniteDouble()??at;
+            // 旧到期时间可以早于当前检查数小时；上限从本次检查起算，
+            // 保持已经保存的退避，避免返回等待后立即再次派发。
+            var bounded=Math.Max(at,Math.Min(retry.GetFiniteDouble(),Math.Max(at,checkedUntil)+MaximumCollectionRetrySeconds));
             // Slots past the cutoff were never looked at: each keeps its own due, so a
             // new completion is not postponed by an old backoff or by its 900s cap.
             // Slots up to the cutoff share one retry, so a due in the past cannot make
@@ -64,7 +65,8 @@ public sealed class ProductionRunner : PersistentWorkflow
     }
     public void DeferOffsiteCollection(double notBefore)
     {lock(Gate){if(notBefore>D("collection_not_before")){State["collection_not_before"]=notBefore;Save();}}}
-    public bool SafeToSwitch => Pending is null && (S("phase") == "waiting"
+    public bool SafeToSwitch => S("status")=="unknown"&&Pending?["kind"]?.GetValue<string>()=="collect"&&S("collection_recovery")=="done"
+        || Pending is null && (S("phase") == "waiting"
         || S("status")=="unknown"&&port.CanReleaseForeground()
         || S("status")=="paused"&&(S("pause_reason") is "unrecognized_page" or "module_fault")&&port.CanReleaseForeground()
         || I("submitted")==0 && S("status")=="paused" && S("pause_reason") is "craft_unavailable" or "materials_unknown" or "device_full" or "device_batch_not_ready");
@@ -140,6 +142,8 @@ public sealed class ProductionRunner : PersistentWorkflow
             if (S("status") == "complete") return Snapshot();
             if (S("status") == "unknown")
             {
+                if(explicitRequest&&S("collection_recovery")=="done")
+                {State.Remove("collection_recovery");State.Remove("collection_recovery_deadline");Save();}
                 if (explicitRequest && Pending is not null && port.Observe() is { } f && Ready(f.Page, f.Foreground, f.Stable))
                 {
                     if (QueuePage(f) && f.AtDevice && f.EmptySlots is not null) { Confirm(f, true); if (Pending is null) ResumeFrame(); }
@@ -198,16 +202,22 @@ public sealed class ProductionRunner : PersistentWorkflow
     private void Unknown(string reason) { port.PauseLocal("reconciliation_required"); Set(("status", "unknown"), ("pause_reason", "reconciliation_required"), ("reason", reason)); Save(); }
     private void BlockPage(string reason)
     {if(Pending is not null)Unknown(reason);else{Set(("status","paused"),("pause_reason",reason),("reason",reason));Save();}}
+    private static bool VisitBlocked(string? reason)=>reason is "craft_unavailable" or "materials_unknown" or "device_full" or "device_batch_not_ready";
+    private void EndUnavailableVisit(ProductionFrame frame,string reason)
+    {
+        if(frame.Page=="scene"){Pause(reason);return;}
+        Set(("phase","leave"),("status","running"),("reason",reason));Save();
+    }
     private bool? VisitReady(ProductionFrame f)
     {
         var available = availableRounds?.Invoke(recipe.Key, I("count") - I("submitted"));
         if (available == 0)
         {
-            if (Slots(State["owned_slots"]).Count > 0) { Set(("phase", "leave"), ("reason", "craft_unavailable")); Save(); } else Pause("craft_unavailable"); return false;
+            EndUnavailableVisit(f,"craft_unavailable");return false;
         }
         var ready = deviceReadyRounds?.Invoke(recipe.Device) ?? available;
         var atDevice = f.AtDevice && (QueuePage(f) || f.Page == "recipe_detail" && f.RecipeKey == recipe.Key);
-        if (B("visit_occupied") && !(B("visit_at_device") || atDevice) && !(allowPartialRefill?.Invoke() ?? false) && (ready is null || ready <= 0)) { Pause("device_batch_not_ready"); return false; }
+        if (B("visit_occupied") && !(B("visit_at_device") || atDevice) && !(allowPartialRefill?.Invoke() ?? false) && (ready is null || ready <= 0)) { EndUnavailableVisit(f,"device_batch_not_ready"); return false; }
         return available is not null ? true : null;
     }
     private bool TryCollectReady(ProductionFrame frame,HashSet<int> empty)
@@ -259,6 +269,50 @@ public sealed class ProductionRunner : PersistentWorkflow
             Confirm(frame, true); if (Pending is not null) return false; Set(("status", "running"), ("pause_reason", null), ("reason", null)); Save(); return true;
         }
     }
+    // 运行调度只恢复领取核账所需的可逆导航；暂停观察继续只读。
+    public bool RecoverCollection()
+    {
+        lock(Gate)
+        {
+            if(S("status")!="unknown"||Pending?["kind"]?.GetValue<string>()!="collect")
+            {ObserveOnly();return SafeToSwitch;}
+            if(S("collection_recovery")=="done")return true;
+            if(State["collection_recovery_deadline"] is null)
+            {Set(("collection_recovery","queue"),("collection_recovery_deadline",Now+DeviceTravelTimeoutSeconds+45));Save();}
+            try
+            {
+                var frame=port.Observe();
+                if(S("collection_recovery")=="queue")
+                {
+                    if(frame is not null&&Ready(frame.Page,frame.Foreground,frame.Stable)&&QueuePage(frame)&&frame.AtDevice&&frame.EmptySlots is not null)
+                    {
+                        Confirm(frame,true);
+                        if(Pending is null)
+                        {State.Remove("collection_recovery");State.Remove("collection_recovery_deadline");ResumeFrame();return false;}
+                        EndCollectionRecovery("collection_result_unconfirmed");
+                    }
+                    else if(Now>=D("collection_recovery_deadline"))EndCollectionRecovery("collection_recovery_timeout");
+                    else
+                    {if(frame is not null&&Ready(frame.Page,frame.Foreground,frame.Stable))port.Navigate("queue",recipe);return false;}
+                }
+                if(frame is {Page:"scene",Stable:true,Foreground:true})
+                {State["collection_recovery"]="done";Save();return true;}
+                if(Now>=D("collection_recovery_deadline"))
+                {State["collection_recovery"]="done";Save();return true;}
+                if(frame is not null&&Ready(frame.Page,frame.Foreground,frame.Stable))port.Navigate("leave",recipe);
+            }
+            catch(Exception error)when(error is not (IOException or UnauthorizedAccessException or OutOfMemoryException))
+            {
+                State["collection_recovery_error"]=error.Message;
+                if(S("collection_recovery")=="leave")State["collection_recovery"]="done";
+                else EndCollectionRecovery("collection_recovery_navigation_failed");
+                Save();
+            }
+            return S("collection_recovery")=="done";
+        }
+    }
+    private void EndCollectionRecovery(string reason)
+    {Set(("collection_recovery","leave"),("collection_recovery_deadline",Now+15),("reason",reason));Save();}
     public void ObserveOnly()
     {
         lock (Gate)
@@ -334,7 +388,7 @@ public sealed class ProductionRunner : PersistentWorkflow
                 else { var attempts = Math.Min(7, I("collection_checks") + 1); var retry=State["device_busy_until"]?.GetFiniteDouble() ?? Now + Math.Min(3600, 60 * Math.Pow(2, attempts - 1)); Set(("phase", "leave"), ("collection_checks", attempts), ("due_at", retry), ("collection_retry_at",retry),("collection_checked_until",Now)); }
             }
             else if (allReady) Set(("phase", "queue"), ("collect_existing", true));
-            else if (f.EmptySlots.Length == 0) { Pause("device_batch_not_ready"); return; }
+            else if (f.EmptySlots.Length == 0) { EndUnavailableVisit(f,"device_batch_not_ready"); return; }
             else { Set(("phase", "preview_recipe"), ("visit_empty", f.EmptySlots.Length), ("visit_occupied", occupied.Count > 0), ("visit_at_device", f.AtDevice)); if (VisitReady(f) == true) State["phase"] = "queue"; }
             Save(); return;
         }
@@ -344,7 +398,7 @@ public sealed class ProductionRunner : PersistentWorkflow
             if (decision == true) { Set(("phase", "queue"), ("reason", null)); Save(); return; }
             if (f.Page != "recipe_detail" || f.RecipeKey != recipe.Key) { port.Navigate("recipe_preview", recipe); return; }
             if (f.MaterialsPending) return;
-            if (!(f.MaterialsSufficient == true || f.CraftAvailable)) { Pause(f.MaterialsSufficient == false ? "craft_unavailable" : "materials_unknown"); return; }
+            if (!(f.MaterialsSufficient == true || f.CraftAvailable)) { EndUnavailableVisit(f,f.MaterialsSufficient == false ? "craft_unavailable" : "materials_unknown"); return; }
             Set(("phase", "queue"), ("reason", null)); Save(); return;
         }
         var owned = Slots(State["owned_slots"]);
@@ -376,7 +430,7 @@ public sealed class ProductionRunner : PersistentWorkflow
             else if (empty.Count == 0)
             {
                 if(TryCollectReady(f,empty)){}
-                else Pause("device_full");
+                else EndUnavailableVisit(f,"device_full");
             }
             else { Set(("before_empty", Array(empty)), ("phase", "recipe")); Save(); port.Navigate("recipe", recipe); }
         }
@@ -385,19 +439,19 @@ public sealed class ProductionRunner : PersistentWorkflow
             if (B("stop_requested")) { State["phase"] = "leave"; Save(); }
             else if (f.Page != "recipe_detail" || !f.AtDevice) port.Navigate("recipe", recipe);
             else if (f.RecipeKey != recipe.Key) Pause("recipe_mismatch");
-            else if (!f.CraftAvailable) { if (f.MaterialsPending) return; if (owned.Count > 0) { Set(("phase", "leave"), ("reason", "craft_unavailable")); Save(); } else Pause("craft_unavailable"); }
+            else if (!f.CraftAvailable) { if (f.MaterialsPending) return;EndUnavailableVisit(f,"craft_unavailable"); }
             else Consume("craft", Slots(State["before_empty"]), duration: Duration(f));
         }
         else if (phase == "leave")
         {
             if(f.Page=="scene")DeferOffsiteCollection(Now+MinimumCollectionTripSeconds);
-            if(owned.Count==0&&!B("stop_requested")&&I("submitted")<I("count")&&QueuePage(f)&&f.AtDevice&&f.EmptySlots is {Length:>0}
+            if(!VisitBlocked(S("reason"))&&owned.Count==0&&!B("stop_requested")&&I("submitted")<I("count")&&QueuePage(f)&&f.AtDevice&&f.EmptySlots is {Length:>0}
                 &&availableRounds is not null)
             {Set(("phase","queue"),("status","running"),("reason",null));Save();}
             else if (f.Page != "scene") port.Navigate("leave", recipe);
             else if (owned.Count > 0) { Set(("status", "waiting"), ("phase", "waiting")); Save(); }
             else if (B("stop_requested") || I("completed") >= I("count")) { Set(("status", "complete"), ("reason", null)); Save(); }
-            else if (S("reason") == "craft_unavailable") Pause("craft_unavailable");
+            else if (VisitBlocked(S("reason"))) Pause(S("reason")!);
             else { Set(("phase", "queue"), ("status", "running")); Save(); }
         }
     }

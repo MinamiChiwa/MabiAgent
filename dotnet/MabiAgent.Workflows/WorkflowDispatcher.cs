@@ -7,7 +7,7 @@ namespace MabiAgent.Workflows;
 // its current screen and durable intent before dispatch.
 public sealed class WorkflowDispatcher(TimeProvider? time=null,Action<string,Exception,string>? fault=null)
 {
-    private sealed record Entry(string? Device,Func<JsonObject> Snapshot,Func<bool> Safe,Action Tick,Action<bool> Resume,Action<string> Pause,Func<bool>? Hold,Action? Observe=null,Func<bool>? Isolatable=null);
+    private sealed record Entry(string? Device,Func<JsonObject> Snapshot,Func<bool> Safe,Action Tick,Action<bool> Resume,Action<string> Pause,Func<bool>? Hold,Action? Observe=null,Func<bool>? Isolatable=null,Func<bool>? Recover=null);
     private readonly Dictionary<string,Entry> entries=[];
     private readonly Scheduler scheduler=new();
     private readonly HashSet<string> supplyChanged=[];
@@ -17,6 +17,7 @@ public sealed class WorkflowDispatcher(TimeProvider? time=null,Action<string,Exc
     public IReadOnlyDictionary<string,string> Faults=>new Dictionary<string,string>(quarantined);
     private readonly TimeProvider clock=time??TimeProvider.System;
     private bool paused=true;
+    private bool restartAuthorized;
     public string? ActiveId {get;private set;}
     public string Status {get;private set;}="尚未开始";
     public bool IsPaused=>paused;
@@ -39,18 +40,20 @@ public sealed class WorkflowDispatcher(TimeProvider? time=null,Action<string,Exc
     public void Register(string id,IdleFishingRunner runner)
     {
         entries.Add(id,new(null,runner.Snapshot,()=>runner.SafeToSwitch,()=>runner.Tick(),runner.Resume,runner.Pause,null,runner.ObserveOnly,()=>runner.CanIsolateFault));
-        ResumeDeferredRestart(id,runner.Snapshot());
+        ResumeDeferredRestart(id,runner.Snapshot(),resumeCastWait:true);
     }
     public void Register(string id,ProductionRunner runner,string device)
     {
-        entries.Add(id,new(device,runner.Snapshot,()=>runner.SafeToSwitch,()=>runner.Tick(),explicitRequest=>runner.Resume(explicitRequest),reason=>runner.Pause(reason),runner.HoldForDeviceRefill,runner.ObserveOnly,()=>runner.CanIsolateFault));
+        entries.Add(id,new(device,runner.Snapshot,()=>runner.SafeToSwitch,()=>runner.Tick(),explicitRequest=>runner.Resume(explicitRequest),reason=>runner.Pause(reason),runner.HoldForDeviceRefill,runner.ObserveOnly,()=>runner.CanIsolateFault,runner.RecoverCollection));
         // Restored batches may be registered after Start/Continue during deferred
         // inventory bootstrap. Carry that explicit start to safe restart records.
         ResumeDeferredRestart(id,runner.Snapshot());
     }
-    private void ResumeDeferredRestart(string id,JsonObject state)
+    private void ResumeDeferredRestart(string id,JsonObject state,bool resumeCastWait=false)
     {
-        if(!paused&&state["status"]?.GetValue<string>()=="paused"&&state["pause_reason"]?.GetValue<string>()=="restart"&&state["pending"] is null)
+        // 钓鱼未起竿已有20秒恢复规则；接回原等待不立即重放抛竿。
+        if(restartAuthorized&&state["status"]?.GetValue<string>()=="paused"&&state["pause_reason"]?.GetValue<string>()=="restart"
+            &&(state["pending"] is null||resumeCastWait&&state["pending"]?["kind"]?.GetValue<string>()=="start"))
             explicitlyResumable.Add(id);
     }
     public void Register(string id,GatheringRunner runner)
@@ -66,7 +69,7 @@ public sealed class WorkflowDispatcher(TimeProvider? time=null,Action<string,Exc
     }
     public void Continue(bool explicitRequest=true)
     {
-        if(explicitRequest)quarantined.Clear();paused=false;PauseReason=null;Status="等待可执行任务";
+        if(explicitRequest){quarantined.Clear();restartAuthorized=true;}paused=false;PauseReason=null;Status="等待可执行任务";
         foreach(var id in entries.Keys.Where(id=>!held.Contains(id)&&!quarantined.ContainsKey(id)))
         {
             var pauseReason=entries[id].Snapshot()["pause_reason"]?.GetValue<string>();
@@ -77,7 +80,7 @@ public sealed class WorkflowDispatcher(TimeProvider? time=null,Action<string,Exc
             if(explicitRequest||pauseReason=="inventory_sync")explicitlyResumable.Add(id);
         }
     }
-    public void Pause(string reason="manual"){paused=true;PauseReason=reason;Status="已暂停";if(ActiveId is not null&&entries.TryGetValue(ActiveId,out var active))active.Pause(reason);}
+    public void Pause(string reason="manual"){paused=true;if(reason!="inventory_sync")restartAuthorized=false;PauseReason=reason;Status="已暂停";if(ActiveId is not null&&entries.TryGetValue(ActiveId,out var active))active.Pause(reason);}
     public string? Tick(IEnumerable<WorkCandidate> planned,string? currentDevice,bool backpackRelief=false,string? onsiteDevice=null,bool locationVerified=false)
     {
         try{return TickCore(planned,currentDevice,backpackRelief,locationVerified?onsiteDevice:currentDevice);}
@@ -135,10 +138,11 @@ public sealed class WorkflowDispatcher(TimeProvider? time=null,Action<string,Exc
             {
                 if(status=="unknown")
                 {
-                    active.Observe?.Invoke();
+                    var released=active.Recover?.Invoke();
+                    if(released is null)active.Observe?.Invoke();
                     var after=active.Snapshot();
                     // Passive confirmation never grants permission to restart input.
-                    if(after["status"]?.GetValue<string>()=="complete"||active.Safe())ActiveId=null;
+                    if(released==true||after["status"]?.GetValue<string>()=="complete"||active.Safe())ActiveId=null;
                     Status=candidates.Any(c=>c.Id==ActiveId&&c.Kind=="idle_fishing")?"钓鱼动作结果待确认，请核实后继续":"正在确认上次操作结果";return ActiveId;
                 }
                 active.Tick();Status="执行当前批次";return ActiveId;

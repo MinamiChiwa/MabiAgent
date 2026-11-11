@@ -236,6 +236,8 @@
         ],
         "threshold": 0.97,
         "match_mode": "light_text",
+        "relative_contrast": true,
+        "relative_contrast_threshold": 40,
         "source": "release_catalog",
         "source_sha256": "15591db7959241cbab1ae7abb365cfb5a559fb70e4aa3d9d32476e9be4d536bf",
         "source_size": [
@@ -276,6 +278,8 @@
         ],
         "threshold": 0.97,
         "match_mode": "light_text",
+        "relative_contrast": true,
+        "relative_contrast_threshold": 40,
         "source": "release_catalog",
         "source_sha256": "15591db7959241cbab1ae7abb365cfb5a559fb70e4aa3d9d32476e9be4d536bf",
         "source_size": [

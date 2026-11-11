@@ -23,16 +23,16 @@ public sealed class TouchInputOps:INativeWindowsOps,ICurrentClientFrameSource,IG
     {this.target=target;this.passive=passive;this.keyboard=keyboard;this.runner=runner;}
     private ForegroundInputGuard Guard=>guard??throw new InputBlockedException("触控输入必须经共享守卫");
     public void BindGuard(ForegroundInputGuard owner)
-    {if(guard is not null&&!ReferenceEquals(guard,owner))throw new InputBlockedException("触控通道已绑定其他守卫");guard=owner;runner.SetBeforeDelivery(owner.ReviewPreparedPointer);(keyboard as IGuardedWindowTransport)?.BindGuard(owner);}
-    public NativeWindowState ReadWindow(nint hwnd)=>passive.ReadWindow(hwnd);
-    public RgbImage CaptureClient(NativeWindowState state)=>passive.CaptureClient(state);
-    public CurrentClientFrame CaptureCurrentClientFrame(NativeWindowState state)=>passive is ICurrentClientFrameSource source?source.CaptureCurrentClientFrame(state):throw new InputBlockedException("缺少当前帧来源");
-    public bool AnyPhysicalKeyDown()=>passive.AnyPhysicalKeyDown();
-    public void Key(ushort key,bool down,bool unicode=false)=>keyboard.Key(key,down,unicode);
-    public void MoveClient(nint hwnd,PixelPoint point)=>throw new InputBlockedException("触控不使用系统鼠标定位");
-    public void Wheel(int delta)=>throw new InputBlockedException("触控滚动需提供已核验区域");
+    {ThrowDisposed();if(guard is not null&&!ReferenceEquals(guard,owner))throw new InputBlockedException("触控通道已绑定其他守卫");guard=owner;runner.SetBeforeDelivery(owner.ReviewPreparedPointer);(keyboard as IGuardedWindowTransport)?.BindGuard(owner);}
+    public NativeWindowState ReadWindow(nint hwnd){ThrowDisposed();return passive.ReadWindow(hwnd);}
+    public RgbImage CaptureClient(NativeWindowState state){ThrowDisposed();return passive.CaptureClient(state);}
+    public CurrentClientFrame CaptureCurrentClientFrame(NativeWindowState state){ThrowDisposed();return passive is ICurrentClientFrameSource source?source.CaptureCurrentClientFrame(state):throw new InputBlockedException("缺少当前帧来源");}
+    public bool AnyPhysicalKeyDown(){ThrowDisposed();return passive.AnyPhysicalKeyDown();}
+    public void Key(ushort key,bool down,bool unicode=false){ThrowDisposed();keyboard.Key(key,down,unicode);}
+    public void MoveClient(nint hwnd,PixelPoint point){ThrowDisposed();throw new InputBlockedException("触控不使用系统鼠标定位");}
+    public void Wheel(int delta){ThrowDisposed();throw new InputBlockedException("触控滚动需提供已核验区域");}
     public void MouseButton(MouseButton button,bool down)
-    {if(down)throw new InputBlockedException("请使用完整触控手势");Guard.AuthorizeMouseRelease(button);runner.Release(VerifyIdentity);}
+    {ThrowDisposed();if(down)throw new InputBlockedException("请使用完整触控手势");Guard.AuthorizeMouseRelease(button);runner.Release(VerifyIdentity);}
     private NativeWindowState VerifyIdentity()
     {
         var current=passive.ReadWindow(target.WindowId);
@@ -42,7 +42,7 @@ public sealed class TouchInputOps:INativeWindowsOps,ICurrentClientFrameSource,IG
     }
     private void Execute(TouchGesturePlan client,int holdMilliseconds=0)
     {
-        ObjectDisposedException.ThrowIf(disposed,this);Guard.AuthorizeNativeTransport();if(keyboard is IKeyboardPointerPreparation preparation)preparation.PreparePointerInput();var before=VerifyIdentity();
+        ThrowDisposed();Guard.AuthorizeNativeTransport();if(keyboard is IKeyboardPointerPreparation preparation)preparation.PreparePointerInput();var before=VerifyIdentity();
         foreach(var point in client.Points.SelectMany(p=>p))if(!new PixelBox(0,0,before.Geometry.Width,before.Geometry.Height).Contains(point))throw new InputBlockedException("触控轨迹超出客户区");
         void Check(){Guard.AuthorizeNativeTransport();if(VerifyIdentity().Geometry!=before.Geometry)throw new InputBlockedException("触控期间窗口位置、尺寸或DPI变化");}
         ExecutePreparedGesture(()=>runner.Execute(client.Screen(before.Geometry),target.WindowId,holdMilliseconds,Check,()=>Guard.AuthorizeMouseRelease(holdMilliseconds==2000?Windows.MouseButton.Right:Windows.MouseButton.Left),VerifyIdentity),Check);
@@ -100,7 +100,8 @@ public sealed class TouchInputOps:INativeWindowsOps,ICurrentClientFrameSource,IG
             Execute(new("drag",frames,ReleaseDelayMilliseconds:160));
         }
     }
-    public void Dispose(){if(disposed)return;disposed=true;runner.Dispose();}
+    private void ThrowDisposed()=>ObjectDisposedException.ThrowIf(disposed,this);
+    public void Dispose(){if(disposed)return;disposed=true;try{runner.Dispose();}finally{try{(keyboard as IDisposable)?.Dispose();}finally{(passive as IDisposable)?.Dispose();}}}
 }
 
 internal interface ITouchGestureRunner:IDisposable

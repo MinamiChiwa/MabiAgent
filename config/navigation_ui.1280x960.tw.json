@@ -3407,8 +3407,7 @@
     "empty_queue"
   ],
   "remote_device_warnings": [
-    "goto_device",
-    "goto_processing"
+    "screen_overlay_back"
   ],
   "page_variants": {
     "arrived_metal": {

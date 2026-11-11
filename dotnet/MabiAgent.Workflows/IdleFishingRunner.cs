@@ -18,6 +18,9 @@ public interface IFishingPort : IForegroundWorkflowPort
     bool NavigationIssued=>false;
     void AbandonUnsentNavigation(){}
     void InvalidatePreparation(){}
+    void ResetNavigation(){}
+    /// <summary>仅释放可逆准备占用，不发送输入；原生活动保持占用。</summary>
+    bool TryReleasePreparation()=>false;
     void ReleaseBackpack(){}
     bool CanResumeAtPoint=>false;
     bool ModePreparationRequired=>false;
@@ -34,6 +37,14 @@ public sealed class IdleFishingRunner : PersistentWorkflow
     public bool NeedsBackpackCheck => B("backpack_check_requested");
     public bool NeedsRapidObservation => S("status")=="running" && (B("round_seen") || Pending?["kind"]?.GetValue<string>() is "start" or "reel");
     public bool PeriodicBackpackCheckAllowed => I("completed") - I("inspection_round") >= 20;
+    public void BackpackInspectionCompleted()
+    {
+        lock(Gate)
+        {
+            if(!B("backpack_check_requested")&&I("inspection_round")==I("completed"))return;
+            Set(("backpack_check_requested",false),("inspection_round",I("completed")));Save();
+        }
+    }
     public bool SafeToSwitch => S("status") is "complete" or "yielded" || S("status") == "paused" && Pending is null && !B("round_seen") && S("phase") == "refresh";
     public bool CanIsolateFault => Pending is null && !B("round_seen") && !B("navigation_seen") && !port.NavigationIssued && port.CanReleaseForeground();
     public IdleFishingRunner(FishingPlan plan, IFishingPort port, IWorkflowStore store, double navigationTimeoutSeconds = 180,
@@ -82,11 +93,12 @@ public sealed class IdleFishingRunner : PersistentWorkflow
         lock (Gate)
         {
             if (S("status") == "complete" || !explicitRequest && S("pause_reason") != "focus_lost") return;
-            if (S("status") == "yielded") {port.InvalidatePreparation();ResetRoundSamples();Set(("phase", plan.InPlace||port.CanResumeAtPoint?"refresh":"navigate"), ("navigation_seen", false), ("navigation_deadline", null), ("round_seen", false), ("yield_requested", false), ("inspection_round", I("completed")), ("backpack_check_requested", false));}
+            if (S("status") == "yielded") {port.ResetNavigation();port.InvalidatePreparation();ResetRoundSamples();Set(("phase", plan.InPlace||port.CanResumeAtPoint?"refresh":"navigate"), ("navigation_seen", false), ("navigation_deadline", null), ("round_seen", false), ("yield_requested", false), ("inspection_round", I("completed")), ("backpack_check_requested", false));}
             // Recreate only reversible menu navigation after explicit resume/restart.
             // A witnessed native trip or unresolved fishing action remains observation-only.
             if(explicitRequest&&S("phase")=="navigate"&&!B("navigation_seen")&&!port.NavigationIssued&&Pending is null)State["navigation_deadline"]=null;
             if(explicitRequest&&Pending is null)State["cast_preflight_rejections"]=0;
+            if(explicitRequest&&Pending is null&&!B("round_seen"))Set(("dismount_at",null),("mode_probe_at",null));
             Set(("status", "running"), ("pause_reason", null), ("reason", null)); ResetClock(); ResetPageWait(); ResetProgressWait(); port.Resume(); Save();
         }
     }
@@ -138,12 +150,12 @@ public sealed class IdleFishingRunner : PersistentWorkflow
         if (!passive && f.At >= PendingDeadline(pending))
         {
             if (kind == "start" && !f.RoundActive && !f.HookVisible && f.Gauge is null && !f.ModeConfirm
-                && f.Page is "scene" or "fishing" or "fishing_ui" && !f.Mounted)
+                && f.Page is "scene" or "fishing" or "fishing_ui")
             {
                 var attempt=pending.DeepClone().AsObject();attempt["ended_at"]=f.At;attempt["reason"]="no_round_after_20s";
                 Set(("last_unobserved_cast",attempt),("unobserved_cast_attempts",I("unobserved_cast_attempts")+1),
                     ("pending",null),("phase","refresh"),("reason","cast_retry_no_response"));
-                if(I("unobserved_cast_attempts")>=2)State["backpack_check_requested"]=true;
+                if(!f.Mounted&&I("unobserved_cast_attempts")>=2)State["backpack_check_requested"]=true;
                 Save();return true;
             }
             if(kind!="start" && f.Page is "scene" or "fishing" or "fishing_ui")
@@ -159,15 +171,19 @@ public sealed class IdleFishingRunner : PersistentWorkflow
     }
     private double PendingDeadline(JsonObject pending) => pending["kind"]?.GetValue<string>() == "start"
         ? pending["at"]!.GetFiniteDouble() + castObservationTimeout : pending["deadline"]!.GetFiniteDouble();
-    private bool Boundary(FishingFrame f)
+    private bool Boundary(FishingFrame f,bool releaseOnly=false)
     {
         var status = D("elapsed_s") >= D("target_s") || B("stop_requested") ? "complete" : B("yield_requested") ? "yielded" : null;
         if(status is null)return false;
-        if(f.ModeConfirm||f.LeisureConfirm){Perform(new("cancel_mode"),f);return true;}
-        if((FishingUi(f)||f.Page=="scene")&&(FishingUi(f)||B("round_seen")||Pending is not null||B("navigation_seen")))
-            if(!Perform(new("leave"),f))return false;
+        if(!releaseOnly)
+        {
+            if(f.ModeConfirm||f.LeisureConfirm){Perform(new("cancel_mode"),f);return true;}
+            if((FishingUi(f)||f.Page=="scene")&&(FishingUi(f)||B("round_seen")||Pending is not null||B("navigation_seen")))
+                if(!Perform(new("leave"),f))return false;
+        }
+        port.ResetNavigation();
         Set(("status",status),("phase",status),("pause_reason",null),("pending",null),("round_seen",false),
-            ("navigation_seen",false),("navigation_deadline",null));
+            ("navigation_seen",false),("navigation_deadline",null),("dismount_at",null),("mode_probe_at",null));
         ResetRoundSamples();
         ResetClock();Save();return true;
     }
@@ -194,6 +210,16 @@ public sealed class IdleFishingRunner : PersistentWorkflow
             ResetClock(); Save();
         }
     }
+    private bool WaitForPreparationPage(FishingFrame frame)
+    {
+        if(S("status")!="running"||S("phase")!="refresh"||Pending is not null||B("round_seen")||B("navigation_seen")
+            ||frame.RoundActive||frame.NavigationActive==true||State["unexpected_navigation_deadline"] is not null)return false;
+        if((D("elapsed_s")>=D("target_s")||B("stop_requested")||B("yield_requested"))&&port.TryReleasePreparation())
+            return Boundary(frame,releaseOnly:true);
+        try{CheckProgress("refresh",45);}
+        catch(TimeoutException){port.TryReleasePreparation();throw;}
+        return false;
+    }
     private void Step()
     {
         if (S("status") is "complete" or "yielded") { Save(); return; }
@@ -207,24 +233,32 @@ public sealed class IdleFishingRunner : PersistentWorkflow
             }
         }
         else if(S("status")=="running"&&S("phase")=="backpack_exit")CheckProgress("backpack_exit",actionTimeout);
-        else ResetProgressWait();
+        else if(S("status")!="running"||S("phase")!="refresh"||Pending is not null||B("round_seen"))ResetProgressWait();
         var f = port.Observe(); if (!double.IsFinite(f.At) || string.IsNullOrWhiteSpace(f.CaptureId)) throw new ArgumentException("需要新截图与时间");
         if (!f.Foreground) { if (S("status") != "paused" || S("pause_reason") == "focus_lost") Pause("focus_lost"); return; }
-        UpdateClock(f);
+        if(S("status")=="running"&&f.NavigationActive==false)State.Remove("unexpected_navigation_deadline");
+        if(S("status")=="running"&&f.NavigationActive==true&&!B("round_seen")&&!f.RoundActive&&Pending is null
+            &&(S("phase")!="navigate"||State["navigation_deadline"] is null))
+            State["unexpected_navigation_deadline"]??=f.At+navigationTimeout;
+        if(State["unexpected_navigation_deadline"] is null)UpdateClock(f);else ResetClock();
         if(S("status")=="running"&&State["unexpected_navigation_deadline"] is{} externalDeadline
             &&f.At>=externalDeadline.GetFiniteDouble()&&f.NavigationActive!=false)
             throw new TimeoutException("钓鱼等待其他导航结束超时");
         if (!PageReady(f.Page, f.Foreground, f.Stable, Pause, pauseOnUnrecognized: false))
         {
+            if(WaitForPreparationPage(f))return;
             if(S("status") == "running" && S("phase") == "navigate" && State["navigation_deadline"] is not null && f.At >= D("navigation_deadline"))Unknown("navigation_not_observed");
             Save(); return;
         }
+        if(S("phase")=="refresh")ResetProgressWait();
         if (S("status") == "paused") { ObserveOnly(); return; }
         if (S("status") == "unknown") { ObserveOnly(); return; }
         if (lastCapture == f.CaptureId) return; lastCapture = f.CaptureId;
         if(f.BackpackFull)State["backpack_check_requested"]=true;
         if(Boundary(f))return;
-        if(f.Page is "backpack" or "bag" or "repair_tools")
+        if(f.Page is "backpack" or "bag" or "repair_tools"
+            ||S("phase")=="refresh"&&Pending is null&&!B("round_seen")&&!B("navigation_seen")&&!f.RoundActive
+                &&f.NavigationActive!=true&&f.Page is not ("scene" or "fishing" or "fishing_ui"))
         {
             Set(("pending",null),("round_seen",false),("phase","backpack_exit"));ResetRoundSamples();
             port.InvalidatePreparation();Save();port.ReleaseBackpack();return;
@@ -235,13 +269,8 @@ public sealed class IdleFishingRunner : PersistentWorkflow
         {Set(("pending",null),("round_seen",false));ResetRoundSamples();Perform(new("confirm_mode"),f,true);return;}
         if(f.LeisureConfirm){Perform(new("cancel_mode"),f);return;}
         if (!ReconcilePending(f)) { Save(); return; }
-        if(f.NavigationActive==true&&!B("round_seen")&&!f.RoundActive&&Pending is null
-            &&(S("phase")!="navigate"||State["navigation_deadline"] is null))
-        {
-            State["unexpected_navigation_deadline"]??=f.At+navigationTimeout;
-            if(f.At>=D("unexpected_navigation_deadline"))throw new TimeoutException("钓鱼等待其他导航结束超时");
-            ResetClock();Save();return;
-        }
+        if(State["unexpected_navigation_deadline"] is not null&&f.NavigationActive==true)
+        {ResetClock();Save();return;}
         State.Remove("unexpected_navigation_deadline");
         if (S("phase") == "navigate")
         {

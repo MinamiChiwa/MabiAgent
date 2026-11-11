@@ -5,6 +5,49 @@ namespace MabiAgent.Workflows.Tests;
 
 public sealed class FaultIsolationTests
 {
+    private static ProductionRunner PendingCollection(ProductionPort port,MemoryStore store,ManualTime time)
+    {
+        var runner=new ProductionRunner(port,store,new("a","wood",60),time:time);var state=runner.Snapshot();
+        state["submitted"]=1;state["owned_slots"]=new JsonArray(0);state["status"]="unknown";state["phase"]="confirm_collect";
+        state["pending"]=new JsonObject{["kind"]="collect",["before_empty"]=new JsonArray(),["target_slots"]=new JsonArray(0),["at"]=0d,["deadline"]=10d,["collection_id"]="original-collect"};
+        store.Flush(state);return new(port,store,new("a","wood",60),time:time);
+    }
+    [Fact] public void RestartedCollectionReturnsToDeviceAndConfirmsOriginalIntentWithoutReplay()
+    {
+        var time=new ManualTime();var port=new ProductionPort{RemotePreview=true,Frame=new("scene",AtDevice:false)};var store=new MemoryStore();
+        var runner=PendingCollection(port,store,time);var pending=runner.Snapshot()["pending"]!.DeepClone();
+        var dispatcher=new WorkflowDispatcher(time);dispatcher.Register("a",runner,"wood");dispatcher.RestoreOwnership("a");dispatcher.Continue();
+        WorkCandidate[] plan=[new("a","production","wood",true,5,0)];
+        dispatcher.Tick(plan,null);dispatcher.Tick(plan,null);Assert.Equal("queue",Assert.Single(port.Navigation));
+        port.Frame=new("wood_panel",EmptySlots:[0],SlotCount:1,AtDevice:false);dispatcher.Tick(plan,null);
+        Assert.True(JsonNode.DeepEquals(pending,runner.Snapshot()["pending"]));Assert.Empty(port.Clicks);
+        port.Frame=port.Frame with{AtDevice=true};dispatcher.Tick(plan,"wood");
+        Assert.Null(runner.Snapshot()["pending"]);Assert.Equal(1,runner.Snapshot()["completed"]!.GetValue<int>());Assert.Empty(port.Clicks);
+        Assert.Equal("running",runner.Snapshot()["status"]!.GetValue<string>());
+    }
+    [Fact] public void UnconfirmedCollectionLeavesDeviceAndReleasesIndependentTask()
+    {
+        var time=new ManualTime();var port=new ProductionPort{Frame=new("wood_panel",EmptySlots:[],ReadySlots:[0],SlotCount:1)};var store=new MemoryStore();
+        var runner=PendingCollection(port,store,time);var pending=runner.Snapshot()["pending"]!.DeepClone();
+        Assert.False(runner.RecoverCollection());Assert.Equal("leave",Assert.Single(port.Navigation));
+        port.Frame=new("scene",AtDevice:false);Assert.True(runner.RecoverCollection());Assert.True(runner.SafeToSwitch);
+        Assert.True(JsonNode.DeepEquals(pending,runner.Snapshot()["pending"]));Assert.Equal(0,runner.Snapshot()["completed"]!.GetValue<int>());Assert.Empty(port.Clicks);
+        var otherPort=new ProductionPort{Frame=new("metal_panel",EmptySlots:[0],SlotCount:1)};
+        var dispatcher=new WorkflowDispatcher(time);dispatcher.Register("a",runner,"wood");dispatcher.Register("b",new ProductionRunner(otherPort,new MemoryStore(),new("b","metal",60),time:time),"metal");
+        dispatcher.RestoreOwnership("a");dispatcher.Continue(false);
+        WorkCandidate[] plan=[new("a","production","wood",true,5,0),new("b","production","metal",true,5,1)];
+        for(var i=0;i<4;i++)dispatcher.Tick(plan,null);
+        Assert.Contains("recipe",otherPort.Navigation);Assert.Empty(port.Clicks);
+    }
+    [Fact] public void CollectionRecoveryBudgetSurvivesReconstructionAndPausedObservationIsReadOnly()
+    {
+        var time=new ManualTime();var port=new ProductionPort{Frame=new("scene",AtDevice:false)};var store=new MemoryStore();
+        var runner=PendingCollection(port,store,time);runner.RecoverCollection();var deadline=runner.Snapshot()["collection_recovery_deadline"]!.GetFiniteDouble();
+        runner=new(port,store,new("a","wood",60),time:time);runner.ObserveOnly();Assert.Single(port.Navigation);
+        time.Seconds=deadline+1;port.Frame=new("unknown",Stable:false,AtDevice:false);runner.RecoverCollection();
+        Assert.Equal("collection_recovery_timeout",runner.Snapshot()["reason"]!.GetValue<string>());Assert.NotNull(runner.Snapshot()["pending"]);
+        time.Seconds+=16;Assert.True(runner.RecoverCollection());Assert.Single(port.Navigation);Assert.Empty(port.Clicks);
+    }
     [Theory][InlineData(false)][InlineData(true)]
     public void CollectionRecheckWithNoOwnedWorkRefillsAvailableSlots(bool foreignReady)
     {
@@ -76,6 +119,7 @@ public sealed class FaultIsolationTests
         port.Frame=port.Frame with{EmptySlots=[0,1],ReadySlots=[]};runner.Tick();
         Assert.Equal(1,runner.Snapshot()["completed"]!.GetValue<int>());Assert.Null(runner.Snapshot()["pending"]);
     }
+
     [Fact] public void EmptyOwnedSlotWithoutCollectionIntentNeverCreditsOutput()
     {
         var store=new MemoryStore();var port=new ProductionPort{Frame=new("metal_panel",EmptySlots:[0],SlotCount:1)};var time=new ManualTime();
@@ -167,6 +211,9 @@ public sealed class FaultIsolationTests
         runner.AcknowledgeCollection(receipt["id"]!.GetValue<string>());Assert.Empty(runner.Snapshot()["collection_receipts"]!.AsArray());Assert.Single(port.Clicks);
     }
 
+
+
+
     [Fact] public void LaterSlotKeepsItsOwnDueWhenEarlierCheckBacksOff()
     {
         var time=new ManualTime();var store=new MemoryStore();var port=new ProductionPort{Frame=new("metal_panel",EmptySlots:[],ReadySlots:[],SlotCount:2)};
@@ -198,6 +245,8 @@ public sealed class FaultIsolationTests
         // No later slot to wake for, so the legacy one-hour backoff is still bounded.
         Assert.Equal(990,runner.NextCollectionAt(true));
     }
+
+
     [Fact] public void RetryCoversOnlyTheSlotsThatWereChecked()
     {
         var time=new ManualTime();var store=new MemoryStore();var port=new ProductionPort{Frame=new("metal_panel",EmptySlots:[],ReadySlots:[],SlotCount:3)};
@@ -225,6 +274,7 @@ public sealed class FaultIsolationTests
         runner=new(port,store,new("a","metal",60),3,time);
         Assert.Equal(315,runner.NextCollectionAt(true));
     }
+
 
     [Fact] public void SafeNavigationFailureQuarantinesOnlyTaskAndSupplyCannotRetryIt()
     {

@@ -3,6 +3,18 @@ using Xunit;
 namespace MabiAgent.Workflows.Tests;
 public sealed class MaintenanceTests
 {
+    [Fact] public void StartedInspectionFinishesBeforeApplyingTheNextTasksPeriodicLimit()
+    {
+        var time=new ManualTime();var port=new MaintenancePort{Frame=new("scene","scene")};
+        var runner=new MaintenanceRunner(port,new MemoryStore(),new(RepairEnabled:false,BackpackCheckIntervalSeconds:120),time);
+        time.Seconds+=120;runner.Tick();Assert.Equal(1,port.Navigations);
+        port.Frame=new("opening","unknown",Stable:false);runner.Tick(allowPeriodicBackpackCheck:false);
+        Assert.Equal("backpack",runner.Snapshot()["active"]?.GetValue<string>());
+        port.Frame=new("weight","backpack",Weight:50,Capacity:100);runner.Tick(allowPeriodicBackpackCheck:false);
+        Assert.Equal(50,runner.Snapshot()["backpack"]!["weight"]!.GetValue<long>());
+        port.Frame=new("scene-again","scene");runner.Tick(allowPeriodicBackpackCheck:false);runner.Tick();
+        Assert.Equal(1,port.Navigations);Assert.False(runner.RequiresTurn);Assert.Null(runner.Snapshot()["pending"]);
+    }
     [Theory][InlineData("idle")][InlineData("inspect")][InlineData("relief_weight")]
     public void ForcedTidyDisablesBoldBeforePreparingCleanup(string phase)
     {
@@ -291,17 +303,18 @@ public sealed class MaintenanceTests
         runner.Tick(); Assert.True(runner.RequiresTurn); Assert.Equal(1, port.Navigations);
     }
     [Theory][InlineData(false)][InlineData(true)]
-    public void SuppressionCancelsSavedInspectionAndOnlyClosesItsOpenedPage(bool opened)
+    public void SuppressionCancelsUnstartedInspectionAndFinishesAnOpenedCheck(bool opened)
     {
         var time = new ManualTime(); var store = new MemoryStore(); var port = new MaintenancePort { Frame = new("1", "scene") };
         var policy = new MaintenancePolicy(RepairEnabled: false, BackpackCheckIntervalSeconds: 120);
         var runner = new MaintenanceRunner(port, store, policy, time);
         time.Seconds+=120;runner.Tick(opened); var navigations = port.Navigations;
-        port.Frame = new("2", opened ? "backpack" : "scene");
+        port.Frame = opened?new("2","backpack",Weight:50,Capacity:100):new("2","scene");
         runner = new MaintenanceRunner(port, store, policy, time); runner.Resume(true);
         runner.Tick(allowPeriodicBackpackCheck: false);
         Assert.False(runner.RequiresTurn); Assert.Null(runner.Snapshot()["active"]); Assert.Equal(navigations, port.Navigations);
-        Assert.Equal(opened ? 1 : 0, port.Exits); Assert.Empty(port.Actions);
+        Assert.Equal(0, port.Exits); Assert.Empty(port.Actions);
+        if(opened)Assert.Equal(50,runner.Snapshot()["backpack"]!["weight"]!.GetValue<long>());
         port.Frame = new("3", "scene"); runner.Tick(allowPeriodicBackpackCheck: false);
         Assert.False(runner.StatusSnapshot()["navigation_reserved"]!.GetValue<bool>());
     }

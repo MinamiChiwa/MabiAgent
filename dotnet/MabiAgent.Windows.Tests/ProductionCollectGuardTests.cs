@@ -42,6 +42,7 @@ public sealed class ProductionCollectGuardTests
         test.ObserveReady();test.Port.Click("collect",test.Recipe);test.AssertCollected();
     }
 
+
     private sealed class CollectCase:IDisposable
     {
         private readonly ScreenRoutes routes;

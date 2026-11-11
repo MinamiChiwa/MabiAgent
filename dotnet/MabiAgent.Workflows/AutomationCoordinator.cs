@@ -5,7 +5,7 @@ using MabiAgent.Core;
 namespace MabiAgent.Workflows;
 
 public sealed record AutomationJobStatus(string ActionId,string? Status,string? Phase,string? Reason,bool PendingConsumption)
-{public long Confirmed{get;init;}}
+{public long Confirmed{get;init;} public bool Executing{get;init;}}
 public sealed record AutomationStatus(bool Running,string Message,string? ActiveJob,IReadOnlyDictionary<string,string> Issues,int PlanRevision)
 {public string? PauseReason{get;init;} public int RecoveryAttempt{get;init;} public string? Fault{get;init;} public long? ActiveConfirmed{get;init;} public string? ActivePhase{get;init;} public int ReconciliationCount{get;init;} public IReadOnlyDictionary<string,AutomationJobStatus> Jobs{get;init;}=new Dictionary<string,AutomationJobStatus>();}
 public sealed class AutomationCoordinator:IDisposable
@@ -233,9 +233,10 @@ public sealed class AutomationCoordinator:IDisposable
         var maintenanceState=maintenance.StatusSnapshot();
         if(new[]{"repair","backpack"}.Any(part=>maintenanceState[part]?["status"]?.GetValue<string>() is "blocked" or "unknown" or "manual_required"))
             visibleIssues.TryAdd("maintenance",maintenanceState["reason"]?.GetValue<string>()??"维护等待核实");
+        var faults=dispatcher.Faults;
         Status=new(running,message,dispatcher.ActiveId,visibleIssues,planRevision)
         {PauseReason=running?null:pauseReason,RecoveryAttempt=recoveryAttempt,ActiveConfirmed=confirmed,ActivePhase=phase,
-            Jobs=snapshots.Where(p=>runs.ContainsKey(p.Item1)).ToDictionary(p=>p.Item1,p=>new AutomationJobStatus(runs[p.Item1].Batch["action_id"]!.GetValue<string>(),p.Item2["status"]?.GetValue<string>(),p.Item2["phase"]?.GetValue<string>(),p.Item2["reason"]?.GetValue<string>()??p.Item2["pause_reason"]?.GetValue<string>(),p.Item2["pending"] is not null){Confirmed=ConfirmedProgress(runs[p.Item1],p.Item2)}),
+            Jobs=snapshots.Where(p=>runs.ContainsKey(p.Item1)).ToDictionary(p=>p.Item1,p=>new AutomationJobStatus(runs[p.Item1].Batch["action_id"]!.GetValue<string>(),faults.ContainsKey(p.Item1)?"blocked":p.Item2["status"]?.GetValue<string>(),p.Item2["phase"]?.GetValue<string>(),faults.GetValueOrDefault(p.Item1)??p.Item2["reason"]?.GetValue<string>()??p.Item2["pause_reason"]?.GetValue<string>(),p.Item2["pending"] is not null){Confirmed=ConfirmedProgress(runs[p.Item1],p.Item2),Executing=running&&dispatcher.ActiveId==p.Item1&&!faults.ContainsKey(p.Item1)}),
             ReconciliationCount=runs.Values.Count(r=>r.Runner is not IdleFishingRunner&&r.Runner.Snapshot()["status"]?.GetValue<string>()=="unknown")
                 +(withdrawal?.Snapshot()["status"]?.GetValue<string>()=="unknown"?1:0)+(purchase?.State.Intent is not null&&!purchase.State.PaymentConfirmed&&purchase.State.Stage is not(PurchaseStage.Complete or PurchaseStage.Exit)?1:0)
                 +(maintenanceState["pending"] is not null?1:0)+(maintenanceState["surplus"]?["pending"] is not null?1:0)};
@@ -559,10 +560,15 @@ public sealed class AutomationCoordinator:IDisposable
             if(withdrawal is not null&&(dispatcher.SafeToSwitch||withdrawal.Snapshot()["pending"] is not null)
                 &&(!withdrawal.SafeToSwitch||withdrawal.Snapshot()["pending"] is not null||withdrawal.Snapshot()["status"]?.GetValue<string>()=="complete"))
             {if(SupplyFromStorage())return Status;if(withdrawal is not null&&!withdrawal.SafeToSwitch){Publish("仓库取料结果待核实，仅观察，不派发新动作");return Status;}}
-            stage="maintenance";JsonObject maintenanceState;
+            stage="maintenance";JsonObject maintenanceState;var checkedBefore=maintenance.StatusSnapshot()["backpack"]?["checked_at"]?.GetFiniteDouble();
             try{maintenanceState=maintenanceFaulted?maintenance.StatusSnapshot():maintenance.Tick(dispatcher.SafeToSwitch, periodicBackpack, deferIdleObservation:true,allowRepair:!inPlace);}
             catch(Exception error)when(error is not (IOException or UnauthorizedAccessException or OutOfMemoryException)&&maintenance.CanIsolateFault)
             {maintenanceFaulted=true;maintenance.Quarantine();issues["maintenance_fault"]="维护异常，独立任务继续："+error.Message;Record("error","maintenance","module","explicit_continue",error.Message,error);maintenanceState=maintenance.StatusSnapshot();}
+            if(maintenanceState["backpack"]?["checked_at"]?.GetFiniteDouble() is{} checkedAfter&&checkedAfter!=checkedBefore)
+            {
+                foreach(var run in runs.Values)if(run.Runner is IdleFishingRunner fish)fish.BackpackInspectionCompleted();
+                Record("info","maintenance","backpack_checked","continue",maintenanceState["backpack"]!.ToJsonString());
+            }
             if(maintenanceState["paused"]?.GetValue<string>()=="resume_observation_timeout")issues["maintenance"]="维护等待画面超时，请核实页面后继续";
             else if(issues.GetValueOrDefault("maintenance")=="维护等待画面超时，请核实页面后继续")issues.Remove("maintenance");
             if(maintenanceState["global_pause_required"]?.GetValue<bool>()==true){Pause("maintenance_required");Publish("背包需要手动处理，任务已暂停");return Status;}

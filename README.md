@@ -2,9 +2,6 @@
 
 # MabiAgent
 
-> [!WARNING]
-> 本工具仍处于测试阶段，存在较多尚未发现的 Bug，且不保证长期维护或持续更新。
-
 > **☕ 支持作者**
 >
 > 如果你觉得本工具有帮助，不妨赞助作者一杯咖啡。所有功能对使用者同样开放。
@@ -136,4 +133,3 @@ MabiAgent 可以为《洛奇 Mobile》繁体中文服安排生产、采集和钓
 构建、测试和修改方法见 [开发指南](docs/DEVELOPMENT.md)。完整项目许可见 [LICENSE](LICENSE)。游戏名称和画面属于相应权利人。
 
 第三方许可收在发布包 licenses 文件夹中：Avalonia、Semi.Avalonia、Ursa.Avalonia、CommunityToolkit.Mvvm、MarkView.Avalonia、Markdig 和 ONNX Runtime 采用 MIT；OpenCvSharp、PP-OCRv5 模型及 Material Design Icons 采用 Apache-2.0；Noto Sans SC 字体采用 SIL OFL 1.1。Npcap 单独安装，适用其自身许可。
-

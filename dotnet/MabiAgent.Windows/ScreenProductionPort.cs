@@ -17,6 +17,7 @@ public sealed class ScreenProductionPort:ScreenWorkflowPort,IProductionPort
     private void ExpireNavigation(string reason)
     {
         navigationState["device_travel"]=false;
+        navigationState.Remove("recipe_selection_deadline");navigationState.Remove("recipe_selection_purpose");
         navigationState["navigation_expired"]=true;navigationState.Remove("travel_deadline");SaveNavigation();
         pendingNavigation=pendingFrom=null;Session.EndNavigation("device:"+BatchId);
         throw new TimeoutException(reason);
@@ -45,8 +46,8 @@ public sealed class ScreenProductionPort:ScreenWorkflowPort,IProductionPort
     protected override PageView Decorate(ClientCapture c,PageView view)
     {
         empty=null;ready=null;observedRecipe=null;arrived=false;if(view.Modal)return view;
-        var automaticArrival=Session.HasDeviceArrival(device.Key);
-        if(automaticArrival&&(view.Page==device.QueuePage||view.Page==recipe.Page))view=view with{NeedsDeviceArrival=false};
+        // 当前远程页的稳定返回箭头优先于上次领取保存的到场记录。
+        var automaticArrival=Session.HasDeviceArrival(device.Key)&&!view.NeedsDeviceArrival;
         var boxes=device.Slots.Select(Session.Box).ToArray();
         if(view.Page==device.QueuePage||view.Page==recipe.Page&&Session.All(c,recipe.ConfirmAnchors))
         {
@@ -84,7 +85,19 @@ public sealed class ScreenProductionPort:ScreenWorkflowPort,IProductionPort
     {var p=image.Crop(box).Pixels;var count=0;for(var i=0;i<p.Length;i+=3)if(p[i+1]-p[i]>20&&p[i+2]-p[i]>30&&p[i+2]>80)count++;return count>=300;}
     public ProductionFrame Observe()
     {
+        var state=Store.Read();
+        // 显式恢复已回到队列阶段，先前未消费的配方选择已结束。
+        // 当前配方选择与已发送前往仍保持各自原期限。
+        if(!DeviceTravel&&state?["pending"] is null&&S(state,"phase") is "preview_queue" or "queue"
+            &&navigationState.Remove("recipe_selection_deadline"))
+        {navigationState.Remove("recipe_selection_purpose");SaveNavigation();}
         var o=pendingNavigation=="skills.open_processing"?ReadFocused(c=>Session.RecognizeDeclaredPages(c,processingWaitPages)):Read();
+        if(navigationState["recipe_selection_deadline"] is {} recipeDeadline)
+        {
+            if(o.Stable&&observedRecipe==recipe.Key&&(arrived||S(navigationState,"recipe_selection_purpose")=="recipe_preview"))
+            {navigationState.Remove("recipe_selection_deadline");navigationState.Remove("recipe_selection_purpose");SaveNavigation();}
+            else if(NavigationNow>=recipeDeadline.GetFiniteDouble())ExpireNavigation("配方选择超过45秒，已结束本次菜单往返："+recipe.Key);
+        }
         if(DeviceTravel)
         {
             // Persist one budget across pauses and port reconstruction, including
@@ -138,6 +151,8 @@ public sealed class ScreenProductionPort:ScreenWorkflowPort,IProductionPort
     {
         VerifyRecipe(requested);
         var o=Session.LastObservation??Read();if(!o.Stable||!Session.InputAvailable)return;var page=o.View.Page;
+        if(destination is "queue" or "leave"&&navigationState.Remove("recipe_selection_deadline"))
+        {navigationState.Remove("recipe_selection_purpose");SaveNavigation();}
         if(DeviceTravel)
         {
             // A cross-region trip first asks to travel to the device's town.
@@ -180,7 +195,11 @@ public sealed class ScreenProductionPort:ScreenWorkflowPort,IProductionPort
                 if(!o.View.Targets.ContainsKey(target)&&o.View.Targets.ContainsKey("list.scroll")){if(scrollCount>=ScreenWorkflowSession.ListSearchLimit)throw new InputBlockedException("配方列表搜索已到上限");Session.ScrollListSearch(o,scrollCount++);return;}
             }
         }
-        else if(page=="recipe_detail")target=device.RecipeCloseTarget;
+        else if(page=="recipe_detail")
+        {
+            if(destination is "recipe" or "recipe_preview")Session.ReportWarning("production_recipe",$"recipe={recipe.Key}; observed={observedRecipe}; arrived={arrived}; empty={empty is not null}; queue_arrived={queueArrived}; epoch={queueEpoch}/{Session.InputEpoch}; age={Session.LastCapture?.CapturedAt-queueAt}; automatic={Session.HasDeviceArrival(device.Key)}",BatchId);
+            target=device.RecipeCloseTarget;
+        }
         else if(o.View.Targets.ContainsKey("bag.close"))target="bag.close";
         else if(o.View.Targets.ContainsKey("page.close"))target="page.close";
         else if(Session.Routes.Profile.Definition["travel_confirmations"]?[page] is {} confirm)target=confirm.GetValue<string>();
@@ -196,6 +215,8 @@ public sealed class ScreenProductionPort:ScreenWorkflowPort,IProductionPort
             if(required is not null&&!Names(configuredNodes).Contains(required))throw new InputBlockedException("自定义路线已删除导航节点："+required);
         }
         if(!o.View.Targets.ContainsKey(target))throw new InputBlockedException("导航目标未识别："+target);
+        if(target==recipe.OpenTarget&&navigationState["recipe_selection_deadline"] is null)
+        {navigationState["recipe_selection_deadline"]=NavigationNow+45;navigationState["recipe_selection_purpose"]=destination;SaveNavigation();}
         Session.NavigateTarget(target);
         if(navigationState.Remove("navigation_expired"))SaveNavigation();
         Session.TraceNavigation(BatchId,$"target={target}; from={page}; destination={destination}","input_dispatched");

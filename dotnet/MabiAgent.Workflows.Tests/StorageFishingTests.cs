@@ -604,6 +604,7 @@ internal sealed class FishingPort : IFishingPort
     {Perform(action);Moving=true;try{for(var i=0;i<2;i++)if(observe(Observe()))break;}finally{Moving=false;}}
     public Exception? Error;
     public int PreparationInvalidations;public void InvalidatePreparation()=>PreparationInvalidations++;
-    public FishingFrame Frame = new(0, "1"); public Queue<FishingFrame> Frames=[]; public List<FishingAction> Actions = []; public FishingFrame Observe() => Frames.Count>0?Frame=Frames.Dequeue():Frame;
+    public Exception? ObserveError;
+    public FishingFrame Frame = new(0, "1"); public Queue<FishingFrame> Frames=[]; public List<FishingAction> Actions = []; public FishingFrame Observe() {if(ObserveError is{} error)throw error;return Frames.Count>0?Frame=Frames.Dequeue():Frame;}
     public void Perform(FishingAction action) {if(Error is {} e)throw e;if(action.Kind=="start")CastDuringMovement=Moving;Actions.Add(action);} public void Pause(string reason) { } public void Resume() { }
 }

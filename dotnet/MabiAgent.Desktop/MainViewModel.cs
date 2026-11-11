@@ -17,6 +17,7 @@ public partial class MainViewModel:ObservableObject
     private AutomationService? automation;
     private Lazy<ChainEditorViewModel>? chainEditor;
     private Lazy<AnchorEditorViewModel>? anchorEditor;
+    private IDisposable? captureService;
     public ChainEditorViewModel? ChainEditor {get=>chainEditor?.Value;private set=>chainEditor=value is null?null:new(()=>value);}
     public AnchorEditorViewModel? AnchorEditor {get=>anchorEditor?.Value;private set=>anchorEditor=value is null?null:new(()=>value);}
     internal bool HasUnsavedEditorChanges => chainEditor is {IsValueCreated:true}&&chainEditor.Value.HasUnsavedChanges
@@ -37,7 +38,7 @@ public partial class MainViewModel:ObservableObject
         var repository=service.Repository;workspace.CatalogProvider=()=>PublishedCatalogCompiler.CompileAvailable(repository);
         _=Task.Run(()=>{try{var cleaned=repository.CleanupStorage();if(cleaned.Revisions+cleaned.DeletedChains>0)activity.Log($"已自动清理 {cleaned.Revisions} 个旧任务链版本、{cleaned.DeletedChains} 个过期的已删除任务链");}catch(Exception e){activity.Report(e);}});
         IAnchorTextDetector? detector=null;try{detector=new OnnxLineAnchorTextDetector(service.GetOcr());}catch(Exception e){activity.Report(e);Error="文字检测未加载："+e.Message;}
-        var capture=new SelectedGameCaptureService(windowSelection,new NativeWindowsOps(),()=>service.IsRunning);
+        captureService?.Dispose();var capture=new SelectedGameCaptureService(windowSelection,new NativeWindowsOps(),()=>service.IsRunning);captureService=capture;
         chainEditor=new(()=>new(repository,capture,detector));anchorEditor=new(()=>new(repository,capture,detector));AccountItems=new(service.Accounts,service.UpdateItemAssociationsAsync);
         if(workbench is {IsValueCreated:true})workbench.Value.Dispose();
         workbench=new(()=>new(this,repository,capture,detector,service.RunWorkbenchTestAsync));
@@ -172,7 +173,7 @@ public partial class MainViewModel:ObservableObject
         catch(Exception e){activity.Report(e);Error=e.Message;}
     }
     private bool closing;
-    public void PrepareClose(){closing=true;if(workbench is {IsValueCreated:true})workbench.Value.Dispose();saveTimer.Stop();liveTimer.Stop();language.LanguageChanged-=LanguageChanged;StartCommand.NotifyCanExecuteChanged();PauseCommand.NotifyCanExecuteChanged();}
+    public void PrepareClose(){closing=true;if(workbench is {IsValueCreated:true})workbench.Value.Dispose();captureService?.Dispose();captureService=null;saveTimer.Stop();liveTimer.Stop();language.LanguageChanged-=LanguageChanged;StartCommand.NotifyCanExecuteChanged();PauseCommand.NotifyCanExecuteChanged();}
     /// <summary>
     /// Persists pending settings before a self-update closes the app; an invalid input keeps the
     /// reason on screen and refuses. Queue state needs no flush — <c>RuntimeQueue.Edit</c>

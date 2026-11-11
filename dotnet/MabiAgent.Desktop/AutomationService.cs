@@ -373,8 +373,9 @@ internal sealed class DesktopPorts:IAutomationPorts
 {
     private readonly ScreenWorkflowSession session;private readonly Func<CaptureStatus> capture;private readonly NativeWindowState window;private readonly CapturePlanningAdapter mapping;
     private readonly RuntimeCatalog catalog;private readonly Func<JsonObject> settings;private readonly ScreenOwnerTracker ownerTracker=new();
-    public string Scope=>session.Scope.HasIdentity?session.Scope.SessionId:VerifiedCapture()?.Scope is{} owner
-        ?session.Scope.SessionId+":owner:"+JsonSerializer.Serialize(new[]{owner.AccountId,owner.CharacterId}):session.Scope.SessionId;
+    private string? verifiedOwner;
+    public string Scope=>session.Scope.HasIdentity?session.Scope.SessionId:verifiedOwner is{} owner
+        ?session.Scope.SessionId+":owner:"+owner:session.Scope.SessionId;
     public string? CurrentDevice=>session.CurrentDevice;public IGatheringConsumables? GatheringConsumables{get;}
     public string? InputPauseReason=>session.Guard.Paused?session.Guard.PauseReason??"input_paused":null;
     public string? CurrentPage=>session.CurrentPage;
@@ -385,7 +386,7 @@ internal sealed class DesktopPorts:IAutomationPorts
         this.session=session;this.capture=capture;this.window=window;this.mapping=mapping;this.catalog=catalog;this.settings=settings;
         session.SetVerifiedOwnerResolver(()=>VerifiedCapture()?.Scope is{} s?new SessionScope(s.SessionId,s.AccountId,s.CharacterId):null);
         session.SetPacketGoldProvider(()=>VerifiedCapture() is{Gold:>=0,GoldAt:{} at,Scope:{} scope} raw?new PacketGoldObservation(raw.Gold.Value,scope.SessionId+":"+raw.FullSyncRevision,at):null);
-        _=IdentityChanged();
+        _=ObserveOwner(session.Scope.AccountId,session.Scope.CharacterId);_=IdentityChanged();
         GatheringConsumables=new GatheringConsumables(MabiAgent.Workflows.GatheringConsumables.RulesFor(catalog),Inventory,()=>PurchasePreferences);
     }
     internal MabiAgent.Capture.InventorySnapshot? VerifiedCapture()=>VerifiedCapture(capture(),window);
@@ -397,15 +398,21 @@ internal sealed class DesktopPorts:IAutomationPorts
     }
     internal string? CurrentIdentity=>VerifiedCapture()?.Scope is{} s?JsonSerializer.Serialize(new[]{s.AccountId,s.CharacterId}):null;
     internal string? CurrentEpoch=>VerifiedCapture() is{} r?CapturePlanningAdapter.ScopeKey(r.Scope!)+":"+r.FullSyncRevision:null;
-    internal bool IdentityChanged(){var scope=VerifiedCapture()?.Scope;return ownerTracker.Observe(scope?.AccountId,scope?.CharacterId);}
+    private bool ObserveOwner(string? account,string? character)
+    {
+        if(ownerTracker.Observe(account,character))return true;
+        if(!string.IsNullOrWhiteSpace(account)&&!string.IsNullOrWhiteSpace(character))
+            verifiedOwner=JsonSerializer.Serialize(new[]{account,character});
+        return false;
+    }
+    internal bool IdentityChanged(){var scope=VerifiedCapture()?.Scope;return ObserveOwner(scope?.AccountId,scope?.CharacterId);}
     internal void RefreshInventoryBasis(){}
     public void Start()=>session.Start();public void Continue()=>session.ResumeExplicit();public void Pause(string reason)=>session.Pause(reason);public void Dispose(){session.Dispose();}
     public InventorySnapshot Inventory()=>Inventory(VerifiedCapture());
     private InventorySnapshot Inventory(MabiAgent.Capture.InventorySnapshot? raw)
     {
-        if(ownerTracker.Observe(raw?.Scope?.AccountId,raw?.Scope?.CharacterId))throw new InvalidOperationException("当前角色已变化，请重新开始任务");
-        var scope=session.Scope.HasIdentity?session.Scope.SessionId:raw?.Scope is{} owner
-            ?session.Scope.SessionId+":owner:"+JsonSerializer.Serialize(new[]{owner.AccountId,owner.CharacterId}):session.Scope.SessionId;
+        if(ObserveOwner(raw?.Scope?.AccountId,raw?.Scope?.CharacterId))throw new InvalidOperationException("当前角色已变化，请重新开始任务");
+        var scope=Scope;
         var result=new InventorySnapshot(scope);var mapped=mapping.Convert(raw);
         foreach(var id in mapped.Inventory?.Observations.Keys??Enumerable.Empty<long>())
         {

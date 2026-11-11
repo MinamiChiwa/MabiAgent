@@ -54,6 +54,10 @@ class NativePortableTests(unittest.TestCase):
         self.assertIn('工具会通过“變更外貌/重生”进入重生页，按 ESC 取消并返回场景，刷新背包和仓库数据。',guide)
         for text in ('MabiAgent 0.5.2','环境设定 → 图形','视窗模式','1280×960','界面样式','PC','调整比例','100%','开始／继续'):
             self.assertIn(text,guide)
+        self.assertIn('到“设置”查看修理、金币留存、背包整理和精灵之翼',guide)
+        self.assertIn('回到“队列”，点击“新增目标”',guide)
+        self.assertNotIn('维护设置',guide)
+        self.assertNotIn('任务队列',guide)
         for jargon in ('显式','自检','核账','原生','state-dir','不会'):
             self.assertNotIn(jargon,guide)
         self.assertIn('程序内更新会保留 data',guide)
@@ -131,7 +135,7 @@ class NativePortableTests(unittest.TestCase):
         (self.root/'assets/templates/unreferenced.png').write_bytes(b'excluded')
         (self.root/'assets/templates/legacy.png').write_bytes(b'legacy')
         (self.root/'assets/templates/session_interruptions').mkdir()
-        for name in ('session_expired_message.png','session_expired_end.png'):
+        for name in ('session_expired_message.png',):
             (self.root/'assets/templates/session_interruptions'/name).write_bytes(b'runtime-fixture')
         (self.root/'data').mkdir()
         (self.root/'data/user.json').write_bytes(b'keep')
@@ -321,7 +325,7 @@ class NativePortableTests(unittest.TestCase):
 
     def test_native_runtime_limit_templates_are_required_and_shipped(self):
         paths=set(NATIVE.collect_assets(self.root))
-        for name in ('session_expired_message.png','session_expired_end.png'):
+        for name in ('session_expired_message.png',):
             self.assertIn('assets/templates/session_interruptions/'+name,paths)
 
     def test_existing_destination_is_rejected_even_when_empty(self):

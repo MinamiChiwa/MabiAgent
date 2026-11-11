@@ -5,6 +5,19 @@ namespace MabiAgent.Workflows.Tests;
 
 public sealed class WorkflowTests
 {
+    [Theory][InlineData("craft_unavailable")][InlineData("materials_unknown")][InlineData("device_full")][InlineData("device_batch_not_ready")]
+    public void UnsubmittedProductionExitsBeforeReleasingBlockedVisit(string reason)
+    {
+        var store=new MemoryStore();var port=new ProductionPort{RemotePreview=reason is "materials_unknown" or "device_batch_not_ready"};
+        var runner=new ProductionRunner(port,store,new("iron","furnace",30),time:new ManualTime());runner.Resume(true);
+        if(reason is "craft_unavailable" or "materials_unknown")runner.Tick();
+        port.Frame=reason is "device_full" or "device_batch_not_ready"?new("furnace_panel",EmptySlots:[],ReadySlots:[],SlotCount:2):new("recipe_detail",RecipeKey:"iron",CraftAvailable:false,MaterialsSufficient:reason=="materials_unknown"?null:false);
+        runner.Tick();Assert.Equal("leave",runner.Snapshot()["phase"]!.GetValue<string>());Assert.Equal("running",runner.Snapshot()["status"]!.GetValue<string>());
+        runner.Tick();Assert.Equal("leave",port.Navigation.Last());Assert.Empty(port.Clicks);Assert.Null(runner.Snapshot()["pending"]);
+        port.Frame=new("scene");runner.Tick();Assert.Equal("paused",runner.Snapshot()["status"]!.GetValue<string>());Assert.Equal(reason,runner.Snapshot()["pause_reason"]!.GetValue<string>());
+    }
+
+
     [Fact]
     public void RecipePageRoundTripsDoNotResetProductionProgressDeadline()
     {
@@ -134,7 +147,7 @@ internal sealed class ProductionPort : IProductionPort
     public ProductionFrame Frame = new("furnace_panel", EmptySlots: [0, 1], SlotCount: 2);
     public List<string> Clicks = []; public List<string> Navigation = []; public Action? BeforeClick;public Exception? NavigationFailure;public int GlobalPauses;public List<string> LocalPauses=[];public bool ReleaseAllowed;
     public bool CanReleaseForeground()=>ReleaseAllowed;
-    public bool RemoteDevicePreview => false; public ProductionFrame Observe() => Frame;
+    public bool RemotePreview;public bool RemoteDevicePreview => RemotePreview; public ProductionFrame Observe() => Frame;
     public void Click(string kind, ProductionRecipe recipe) { BeforeClick?.Invoke(); Clicks.Add(kind); }
     public void Navigate(string destination, ProductionRecipe recipe) {if(NavigationFailure is{} error)throw error;Navigation.Add(destination);}
     public void Pause(string reason) { GlobalPauses++; } public void PauseLocal(string reason){LocalPauses.Add(reason);} public void Resume() { }
