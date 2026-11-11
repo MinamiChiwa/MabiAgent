@@ -138,7 +138,10 @@
         }
       },
       "mabiagent.windows.capturefixture": {
-        "type": "Project"
+        "type": "Project",
+        "dependencies": {
+          "MabiAgent.Windows": "[0.6.4, )"
+        }
       },
       "mabiagent.workflows": {
         "type": "Project",

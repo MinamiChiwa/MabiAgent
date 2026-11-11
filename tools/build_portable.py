@@ -45,9 +45,9 @@ if __name__ == '__main__':
     output = args.output or (ROOT / '发布包/MabiAgent-NET验收版' if args.update else ROOT / 'dist/native')
     if args.dry_run:
         if args.update:
-            print(json.dumps(dict(destination=str(update_destination(ROOT, output)), mode='update', user_data_copied=False), ensure_ascii=False, indent=2))
+            print(json.dumps(dict(destination=str(update_destination(ROOT, output)), mode='update', user_data_copied=False), ensure_ascii=True, indent=2))
         else:
-            print(json.dumps(plan_native(ROOT, output, **options), ensure_ascii=False, indent=2))
+            print(json.dumps(plan_native(ROOT, output, **options), ensure_ascii=True, indent=2))
     else:
         destination=(update_native if args.update else build_native)(ROOT, output, **options)
         print(destination)

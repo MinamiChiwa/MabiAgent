@@ -90,7 +90,7 @@
       "mabiagent.capture": {
         "type": "Project",
         "dependencies": {
-          "MabiAgent.Core": "[1.0.0, )"
+          "MabiAgent.Core": "[0.6.4, )"
         }
       },
       "mabiagent.core": {

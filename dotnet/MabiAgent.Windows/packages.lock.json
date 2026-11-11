@@ -42,7 +42,7 @@
       "mabiagent.workflows": {
         "type": "Project",
         "dependencies": {
-          "MabiAgent.Core": "[0.5.10, )"
+          "MabiAgent.Core": "[0.6.4, )"
         }
       }
     }
